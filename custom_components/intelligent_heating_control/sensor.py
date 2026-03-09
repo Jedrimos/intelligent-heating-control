@@ -15,7 +15,22 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CONF_ROOM_ID, CONF_ROOM_NAME
+from .const import (
+    DOMAIN, CONF_ROOM_ID, CONF_ROOM_NAME,
+    CONF_AWAY_TEMP, CONF_VACATION_TEMP,
+    CONF_SUMMER_MODE_ENABLED, CONF_SUMMER_THRESHOLD,
+    CONF_FROST_PROTECTION_TEMP, CONF_NIGHT_SETBACK_ENABLED,
+    CONF_NIGHT_SETBACK_OFFSET, CONF_PREHEAT_MINUTES,
+    CONF_PRESENCE_ENTITIES,
+    CONF_BOILER_KW, CONF_SOLAR_ENTITY, CONF_SOLAR_SURPLUS_THRESHOLD, CONF_SOLAR_BOOST_TEMP,
+    CONF_ENERGY_PRICE_ENTITY, CONF_ENERGY_PRICE_THRESHOLD, CONF_ENERGY_PRICE_ECO_OFFSET,
+    CONF_FLOW_TEMP_ENTITY,
+    DEFAULT_AWAY_TEMP, DEFAULT_VACATION_TEMP,
+    DEFAULT_SUMMER_THRESHOLD, DEFAULT_FROST_PROTECTION_TEMP,
+    DEFAULT_NIGHT_SETBACK_OFFSET, DEFAULT_PREHEAT_MINUTES,
+    DEFAULT_BOILER_KW, DEFAULT_SOLAR_SURPLUS_THRESHOLD, DEFAULT_SOLAR_BOOST_TEMP,
+    DEFAULT_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_ECO_OFFSET,
+)
 from .coordinator import IHCCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,6 +47,7 @@ async def async_setup_entry(
         IHCOutdoorTempSensor(coordinator, entry),
         IHCCurveTargetSensor(coordinator, entry),
         IHCHeatingRuntimeSensor(coordinator, entry),
+        IHCEnergyTodaySensor(coordinator, entry),
     ]
     for room in coordinator.get_rooms():
         entities.append(IHCRoomDemandSensor(coordinator, entry, room))
@@ -96,6 +112,31 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "min_on_time_minutes":  debug.get("min_on_time_minutes"),
             "min_off_time_minutes": debug.get("min_off_time_minutes"),
             "min_rooms_demand":     debug.get("min_rooms_demand"),
+            # Global config settings (read by frontend panel for pre-populating forms)
+            **self._get_global_config_attrs(),
+        }
+
+
+    def _get_global_config_attrs(self) -> dict:
+        cfg = self.coordinator.get_config()
+        return {
+            "away_temp":                   cfg.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP),
+            "vacation_temp":               cfg.get(CONF_VACATION_TEMP, DEFAULT_VACATION_TEMP),
+            "summer_mode_enabled":         cfg.get(CONF_SUMMER_MODE_ENABLED, False),
+            "summer_threshold":            cfg.get(CONF_SUMMER_THRESHOLD, DEFAULT_SUMMER_THRESHOLD),
+            "frost_protection_temp":       cfg.get(CONF_FROST_PROTECTION_TEMP, DEFAULT_FROST_PROTECTION_TEMP),
+            "night_setback_enabled":       cfg.get(CONF_NIGHT_SETBACK_ENABLED, False),
+            "night_setback_offset":        cfg.get(CONF_NIGHT_SETBACK_OFFSET, DEFAULT_NIGHT_SETBACK_OFFSET),
+            "preheat_minutes":             cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES),
+            "presence_entities":           cfg.get(CONF_PRESENCE_ENTITIES, []),
+            "boiler_kw":                   cfg.get(CONF_BOILER_KW, DEFAULT_BOILER_KW),
+            "solar_entity":                cfg.get(CONF_SOLAR_ENTITY, ""),
+            "solar_surplus_threshold":     cfg.get(CONF_SOLAR_SURPLUS_THRESHOLD, DEFAULT_SOLAR_SURPLUS_THRESHOLD),
+            "solar_boost_temp":            cfg.get(CONF_SOLAR_BOOST_TEMP, DEFAULT_SOLAR_BOOST_TEMP),
+            "energy_price_entity":         cfg.get(CONF_ENERGY_PRICE_ENTITY, ""),
+            "energy_price_threshold":      cfg.get(CONF_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_THRESHOLD),
+            "energy_price_eco_offset":     cfg.get(CONF_ENERGY_PRICE_ECO_OFFSET, DEFAULT_ENERGY_PRICE_ECO_OFFSET),
+            "flow_temp_entity":            cfg.get(CONF_FLOW_TEMP_ENTITY, ""),
         }
 
 
@@ -173,6 +214,8 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
                 "window_open": room.get("window_open", False),
                 "room_mode": room.get("room_mode", "auto"),
                 "source": room.get("source", ""),
+                "temp_history": room.get("temp_history", []),          # Roadmap 1.1
+                "avg_warmup_minutes": room.get("avg_warmup_minutes"),  # Roadmap 1.1
             }
         return {}
 
@@ -240,6 +283,37 @@ class IHCHeatingRuntimeSensor(_IHCBase, SensorEntity):
         d = self.coordinator.data or {}
         return {
             "heating_active": d.get("heating_active", False),
+        }
+
+
+class IHCEnergyTodaySensor(_IHCBase, SensorEntity):
+    """Estimated energy consumption today in kWh (runtime × boiler_kw)."""
+
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_native_unit_of_measurement = "kWh"
+    _attr_icon = "mdi:lightning-bolt"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_energy_today_kwh"
+        self._attr_name = "IHC Energie heute"
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data:
+            return self.coordinator.data.get("energy_today_kwh", 0.0)
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        d = self.coordinator.data or {}
+        return {
+            "solar_boost":           d.get("solar_boost", 0.0),
+            "solar_power":           d.get("solar_power"),
+            "energy_price":          d.get("energy_price"),
+            "energy_price_eco_active": d.get("energy_price_eco_offset", 0.0) > 0,
+            "flow_temp":             d.get("flow_temp"),
         }
 
 

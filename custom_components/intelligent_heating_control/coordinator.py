@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections import deque
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -68,10 +69,29 @@ from .const import (
     CONF_NIGHT_SETBACK_OFFSET,
     CONF_SUN_ENTITY,
     CONF_PREHEAT_MINUTES,
+    # Roadmap 1.3 – Energy
+    CONF_BOILER_KW,
+    CONF_SOLAR_ENTITY,
+    CONF_SOLAR_SURPLUS_THRESHOLD,
+    CONF_SOLAR_BOOST_TEMP,
+    CONF_ENERGY_PRICE_ENTITY,
+    CONF_ENERGY_PRICE_THRESHOLD,
+    CONF_ENERGY_PRICE_ECO_OFFSET,
+    # Roadmap 1.4
+    CONF_TEMP_CALIBRATION,
+    CONF_ROOM_PRESENCE_ENTITIES,
+    CONF_FLOW_TEMP_ENTITY,
+    # Roadmap 1.1
+    CONF_TEMP_HISTORY_SIZE,
     DEFAULT_SUMMER_THRESHOLD,
     DEFAULT_FROST_PROTECTION_TEMP,
     DEFAULT_NIGHT_SETBACK_OFFSET,
     DEFAULT_PREHEAT_MINUTES,
+    DEFAULT_BOILER_KW,
+    DEFAULT_SOLAR_SURPLUS_THRESHOLD,
+    DEFAULT_SOLAR_BOOST_TEMP,
+    DEFAULT_ENERGY_PRICE_THRESHOLD,
+    DEFAULT_ENERGY_PRICE_ECO_OFFSET,
     DEFAULT_DEMAND_THRESHOLD,
     DEFAULT_DEMAND_HYSTERESIS,
     DEFAULT_MIN_ON_TIME,
@@ -138,6 +158,13 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._room_demand_started: Dict[str, datetime] = {}  # room_id → when demand went > 0
         self._room_runtime_today: Dict[str, float] = {}      # room_id → seconds today
         self._runtime_day: int = datetime.now().day           # to detect day rollover
+
+        # Roadmap 1.1 – Temperature history per room (deque of (ts_iso, temp) tuples)
+        self._temp_history: Dict[str, deque] = {}
+
+        # Roadmap 1.1 – Warmup tracking (for predictive pre-heating)
+        self._warmup_start: Dict[str, Optional[datetime]] = {}    # room_id → when heat request started
+        self._warmup_history: Dict[str, List[float]] = {}          # room_id → list of warmup minutes
 
         # Build sub-components from config
         self._rebuild_from_config()
@@ -324,6 +351,165 @@ class IHCCoordinator(DataUpdateCoordinator):
         return float(cfg.get(CONF_FROST_PROTECTION_TEMP, DEFAULT_FROST_PROTECTION_TEMP))
 
     # ------------------------------------------------------------------
+    # Roadmap 1.1 – Temperature history
+    # ------------------------------------------------------------------
+
+    def _update_temp_history(self, room_id: str, current_temp: Optional[float]) -> None:
+        """Append the current temperature reading to the per-room history deque."""
+        if current_temp is None:
+            return
+        history = self._temp_history.setdefault(
+            room_id, deque(maxlen=CONF_TEMP_HISTORY_SIZE)
+        )
+        ts = datetime.now().strftime("%H:%M")
+        history.append({"t": ts, "v": round(current_temp, 1)})
+
+    def get_temp_history(self, room_id: str) -> list:
+        return list(self._temp_history.get(room_id, []))
+
+    def _update_warmup_tracking(self, room_id: str, was_cold: bool, is_now_warm: bool) -> None:
+        """Track how long a room took to warm up (predictive pre-heating data)."""
+        if was_cold and self._warmup_start.get(room_id) is None:
+            self._warmup_start[room_id] = datetime.now()
+        if is_now_warm and self._warmup_start.get(room_id) is not None:
+            minutes = (datetime.now() - self._warmup_start[room_id]).total_seconds() / 60
+            history = self._warmup_history.setdefault(room_id, [])
+            history.append(round(minutes, 1))
+            if len(history) > 10:
+                history.pop(0)
+            self._warmup_start[room_id] = None
+
+    def get_avg_warmup_minutes(self, room_id: str) -> Optional[float]:
+        """Average warmup duration in minutes for predictive pre-heating."""
+        history = self._warmup_history.get(room_id, [])
+        if not history:
+            return None
+        return round(sum(history) / len(history), 1)
+
+    # ------------------------------------------------------------------
+    # Roadmap 1.3 – Solar surplus & dynamic energy pricing
+    # ------------------------------------------------------------------
+
+    def _get_solar_boost(self) -> float:
+        """Return temperature boost (°C) when solar surplus is available."""
+        cfg = self.get_config()
+        solar_entity = cfg.get(CONF_SOLAR_ENTITY)
+        if not solar_entity:
+            return 0.0
+        state = self.hass.states.get(solar_entity)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return 0.0
+        try:
+            surplus_w = float(state.state)
+        except ValueError:
+            return 0.0
+        threshold = float(cfg.get(CONF_SOLAR_SURPLUS_THRESHOLD, DEFAULT_SOLAR_SURPLUS_THRESHOLD))
+        if surplus_w >= threshold:
+            return float(cfg.get(CONF_SOLAR_BOOST_TEMP, DEFAULT_SOLAR_BOOST_TEMP))
+        return 0.0
+
+    def _get_energy_price_eco_offset(self) -> float:
+        """Return temperature reduction (°C) when electricity price is high."""
+        cfg = self.get_config()
+        price_entity = cfg.get(CONF_ENERGY_PRICE_ENTITY)
+        if not price_entity:
+            return 0.0
+        state = self.hass.states.get(price_entity)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return 0.0
+        try:
+            price = float(state.state)
+        except ValueError:
+            return 0.0
+        threshold = float(cfg.get(CONF_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_THRESHOLD))
+        if price >= threshold:
+            return float(cfg.get(CONF_ENERGY_PRICE_ECO_OFFSET, DEFAULT_ENERGY_PRICE_ECO_OFFSET))
+        return 0.0
+
+    def _get_current_energy_price(self) -> Optional[float]:
+        """Return current energy price for display."""
+        cfg = self.get_config()
+        price_entity = cfg.get(CONF_ENERGY_PRICE_ENTITY)
+        if not price_entity:
+            return None
+        state = self.hass.states.get(price_entity)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+        try:
+            return float(state.state)
+        except ValueError:
+            return None
+
+    def _get_solar_power(self) -> Optional[float]:
+        """Return current solar power for display."""
+        cfg = self.get_config()
+        solar_entity = cfg.get(CONF_SOLAR_ENTITY)
+        if not solar_entity:
+            return None
+        state = self.hass.states.get(solar_entity)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+        try:
+            return float(state.state)
+        except ValueError:
+            return None
+
+    # ------------------------------------------------------------------
+    # Roadmap 1.4 – Room sensor calibration & flow temp
+    # ------------------------------------------------------------------
+
+    def _apply_room_calibration(self, room: dict, raw_temp: Optional[float]) -> Optional[float]:
+        """Apply per-room sensor calibration offset."""
+        if raw_temp is None:
+            return None
+        offset = float(room.get(CONF_TEMP_CALIBRATION, 0.0))
+        return round(raw_temp + offset, 2)
+
+    def _check_room_presence(self, room: dict) -> bool:
+        """
+        Return True if someone is present for this specific room.
+        If no room_presence_entities configured, always returns True.
+        """
+        entities: list = room.get(CONF_ROOM_PRESENCE_ENTITIES, [])
+        if not entities:
+            return True
+        home_states = {"home", "on", STATE_ON}
+        for entity_id in entities:
+            if not entity_id:
+                continue
+            state = self.hass.states.get(entity_id)
+            if state and state.state.lower() in home_states:
+                return True
+        return False
+
+    def _set_flow_temp(self, flow_temp: float) -> None:
+        """Set the boiler flow temperature via a number entity."""
+        cfg = self.get_config()
+        flow_entity = cfg.get(CONF_FLOW_TEMP_ENTITY)
+        if not flow_entity:
+            return
+        self.hass.async_create_task(
+            self.hass.services.async_call(
+                "number", "set_value",
+                {"entity_id": flow_entity, "value": round(flow_temp, 1)},
+            )
+        )
+
+    def _calculate_flow_temp(self, outdoor_temp: Optional[float], total_demand: float) -> Optional[float]:
+        """
+        Calculate boiler flow temperature from outdoor temp + demand.
+        Simple linear: higher demand or lower outdoor temp → higher flow temp.
+        """
+        if outdoor_temp is None:
+            return None
+        # Base flow temp from outdoor: cold outside → higher flow
+        base = 70.0 - (outdoor_temp * 1.5)
+        base = max(30.0, min(80.0, base))
+        # Modulate by demand (0–100 → ±10°C)
+        base += (total_demand / 100.0) * 10.0 - 5.0
+        return round(max(30.0, min(80.0, base)), 1)
+
+    # ------------------------------------------------------------------
     # Energy / runtime tracking
     # ------------------------------------------------------------------
 
@@ -466,6 +652,13 @@ class IHCCoordinator(DataUpdateCoordinator):
         if system_mode == SYSTEM_MODE_VACATION:
             vac_temp = float(cfg.get(CONF_VACATION_TEMP, DEFAULT_VACATION_TEMP))
             return max(vac_temp, frost_temp), {"source": "system_vacation", "schedule_active": False}
+
+        # --- 1b. Room-specific presence auto-eco (Roadmap 1.2) ---
+        if not self._check_room_presence(room) and room_mode == ROOM_MODE_AUTO:
+            eco = float(room.get(CONF_ECO_TEMP, DEFAULT_ECO_TEMP))
+            return min(max_temp, max(min_temp, eco + room_offset)), {
+                "source": "room_presence_eco", "schedule_active": False
+            }
 
         # --- 2. Room mode preset overrides ---
         if room_mode == ROOM_MODE_OFF:
@@ -638,19 +831,36 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         room_data: Dict[str, dict] = {}
 
+        solar_boost = self._get_solar_boost()
+        price_eco_offset = self._get_energy_price_eco_offset()
+
         for room in self.get_rooms():
             room_id = room.get(CONF_ROOM_ID, "")
             if not room_id:
                 continue
 
             temp_sensor = room.get(CONF_TEMP_SENSOR, "")
-            current_temp = self._get_sensor_temp(temp_sensor)
+            raw_temp = self._get_sensor_temp(temp_sensor)
+            current_temp = self._apply_room_calibration(room, raw_temp)  # Roadmap 1.4
             window_open = self._is_window_open(room, current_temp)
             room_mode = self.get_room_mode(room_id)
             deadband = float(room.get(CONF_DEADBAND, DEFAULT_DEADBAND))
             weight = float(room.get(CONF_WEIGHT, DEFAULT_WEIGHT))
 
+            # Update temperature history (Roadmap 1.1)
+            self._update_temp_history(room_id, current_temp)
+
             target_temp, meta = self._calculate_target_temp(room, outdoor_temp)
+
+            # Apply solar boost (Roadmap 1.3)
+            if solar_boost > 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
+                target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + solar_boost)
+                meta["solar_boost"] = solar_boost
+
+            # Apply energy price eco offset (Roadmap 1.3)
+            if price_eco_offset > 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
+                target_temp = max(float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)), target_temp - price_eco_offset)
+                meta["price_eco_offset"] = price_eco_offset
 
             # Update controller state for this room
             controller_state = self._controller.update_room(
@@ -677,6 +887,8 @@ class IHCCoordinator(DataUpdateCoordinator):
                 "room_mode": room_mode,
                 "manual_temp": self.get_room_manual_temp(room_id),
                 "boost_remaining": self.get_boost_remaining_minutes(room_id),
+                "temp_history": self.get_temp_history(room_id),     # Roadmap 1.1
+                "avg_warmup_minutes": self.get_avg_warmup_minutes(room_id),
                 **meta,
             }
 
@@ -701,7 +913,17 @@ class IHCCoordinator(DataUpdateCoordinator):
         if enable_cooling:
             self._set_cooling_switch(should_cool)
 
+        # Roadmap 1.4 – Set boiler flow temp
+        flow_temp = self._calculate_flow_temp(outdoor_temp, total_demand)
+        if should_heat and flow_temp is not None:
+            self._set_flow_temp(flow_temp)
+
         night_setback_active = self._is_night_setback_active()
+
+        # Roadmap 1.3 – Energy cost estimate
+        cfg = self.get_config()
+        boiler_kw = float(cfg.get(CONF_BOILER_KW, DEFAULT_BOILER_KW))
+        energy_today_kwh = round(self.get_heating_runtime_today_minutes() / 60.0 * boiler_kw, 2)
 
         return {
             "outdoor_temp": outdoor_temp,
@@ -715,6 +937,12 @@ class IHCCoordinator(DataUpdateCoordinator):
             "presence_away_active": self._presence_away_active,
             "system_mode": self._system_mode,
             "heating_runtime_today": self.get_heating_runtime_today_minutes(),
+            "energy_today_kwh": energy_today_kwh,
+            "solar_boost": solar_boost,
+            "solar_power": self._get_solar_power(),
+            "energy_price": self._get_current_energy_price(),
+            "energy_price_eco_offset": price_eco_offset,
+            "flow_temp": flow_temp,
             "rooms": room_data,
             "debug": self._controller.get_debug_info(),
         }

@@ -154,6 +154,30 @@ SERVICE_SET_ROOM_SCHEDULE: Final = "set_room_schedule"
 SERVICE_BOOST_ROOM: Final = "boost_room"
 SERVICE_RELOAD: Final = "reload"
 
+# Roadmap 1.3 – Energy optimisation
+CONF_BOILER_KW: Final = "boiler_kw"                             # kW output of the heating system
+CONF_SOLAR_ENTITY: Final = "solar_entity"                       # solar power sensor (W)
+CONF_SOLAR_SURPLUS_THRESHOLD: Final = "solar_surplus_threshold" # W above which surplus is detected
+CONF_SOLAR_BOOST_TEMP: Final = "solar_boost_temp"               # °C boost added when solar surplus
+CONF_ENERGY_PRICE_ENTITY: Final = "energy_price_entity"         # dynamic price sensor (€/kWh)
+CONF_ENERGY_PRICE_THRESHOLD: Final = "energy_price_threshold"   # €/kWh above which eco kicks in
+CONF_ENERGY_PRICE_ECO_OFFSET: Final = "energy_price_eco_offset" # °C reduction when price is high
+
+# Roadmap 1.4 – Advanced room control
+CONF_TEMP_CALIBRATION: Final = "temp_calibration"               # per-room sensor offset (°C)
+CONF_ROOM_PRESENCE_ENTITIES: Final = "room_presence_entities"   # per-room presence list
+CONF_FLOW_TEMP_ENTITY: Final = "flow_temp_entity"               # boiler flow-temp number entity
+
+# Roadmap 1.1 – Temperature history
+CONF_TEMP_HISTORY_SIZE: Final = 48                              # keep last N readings per room
+
+# Defaults for new options
+DEFAULT_BOILER_KW: Final = 20.0
+DEFAULT_SOLAR_SURPLUS_THRESHOLD: Final = 1000   # W
+DEFAULT_SOLAR_BOOST_TEMP: Final = 1.0           # °C
+DEFAULT_ENERGY_PRICE_THRESHOLD: Final = 0.30   # €/kWh
+DEFAULT_ENERGY_PRICE_ECO_OFFSET: Final = 2.0   # °C
+
 # Presence / away-mode reason
 PRESENCE_AUTO_AWAY_REASON: Final = "presence_auto_away"
 

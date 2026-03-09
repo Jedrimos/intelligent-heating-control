@@ -260,13 +260,23 @@ const STYLES = `
   /* Divider */
   hr.divider { border: none; border-top: 1px solid var(--divider-color, #e0e0e0); margin: 16px 0; }
 
-  /* Responsive */
+  /* Responsive – mobile optimised (Roadmap 1.5) */
   @media (max-width: 600px) {
     .panel { padding: 10px; }
-    .tab { padding: 8px 12px; font-size: 12px; }
+    .tab { padding: 10px 10px; font-size: 12px; min-width: 60px; text-align: center; }
     .rooms-grid { grid-template-columns: 1fr; }
     .status-grid { grid-template-columns: repeat(2, 1fr); }
+    .settings-grid { grid-template-columns: 1fr; }
     .period-row, .period-header { grid-template-columns: 80px 80px 65px 55px 30px; gap: 4px; }
+    .btn { min-height: 44px; }  /* larger touch targets */
+    .form-input, .form-select { min-height: 44px; font-size: 16px; } /* prevent iOS zoom */
+    .mode-chip { min-width: 32px; min-height: 32px; line-height: 32px; }
+    .card { padding: 14px 12px; }
+    .header h1 { font-size: 18px; }
+  }
+  @media (max-width: 400px) {
+    .tabs { gap: 0; }
+    .tab { padding: 8px 6px; font-size: 11px; }
   }
 `;
 
@@ -284,6 +294,7 @@ class IHCPanel extends HTMLElement {
     this._scheduleRoom = null;
     this._toastTimeout = null;
     this._refreshTimer = null;
+    this._userInteracting = false;   // true while pointer/touch is held down
     // Local schedule data for editing (not yet saved)
     this._editingSchedules = {};
   }
@@ -296,13 +307,11 @@ class IHCPanel extends HTMLElement {
       this._render();
       return;
     }
-    if (this._modalOpen) return;
-    // CRITICAL: Only auto-update the live overview tab on every HA state push.
-    // All other tabs (settings, schedules, curve, rooms) contain user input fields
-    // that must NOT be reset by background refreshes.
-    if (this._activeTab === "overview") {
-      this._renderTabContent();
-    }
+    // NEVER re-render tabs on HA state pushes.
+    // HA can fire state updates many times per second which would replace DOM
+    // elements mid-click and prevent any button from working.
+    // The _startAutoRefresh timer handles overview updates every 5 seconds.
+    // All other tabs are only rendered when the user switches to them.
   }
 
   connectedCallback() {
@@ -316,8 +325,16 @@ class IHCPanel extends HTMLElement {
 
   _startAutoRefresh() {
     if (this._refreshTimer) clearInterval(this._refreshTimer);
+    // Track pointer interactions so we never rebuild DOM during a click
+    const sr = this.shadowRoot;
+    if (!this._interactionTracked) {
+      this._interactionTracked = true;
+      sr.addEventListener("pointerdown", () => { this._userInteracting = true; }, true);
+      sr.addEventListener("pointerup",   () => { this._userInteracting = false; }, true);
+      sr.addEventListener("pointercancel", () => { this._userInteracting = false; }, true);
+    }
     this._refreshTimer = setInterval(() => {
-      if (!this._hass || this._modalOpen) return;
+      if (!this._hass || this._modalOpen || this._userInteracting) return;
       if (this._activeTab === "overview") this._renderTabContent();
     }, 5000);
   }
@@ -434,6 +451,8 @@ class IHCPanel extends HTMLElement {
         boost_remaining: state.attributes.boost_remaining || 0,
         night_setback: state.attributes.night_setback || 0,
         runtime_today_minutes: 0,
+        temp_history: [],
+        avg_warmup_minutes: null,
       };
     });
     // Enrich from demand sensors
@@ -453,6 +472,10 @@ class IHCPanel extends HTMLElement {
           rooms[climateId].source = state.attributes.source;
         if (state.attributes.night_setback !== undefined)
           rooms[climateId].night_setback = state.attributes.night_setback;
+        if (state.attributes.temp_history !== undefined)
+          rooms[climateId].temp_history = state.attributes.temp_history;
+        if (state.attributes.avg_warmup_minutes !== undefined)
+          rooms[climateId].avg_warmup_minutes = state.attributes.avg_warmup_minutes;
       }
     });
     // Enrich runtime from runtime sensors
@@ -468,24 +491,33 @@ class IHCPanel extends HTMLElement {
   }
 
   _getGlobal() {
-    const dem = this._st("sensor.ihc_gesamtanforderung");
-    const sw  = this._st("switch.ihc_heizung_aktiv");
-    const sel = this._st("select.ihc_systemmodus");
-    const ct  = this._st("sensor.ihc_heizkurven_zieltemperatur");
-    const ot  = this._st("sensor.ihc_aussentemperatur");
-    const rt  = this._st("sensor.ihc_heizlaufzeit_heute");
-    const a   = dem ? (dem.attributes || {}) : {};
+    const dem  = this._st("sensor.ihc_gesamtanforderung");
+    const sw   = this._st("switch.ihc_heizung_aktiv");
+    const sel  = this._st("select.ihc_systemmodus");
+    const ct   = this._st("sensor.ihc_heizkurven_zieltemperatur");
+    const ot   = this._st("sensor.ihc_aussentemperatur");
+    const rt   = this._st("sensor.ihc_heizlaufzeit_heute");
+    const egy  = this._st("sensor.ihc_energie_heute");
+    const a    = dem ? (dem.attributes || {}) : {};
+    const ea   = egy ? (egy.attributes || {}) : {};
     return {
-      total_demand:           dem ? parseFloat(dem.state) || 0 : null,
-      heating_active:         sw  ? sw.state === "on" : (a.heating_active || false),
-      system_mode:            sel ? sel.state : "—",
-      curve_target:           ct  ? parseFloat(ct.state) : null,
-      outdoor_temp:           ot  ? parseFloat(ot.state) : null,
-      rooms_demanding:        a.rooms_demanding || 0,
-      summer_mode:            a.summer_mode || false,
-      night_setback_active:   a.night_setback_active || false,
-      presence_away_active:   a.presence_away_active || false,
-      heating_runtime_today:  rt  ? parseFloat(rt.state) || 0 : (a.heating_runtime_today || 0),
+      total_demand:              dem ? parseFloat(dem.state) || 0 : null,
+      heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
+      no_switch:                 !sw,
+      system_mode:               sel ? sel.state : "—",
+      curve_target:              ct  ? parseFloat(ct.state) : null,
+      outdoor_temp:              ot  ? parseFloat(ot.state) : null,
+      rooms_demanding:           a.rooms_demanding || 0,
+      summer_mode:               a.summer_mode || false,
+      night_setback_active:      a.night_setback_active || false,
+      presence_away_active:      a.presence_away_active || false,
+      heating_runtime_today:     rt  ? parseFloat(rt.state) || 0 : (a.heating_runtime_today || 0),
+      energy_today_kwh:          egy ? parseFloat(egy.state) || 0 : 0,
+      solar_boost:               ea.solar_boost || 0,
+      solar_power:               ea.solar_power != null ? parseFloat(ea.solar_power) : null,
+      energy_price:              ea.energy_price != null ? parseFloat(ea.energy_price) : null,
+      energy_price_eco_active:   ea.energy_price_eco_active || false,
+      flow_temp:                 ea.flow_temp != null ? parseFloat(ea.flow_temp) : null,
     };
   }
 
@@ -498,6 +530,23 @@ class IHCPanel extends HTMLElement {
     if (d >= 60) return "#fb8c00";
     if (d >= 30) return "#fdd835";
     return "#43a047";
+  }
+
+  // Roadmap 1.1 – mini SVG sparkline for temperature history
+  _sparkline(history, w = 80, h = 24) {
+    if (!history || history.length < 2) return "";
+    const vals = history.map(p => p.v);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const range = max - min || 1;
+    const pts = vals.map((v, i) => {
+      const x = (i / (vals.length - 1)) * w;
+      const y = h - ((v - min) / range) * (h - 4) - 2;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;overflow:visible">
+      <polyline points="${pts}" fill="none" stroke="var(--primary-color)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>`;
   }
 
   // ── Übersicht Tab ──────────────────────────────────────────────────────────
@@ -567,7 +616,11 @@ class IHCPanel extends HTMLElement {
             <span class="mode-chip boost" data-room-id="${room.room_id}" data-action="boost"
               title="60min Boost">⚡</span>
           </div>
-          ${room.runtime_today_minutes > 0 ? `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:4px">⏱ ${room.runtime_today_minutes} min heute</div>` : ""}
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+            ${room.runtime_today_minutes > 0 ? `<span style="font-size:10px;color:var(--secondary-text-color)">⏱ ${room.runtime_today_minutes} min</span>` : "<span></span>"}
+            ${room.avg_warmup_minutes ? `<span style="font-size:10px;color:var(--secondary-text-color)" title="Ø Aufheizzeit">🌡️ ${room.avg_warmup_minutes} min</span>` : ""}
+            ${this._sparkline(room.temp_history)}
+          </div>
         </div>`;
     }).join("");
 
@@ -579,6 +632,8 @@ class IHCPanel extends HTMLElement {
       ${g.summer_mode ? `<div class="summer-banner">☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</div>` : ""}
       ${g.night_setback_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#1565c0;">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : ""}
       ${g.presence_away_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);border-color:#e65100;">🚶 <strong>Anwesenheits-Abwesend</strong> – niemand zuhause</div>` : ""}
+      ${g.solar_boost > 0 ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fffde7,#fff9c4);border-color:#f9a825;">🌞 <strong>Solarüberschuss</strong> – ${g.solar_power != null ? g.solar_power + " W · " : ""}Zieltemp. +${g.solar_boost}°C angehoben</div>` : ""}
+      ${g.energy_price_eco_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#c62828;">💶 <strong>Hoher Strompreis</strong> – ${g.energy_price != null ? g.energy_price.toFixed(3) + " €/kWh · " : ""}Eco-Modus aktiv</div>` : ""}
 
       <div class="status-grid">
         <div class="status-item">
@@ -595,7 +650,7 @@ class IHCPanel extends HTMLElement {
         </div>
         <div class="status-item">
           <div class="status-label">Heizung</div>
-          <div class="status-value ${g.heating_active ? "on" : "ok"}">${g.heating_active ? "🔥 EIN" : "✓ AUS"}</div>
+          <div class="status-value ${g.heating_active ? "on" : "ok"}">${g.heating_active ? "🔥 EIN" : g.no_switch ? "— kein Schalter" : "✓ AUS"}</div>
         </div>
         <div class="status-item">
           <div class="status-label">Zimmer aktiv</div>
@@ -609,6 +664,14 @@ class IHCPanel extends HTMLElement {
           <div class="status-label">Laufzeit heute</div>
           <div class="status-value" style="font-size:16px">${g.heating_runtime_today} min</div>
         </div>
+        <div class="status-item">
+          <div class="status-label">Energie heute</div>
+          <div class="status-value" style="font-size:16px">${g.energy_today_kwh} kWh</div>
+        </div>
+        ${g.flow_temp != null ? `<div class="status-item">
+          <div class="status-label">Vorlauf</div>
+          <div class="status-value" style="font-size:16px">${g.flow_temp} °C</div>
+        </div>` : ""}
       </div>
 
       <div class="rooms-grid">${roomCards}</div>
@@ -721,19 +784,19 @@ class IHCPanel extends HTMLElement {
           <div class="settings-item">
             <label>Abwesend-Temperatur (°C)</label>
             <input type="number" class="form-input" id="away-temp"
-              min="5" max="25" step="0.5" value="16">
+              min="5" max="25" step="0.5" value="${a.away_temp ?? 16}">
             <span class="form-hint">Alle Zimmer bei System „Abwesend"</span>
           </div>
           <div class="settings-item">
             <label>Urlaubs-Temperatur (°C)</label>
             <input type="number" class="form-input" id="vacation-temp"
-              min="5" max="20" step="0.5" value="14">
+              min="5" max="20" step="0.5" value="${a.vacation_temp ?? 14}">
             <span class="form-hint">Nur Frostschutz, alle Zimmer</span>
           </div>
           <div class="settings-item">
             <label>Frostschutz-Temperatur (°C)</label>
             <input type="number" class="form-input" id="frost-temp"
-              min="4" max="15" step="0.5" value="7">
+              min="4" max="15" step="0.5" value="${a.frost_protection_temp ?? 7}">
             <span class="form-hint">Niemals unter diesen Wert (auch bei OFF)</span>
           </div>
         </div>
@@ -741,14 +804,14 @@ class IHCPanel extends HTMLElement {
           <div class="settings-item">
             <label>Sommerautomatik</label>
             <select class="form-select" id="summer-enabled">
-              <option value="false">Deaktiviert</option>
-              <option value="true">Aktiviert</option>
+              <option value="false" ${!a.summer_mode_enabled ? "selected" : ""}>Deaktiviert</option>
+              <option value="true" ${a.summer_mode_enabled ? "selected" : ""}>Aktiviert</option>
             </select>
           </div>
           <div class="settings-item">
             <label>Sommer-Schwelle (°C)</label>
             <input type="number" class="form-input" id="summer-threshold"
-              min="10" max="30" step="0.5" value="18">
+              min="10" max="30" step="0.5" value="${a.summer_threshold ?? 18}">
             <span class="form-hint">Heizung gesperrt ab dieser Außentemp.</span>
           </div>
         </div>
@@ -765,21 +828,21 @@ class IHCPanel extends HTMLElement {
           <div class="settings-item">
             <label>Nachtabsenkung</label>
             <select class="form-select" id="night-setback-enabled">
-              <option value="false">Deaktiviert</option>
-              <option value="true">Aktiviert</option>
+              <option value="false" ${!a.night_setback_enabled ? "selected" : ""}>Deaktiviert</option>
+              <option value="true" ${a.night_setback_enabled ? "selected" : ""}>Aktiviert</option>
             </select>
             <span class="form-hint">Temperaturen nachts automatisch absenken</span>
           </div>
           <div class="settings-item">
             <label>Absenkung (°C)</label>
             <input type="number" class="form-input" id="night-setback-offset"
-              min="0.5" max="6" step="0.5" value="2">
+              min="0.5" max="6" step="0.5" value="${a.night_setback_offset ?? 2}">
             <span class="form-hint">Um wieviel °C nachts abgesenkt wird</span>
           </div>
           <div class="settings-item">
             <label>Vorheiz-Vorlaufzeit (min)</label>
             <input type="number" class="form-input" id="preheat-minutes"
-              min="0" max="120" step="5" value="0">
+              min="0" max="120" step="5" value="${a.preheat_minutes ?? 0}">
             <span class="form-hint">Wie früh vor Zeitplan-Start wird vorgeheizt (0 = aus)</span>
           </div>
         </div>
@@ -829,14 +892,124 @@ class IHCPanel extends HTMLElement {
         </div>
       </div>
 
-      <!-- Energie-Statistik -->
+      <!-- Anwesenheitserkennung -->
       <div class="card">
-        <div class="card-title">⚡ Energie-Statistik heute</div>
+        <div class="card-title">🚶 Anwesenheitserkennung</div>
+        <div class="info-box">
+          Wenn <strong>niemand</strong> der konfigurierten Personen zuhause ist, schaltet das System automatisch auf <em>Abwesend</em>.<br>
+          Wähle eine oder mehrere <code>person.*</code> oder <code>device_tracker.*</code> Entitäten.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Anwesenheits-Entitäten</label>
+          <div id="presence-entity-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+            ${this._renderPresenceCheckboxes(a.presence_entities || [])}
+          </div>
+          <span class="form-hint">Aktuell ${g.presence_away_active ? "🚶 niemand zuhause" : "✓ jemand zuhause"}</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="save-presence-settings">💾 Anwesenheit speichern</button>
+        </div>
+      </div>
+
+      <!-- Energie & Solar -->
+      <div class="card">
+        <div class="card-title">⚡ Energie &amp; Solar</div>
         <div class="settings-grid">
           <div class="settings-item">
-            <label>Heizlaufzeit heute</label>
+            <label>Kesselleistung (kW)</label>
+            <input type="number" class="form-input" id="boiler-kw"
+              min="1" max="100" step="1" value="${a.boiler_kw ?? 20}">
+            <span class="form-hint">Für Energieberechnung (kWh = Laufzeit × kW)</span>
+          </div>
+          <div class="settings-item">
+            <label>Vorlauftemperatur-Entität</label>
+            <input type="text" class="form-input" id="flow-temp-entity"
+              placeholder="number.boiler_flow_temp (leer = deaktiviert)"
+              value="${a.flow_temp_entity ?? ''}" list="flow-temp-list">
+            <datalist id="flow-temp-list">${this._entityOptions(["number"])}</datalist>
+            <span class="form-hint">Setzt die Vorlauftemperatur automatisch</span>
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="card-title" style="font-size:13px;margin-top:0">☀️ Solarüberschuss-Heizung</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Solar-Sensor</label>
+            <input type="text" class="form-input" id="solar-entity"
+              placeholder="sensor.solar_power (leer = deaktiviert)"
+              value="${a.solar_entity ?? ''}" list="solar-entity-list">
+            <datalist id="solar-entity-list">${this._entityOptions(["sensor"])}</datalist>
+          </div>
+          <div class="settings-item">
+            <label>Überschuss-Schwelle (W)</label>
+            <input type="number" class="form-input" id="solar-surplus-threshold"
+              min="100" max="10000" step="100" value="${a.solar_surplus_threshold ?? 1000}">
+            <span class="form-hint">Überschuss ab dem Boost aktiv wird</span>
+          </div>
+          <div class="settings-item">
+            <label>Temperatur-Boost (°C)</label>
+            <input type="number" class="form-input" id="solar-boost-temp"
+              min="0.5" max="5" step="0.5" value="${a.solar_boost_temp ?? 1}">
+            <span class="form-hint">Um wieviel °C Zieltemp. angehoben wird</span>
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="card-title" style="font-size:13px;margin-top:0">💶 Dynamischer Strompreis</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Preis-Sensor</label>
+            <input type="text" class="form-input" id="energy-price-entity"
+              placeholder="sensor.strompreis (leer = deaktiviert)"
+              value="${a.energy_price_entity ?? ''}" list="price-entity-list">
+            <datalist id="price-entity-list">${this._entityOptions(["sensor"])}</datalist>
+          </div>
+          <div class="settings-item">
+            <label>Preis-Schwelle (€/kWh)</label>
+            <input type="number" class="form-input" id="energy-price-threshold"
+              min="0.05" max="2" step="0.01" value="${a.energy_price_threshold ?? 0.30}">
+            <span class="form-hint">Über diesem Preis wird Eco-Modus aktiviert</span>
+          </div>
+          <div class="settings-item">
+            <label>Eco-Absenkung (°C)</label>
+            <input type="number" class="form-input" id="energy-price-eco-offset"
+              min="0.5" max="6" step="0.5" value="${a.energy_price_eco_offset ?? 2}">
+            <span class="form-hint">Absenkung bei hohem Preis</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="save-energy-settings">💾 Energie / Solar speichern</button>
+        </div>
+      </div>
+
+      <!-- Energie-Statistik heute -->
+      <div class="card">
+        <div class="card-title">📊 Energie-Statistik heute</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Heizlaufzeit</label>
             <div style="font-size:24px;font-weight:700;color:var(--primary-color)">${g.heating_runtime_today} min</div>
           </div>
+          <div class="settings-item">
+            <label>Geschätzter Verbrauch</label>
+            <div style="font-size:24px;font-weight:700;color:var(--primary-color)">${g.energy_today_kwh} kWh</div>
+          </div>
+          ${g.solar_power != null ? `<div class="settings-item">
+            <label>Solar aktuell</label>
+            <div style="font-size:20px;font-weight:700;color:#f9a825">${g.solar_power} W</div>
+          </div>` : ""}
+          ${g.energy_price != null ? `<div class="settings-item">
+            <label>Strompreis aktuell</label>
+            <div style="font-size:20px;font-weight:700;color:${g.energy_price_eco_active ? "#c62828" : "#43a047"}">${g.energy_price.toFixed(3)} €/kWh</div>
+          </div>` : ""}
+        </div>
+      </div>
+
+      <!-- Backup -->
+      <div class="card">
+        <div class="card-title">💾 Backup &amp; Restore</div>
+        <div class="info-box">Exportiert die gesamte Konfiguration als HA-Benachrichtigung (JSON). Diese kann gespeichert und zum Wiederherstellen verwendet werden.</div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="export-config-btn">📤 Konfiguration exportieren</button>
         </div>
       </div>
     `;
@@ -877,6 +1050,59 @@ class IHCPanel extends HTMLElement {
       });
       this._toast("✓ Klimabaustein-Einstellungen gespeichert");
     });
+
+    content.querySelector("#save-presence-settings").addEventListener("click", () => {
+      const checked = [...content.querySelectorAll(".presence-cb:checked")].map(cb => cb.value);
+      this._callService("update_global_settings", { presence_entities: checked });
+      this._toast("✓ Anwesenheitserkennung gespeichert");
+    });
+
+    content.querySelector("#save-energy-settings").addEventListener("click", () => {
+      this._callService("update_global_settings", {
+        boiler_kw:                  parseFloat(content.querySelector("#boiler-kw").value),
+        flow_temp_entity:           content.querySelector("#flow-temp-entity").value.trim(),
+        solar_entity:               content.querySelector("#solar-entity").value.trim(),
+        solar_surplus_threshold:    parseFloat(content.querySelector("#solar-surplus-threshold").value),
+        solar_boost_temp:           parseFloat(content.querySelector("#solar-boost-temp").value),
+        energy_price_entity:        content.querySelector("#energy-price-entity").value.trim(),
+        energy_price_threshold:     parseFloat(content.querySelector("#energy-price-threshold").value),
+        energy_price_eco_offset:    parseFloat(content.querySelector("#energy-price-eco-offset").value),
+      });
+      this._toast("✓ Energie/Solar-Einstellungen gespeichert");
+    });
+
+    content.querySelector("#export-config-btn").addEventListener("click", () => {
+      this._callService("export_config", {});
+      this._toast("✓ Konfiguration wird als Benachrichtigung erstellt...");
+    });
+  }
+
+  // ── Helper: Presence checkboxes from HA states ──────────────────────────────
+  _renderPresenceCheckboxes(currentEntities) {
+    if (!this._hass) return "";
+    const allEntities = Object.keys(this._hass.states)
+      .filter(id => id.startsWith("person.") || id.startsWith("device_tracker.") || id.startsWith("input_boolean."))
+      .sort();
+    if (!allEntities.length) return "<em style='color:var(--secondary-text-color);font-size:12px'>Keine person.* / device_tracker.* Entitäten gefunden</em>";
+    return allEntities.map(id => {
+      const state = this._hass.states[id];
+      const label = state?.attributes?.friendly_name || id;
+      const checked = currentEntities.includes(id) ? "checked" : "";
+      return `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:4px 8px;border:1px solid var(--divider-color);border-radius:6px">
+        <input type="checkbox" class="presence-cb" value="${id}" ${checked}>
+        <span>${label}</span>
+      </label>`;
+    }).join("");
+  }
+
+  // ── Helper: datalist options for entity pickers ─────────────────────────────
+  _entityOptions(domains) {
+    if (!this._hass) return "";
+    return Object.keys(this._hass.states)
+      .filter(id => !domains.length || domains.some(d => id.startsWith(d + ".")))
+      .sort()
+      .map(id => `<option value="${id}">`)
+      .join("");
   }
 
   // ── Zeitpläne Tab ──────────────────────────────────────────────────────────
