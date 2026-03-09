@@ -203,10 +203,17 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         await hass.config_entries.async_reload(entry.entry_id)
 
     async def handle_update_global_settings(call: ServiceCall) -> None:
+        # All valid global setting keys – explicitly listed so arbitrary data can't be injected
         allowed = {
             "demand_threshold", "demand_hysteresis", "min_on_time", "min_off_time",
             "min_rooms_demand", "away_temp", "vacation_temp",
             "summer_mode_enabled", "summer_threshold",
+            "frost_protection_temp",
+            "night_setback_enabled", "night_setback_offset", "sun_entity",
+            "preheat_minutes",
+            "presence_entities",
+            "heating_switch", "cooling_switch", "outdoor_temp_sensor",
+            "enable_cooling", "show_panel",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:

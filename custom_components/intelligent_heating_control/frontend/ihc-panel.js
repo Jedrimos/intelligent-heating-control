@@ -296,13 +296,11 @@ class IHCPanel extends HTMLElement {
       this._render();
       return;
     }
-    if (this._modalOpen) return;
-    // CRITICAL: Only auto-update the live overview tab on every HA state push.
-    // All other tabs (settings, schedules, curve, rooms) contain user input fields
-    // that must NOT be reset by background refreshes.
-    if (this._activeTab === "overview") {
-      this._renderTabContent();
-    }
+    // NEVER re-render tabs on HA state pushes.
+    // HA can fire state updates many times per second which would replace DOM
+    // elements mid-click and prevent any button from working.
+    // The _startAutoRefresh timer handles overview updates every 5 seconds.
+    // All other tabs are only rendered when the user switches to them.
   }
 
   connectedCallback() {
@@ -478,6 +476,7 @@ class IHCPanel extends HTMLElement {
     return {
       total_demand:           dem ? parseFloat(dem.state) || 0 : null,
       heating_active:         sw  ? sw.state === "on" : (a.heating_active || false),
+      no_switch:              !sw,  // true when no heating switch is configured
       system_mode:            sel ? sel.state : "—",
       curve_target:           ct  ? parseFloat(ct.state) : null,
       outdoor_temp:           ot  ? parseFloat(ot.state) : null,
@@ -595,7 +594,7 @@ class IHCPanel extends HTMLElement {
         </div>
         <div class="status-item">
           <div class="status-label">Heizung</div>
-          <div class="status-value ${g.heating_active ? "on" : "ok"}">${g.heating_active ? "🔥 EIN" : "✓ AUS"}</div>
+          <div class="status-value ${g.heating_active ? "on" : "ok"}">${g.heating_active ? "🔥 EIN" : g.no_switch ? "— kein Schalter" : "✓ AUS"}</div>
         </div>
         <div class="status-item">
           <div class="status-label">Zimmer aktiv</div>
