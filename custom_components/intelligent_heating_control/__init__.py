@@ -31,6 +31,8 @@ from .const import (
     CONF_WEIGHT,
     CONF_SCHEDULES,
     CONF_WINDOW_SENSOR,
+    CONF_WINDOW_SENSORS,
+    CONF_VALVE_ENTITIES,
     CONF_COMFORT_TEMP,
     CONF_ECO_TEMP,
     CONF_SLEEP_TEMP,
@@ -149,6 +151,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_ROOM_NAME: call.data.get(CONF_ROOM_NAME, "New Room"),
             CONF_TEMP_SENSOR: call.data.get(CONF_TEMP_SENSOR, ""),
             CONF_VALVE_ENTITY: call.data.get(CONF_VALVE_ENTITY, ""),
+            CONF_VALVE_ENTITIES: call.data.get(CONF_VALVE_ENTITIES, []),
             CONF_ROOM_OFFSET: float(call.data.get(CONF_ROOM_OFFSET, 0.0)),
             CONF_DEADBAND: float(call.data.get(CONF_DEADBAND, DEFAULT_DEADBAND)),
             CONF_WEIGHT: float(call.data.get(CONF_WEIGHT, DEFAULT_WEIGHT)),
@@ -157,6 +160,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_SLEEP_TEMP: float(call.data.get(CONF_SLEEP_TEMP, DEFAULT_SLEEP_TEMP)),
             CONF_AWAY_TEMP_ROOM: float(call.data.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
             CONF_WINDOW_SENSOR: call.data.get(CONF_WINDOW_SENSOR, ""),
+            CONF_WINDOW_SENSORS: call.data.get(CONF_WINDOW_SENSORS, []),
             CONF_MIN_TEMP: float(call.data.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)),
             CONF_MAX_TEMP: float(call.data.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
             CONF_SCHEDULES: call.data.get(CONF_SCHEDULES, []),
@@ -198,6 +202,16 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     async def handle_reload(call: ServiceCall) -> None:
         await hass.config_entries.async_reload(entry.entry_id)
 
+    async def handle_update_global_settings(call: ServiceCall) -> None:
+        allowed = {
+            "demand_threshold", "demand_hysteresis", "min_on_time", "min_off_time",
+            "min_rooms_demand", "away_temp", "vacation_temp",
+            "summer_mode_enabled", "summer_threshold",
+        }
+        updates = {k: v for k, v in call.data.items() if k in allowed}
+        if updates:
+            await coordinator.async_update_global_settings(updates)
+
     if not hass.services.has_service(DOMAIN, SERVICE_ADD_ROOM):
         hass.services.async_register(DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
         hass.services.async_register(DOMAIN, SERVICE_REMOVE_ROOM, handle_remove_room)
@@ -206,3 +220,4 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         hass.services.async_register(DOMAIN, SERVICE_SET_SYSTEM_MODE, handle_set_system_mode)
         hass.services.async_register(DOMAIN, SERVICE_BOOST_ROOM, handle_boost_room)
         hass.services.async_register(DOMAIN, "reload", handle_reload)
+        hass.services.async_register(DOMAIN, "update_global_settings", handle_update_global_settings)

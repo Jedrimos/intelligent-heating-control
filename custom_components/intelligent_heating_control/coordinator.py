@@ -48,8 +48,10 @@ from .const import (
     CONF_SLEEP_TEMP,
     CONF_AWAY_TEMP_ROOM,
     CONF_WINDOW_SENSOR,
+    CONF_WINDOW_SENSORS,
     CONF_WINDOW_OPEN_TEMP,
     CONF_WINDOW_REACTION_TIME,
+    CONF_VALVE_ENTITIES,
     CONF_SCHEDULES,
     CONF_MIN_TEMP,
     CONF_MAX_TEMP,
@@ -263,24 +265,24 @@ class IHCCoordinator(DataUpdateCoordinator):
     def _is_window_open(self, room: dict, current_temp: Optional[float]) -> bool:
         """
         Detect window open state.
-        1. Direct window/door sensor (binary_sensor) if configured.
-        2. Fallback: detect rapid temperature drop.
+        1. Multiple window/door sensors (window_sensors list) if configured.
+        2. Single window sensor (window_sensor) as fallback.
+        3. Temperature drop detection (future implementation).
         """
-        room_id = room.get(CONF_ROOM_ID, "")
-        window_sensor = room.get(CONF_WINDOW_SENSOR)
+        # Check list of window sensors first (new multi-sensor support)
+        window_sensors: list = room.get(CONF_WINDOW_SENSORS, [])
+        for sensor in window_sensors:
+            if sensor:
+                state = self.hass.states.get(sensor)
+                if state and state.state == STATE_ON:
+                    return True
 
+        # Legacy single window sensor
+        window_sensor = room.get(CONF_WINDOW_SENSOR)
         if window_sensor:
             state = self.hass.states.get(window_sensor)
             if state and state.state == STATE_ON:
                 return True
-
-        # Temperature drop detection (fallback)
-        if current_temp is not None:
-            window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
-            # A simple heuristic: if current temp is unusually low vs target, suspect window open
-            # This is tracked via counter to avoid false positives
-            # (proper implementation would track temp history)
-            _ = window_open_temp  # reserved for future history-based detection
 
         return False
 
@@ -414,14 +416,13 @@ class IHCCoordinator(DataUpdateCoordinator):
         )
 
     def _set_valve_entity(self, valve_entity: str, target_temp: float) -> None:
-        """Set setpoint on a TRV / climate entity."""
+        """Set setpoint on a single TRV / climate entity."""
         if not valve_entity:
             return
         state = self.hass.states.get(valve_entity)
         if state is None:
             return
-        domain = valve_entity.split(".")[0]
-        if domain == "climate":
+        if valve_entity.split(".")[0] == "climate":
             self.hass.async_create_task(
                 self.hass.services.async_call(
                     "climate",
@@ -429,6 +430,17 @@ class IHCCoordinator(DataUpdateCoordinator):
                     {"entity_id": valve_entity, "temperature": target_temp},
                 )
             )
+
+    def _set_valve_entities(self, room: dict, target_temp: float) -> None:
+        """Set setpoint on all TRV / climate entities configured for a room."""
+        # New: list of valve entities
+        for entity in room.get(CONF_VALVE_ENTITIES, []):
+            if entity:
+                self._set_valve_entity(entity, target_temp)
+        # Legacy: single valve entity
+        single = room.get(CONF_VALVE_ENTITY)
+        if single and single not in room.get(CONF_VALVE_ENTITIES, []):
+            self._set_valve_entity(single, target_temp)
 
     # ------------------------------------------------------------------
     # Main update cycle
@@ -479,10 +491,9 @@ class IHCCoordinator(DataUpdateCoordinator):
                 manual_temp=self.get_room_manual_temp(room_id),
             )
 
-            # Propagate setpoint to TRV / climate entity
-            valve_entity = room.get(CONF_VALVE_ENTITY)
-            if valve_entity and not window_open and room_mode != ROOM_MODE_OFF:
-                self._set_valve_entity(valve_entity, target_temp)
+            # Propagate setpoint to all TRV / climate entities
+            if not window_open and room_mode != ROOM_MODE_OFF:
+                self._set_valve_entities(room, target_temp)
 
             room_data[room_id] = {
                 "name": room.get(CONF_ROOM_NAME, room_id),

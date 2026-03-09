@@ -330,10 +330,11 @@ class HeatingController:
             "rooms_demanding": self.get_rooms_demanding(),
             "demand_threshold": self._demand_threshold,
             "demand_hysteresis": self._demand_hysteresis,
-            "last_heating_state_change": self._last_heating_state_change.isoformat(),
-            "last_cooling_state_change": self._last_cooling_state_change.isoformat(),
             "min_on_time_minutes": self._min_on_time.seconds // 60,
             "min_off_time_minutes": self._min_off_time.seconds // 60,
+            "min_rooms_demand": self._min_rooms_demand,
+            "last_heating_state_change": self._last_heating_state_change.isoformat(),
+            "last_cooling_state_change": self._last_cooling_state_change.isoformat(),
             "rooms": {
                 rid: {
                     "current_temp": s["current_temp"],

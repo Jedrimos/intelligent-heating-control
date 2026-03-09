@@ -78,11 +78,19 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         d = self.coordinator.data or {}
+        debug = d.get("debug", {})
         return {
-            "rooms_demanding": d.get("rooms_demanding", 0),
-            "heating_active": d.get("heating_active", False),
-            "cooling_active": d.get("cooling_active", False),
-            "system_mode": d.get("system_mode", "auto"),
+            "rooms_demanding":    d.get("rooms_demanding", 0),
+            "heating_active":     d.get("heating_active", False),
+            "cooling_active":     d.get("cooling_active", False),
+            "summer_mode":        d.get("summer_mode", False),
+            "system_mode":        d.get("system_mode", "auto"),
+            # Controller settings (read by frontend panel)
+            "demand_threshold":     debug.get("demand_threshold"),
+            "demand_hysteresis":    debug.get("demand_hysteresis"),
+            "min_on_time_minutes":  debug.get("min_on_time_minutes"),
+            "min_off_time_minutes": debug.get("min_off_time_minutes"),
+            "min_rooms_demand":     debug.get("min_rooms_demand"),
         }
 
 
