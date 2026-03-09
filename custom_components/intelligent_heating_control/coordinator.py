@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 from homeassistant.core import HomeAssistant, callback
@@ -58,6 +58,9 @@ from .const import (
     CONF_AWAY_TEMP,
     CONF_VACATION_TEMP,
     CONF_CURVE_POINTS,
+    CONF_SUMMER_MODE_ENABLED,
+    CONF_SUMMER_THRESHOLD,
+    DEFAULT_SUMMER_THRESHOLD,
     DEFAULT_DEMAND_THRESHOLD,
     DEFAULT_DEMAND_HYSTERESIS,
     DEFAULT_MIN_ON_TIME,
@@ -113,6 +116,7 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._room_modes: Dict[str, str] = {}
         self._room_manual_temps: Dict[str, float] = {}
         self._window_open_counters: Dict[str, int] = {}  # room_id → consecutive drops
+        self._boost_until: Dict[str, datetime] = {}  # room_id → boost expiry time
 
         # Build sub-components from config
         self._rebuild_from_config()
@@ -186,6 +190,47 @@ class IHCCoordinator(DataUpdateCoordinator):
 
     def get_room_manual_temp(self, room_id: str) -> Optional[float]:
         return self._room_manual_temps.get(room_id)
+
+    def set_room_boost(self, room_id: str, duration_minutes: int = 60) -> None:
+        """Activate boost mode for a room for the given duration."""
+        self._boost_until[room_id] = datetime.now() + timedelta(minutes=duration_minutes)
+        self._room_modes[room_id] = ROOM_MODE_COMFORT
+        self.hass.async_create_task(self.async_request_refresh())
+
+    def cancel_room_boost(self, room_id: str) -> None:
+        """Cancel boost mode for a room."""
+        self._boost_until.pop(room_id, None)
+        if self._room_modes.get(room_id) == ROOM_MODE_COMFORT:
+            self._room_modes[room_id] = ROOM_MODE_AUTO
+        self.hass.async_create_task(self.async_request_refresh())
+
+    def get_boost_remaining_minutes(self, room_id: str) -> int:
+        """Return remaining boost minutes, 0 if not active."""
+        expiry = self._boost_until.get(room_id)
+        if expiry is None:
+            return 0
+        remaining = (expiry - datetime.now()).total_seconds() / 60
+        return max(0, int(remaining))
+
+    def _check_boost_expiry(self) -> None:
+        """Expire boost modes that have timed out."""
+        now = datetime.now()
+        expired = [rid for rid, expiry in self._boost_until.items() if now >= expiry]
+        for rid in expired:
+            del self._boost_until[rid]
+            if self._room_modes.get(rid) == ROOM_MODE_COMFORT:
+                self._room_modes[rid] = ROOM_MODE_AUTO
+
+    def _is_summer_mode_active(self) -> bool:
+        """Return True if Sommerautomatik should block heating."""
+        cfg = self.get_config()
+        if not cfg.get(CONF_SUMMER_MODE_ENABLED, False):
+            return False
+        threshold = float(cfg.get(CONF_SUMMER_THRESHOLD, DEFAULT_SUMMER_THRESHOLD))
+        outdoor_temp = self._get_outdoor_temp()
+        if outdoor_temp is None:
+            return False
+        return outdoor_temp >= threshold
 
     # ------------------------------------------------------------------
     # Temperature calculation logic
@@ -395,12 +440,16 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         Returns the full data dict that entities read from.
         """
+        # Expire any boost timers
+        self._check_boost_expiry()
+
         outdoor_temp = self._get_outdoor_temp()
         curve_target = (
             self._heating_curve.get_target_temp(outdoor_temp)
             if outdoor_temp is not None
             else None
         )
+        summer_mode = self._is_summer_mode_active()
 
         room_data: Dict[str, dict] = {}
 
@@ -443,13 +492,15 @@ class IHCCoordinator(DataUpdateCoordinator):
                 "window_open": window_open,
                 "room_mode": room_mode,
                 "manual_temp": self.get_room_manual_temp(room_id),
+                "boost_remaining": self.get_boost_remaining_minutes(room_id),
                 **meta,
             }
 
         # Klimabaustein decision
         cfg = self.get_config()
         enable_cooling = bool(cfg.get(CONF_ENABLE_COOLING, False))
-        should_heat = self._controller.should_heat(self._system_mode)
+        # Sommerautomatik: block heating if outdoor temp exceeds threshold
+        should_heat = False if summer_mode else self._controller.should_heat(self._system_mode)
         should_cool = self._controller.should_cool(self._system_mode) if enable_cooling else False
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
@@ -466,6 +517,7 @@ class IHCCoordinator(DataUpdateCoordinator):
             "rooms_demanding": rooms_demanding,
             "heating_active": should_heat,
             "cooling_active": should_cool,
+            "summer_mode": summer_mode,
             "system_mode": self._system_mode,
             "rooms": room_data,
             "debug": self._controller.get_debug_info(),

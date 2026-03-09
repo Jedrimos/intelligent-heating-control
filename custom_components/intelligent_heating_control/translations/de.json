@@ -82,7 +82,10 @@
           "min_off_time": "Mindest-Ausschaltzeit (min)",
           "min_rooms_demand": "Mindestanzahl Zimmer mit Anforderung",
           "away_temp": "Abwesend-Temperatur (°C)",
-          "vacation_temp": "Urlaubs-Temperatur (°C)"
+          "vacation_temp": "Urlaubs-Temperatur (°C)",
+          "summer_mode_enabled": "Sommerautomatik aktivieren",
+          "summer_threshold": "Sommerautomatik ab Außentemperatur (°C)",
+          "show_panel": "IHC-Dashboard in Seitenleiste anzeigen"
         },
         "data_description": {
           "outdoor_temp_sensor": "Sensor der die aktuelle Außentemperatur misst. Wird für die Heizkurve benötigt.",
@@ -95,7 +98,10 @@
           "min_off_time": "Mindest-Pausenzeit der Heizung in Minuten. Schützt den Brenner vor Kurzzyklen.",
           "min_rooms_demand": "Wie viele Zimmer gleichzeitig Wärme anfordern müssen, damit die Heizung einschaltet.",
           "away_temp": "Zieltemperatur im Abwesend-Modus für alle Zimmer. Typisch: 16–18 °C.",
-          "vacation_temp": "Zieltemperatur im Urlaubs-Modus. Nur Frostschutz. Typisch: 14–16 °C."
+          "vacation_temp": "Zieltemperatur im Urlaubs-Modus. Nur Frostschutz. Typisch: 14–16 °C.",
+          "summer_mode_enabled": "Wenn aktiv, wird die Heizung automatisch gesperrt sobald die Außentemperatur den Schwellenwert überschreitet.",
+          "summer_threshold": "Ab dieser Außentemperatur schaltet die Sommerautomatik die Heizung ab. Typisch: 15–20 °C.",
+          "show_panel": "Wenn deaktiviert, wird das IHC-Dashboard aus der Seitenleiste entfernt. Alle Entitäten bleiben erhalten."
         }
       },
       "heating_curve": {

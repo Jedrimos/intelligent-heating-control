@@ -320,6 +320,7 @@ class IHCPanel extends HTMLElement {
     const panel = shadow.querySelector(".panel");
     panel.innerHTML = `
       <div class="header">
+        <button class="btn btn-secondary" id="btn-back" style="margin-right:8px">← Dashboard</button>
         <ha-icon icon="mdi:radiator" style="color:var(--primary-color);font-size:32px"></ha-icon>
         <h1>Intelligent Heating Control</h1>
       </div>
@@ -341,6 +342,13 @@ class IHCPanel extends HTMLElement {
       <div id="modal-container"></div>
       <div id="toast-container"></div>
     `;
+    panel.querySelector("#btn-back").addEventListener("click", () => {
+      if (this._hass && this._hass.navigate) {
+        this._hass.navigate("/");
+      } else {
+        history.back();
+      }
+    });
     panel.querySelectorAll(".tab").forEach(tab => {
       tab.addEventListener("click", () => {
         this._activeTab = tab.dataset.tab;
@@ -1092,8 +1100,8 @@ class IHCPanel extends HTMLElement {
       min_off_time: parseInt(shadow.querySelector("#min-off-time")?.value || 5),
       min_rooms_demand: parseInt(shadow.querySelector("#min-rooms")?.value || 1),
     };
-    await this._callService("reload", data);
-    this._toast("✓ Einstellungen gespeichert! Bitte Integration neu laden.");
+    await this._callService("reload", {});
+    this._toast("✓ Integration neu geladen.");
   }
 
   // -----------------------------------------------------------------------

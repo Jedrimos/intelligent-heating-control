@@ -24,6 +24,9 @@ from .const import (
     CONF_MIN_ROOMS_DEMAND,
     CONF_AWAY_TEMP,
     CONF_VACATION_TEMP,
+    CONF_SUMMER_MODE_ENABLED,
+    CONF_SUMMER_THRESHOLD,
+    CONF_SHOW_PANEL,
     CONF_HEATING_CURVE,
     CONF_CURVE_POINTS,
     CONF_ROOMS,
@@ -62,6 +65,7 @@ from .const import (
     DEFAULT_HEATING_CURVE,
     DEFAULT_WINDOW_OPEN_TEMP,
     DEFAULT_WINDOW_REACTION_TIME,
+    DEFAULT_SUMMER_THRESHOLD,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -307,6 +311,20 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "number": {"min": 5, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
+            vol.Optional(
+                CONF_SUMMER_MODE_ENABLED,
+                default=bool(cfg.get(CONF_SUMMER_MODE_ENABLED, False))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_SUMMER_THRESHOLD,
+                default=float(cfg.get(CONF_SUMMER_THRESHOLD, DEFAULT_SUMMER_THRESHOLD))
+            ): selector.selector({
+                "number": {"min": 10, "max": 30, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_SHOW_PANEL,
+                default=bool(cfg.get(CONF_SHOW_PANEL, True))
+            ): selector.selector({"boolean": {}}),
         })
         return self.async_show_form(step_id="global_settings", data_schema=vol.Schema(schema_dict), errors=errors)
 

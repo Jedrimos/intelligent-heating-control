@@ -98,7 +98,8 @@ class HeatingController:
 
         self._heating_active: bool = False
         self._cooling_active: bool = False
-        self._last_state_change: datetime = datetime.now()
+        self._last_heating_state_change: datetime = datetime.now()
+        self._last_cooling_state_change: datetime = datetime.now()
 
         # Room state cache: {room_id: RoomState}
         self._room_states: Dict[str, dict] = {}
@@ -217,8 +218,9 @@ class HeatingController:
         if system_mode in (SYSTEM_MODE_OFF, SYSTEM_MODE_HEAT, SYSTEM_MODE_AWAY, SYSTEM_MODE_VACATION):
             return self._apply_min_time_cooling(False)
 
-        # For cooling, calculate cooling demand from room states
-        cooling_demands = []
+        # For cooling, calculate cooling demand from room states (weighted average)
+        weighted_sum = 0.0
+        total_weight = 0.0
         for state in self._room_states.values():
             if state["room_mode"] == ROOM_MODE_OFF:
                 continue
@@ -226,14 +228,14 @@ class HeatingController:
             tt = state["target_temp"]
             if ct is None:
                 continue
-            cooling_demands.append(
-                calculate_room_cooling_demand(ct, tt, 0.5) * state["weight"]
-            )
+            w = state["weight"]
+            weighted_sum += calculate_room_cooling_demand(ct, tt, 0.5) * w
+            total_weight += w
 
-        if not cooling_demands:
+        if total_weight == 0:
             return self._apply_min_time_cooling(False)
 
-        total_cooling = sum(cooling_demands) / len(cooling_demands)
+        total_cooling = weighted_sum / total_weight
         if self._cooling_active:
             new_state = total_cooling >= (self._demand_threshold - self._demand_hysteresis)
         else:
@@ -244,7 +246,7 @@ class HeatingController:
     def _apply_min_time(self, desired: bool) -> bool:
         """Enforce minimum on/off times for heating."""
         now = datetime.now()
-        elapsed = now - self._last_state_change
+        elapsed = now - self._last_heating_state_change
 
         if desired == self._heating_active:
             return self._heating_active
@@ -255,7 +257,7 @@ class HeatingController:
                 _LOGGER.debug("Min ON time not reached (%s/%s)", elapsed, self._min_on_time)
                 return True  # Stay on
             self._heating_active = False
-            self._last_state_change = now
+            self._last_heating_state_change = now
 
         elif not self._heating_active and desired:
             # Want to turn ON - check min off time
@@ -263,14 +265,14 @@ class HeatingController:
                 _LOGGER.debug("Min OFF time not reached (%s/%s)", elapsed, self._min_off_time)
                 return False  # Stay off
             self._heating_active = True
-            self._last_state_change = now
+            self._last_heating_state_change = now
 
         return self._heating_active
 
     def _apply_min_time_cooling(self, desired: bool) -> bool:
         """Enforce minimum on/off times for cooling."""
         now = datetime.now()
-        elapsed = now - self._last_state_change
+        elapsed = now - self._last_cooling_state_change
 
         if desired == self._cooling_active:
             return self._cooling_active
@@ -279,12 +281,12 @@ class HeatingController:
             if elapsed < self._min_on_time:
                 return True
             self._cooling_active = False
-            self._last_state_change = now
+            self._last_cooling_state_change = now
         elif not self._cooling_active and desired:
             if elapsed < self._min_off_time:
                 return False
             self._cooling_active = True
-            self._last_state_change = now
+            self._last_cooling_state_change = now
 
         return self._cooling_active
 
@@ -328,7 +330,8 @@ class HeatingController:
             "rooms_demanding": self.get_rooms_demanding(),
             "demand_threshold": self._demand_threshold,
             "demand_hysteresis": self._demand_hysteresis,
-            "last_state_change": self._last_state_change.isoformat(),
+            "last_heating_state_change": self._last_heating_state_change.isoformat(),
+            "last_cooling_state_change": self._last_cooling_state_change.isoformat(),
             "min_on_time_minutes": self._min_on_time.seconds // 60,
             "min_off_time_minutes": self._min_off_time.seconds // 60,
             "rooms": {

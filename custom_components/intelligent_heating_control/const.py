@@ -19,6 +19,9 @@ CONF_AWAY_TEMP: Final = "away_temp"
 CONF_VACATION_TEMP: Final = "vacation_temp"
 CONF_PRESENCE_ENTITY: Final = "presence_entity"
 CONF_ENABLE_COOLING: Final = "enable_cooling"
+CONF_SUMMER_MODE_ENABLED: Final = "summer_mode_enabled"
+CONF_SUMMER_THRESHOLD: Final = "summer_threshold"
+CONF_SHOW_PANEL: Final = "show_panel"
 
 # Config keys - rooms
 CONF_ROOMS: Final = "rooms"
@@ -70,6 +73,7 @@ DEFAULT_MIN_TEMP: Final = 5.0
 DEFAULT_MAX_TEMP: Final = 30.0
 DEFAULT_WINDOW_OPEN_TEMP: Final = 5.0
 DEFAULT_WINDOW_REACTION_TIME: Final = 30
+DEFAULT_SUMMER_THRESHOLD: Final = 18.0
 
 # Default heating curve points (outdoor_temp -> target_temp)
 DEFAULT_HEATING_CURVE: Final = [
@@ -128,6 +132,7 @@ SERVICE_UPDATE_ROOM: Final = "update_room"
 SERVICE_SET_ROOM_MODE: Final = "set_room_mode"
 SERVICE_SET_SYSTEM_MODE: Final = "set_system_mode"
 SERVICE_SET_ROOM_SCHEDULE: Final = "set_room_schedule"
+SERVICE_BOOST_ROOM: Final = "boost_room"
 SERVICE_RELOAD: Final = "reload"
 
 # Storage key

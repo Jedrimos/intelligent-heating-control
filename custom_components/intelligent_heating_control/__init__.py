@@ -21,6 +21,7 @@ from .const import (
     SERVICE_UPDATE_ROOM,
     SERVICE_SET_ROOM_MODE,
     SERVICE_SET_SYSTEM_MODE,
+    SERVICE_BOOST_ROOM,
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
     CONF_TEMP_SENSOR,
@@ -46,6 +47,7 @@ from .const import (
     DEFAULT_MAX_TEMP,
     ROOM_MODES,
     SYSTEM_MODES,
+    CONF_SHOW_PANEL,
 )
 from .coordinator import IHCCoordinator
 
@@ -70,8 +72,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register entity platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Register the custom frontend panel
-    await _async_register_panel(hass)
+    # Register the custom frontend panel (only if not hidden by user)
+    cfg = dict(entry.data)
+    cfg.update(entry.options)
+    if cfg.get(CONF_SHOW_PANEL, True):
+        await _async_register_panel(hass)
 
     # Register HA services
     _register_services(hass, coordinator, entry)
@@ -180,9 +185,24 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         if mode in SYSTEM_MODES:
             coordinator.set_system_mode(mode)
 
+    async def handle_boost_room(call: ServiceCall) -> None:
+        room_id = call.data.get(CONF_ROOM_ID)
+        duration = int(call.data.get("duration_minutes", 60))
+        cancel = bool(call.data.get("cancel", False))
+        if room_id:
+            if cancel:
+                coordinator.cancel_room_boost(room_id)
+            else:
+                coordinator.set_room_boost(room_id, duration)
+
+    async def handle_reload(call: ServiceCall) -> None:
+        await hass.config_entries.async_reload(entry.entry_id)
+
     if not hass.services.has_service(DOMAIN, SERVICE_ADD_ROOM):
         hass.services.async_register(DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
         hass.services.async_register(DOMAIN, SERVICE_REMOVE_ROOM, handle_remove_room)
         hass.services.async_register(DOMAIN, SERVICE_UPDATE_ROOM, handle_update_room)
         hass.services.async_register(DOMAIN, SERVICE_SET_ROOM_MODE, handle_set_room_mode)
         hass.services.async_register(DOMAIN, SERVICE_SET_SYSTEM_MODE, handle_set_system_mode)
+        hass.services.async_register(DOMAIN, SERVICE_BOOST_ROOM, handle_boost_room)
+        hass.services.async_register(DOMAIN, "reload", handle_reload)

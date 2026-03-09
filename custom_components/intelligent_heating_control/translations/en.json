@@ -82,7 +82,10 @@
           "min_off_time": "Minimum Off-Time (min)",
           "min_rooms_demand": "Minimum Rooms Demanding Heat",
           "away_temp": "Away Temperature (°C)",
-          "vacation_temp": "Vacation Temperature (°C)"
+          "vacation_temp": "Vacation Temperature (°C)",
+          "summer_mode_enabled": "Enable Summer Mode",
+          "summer_threshold": "Summer Mode Threshold (°C)",
+          "show_panel": "Show IHC Dashboard in sidebar"
         },
         "data_description": {
           "outdoor_temp_sensor": "Sensor measuring the current outdoor temperature. Used for the heating curve.",
@@ -95,7 +98,10 @@
           "min_off_time": "Minimum pause time of the heating in minutes. Protects the boiler from short cycling.",
           "min_rooms_demand": "How many rooms must simultaneously request heat before the heating turns on.",
           "away_temp": "Target temperature in Away mode for all rooms. Typical: 16–18 °C.",
-          "vacation_temp": "Target temperature in Vacation mode. Frost protection only. Typical: 14–16 °C."
+          "vacation_temp": "Target temperature in Vacation mode. Frost protection only. Typical: 14–16 °C.",
+          "summer_mode_enabled": "When enabled, heating is automatically blocked when outdoor temperature exceeds the threshold.",
+          "summer_threshold": "Outdoor temperature above which Summer Mode disables heating. Typical: 15–20 °C.",
+          "show_panel": "When disabled, the IHC dashboard is removed from the sidebar. All entities remain available."
         }
       },
       "heating_curve": {

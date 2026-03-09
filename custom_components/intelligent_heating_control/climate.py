@@ -73,7 +73,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
     """Climate entity representing a single room."""
 
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_hvac_modes = [HVACMode.HEAT, HVACMode.COOL, HVACMode.AUTO, HVACMode.OFF]
+    _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
     _attr_preset_modes = list(PRESET_TO_MODE.keys())
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
@@ -162,7 +162,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         if hvac_mode == HVACMode.OFF:
             self.coordinator.set_room_mode(self._room_id, ROOM_MODE_OFF)
-        else:
+        elif hvac_mode == HVACMode.HEAT:
             current = self.coordinator.get_room_mode(self._room_id)
             if current == ROOM_MODE_OFF:
                 self.coordinator.set_room_mode(self._room_id, ROOM_MODE_AUTO)
