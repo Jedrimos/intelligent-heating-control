@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -89,7 +90,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Remove panel if no more entries
     if not hass.data[DOMAIN]:
-        hass.components.frontend.async_remove_panel(PANEL_URL)
+        frontend.async_remove_panel(hass, PANEL_URL)
 
     return unloaded
 
@@ -112,12 +113,13 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         return
 
     # Register static path
-    hass.http.async_register_static_paths([
+    await hass.http.async_register_static_paths([
         StaticPathConfig("/ihc_static", str(panel_dir), cache_headers=False)
     ])
 
     # Register as custom panel
-    hass.components.frontend.async_register_built_in_panel(
+    frontend.async_register_built_in_panel(
+        hass,
         component_name="custom",
         sidebar_title=PANEL_TITLE,
         sidebar_icon=PANEL_ICON,
