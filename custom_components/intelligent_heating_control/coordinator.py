@@ -62,7 +62,16 @@ from .const import (
     CONF_CURVE_POINTS,
     CONF_SUMMER_MODE_ENABLED,
     CONF_SUMMER_THRESHOLD,
+    CONF_PRESENCE_ENTITIES,
+    CONF_FROST_PROTECTION_TEMP,
+    CONF_NIGHT_SETBACK_ENABLED,
+    CONF_NIGHT_SETBACK_OFFSET,
+    CONF_SUN_ENTITY,
+    CONF_PREHEAT_MINUTES,
     DEFAULT_SUMMER_THRESHOLD,
+    DEFAULT_FROST_PROTECTION_TEMP,
+    DEFAULT_NIGHT_SETBACK_OFFSET,
+    DEFAULT_PREHEAT_MINUTES,
     DEFAULT_DEMAND_THRESHOLD,
     DEFAULT_DEMAND_HYSTERESIS,
     DEFAULT_MIN_ON_TIME,
@@ -119,6 +128,16 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._room_manual_temps: Dict[str, float] = {}
         self._window_open_counters: Dict[str, int] = {}  # room_id → consecutive drops
         self._boost_until: Dict[str, datetime] = {}  # room_id → boost expiry time
+
+        # Presence-based auto-away
+        self._presence_away_active: bool = False  # True when auto-away triggered by presence
+
+        # Energy / runtime tracking
+        self._heating_started_at: Optional[datetime] = None
+        self._heating_runtime_today: float = 0.0       # total seconds today
+        self._room_demand_started: Dict[str, datetime] = {}  # room_id → when demand went > 0
+        self._room_runtime_today: Dict[str, float] = {}      # room_id → seconds today
+        self._runtime_day: int = datetime.now().day           # to detect day rollover
 
         # Build sub-components from config
         self._rebuild_from_config()
@@ -235,6 +254,131 @@ class IHCCoordinator(DataUpdateCoordinator):
         return outdoor_temp >= threshold
 
     # ------------------------------------------------------------------
+    # Presence detection
+    # ------------------------------------------------------------------
+
+    def _check_presence(self) -> bool:
+        """
+        Return True if at least one tracked person is home.
+
+        Checks `presence_entities` list (person.* or device_tracker.*).
+        If no entities configured, always returns True (unknown = home).
+        """
+        cfg = self.get_config()
+        entities: list = cfg.get(CONF_PRESENCE_ENTITIES, [])
+        if not entities:
+            return True  # no tracking configured → assume home
+
+        home_states = {"home", "on", STATE_ON}
+        for entity_id in entities:
+            if not entity_id:
+                continue
+            state = self.hass.states.get(entity_id)
+            if state and state.state.lower() in home_states:
+                return True
+        return False
+
+    def _update_presence_auto_away(self) -> None:
+        """
+        Auto-switch system mode to AWAY when everyone leaves,
+        and back to AUTO when someone returns.
+        Only acts when system_mode is currently AUTO (or already presence-away).
+        """
+        someone_home = self._check_presence()
+        cfg = self.get_config()
+        entities: list = cfg.get(CONF_PRESENCE_ENTITIES, [])
+        if not entities:
+            return  # feature disabled
+
+        if not someone_home and self._system_mode == SYSTEM_MODE_AUTO:
+            _LOGGER.info("IHC: All persons away – activating auto-away mode")
+            self._system_mode = SYSTEM_MODE_AWAY
+            self._presence_away_active = True
+
+        elif someone_home and self._presence_away_active:
+            _LOGGER.info("IHC: Person arrived home – restoring auto mode")
+            self._system_mode = SYSTEM_MODE_AUTO
+            self._presence_away_active = False
+
+    # ------------------------------------------------------------------
+    # Night setback
+    # ------------------------------------------------------------------
+
+    def _is_night_setback_active(self) -> bool:
+        """Return True if night setback should apply (sun below horizon)."""
+        cfg = self.get_config()
+        if not cfg.get(CONF_NIGHT_SETBACK_ENABLED, False):
+            return False
+        sun_entity = cfg.get(CONF_SUN_ENTITY, "sun.sun")
+        state = self.hass.states.get(sun_entity)
+        if state is None:
+            return False
+        return state.state == "below_horizon"
+
+    # ------------------------------------------------------------------
+    # Frost protection
+    # ------------------------------------------------------------------
+
+    def _get_frost_protection_temp(self) -> float:
+        cfg = self.get_config()
+        return float(cfg.get(CONF_FROST_PROTECTION_TEMP, DEFAULT_FROST_PROTECTION_TEMP))
+
+    # ------------------------------------------------------------------
+    # Energy / runtime tracking
+    # ------------------------------------------------------------------
+
+    def _reset_runtime_if_new_day(self) -> None:
+        today = datetime.now().day
+        if today != self._runtime_day:
+            self._heating_runtime_today = 0.0
+            self._room_runtime_today = {}
+            self._runtime_day = today
+
+    def _update_runtime_tracking(self, should_heat: bool, room_data: dict) -> None:
+        """Track heating on-times for energy statistics."""
+        now = datetime.now()
+        self._reset_runtime_if_new_day()
+
+        # Global heating runtime
+        if should_heat:
+            if self._heating_started_at is None:
+                self._heating_started_at = now
+        else:
+            if self._heating_started_at is not None:
+                elapsed = (now - self._heating_started_at).total_seconds()
+                self._heating_runtime_today += elapsed
+                self._heating_started_at = None
+
+        # Per-room demand runtime (demand > 0 counts as "room heating")
+        for room_id, rdata in room_data.items():
+            demand = rdata.get("demand", 0.0)
+            if demand > 0 and should_heat:
+                if room_id not in self._room_demand_started:
+                    self._room_demand_started[room_id] = now
+            else:
+                started = self._room_demand_started.pop(room_id, None)
+                if started is not None:
+                    elapsed = (now - started).total_seconds()
+                    self._room_runtime_today[room_id] = (
+                        self._room_runtime_today.get(room_id, 0.0) + elapsed
+                    )
+
+    def get_heating_runtime_today_minutes(self) -> float:
+        """Total heating runtime today in minutes (including current session)."""
+        total = self._heating_runtime_today
+        if self._heating_started_at is not None:
+            total += (datetime.now() - self._heating_started_at).total_seconds()
+        return round(total / 60.0, 1)
+
+    def get_room_runtime_today_minutes(self, room_id: str) -> float:
+        """Room heating demand runtime today in minutes."""
+        total = self._room_runtime_today.get(room_id, 0.0)
+        started = self._room_demand_started.get(room_id)
+        if started is not None:
+            total += (datetime.now() - started).total_seconds()
+        return round(total / 60.0, 1)
+
+    # ------------------------------------------------------------------
     # Temperature calculation logic
     # ------------------------------------------------------------------
 
@@ -307,17 +451,21 @@ class IHCCoordinator(DataUpdateCoordinator):
         room_mode = self.get_room_mode(room_id)
         system_mode = self._system_mode
 
+        frost_temp = self._get_frost_protection_temp()
+
         # --- 1. System mode overrides ---
         if system_mode == SYSTEM_MODE_OFF:
-            return min_temp, {"source": "system_off", "schedule_active": False}
+            # Frost protection: even in OFF we keep a minimum
+            return frost_temp, {"source": "frost_protection", "schedule_active": False}
 
         if system_mode == SYSTEM_MODE_AWAY:
             away_temp = float(cfg.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP))
-            return away_temp, {"source": "system_away", "schedule_active": False}
+            # Frost protection: away temp must be at least frost_temp
+            return max(away_temp, frost_temp), {"source": "system_away", "schedule_active": False}
 
         if system_mode == SYSTEM_MODE_VACATION:
             vac_temp = float(cfg.get(CONF_VACATION_TEMP, DEFAULT_VACATION_TEMP))
-            return vac_temp, {"source": "system_vacation", "schedule_active": False}
+            return max(vac_temp, frost_temp), {"source": "system_vacation", "schedule_active": False}
 
         # --- 2. Room mode preset overrides ---
         if room_mode == ROOM_MODE_OFF:
@@ -352,23 +500,44 @@ class IHCCoordinator(DataUpdateCoordinator):
                     "source": "manual", "schedule_active": False
                 }
 
-        # --- 3. Active schedule ---
+        # Determine night setback modifier (applied to schedule and curve temps)
+        night_setback = 0.0
+        night_active = self._is_night_setback_active()
+        if night_active:
+            night_setback = float(cfg.get(CONF_NIGHT_SETBACK_OFFSET, DEFAULT_NIGHT_SETBACK_OFFSET))
+
+        # Pre-heat window: look ahead into schedule to decide if we should heat early
+        preheat_minutes = int(cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES))
+
+        # --- 3. Active schedule or upcoming pre-heat period ---
         schedule_mgr = self._schedule_managers.get(room_id)
         if schedule_mgr:
             active_period = schedule_mgr.get_active_period()
+
+            # Pre-heat: if no active period but an upcoming one starts within preheat_minutes
+            if active_period is None and preheat_minutes > 0:
+                active_period = schedule_mgr.get_upcoming_period(preheat_minutes)
+                if active_period:
+                    source_tag = "preheat"
+                else:
+                    source_tag = "schedule"
+            else:
+                source_tag = "schedule"
+
             if active_period:
                 sched_temp = float(active_period["temperature"])
                 sched_offset = float(active_period.get("offset", 0.0))
-                # Schedule temp + per-period offset + room offset
-                target = sched_temp + sched_offset + room_offset
+                # Schedule temp + per-period offset + room offset - night setback
+                target = sched_temp + sched_offset + room_offset - night_setback
                 target = min(max_temp, max(min_temp, target))
                 return target, {
-                    "source": "schedule",
+                    "source": source_tag,
                     "schedule_active": True,
                     "period_start": active_period["start"],
                     "period_end": active_period["end"],
                     "schedule_base": sched_temp,
                     "schedule_offset": sched_offset,
+                    "night_setback": night_setback,
                 }
 
         # --- 4. Heating curve + room offset (default / outside schedule) ---
@@ -378,13 +547,14 @@ class IHCCoordinator(DataUpdateCoordinator):
             # Fallback: use comfort temp if no outdoor sensor available
             curve_target = float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP))
 
-        target = curve_target + room_offset
+        target = curve_target + room_offset - night_setback
         target = min(max_temp, max(min_temp, target))
         return target, {
             "source": "heating_curve",
             "schedule_active": False,
             "curve_base": curve_target,
             "room_offset": room_offset,
+            "night_setback": night_setback,
         }
 
     # ------------------------------------------------------------------
@@ -455,6 +625,9 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Expire any boost timers
         self._check_boost_expiry()
 
+        # Presence-based auto-away
+        self._update_presence_auto_away()
+
         outdoor_temp = self._get_outdoor_temp()
         curve_target = (
             self._heating_curve.get_target_temp(outdoor_temp)
@@ -516,10 +689,19 @@ class IHCCoordinator(DataUpdateCoordinator):
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
 
+        # Track energy / runtime
+        self._update_runtime_tracking(should_heat, room_data)
+
+        # Add per-room runtime to room_data
+        for room_id in room_data:
+            room_data[room_id]["runtime_today_minutes"] = self.get_room_runtime_today_minutes(room_id)
+
         # Control the physical heating/cooling switches
         self._set_heating_switch(should_heat)
         if enable_cooling:
             self._set_cooling_switch(should_cool)
+
+        night_setback_active = self._is_night_setback_active()
 
         return {
             "outdoor_temp": outdoor_temp,
@@ -529,7 +711,10 @@ class IHCCoordinator(DataUpdateCoordinator):
             "heating_active": should_heat,
             "cooling_active": should_cool,
             "summer_mode": summer_mode,
+            "night_setback_active": night_setback_active,
+            "presence_away_active": self._presence_away_active,
             "system_mode": self._system_mode,
+            "heating_runtime_today": self.get_heating_runtime_today_minutes(),
             "rooms": room_data,
             "debug": self._controller.get_debug_info(),
         }

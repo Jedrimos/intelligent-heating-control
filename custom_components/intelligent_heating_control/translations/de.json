@@ -85,7 +85,13 @@
           "vacation_temp": "Urlaubs-Temperatur (°C)",
           "summer_mode_enabled": "Sommerautomatik aktivieren",
           "summer_threshold": "Sommerautomatik ab Außentemperatur (°C)",
-          "show_panel": "IHC-Dashboard in Seitenleiste anzeigen"
+          "show_panel": "IHC-Dashboard in Seitenleiste anzeigen",
+          "presence_entities": "Anwesenheits-Entitäten",
+          "frost_protection_temp": "Frostschutz-Temperatur (°C)",
+          "night_setback_enabled": "Nachtabsenkung aktivieren",
+          "night_setback_offset": "Nachtabsenkung Offset (°C)",
+          "sun_entity": "Sonnen-Entität",
+          "preheat_minutes": "Vorheiz-Vorlaufzeit (Minuten)"
         },
         "data_description": {
           "outdoor_temp_sensor": "Sensor der die aktuelle Außentemperatur misst. Wird für die Heizkurve benötigt.",
@@ -101,7 +107,13 @@
           "vacation_temp": "Zieltemperatur im Urlaubs-Modus. Nur Frostschutz. Typisch: 14–16 °C.",
           "summer_mode_enabled": "Wenn aktiv, wird die Heizung automatisch gesperrt sobald die Außentemperatur den Schwellenwert überschreitet.",
           "summer_threshold": "Ab dieser Außentemperatur schaltet die Sommerautomatik die Heizung ab. Typisch: 15–20 °C.",
-          "show_panel": "Wenn deaktiviert, wird das IHC-Dashboard aus der Seitenleiste entfernt. Alle Entitäten bleiben erhalten."
+          "show_panel": "Wenn deaktiviert, wird das IHC-Dashboard aus der Seitenleiste entfernt. Alle Entitäten bleiben erhalten.",
+          "presence_entities": "Personen- oder Geräteentitäten zur Anwesenheitserkennung. Wenn alle Personen abwesend sind, schaltet IHC automatisch in den Abwesend-Modus. Leer lassen = deaktiviert.",
+          "frost_protection_temp": "Minimale Schutztemperatur. Auch im OFF- oder Abwesend-Modus wird diese Temperatur nie unterschritten. Empfehlung: 7 °C.",
+          "night_setback_enabled": "Wenn aktiv, werden Zieltemperaturen nachts automatisch um den Offset abgesenkt (wenn Sonne unter dem Horizont ist).",
+          "night_setback_offset": "Um wie viele Grad die Zieltemperatur in der Nacht abgesenkt wird. Typisch: 2–4 °C.",
+          "sun_entity": "Sonnen-Entität zur Erkennung von Tag/Nacht. Standard: sun.sun",
+          "preheat_minutes": "Wie viele Minuten vor einem Zeitplan-Start die Heizung bereits beginnt aufzuheizen. 0 = Vorheizen deaktiviert."
         }
       },
       "heating_curve": {

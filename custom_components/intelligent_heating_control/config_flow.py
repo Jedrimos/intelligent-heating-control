@@ -27,6 +27,12 @@ from .const import (
     CONF_SUMMER_MODE_ENABLED,
     CONF_SUMMER_THRESHOLD,
     CONF_SHOW_PANEL,
+    CONF_PRESENCE_ENTITIES,
+    CONF_FROST_PROTECTION_TEMP,
+    CONF_NIGHT_SETBACK_ENABLED,
+    CONF_NIGHT_SETBACK_OFFSET,
+    CONF_SUN_ENTITY,
+    CONF_PREHEAT_MINUTES,
     CONF_HEATING_CURVE,
     CONF_CURVE_POINTS,
     CONF_ROOMS,
@@ -66,6 +72,9 @@ from .const import (
     DEFAULT_WINDOW_OPEN_TEMP,
     DEFAULT_WINDOW_REACTION_TIME,
     DEFAULT_SUMMER_THRESHOLD,
+    DEFAULT_FROST_PROTECTION_TEMP,
+    DEFAULT_NIGHT_SETBACK_OFFSET,
+    DEFAULT_PREHEAT_MINUTES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -325,6 +334,42 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_SHOW_PANEL,
                 default=bool(cfg.get(CONF_SHOW_PANEL, True))
             ): selector.selector({"boolean": {}}),
+            # --- Presence detection ---
+            vol.Optional(
+                CONF_PRESENCE_ENTITIES,
+                default=list(cfg.get(CONF_PRESENCE_ENTITIES, []))
+            ): selector.selector({
+                "entity": {"domain": ["person", "device_tracker", "input_boolean"], "multiple": True}
+            }),
+            # --- Frost protection ---
+            vol.Optional(
+                CONF_FROST_PROTECTION_TEMP,
+                default=float(cfg.get(CONF_FROST_PROTECTION_TEMP, DEFAULT_FROST_PROTECTION_TEMP))
+            ): selector.selector({
+                "number": {"min": 4, "max": 15, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            # --- Night setback ---
+            vol.Optional(
+                CONF_NIGHT_SETBACK_ENABLED,
+                default=bool(cfg.get(CONF_NIGHT_SETBACK_ENABLED, False))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_NIGHT_SETBACK_OFFSET,
+                default=float(cfg.get(CONF_NIGHT_SETBACK_OFFSET, DEFAULT_NIGHT_SETBACK_OFFSET))
+            ): selector.selector({
+                "number": {"min": 0.5, "max": 6, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_SUN_ENTITY,
+                default=cfg.get(CONF_SUN_ENTITY, "sun.sun")
+            ): selector.selector({"entity": {"domain": "sun"}}),
+            # --- Pre-heat window ---
+            vol.Optional(
+                CONF_PREHEAT_MINUTES,
+                default=int(cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES))
+            ): selector.selector({
+                "number": {"min": 0, "max": 120, "step": 5, "unit_of_measurement": "min", "mode": "slider"}
+            }),
         })
         return self.async_show_form(step_id="global_settings", data_schema=vol.Schema(schema_dict), errors=errors)
 

@@ -23,6 +23,20 @@ CONF_SUMMER_MODE_ENABLED: Final = "summer_mode_enabled"
 CONF_SUMMER_THRESHOLD: Final = "summer_threshold"
 CONF_SHOW_PANEL: Final = "show_panel"
 
+# Presence detection
+CONF_PRESENCE_ENTITIES: Final = "presence_entities"  # list of person / device_tracker entities
+
+# Frost protection
+CONF_FROST_PROTECTION_TEMP: Final = "frost_protection_temp"  # min temp even in OFF/AWAY mode
+
+# Night setback
+CONF_NIGHT_SETBACK_ENABLED: Final = "night_setback_enabled"
+CONF_NIGHT_SETBACK_OFFSET: Final = "night_setback_offset"   # °C to subtract at night
+CONF_SUN_ENTITY: Final = "sun_entity"                        # defaults to "sun.sun"
+
+# Pre-heat window (minutes before schedule start to begin heating)
+CONF_PREHEAT_MINUTES: Final = "preheat_minutes"
+
 # Config keys - rooms
 CONF_ROOMS: Final = "rooms"
 CONF_ROOM_ID: Final = "id"
@@ -76,6 +90,9 @@ DEFAULT_MAX_TEMP: Final = 30.0
 DEFAULT_WINDOW_OPEN_TEMP: Final = 5.0
 DEFAULT_WINDOW_REACTION_TIME: Final = 30
 DEFAULT_SUMMER_THRESHOLD: Final = 18.0
+DEFAULT_FROST_PROTECTION_TEMP: Final = 7.0
+DEFAULT_NIGHT_SETBACK_OFFSET: Final = 2.0
+DEFAULT_PREHEAT_MINUTES: Final = 0  # disabled by default
 
 # Default heating curve points (outdoor_temp -> target_temp)
 DEFAULT_HEATING_CURVE: Final = [
@@ -136,6 +153,9 @@ SERVICE_SET_SYSTEM_MODE: Final = "set_system_mode"
 SERVICE_SET_ROOM_SCHEDULE: Final = "set_room_schedule"
 SERVICE_BOOST_ROOM: Final = "boost_room"
 SERVICE_RELOAD: Final = "reload"
+
+# Presence / away-mode reason
+PRESENCE_AUTO_AWAY_REASON: Final = "presence_auto_away"
 
 # Storage key
 STORAGE_KEY: Final = f"{DOMAIN}.storage"

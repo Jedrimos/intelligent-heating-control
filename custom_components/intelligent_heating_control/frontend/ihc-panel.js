@@ -296,9 +296,13 @@ class IHCPanel extends HTMLElement {
       this._render();
       return;
     }
-    // Don't destroy modal or disturb user interaction
     if (this._modalOpen) return;
-    this._renderTabContent();
+    // CRITICAL: Only auto-update the live overview tab on every HA state push.
+    // All other tabs (settings, schedules, curve, rooms) contain user input fields
+    // that must NOT be reset by background refreshes.
+    if (this._activeTab === "overview") {
+      this._renderTabContent();
+    }
   }
 
   connectedCallback() {
@@ -427,15 +431,15 @@ class IHCPanel extends HTMLElement {
         room_mode: state.attributes.room_mode || "auto",
         schedule_active: state.attributes.schedule_active || false,
         source: state.attributes.source || "",
-        boost_remaining: 0,
+        boost_remaining: state.attributes.boost_remaining || 0,
+        night_setback: state.attributes.night_setback || 0,
+        runtime_today_minutes: 0,
       };
     });
     // Enrich from demand sensors
     Object.entries(this._hass.states).forEach(([entityId, state]) => {
       if (!entityId.startsWith("sensor.ihc_") || !entityId.endsWith("_anforderung")) return;
-      const baseName = entityId
-        .replace("sensor.ihc_", "")
-        .replace("_anforderung", "");
+      const baseName = entityId.replace("sensor.ihc_", "").replace("_anforderung", "");
       const climateId = `climate.ihc_${baseName}`;
       if (rooms[climateId]) {
         rooms[climateId].demand = parseFloat(state.state) || 0;
@@ -447,6 +451,17 @@ class IHCPanel extends HTMLElement {
           rooms[climateId].window_open = state.attributes.window_open;
         if (state.attributes.source !== undefined)
           rooms[climateId].source = state.attributes.source;
+        if (state.attributes.night_setback !== undefined)
+          rooms[climateId].night_setback = state.attributes.night_setback;
+      }
+    });
+    // Enrich runtime from runtime sensors
+    Object.entries(this._hass.states).forEach(([entityId, state]) => {
+      if (!entityId.startsWith("sensor.ihc_") || !entityId.endsWith("_laufzeit_heute")) return;
+      const baseName = entityId.replace("sensor.ihc_", "").replace("_laufzeit_heute", "");
+      const climateId = `climate.ihc_${baseName}`;
+      if (rooms[climateId]) {
+        rooms[climateId].runtime_today_minutes = parseFloat(state.state) || 0;
       }
     });
     return rooms;
@@ -458,14 +473,19 @@ class IHCPanel extends HTMLElement {
     const sel = this._st("select.ihc_systemmodus");
     const ct  = this._st("sensor.ihc_heizkurven_zieltemperatur");
     const ot  = this._st("sensor.ihc_aussentemperatur");
+    const rt  = this._st("sensor.ihc_heizlaufzeit_heute");
+    const a   = dem ? (dem.attributes || {}) : {};
     return {
-      total_demand:    dem ? parseFloat(dem.state) || 0 : null,
-      heating_active:  sw  ? sw.state === "on" : false,
-      system_mode:     sel ? sel.state : "—",
-      curve_target:    ct  ? parseFloat(ct.state) : null,
-      outdoor_temp:    ot  ? parseFloat(ot.state) : null,
-      rooms_demanding: dem ? (dem.attributes.rooms_demanding || 0) : 0,
-      summer_mode:     false, // shown from status bar if cooling_switch is off due to summer
+      total_demand:           dem ? parseFloat(dem.state) || 0 : null,
+      heating_active:         sw  ? sw.state === "on" : (a.heating_active || false),
+      system_mode:            sel ? sel.state : "—",
+      curve_target:           ct  ? parseFloat(ct.state) : null,
+      outdoor_temp:           ot  ? parseFloat(ot.state) : null,
+      rooms_demanding:        a.rooms_demanding || 0,
+      summer_mode:            a.summer_mode || false,
+      night_setback_active:   a.night_setback_active || false,
+      presence_away_active:   a.presence_away_active || false,
+      heating_runtime_today:  rt  ? parseFloat(rt.state) || 0 : (a.heating_runtime_today || 0),
     };
   }
 
@@ -511,9 +531,11 @@ class IHCPanel extends HTMLElement {
 
       const srcMap = {
         "heating_curve": "Heizkurve", "schedule": "Zeitplan",
-        "comfort": "Komfort", "eco": "Eco", "sleep": "Schlafen",
+        "preheat": "⏱ Vorheizen", "comfort": "Komfort",
+        "eco": "Eco", "sleep": "Schlafen",
         "system_away": "Sys. Abwesend", "system_vacation": "Urlaub",
         "room_off": "Aus", "manual": "Manuell", "room_away": "Abwesend",
+        "frost_protection": "❄ Frostschutz",
       };
       const src = srcMap[room.source] || room.source;
 
@@ -540,11 +562,12 @@ class IHCPanel extends HTMLElement {
           <div class="demand-bar-bg">
             <div class="demand-bar" style="width:${room.demand}%;background:${this._demandColor(room.demand)}"></div>
           </div>
-          <div class="demand-label">${room.demand} % Anforderung · ${src}</div>
+          <div class="demand-label">${room.demand} % Anforderung · ${src}${room.night_setback > 0 ? ` · 🌙-${room.night_setback}°` : ""}</div>
           <div class="mode-chips">${modeChips}
             <span class="mode-chip boost" data-room-id="${room.room_id}" data-action="boost"
               title="60min Boost">⚡</span>
           </div>
+          ${room.runtime_today_minutes > 0 ? `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:4px">⏱ ${room.runtime_today_minutes} min heute</div>` : ""}
         </div>`;
     }).join("");
 
@@ -552,6 +575,10 @@ class IHCPanel extends HTMLElement {
       ${Object.keys(rooms).length === 0 ? `<div class="info-box">
         Noch keine Zimmer konfiguriert. Gehe zum Tab <strong>Zimmer</strong> und füge dein erstes Zimmer hinzu.
       </div>` : ""}
+
+      ${g.summer_mode ? `<div class="summer-banner">☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</div>` : ""}
+      ${g.night_setback_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#1565c0;">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : ""}
+      ${g.presence_away_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);border-color:#e65100;">🚶 <strong>Anwesenheits-Abwesend</strong> – niemand zuhause</div>` : ""}
 
       <div class="status-grid">
         <div class="status-item">
@@ -577,6 +604,10 @@ class IHCPanel extends HTMLElement {
         <div class="status-item">
           <div class="status-label">Modus</div>
           <div class="status-value" style="font-size:13px;padding-top:4px">${SYSTEM_MODE_LABELS[g.system_mode] || g.system_mode}</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Laufzeit heute</div>
+          <div class="status-value" style="font-size:16px">${g.heating_runtime_today} min</div>
         </div>
       </div>
 
@@ -660,17 +691,18 @@ class IHCPanel extends HTMLElement {
   _renderSettings(content) {
     const systemSel = this._st("select.ihc_systemmodus");
     const curMode   = systemSel ? systemSel.state : "auto";
-
-    // Read settings from demand sensor attributes (what coordinator knows)
     const dem = this._st("sensor.ihc_gesamtanforderung") || { attributes: {} };
     const a   = dem.attributes;
+    const g   = this._getGlobal();
 
+    // Note: settings tab is never auto-refreshed by set hass() so values won't reset while typing.
     content.innerHTML = `
       <!-- System mode -->
       <div class="card">
         <div class="card-title">🏠 Betriebsmodus</div>
+        ${g.presence_away_active ? `<div class="info-box">🚶 Automatisch auf <strong>Abwesend</strong> gesetzt (niemand zuhause). Kehrt automatisch zurück wenn jemand heimkommt.</div>` : ""}
         <div class="form-group">
-          <label class="form-label">System-Modus</label>
+          <label class="form-label">System-Modus manuell setzen</label>
           <div class="form-row">
             <select class="form-select" id="system-mode-select">
               ${Object.entries(SYSTEM_MODE_LABELS).map(([k, v]) =>
@@ -682,21 +714,27 @@ class IHCPanel extends HTMLElement {
         </div>
       </div>
 
-      <!-- Abwesenheit -->
+      <!-- Temperaturen & Sommerautomatik -->
       <div class="card">
-        <div class="card-title">🚶 Abwesenheits-Temperaturen</div>
+        <div class="card-title">🌡️ Temperaturen &amp; Sommerautomatik</div>
         <div class="settings-grid">
           <div class="settings-item">
             <label>Abwesend-Temperatur (°C)</label>
             <input type="number" class="form-input" id="away-temp"
               min="5" max="25" step="0.5" value="16">
-            <span class="form-hint">Gilt für alle Zimmer bei System „Abwesend"</span>
+            <span class="form-hint">Alle Zimmer bei System „Abwesend"</span>
           </div>
           <div class="settings-item">
             <label>Urlaubs-Temperatur (°C)</label>
             <input type="number" class="form-input" id="vacation-temp"
               min="5" max="20" step="0.5" value="14">
-            <span class="form-hint">Nur Frostschutz, gilt für alle Zimmer</span>
+            <span class="form-hint">Nur Frostschutz, alle Zimmer</span>
+          </div>
+          <div class="settings-item">
+            <label>Frostschutz-Temperatur (°C)</label>
+            <input type="number" class="form-input" id="frost-temp"
+              min="4" max="15" step="0.5" value="7">
+            <span class="form-hint">Niemals unter diesen Wert (auch bei OFF)</span>
           </div>
         </div>
         <div class="settings-grid" style="margin-top:12px">
@@ -711,11 +749,42 @@ class IHCPanel extends HTMLElement {
             <label>Sommer-Schwelle (°C)</label>
             <input type="number" class="form-input" id="summer-threshold"
               min="10" max="30" step="0.5" value="18">
-            <span class="form-hint">Heizung wird ab dieser Außentemp. gesperrt</span>
+            <span class="form-hint">Heizung gesperrt ab dieser Außentemp.</span>
           </div>
         </div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="save-away-settings">💾 Abwesenheit speichern</button>
+          <button class="btn btn-primary" id="save-temp-settings">💾 Temperaturen speichern</button>
+        </div>
+      </div>
+
+      <!-- Nachtabsenkung & Vorheizen -->
+      <div class="card">
+        <div class="card-title">🌙 Nachtabsenkung &amp; Vorheizen</div>
+        ${g.night_setback_active ? `<div class="info-box" style="background:#e3f2fd;border-color:#1565c0;">🌙 Nachtabsenkung ist gerade <strong>aktiv</strong></div>` : ""}
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Nachtabsenkung</label>
+            <select class="form-select" id="night-setback-enabled">
+              <option value="false">Deaktiviert</option>
+              <option value="true">Aktiviert</option>
+            </select>
+            <span class="form-hint">Temperaturen nachts automatisch absenken</span>
+          </div>
+          <div class="settings-item">
+            <label>Absenkung (°C)</label>
+            <input type="number" class="form-input" id="night-setback-offset"
+              min="0.5" max="6" step="0.5" value="2">
+            <span class="form-hint">Um wieviel °C nachts abgesenkt wird</span>
+          </div>
+          <div class="settings-item">
+            <label>Vorheiz-Vorlaufzeit (min)</label>
+            <input type="number" class="form-input" id="preheat-minutes"
+              min="0" max="120" step="5" value="0">
+            <span class="form-hint">Wie früh vor Zeitplan-Start wird vorgeheizt (0 = aus)</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="save-night-settings">💾 Nacht/Vorheizen speichern</button>
         </div>
       </div>
 
@@ -758,7 +827,19 @@ class IHCPanel extends HTMLElement {
         <div class="btn-row">
           <button class="btn btn-primary" id="save-global-settings">💾 Klimabaustein speichern</button>
         </div>
-      </div>`;
+      </div>
+
+      <!-- Energie-Statistik -->
+      <div class="card">
+        <div class="card-title">⚡ Energie-Statistik heute</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Heizlaufzeit heute</label>
+            <div style="font-size:24px;font-weight:700;color:var(--primary-color)">${g.heating_runtime_today} min</div>
+          </div>
+        </div>
+      </div>
+    `;
 
     content.querySelector("#set-system-mode").addEventListener("click", () => {
       const mode = content.querySelector("#system-mode-select").value;
@@ -766,23 +847,33 @@ class IHCPanel extends HTMLElement {
       this._toast(`✓ Modus: ${SYSTEM_MODE_LABELS[mode] || mode}`);
     });
 
-    content.querySelector("#save-away-settings").addEventListener("click", () => {
+    content.querySelector("#save-temp-settings").addEventListener("click", () => {
       this._callService("update_global_settings", {
-        away_temp:         parseFloat(content.querySelector("#away-temp").value),
-        vacation_temp:     parseFloat(content.querySelector("#vacation-temp").value),
-        summer_mode_enabled: content.querySelector("#summer-enabled").value === "true",
-        summer_threshold:  parseFloat(content.querySelector("#summer-threshold").value),
+        away_temp:              parseFloat(content.querySelector("#away-temp").value),
+        vacation_temp:          parseFloat(content.querySelector("#vacation-temp").value),
+        frost_protection_temp:  parseFloat(content.querySelector("#frost-temp").value),
+        summer_mode_enabled:    content.querySelector("#summer-enabled").value === "true",
+        summer_threshold:       parseFloat(content.querySelector("#summer-threshold").value),
       });
-      this._toast("✓ Abwesenheits-Einstellungen gespeichert");
+      this._toast("✓ Temperatur-Einstellungen gespeichert");
+    });
+
+    content.querySelector("#save-night-settings").addEventListener("click", () => {
+      this._callService("update_global_settings", {
+        night_setback_enabled:  content.querySelector("#night-setback-enabled").value === "true",
+        night_setback_offset:   parseFloat(content.querySelector("#night-setback-offset").value),
+        preheat_minutes:        parseInt(content.querySelector("#preheat-minutes").value),
+      });
+      this._toast("✓ Nachtabsenkung/Vorheizen gespeichert");
     });
 
     content.querySelector("#save-global-settings").addEventListener("click", () => {
       this._callService("update_global_settings", {
-        demand_threshold:  parseFloat(content.querySelector("#demand-threshold").value),
-        demand_hysteresis: parseFloat(content.querySelector("#demand-hysteresis").value),
-        min_on_time:       parseInt(content.querySelector("#min-on-time").value),
-        min_off_time:      parseInt(content.querySelector("#min-off-time").value),
-        min_rooms_demand:  parseInt(content.querySelector("#min-rooms").value),
+        demand_threshold:   parseFloat(content.querySelector("#demand-threshold").value),
+        demand_hysteresis:  parseFloat(content.querySelector("#demand-hysteresis").value),
+        min_on_time:        parseInt(content.querySelector("#min-on-time").value),
+        min_off_time:       parseInt(content.querySelector("#min-off-time").value),
+        min_rooms_demand:   parseInt(content.querySelector("#min-rooms").value),
       });
       this._toast("✓ Klimabaustein-Einstellungen gespeichert");
     });

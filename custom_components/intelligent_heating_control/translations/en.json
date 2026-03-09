@@ -85,7 +85,13 @@
           "vacation_temp": "Vacation Temperature (°C)",
           "summer_mode_enabled": "Enable Summer Mode",
           "summer_threshold": "Summer Mode Threshold (°C)",
-          "show_panel": "Show IHC Dashboard in sidebar"
+          "show_panel": "Show IHC Dashboard in sidebar",
+          "presence_entities": "Presence Entities",
+          "frost_protection_temp": "Frost Protection Temperature (°C)",
+          "night_setback_enabled": "Enable Night Setback",
+          "night_setback_offset": "Night Setback Offset (°C)",
+          "sun_entity": "Sun Entity",
+          "preheat_minutes": "Pre-heat Lead Time (minutes)"
         },
         "data_description": {
           "outdoor_temp_sensor": "Sensor measuring the current outdoor temperature. Used for the heating curve.",
@@ -101,7 +107,13 @@
           "vacation_temp": "Target temperature in Vacation mode. Frost protection only. Typical: 14–16 °C.",
           "summer_mode_enabled": "When enabled, heating is automatically blocked when outdoor temperature exceeds the threshold.",
           "summer_threshold": "Outdoor temperature above which Summer Mode disables heating. Typical: 15–20 °C.",
-          "show_panel": "When disabled, the IHC dashboard is removed from the sidebar. All entities remain available."
+          "show_panel": "When disabled, the IHC dashboard is removed from the sidebar. All entities remain available.",
+          "presence_entities": "Person or device tracker entities for presence detection. When all persons are away, IHC automatically switches to Away mode. Leave empty to disable.",
+          "frost_protection_temp": "Minimum safety temperature. Even in OFF or Away mode, this temperature is never undercut. Recommendation: 7 °C.",
+          "night_setback_enabled": "When enabled, target temperatures are automatically reduced at night (when the sun is below the horizon).",
+          "night_setback_offset": "How many degrees the target temperature is reduced at night. Typical: 2–4 °C.",
+          "sun_entity": "Sun entity used to detect day/night. Default: sun.sun",
+          "preheat_minutes": "How many minutes before a scheduled period starts that heating begins pre-heating. 0 = pre-heat disabled."
         }
       },
       "heating_curve": {

@@ -82,6 +82,41 @@ class ScheduleManager:
                     }
         return None
 
+    def get_upcoming_period(self, within_minutes: int, now: Optional[datetime] = None) -> Optional[dict]:
+        """
+        Return the next scheduled period if it starts within `within_minutes` from now.
+        Used for pre-heat logic: start heating before scheduled start.
+        """
+        if now is None:
+            now = datetime.now()
+
+        weekday = now.weekday()
+        current_time = now.time().replace(second=0, microsecond=0)
+
+        for schedule in self._schedules:
+            days = [WEEKDAY_MAP.get(d, -1) for d in schedule.get("days", [])]
+            if weekday not in days:
+                continue
+            for period in schedule.get("periods", []):
+                try:
+                    start = _parse_time(period["start"])
+                except (KeyError, ValueError):
+                    continue
+                if start <= current_time:
+                    continue
+                # How many minutes until start?
+                start_seconds = start.hour * 3600 + start.minute * 60
+                now_seconds = current_time.hour * 3600 + current_time.minute * 60
+                minutes_until = (start_seconds - now_seconds) / 60
+                if 0 < minutes_until <= within_minutes:
+                    return {
+                        "temperature": float(period.get("temperature", 21.0)),
+                        "offset": float(period.get("offset", 0.0)),
+                        "start": period["start"],
+                        "end": period["end"],
+                    }
+        return None
+
     def get_next_period(self, now: Optional[datetime] = None) -> Optional[dict]:
         """Return the next scheduled period (for informational display)."""
         if now is None:

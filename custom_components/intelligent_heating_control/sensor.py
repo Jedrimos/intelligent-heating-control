@@ -31,10 +31,12 @@ async def async_setup_entry(
         IHCTotalDemandSensor(coordinator, entry),
         IHCOutdoorTempSensor(coordinator, entry),
         IHCCurveTargetSensor(coordinator, entry),
+        IHCHeatingRuntimeSensor(coordinator, entry),
     ]
     for room in coordinator.get_rooms():
         entities.append(IHCRoomDemandSensor(coordinator, entry, room))
         entities.append(IHCRoomTargetTempSensor(coordinator, entry, room))
+        entities.append(IHCRoomRuntimeSensor(coordinator, entry, room))
     async_add_entities(entities, update_before_add=True)
 
 
@@ -80,11 +82,14 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
         d = self.coordinator.data or {}
         debug = d.get("debug", {})
         return {
-            "rooms_demanding":    d.get("rooms_demanding", 0),
-            "heating_active":     d.get("heating_active", False),
-            "cooling_active":     d.get("cooling_active", False),
-            "summer_mode":        d.get("summer_mode", False),
-            "system_mode":        d.get("system_mode", "auto"),
+            "rooms_demanding":        d.get("rooms_demanding", 0),
+            "heating_active":         d.get("heating_active", False),
+            "cooling_active":         d.get("cooling_active", False),
+            "summer_mode":            d.get("summer_mode", False),
+            "night_setback_active":   d.get("night_setback_active", False),
+            "presence_away_active":   d.get("presence_away_active", False),
+            "system_mode":            d.get("system_mode", "auto"),
+            "heating_runtime_today":  d.get("heating_runtime_today", 0.0),
             # Controller settings (read by frontend panel)
             "demand_threshold":     debug.get("demand_threshold"),
             "demand_hysteresis":    debug.get("demand_hysteresis"),
@@ -207,5 +212,55 @@ class IHCRoomTargetTempSensor(_IHCBase, SensorEntity):
                 "schedule_offset": room.get("schedule_offset"),
                 "period_start": room.get("period_start"),
                 "period_end": room.get("period_end"),
+                "night_setback": room.get("night_setback", 0.0),
             }
         return {}
+
+
+class IHCHeatingRuntimeSensor(_IHCBase, SensorEntity):
+    """Total heating system on-time today in minutes."""
+
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_native_unit_of_measurement = "min"
+    _attr_icon = "mdi:timer-outline"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_heating_runtime_today"
+        self._attr_name = "IHC Heizlaufzeit heute"
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data:
+            return self.coordinator.data.get("heating_runtime_today", 0.0)
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        d = self.coordinator.data or {}
+        return {
+            "heating_active": d.get("heating_active", False),
+        }
+
+
+class IHCRoomRuntimeSensor(_IHCBase, SensorEntity):
+    """Heating demand runtime today for a single room in minutes."""
+
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_native_unit_of_measurement = "min"
+    _attr_icon = "mdi:timer-sand"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
+        super().__init__(coordinator, entry)
+        self._room_id = room[CONF_ROOM_ID]
+        self._room_name = room.get(CONF_ROOM_NAME, self._room_id)
+        self._attr_unique_id = f"{entry.entry_id}_room_{self._room_id}_runtime"
+        self._attr_name = f"IHC {self._room_name} Laufzeit heute"
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data:
+            room = self.coordinator.data.get("rooms", {}).get(self._room_id)
+            if room:
+                return room.get("runtime_today_minutes", 0.0)
+        return None
