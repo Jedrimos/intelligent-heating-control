@@ -214,10 +214,31 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "presence_entities",
             "heating_switch", "cooling_switch", "outdoor_temp_sensor",
             "enable_cooling", "show_panel",
+            # Roadmap 1.3 – Energy
+            "boiler_kw", "solar_entity", "solar_surplus_threshold", "solar_boost_temp",
+            "energy_price_entity", "energy_price_threshold", "energy_price_eco_offset",
+            # Roadmap 1.4 – Flow temp
+            "flow_temp_entity",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:
             await coordinator.async_update_global_settings(updates)
+
+    async def handle_export_config(call: ServiceCall) -> None:
+        """Roadmap 1.5: Export full config as a persistent notification."""
+        import json
+        cfg = coordinator.get_config()
+        # Remove large runtime data, keep only config
+        safe = {k: v for k, v in cfg.items() if k not in ("rooms",)}
+        safe["rooms"] = [
+            {k: v for k, v in r.items() if k not in ("schedules",)} for r in coordinator.get_rooms()
+        ]
+        payload = json.dumps(cfg, indent=2, default=str)
+        hass.components.persistent_notification.async_create(
+            message=f"```json\n{payload}\n```",
+            title="IHC Konfigurationsexport",
+            notification_id=f"{DOMAIN}_config_export",
+        )
 
     if not hass.services.has_service(DOMAIN, SERVICE_ADD_ROOM):
         hass.services.async_register(DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
@@ -227,4 +248,5 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         hass.services.async_register(DOMAIN, SERVICE_SET_SYSTEM_MODE, handle_set_system_mode)
         hass.services.async_register(DOMAIN, SERVICE_BOOST_ROOM, handle_boost_room)
         hass.services.async_register(DOMAIN, "reload", handle_reload)
+        hass.services.async_register(DOMAIN, "export_config", handle_export_config)
         hass.services.async_register(DOMAIN, "update_global_settings", handle_update_global_settings)

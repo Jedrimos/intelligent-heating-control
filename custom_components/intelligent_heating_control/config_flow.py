@@ -33,6 +33,19 @@ from .const import (
     CONF_NIGHT_SETBACK_OFFSET,
     CONF_SUN_ENTITY,
     CONF_PREHEAT_MINUTES,
+    CONF_BOILER_KW,
+    CONF_SOLAR_ENTITY,
+    CONF_SOLAR_SURPLUS_THRESHOLD,
+    CONF_SOLAR_BOOST_TEMP,
+    CONF_ENERGY_PRICE_ENTITY,
+    CONF_ENERGY_PRICE_THRESHOLD,
+    CONF_ENERGY_PRICE_ECO_OFFSET,
+    CONF_FLOW_TEMP_ENTITY,
+    DEFAULT_BOILER_KW,
+    DEFAULT_SOLAR_SURPLUS_THRESHOLD,
+    DEFAULT_SOLAR_BOOST_TEMP,
+    DEFAULT_ENERGY_PRICE_THRESHOLD,
+    DEFAULT_ENERGY_PRICE_ECO_OFFSET,
     CONF_HEATING_CURVE,
     CONF_CURVE_POINTS,
     CONF_ROOMS,
@@ -124,7 +137,7 @@ class IHCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "entity": {"domain": "sensor"}
             }),
             vol.Optional(CONF_HEATING_SWITCH, default=""): selector.selector({
-                "entity": {"domain": ["switch", "input_boolean"]}
+                "text": {}
             }),
             vol.Optional(CONF_ENABLE_COOLING, default=False): selector.selector({
                 "boolean": {}
@@ -370,6 +383,50 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "number": {"min": 0, "max": 120, "step": 5, "unit_of_measurement": "min", "mode": "slider"}
             }),
+            # --- Roadmap 1.3: Energy optimisation ---
+            vol.Optional(
+                CONF_BOILER_KW,
+                default=float(cfg.get(CONF_BOILER_KW, DEFAULT_BOILER_KW))
+            ): selector.selector({
+                "number": {"min": 1, "max": 100, "step": 1, "unit_of_measurement": "kW", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_SOLAR_ENTITY,
+                default=cfg.get(CONF_SOLAR_ENTITY, "")
+            ): selector.selector({"text": {}}),
+            vol.Optional(
+                CONF_SOLAR_SURPLUS_THRESHOLD,
+                default=float(cfg.get(CONF_SOLAR_SURPLUS_THRESHOLD, DEFAULT_SOLAR_SURPLUS_THRESHOLD))
+            ): selector.selector({
+                "number": {"min": 100, "max": 10000, "step": 100, "unit_of_measurement": "W", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_SOLAR_BOOST_TEMP,
+                default=float(cfg.get(CONF_SOLAR_BOOST_TEMP, DEFAULT_SOLAR_BOOST_TEMP))
+            ): selector.selector({
+                "number": {"min": 0.5, "max": 5, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_ENERGY_PRICE_ENTITY,
+                default=cfg.get(CONF_ENERGY_PRICE_ENTITY, "")
+            ): selector.selector({"text": {}}),
+            vol.Optional(
+                CONF_ENERGY_PRICE_THRESHOLD,
+                default=float(cfg.get(CONF_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_THRESHOLD))
+            ): selector.selector({
+                "number": {"min": 0.05, "max": 2.0, "step": 0.01, "unit_of_measurement": "€/kWh", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_ENERGY_PRICE_ECO_OFFSET,
+                default=float(cfg.get(CONF_ENERGY_PRICE_ECO_OFFSET, DEFAULT_ENERGY_PRICE_ECO_OFFSET))
+            ): selector.selector({
+                "number": {"min": 0.5, "max": 6, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            # --- Roadmap 1.4: Flow temperature control ---
+            vol.Optional(
+                CONF_FLOW_TEMP_ENTITY,
+                default=cfg.get(CONF_FLOW_TEMP_ENTITY, "")
+            ): selector.selector({"text": {}}),
         })
         return self.async_show_form(step_id="global_settings", data_schema=vol.Schema(schema_dict), errors=errors)
 
