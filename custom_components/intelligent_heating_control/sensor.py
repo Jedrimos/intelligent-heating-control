@@ -120,6 +120,12 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
     def _get_global_config_attrs(self) -> dict:
         cfg = self.coordinator.get_config()
         return {
+            # System hardware (needed by Settings tab to pre-fill inputs)
+            "outdoor_temp_sensor":         cfg.get(CONF_OUTDOOR_TEMP_SENSOR, ""),
+            "heating_switch":              cfg.get(CONF_HEATING_SWITCH, ""),
+            "cooling_switch":              cfg.get(CONF_COOLING_SWITCH, ""),
+            "enable_cooling":              cfg.get(CONF_ENABLE_COOLING, False),
+            # Temperature presets
             "away_temp":                   cfg.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP),
             "vacation_temp":               cfg.get(CONF_VACATION_TEMP, DEFAULT_VACATION_TEMP),
             "summer_mode_enabled":         cfg.get(CONF_SUMMER_MODE_ENABLED, False),
@@ -320,7 +326,7 @@ class IHCEnergyTodaySensor(_IHCBase, SensorEntity):
             "solar_boost":           d.get("solar_boost", 0.0),
             "solar_power":           d.get("solar_power"),
             "energy_price":          d.get("energy_price"),
-            "energy_price_eco_active": d.get("energy_price_eco_offset", 0.0) > 0,
+            "energy_price_eco_active": (d.get("energy_price_eco_offset") or 0.0) > 0,
             "flow_temp":             d.get("flow_temp"),
         }
 

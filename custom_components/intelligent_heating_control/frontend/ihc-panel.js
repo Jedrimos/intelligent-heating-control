@@ -772,6 +772,52 @@ class IHCPanel extends HTMLElement {
 
     // Note: settings tab is never auto-refreshed by set hass() so values won't reset while typing.
     content.innerHTML = `
+      <!-- System-Hardware -->
+      <div class="card">
+        <div class="card-title">🔧 System-Hardware</div>
+        <div class="info-box">
+          Grundlegende Hardware-Konfiguration. Alle Felder sind optional –
+          leer lassen wenn nicht vorhanden.
+        </div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Außentemperatur-Sensor</label>
+            <input type="text" class="form-input" id="outdoor-sensor"
+              placeholder="sensor.aussensensor"
+              value="${a.outdoor_temp_sensor ?? ''}" list="outdoor-sensor-list" autocomplete="off">
+            <datalist id="outdoor-sensor-list">${this._entityOptions(["sensor"])}</datalist>
+            <span class="form-hint">Wird für Heizkurve und Sommerautomatik benötigt</span>
+          </div>
+          <div class="settings-item">
+            <label>Heizungsschalter <em style="font-weight:400">(optional)</em></label>
+            <input type="text" class="form-input" id="heating-switch"
+              placeholder="switch.heizung (leer = kein Schalter)"
+              value="${a.heating_switch ?? ''}" list="heating-switch-list" autocomplete="off">
+            <datalist id="heating-switch-list">${this._entityOptions(["switch", "input_boolean"])}</datalist>
+            <span class="form-hint">Schaltet physisch den Heizkessel ein/aus</span>
+          </div>
+          <div class="settings-item">
+            <label>Kühlung aktivieren</label>
+            <select class="form-select" id="enable-cooling">
+              <option value="false" ${!a.enable_cooling ? "selected" : ""}>Deaktiviert</option>
+              <option value="true" ${a.enable_cooling ? "selected" : ""}>Aktiviert</option>
+            </select>
+            <span class="form-hint">Aktiviert Kühlfunktion und Kühlschalter-Steuerung</span>
+          </div>
+          <div class="settings-item" id="cooling-switch-item" style="${a.enable_cooling ? "" : "opacity:0.5"}">
+            <label>Kühlschalter <em style="font-weight:400">(optional)</em></label>
+            <input type="text" class="form-input" id="cooling-switch"
+              placeholder="switch.klimaanlage (nur bei Kühlung aktiv)"
+              value="${a.cooling_switch ?? ''}" list="cooling-switch-list" autocomplete="off">
+            <datalist id="cooling-switch-list">${this._entityOptions(["switch", "input_boolean"])}</datalist>
+            <span class="form-hint">Schaltet Kühlaggregat/Klimaanlage</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="save-hardware-settings">💾 Hardware speichern</button>
+        </div>
+      </div>
+
       <!-- System mode -->
       <div class="card">
         <div class="card-title">🏠 Betriebsmodus</div>
@@ -780,12 +826,15 @@ class IHCPanel extends HTMLElement {
           <label class="form-label">System-Modus manuell setzen</label>
           <div class="form-row">
             <select class="form-select" id="system-mode-select">
-              ${Object.entries(SYSTEM_MODE_LABELS).map(([k, v]) =>
-                `<option value="${k}" ${curMode === k || curMode === v ? "selected" : ""}>${v}</option>`
-              ).join("")}
+              ${Object.entries(SYSTEM_MODE_LABELS)
+                .filter(([k]) => k !== "cool" || a.enable_cooling)
+                .map(([k, v]) =>
+                  `<option value="${k}" ${curMode === k || curMode === v ? "selected" : ""}>${v}</option>`
+                ).join("")}
             </select>
             <button class="btn btn-primary" id="set-system-mode">Setzen</button>
           </div>
+          ${!a.enable_cooling ? `<span class="form-hint">„Kühlen"-Modus erst verfügbar wenn Kühlung unter System-Hardware aktiviert</span>` : ""}
         </div>
       </div>
 
@@ -1026,6 +1075,22 @@ class IHCPanel extends HTMLElement {
       </div>
     `;
 
+    // Toggle cooling-switch opacity based on enable-cooling select
+    content.querySelector("#enable-cooling").addEventListener("change", e => {
+      const item = content.querySelector("#cooling-switch-item");
+      if (item) item.style.opacity = e.target.value === "true" ? "1" : "0.5";
+    });
+
+    content.querySelector("#save-hardware-settings").addEventListener("click", () => {
+      this._callService("update_global_settings", {
+        outdoor_temp_sensor: content.querySelector("#outdoor-sensor").value.trim(),
+        heating_switch:      content.querySelector("#heating-switch").value.trim(),
+        enable_cooling:      content.querySelector("#enable-cooling").value === "true",
+        cooling_switch:      content.querySelector("#cooling-switch").value.trim(),
+      });
+      this._toast("✓ Hardware-Einstellungen gespeichert");
+    });
+
     content.querySelector("#set-system-mode").addEventListener("click", () => {
       const mode = content.querySelector("#system-mode-select").value;
       this._callService("set_system_mode", { mode });
@@ -1127,6 +1192,8 @@ class IHCPanel extends HTMLElement {
     }
 
     const roomList = Object.values(rooms);
+    // Clear stale reference if the previously selected room was deleted
+    if (this._scheduleRoom && !rooms[this._scheduleRoom]) this._scheduleRoom = null;
     const selId  = this._scheduleRoom || roomList[0].entity_id;
     const selRoom = rooms[selId] || roomList[0];
 

@@ -150,7 +150,6 @@ SERVICE_REMOVE_ROOM: Final = "remove_room"
 SERVICE_UPDATE_ROOM: Final = "update_room"
 SERVICE_SET_ROOM_MODE: Final = "set_room_mode"
 SERVICE_SET_SYSTEM_MODE: Final = "set_system_mode"
-SERVICE_SET_ROOM_SCHEDULE: Final = "set_room_schedule"
 SERVICE_BOOST_ROOM: Final = "boost_room"
 SERVICE_RELOAD: Final = "reload"
 
