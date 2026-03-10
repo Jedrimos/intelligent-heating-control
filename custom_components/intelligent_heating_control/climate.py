@@ -145,6 +145,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
     @property
     def extra_state_attributes(self) -> dict:
         d = self._room_data or {}
+        room_cfg = self.coordinator.get_room_config(self._room_id) or {}
         return {
             ATTR_DEMAND: d.get("demand", 0),
             ATTR_SCHEDULE_ACTIVE: d.get("schedule_active", False),
@@ -155,6 +156,18 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "boost_remaining": d.get("boost_remaining", 0),
             "night_setback": d.get("night_setback", 0.0),
             "runtime_today_minutes": d.get("runtime_today_minutes", 0.0),
+            # Room config – exposed for frontend panel
+            "temp_sensor": room_cfg.get("temp_sensor", ""),
+            "valve_entities": room_cfg.get("valve_entities", []),
+            "window_sensors": room_cfg.get("window_sensors", []),
+            "comfort_temp": room_cfg.get("comfort_temp", 21.0),
+            "eco_temp": room_cfg.get("eco_temp", 18.0),
+            "sleep_temp": room_cfg.get("sleep_temp", 17.0),
+            "away_temp_room": room_cfg.get("away_temp_room", 16.0),
+            "room_offset": room_cfg.get("room_offset", 0.0),
+            "deadband": room_cfg.get("deadband", 0.5),
+            "weight": room_cfg.get("weight", 1.0),
+            "schedules": room_cfg.get("schedules", []),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:

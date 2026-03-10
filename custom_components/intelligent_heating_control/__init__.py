@@ -214,6 +214,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "presence_entities",
             "heating_switch", "cooling_switch", "outdoor_temp_sensor",
             "enable_cooling", "show_panel",
+            # Heating curve
+            "heating_curve",
             # Roadmap 1.3 – Energy
             "boiler_kw", "solar_entity", "solar_surplus_threshold", "solar_boost_temp",
             "energy_price_entity", "energy_price_threshold", "energy_price_eco_offset",

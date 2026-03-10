@@ -177,6 +177,14 @@ class IHCCurveTargetSensor(_IHCBase, SensorEntity):
             return self.coordinator.data.get("curve_target")
         return None
 
+    @property
+    def extra_state_attributes(self) -> dict:
+        cfg = self.coordinator.get_config()
+        curve_data = cfg.get("heating_curve", {})
+        return {
+            "curve_points": curve_data.get("points", []),
+        }
+
 
 # ------------------------------------------------------------------
 # Per-room sensors

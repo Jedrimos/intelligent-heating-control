@@ -1,0 +1,239 @@
+# Konfiguration
+
+## Setup-Wizard (Ersteinrichtung)
+
+Nach dem Hinzufügen der Integration erscheint ein 3-Schritt-Assistent:
+
+### Schritt 1: Außensensor & Heizungsschalter
+
+| Feld | Beschreibung | Beispiel |
+|------|-------------|---------|
+| `outdoor_temp_sensor` | Entity-ID des Außentemperatursensors | `sensor.aussentemperatur` |
+| `heating_switch` | Switch zum Ein-/Ausschalten des Kessels | `switch.heizung` |
+| `cooling_switch` | Switch für Kühlung (optional) | `switch.klimaanlage` |
+
+> Der `heating_switch` wird von IHC direkt gesteuert. Es kann eine `switch.*`, `input_boolean.*` oder jede andere schaltbare Entity sein.
+
+### Schritt 2: Klimabaustein-Parameter
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `demand_threshold` | 15 % | Ab welcher Gesamtanforderung schaltet die Heizung ein |
+| `demand_hysteresis` | 5 % | Heizung bleibt an bis Anforderung unter `threshold - hysteresis` fällt |
+| `min_on_time` | 5 min | Mindest-Einschaltdauer (Kesselschutz) |
+| `min_off_time` | 5 min | Mindest-Ausschaltdauer (Kesselschutz) |
+| `min_rooms_demand` | 1 | Mindestanzahl Zimmer mit Anforderung > 0 |
+
+### Schritt 3: Globale Temperaturen
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `away_temp` | 16 °C | Temperatur für alle Zimmer im System-Abwesend-Modus |
+| `vacation_temp` | 14 °C | Temperatur für alle Zimmer im Urlaubs-Modus |
+
+---
+
+## Zimmer verwalten
+
+### Zimmer hinzufügen
+
+**IHC Panel → Zimmer → + Zimmer hinzufügen**
+
+oder über **Einstellungen → Integrationen → IHC → Konfigurieren → Zimmer hinzufügen**
+
+#### Pflichtfelder
+
+| Feld | Beschreibung |
+|------|-------------|
+| `name` | Name des Zimmers (z.B. „Wohnzimmer") |
+
+#### Empfohlene Felder
+
+| Feld | Beschreibung | Beispiel |
+|------|-------------|---------|
+| `temp_sensor` | Temperatursensor im Zimmer | `sensor.wohnzimmer_temp` |
+| `valve_entities` | Liste der Thermostate/TRVs | `[climate.wohnzimmer_trv]` |
+| `window_sensors` | Liste der Fenstersensoren | `[binary_sensor.fenster_wz]` |
+
+#### Temperatur-Presets
+
+| Preset | Standard | Verwendet wenn Zimmermodus = |
+|--------|---------|------------------------------|
+| `comfort_temp` | 21 °C | Komfort |
+| `eco_temp` | 18 °C | Eco |
+| `sleep_temp` | 17 °C | Schlafen |
+| `away_temp_room` | 16 °C | Zimmer-Abwesend |
+
+#### Erweiterte Einstellungen
+
+| Feld | Standard | Beschreibung |
+|------|---------|-------------|
+| `room_offset` | 0 °C | Korrektur-Offset zum Heizkurven-Basiswert (±5 °C) |
+| `deadband` | 0,5 °C | Totband für Anforderungsberechnung |
+| `weight` | 1,0 | Gewichtung im Klimabaustein (1,0 = normal, 2,0 = doppelt) |
+| `min_temp` | 5 °C | Minimale Temperaturgrenze |
+| `max_temp` | 30 °C | Maximale Temperaturgrenze |
+
+### Zimmer bearbeiten
+
+**IHC Panel → Zimmer → Bearbeiten**
+
+Alle oben genannten Felder sind nachträglich änderbar. Änderungen werden sofort übernommen.
+
+### Zimmer entfernen
+
+**IHC Panel → Zimmer → 🗑** oder per Service `remove_room`.
+
+> ⚠️ Das Entfernen löscht alle zugehörigen HA-Entitäten (`climate.*`, `sensor.*`, etc.).
+
+---
+
+## Heizkurve konfigurieren
+
+**IHC Panel → Heizkurve**
+
+Die Heizkurve definiert die **Basis-Solltemperatur** in Abhängigkeit der Außentemperatur.
+
+### Stützpunkte
+
+Mindestens 2, maximal unbegrenzt viele Punkte. Zwischen den Punkten wird linear interpoliert.
+
+**Empfehlungen nach Heizsystem:**
+
+| Heizsystem | Empfohlene Kurve |
+|------------|-----------------|
+| Niedertemperatur (Fußboden) | -20°C→28°C bis 15°C→20°C |
+| Standard-Heizkörper | -20°C→24°C bis 15°C→18°C *(Standard)* |
+| Wärmepumpe | -20°C→22°C bis 10°C→18°C (flache Kurve) |
+| Passivhaus | Sehr flache Kurve, da kaum Heizbedarf |
+
+### Zimmer-Offset
+
+Jedes Zimmer kann einen individuellen Offset zur Heizkurven-Basis haben:
+- `+1,5 °C` für das Wohnzimmer (soll wärmer sein)
+- `-0,5 °C` für das Schlafzimmer (soll kühler sein)
+
+```
+Zimmer-Ziel = Heizkurven-Basis + Zimmer-Offset - Nachtabsenkung
+```
+
+---
+
+## Zeitpläne konfigurieren
+
+**IHC Panel → Zeitpläne**
+
+### Konzept
+
+Ein Zeitplan besteht aus **Tagesgruppen** und **Zeiträumen**:
+
+```
+Gruppe 1: Mo–Fr
+  Zeitraum 1: 06:30 – 08:00, 22°C, +0°C Offset
+  Zeitraum 2: 17:00 – 22:30, 21°C, +0,5°C Offset
+
+Gruppe 2: Sa–So
+  Zeitraum 1: 08:00 – 23:00, 21°C, +0°C Offset
+```
+
+**Zeitplan-Formel:**
+```
+Zieltemperatur = Zeitplan-Temp + Zeitplan-Offset + Zimmer-Offset
+```
+
+Außerhalb aller Zeiträume gilt die Heizkurve.
+
+### Übernacht-Zeiträume
+
+Zeiträume die über Mitternacht gehen (z.B. 22:00–06:00) werden unterstützt.
+
+### Vorheizen (Pre-Heat)
+
+Wenn `preheat_minutes > 0` eingestellt ist, startet die Heizung entsprechend früher um die Zieltemperatur pünktlich zum Zeitplan-Start zu erreichen.
+
+**Einstellung:** IHC Panel → Einstellungen → Nachtabsenkung & Vorheizen
+
+---
+
+## Anwesenheitserkennung
+
+**IHC Panel → Einstellungen → Anwesenheitserkennung**
+
+Konfiguriere eine oder mehrere `person.*` oder `device_tracker.*` Entitäten.
+
+**Logik:**
+- Mindestens eine Person `home` → System im normalen Modus
+- Alle Personen `not_home` → System automatisch auf Abwesend-Modus
+- Erste Person kehrt zurück → System zurück auf Auto-Modus
+
+> Wenn keine Entities konfiguriert sind, ist die Funktion deaktiviert (System läuft immer normal).
+
+---
+
+## Nachtabsenkung
+
+**IHC Panel → Einstellungen → Nachtabsenkung**
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `night_setback_enabled` | false | Aktiviert/deaktiviert die Funktion |
+| `night_setback_offset` | 2 °C | Um wieviel °C die Temperatur nachts abgesenkt wird |
+| `sun_entity` | `sun.sun` | Welche Entity den Sonnenstand liefert |
+
+**Logik:** Wenn `sun.sun` den Status `below_horizon` hat, wird die Zieltemperatur jedes Zimmers um `night_setback_offset` reduziert.
+
+---
+
+## Solar & Energiepreis
+
+### Solar-Überschuss-Heizung
+
+Wenn überschüssige Solarleistung vorhanden ist, wird die Zieltemperatur erhöht:
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `solar_entity` | — | Sensor der die Solarleistung in Watt liefert |
+| `solar_surplus_threshold` | 1000 W | Ab wann Solar-Boost aktiv wird |
+| `solar_boost_temp` | +1 °C | Temperaturerhöhung bei Solar-Überschuss |
+
+### Dynamischer Strompreis
+
+Bei hohem Strompreis wird der Eco-Modus aktiviert:
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `energy_price_entity` | — | Sensor der den aktuellen Strompreis liefert (€/kWh) |
+| `energy_price_threshold` | 0,30 €/kWh | Ab wann Eco-Modus aktiv wird |
+| `energy_price_eco_offset` | -2 °C | Temperaturabsenkung bei hohem Preis |
+
+---
+
+## Frostschutz
+
+**IHC Panel → Einstellungen → Temperaturen**
+
+Die Frostschutz-Temperatur gilt immer – auch wenn das System auf `OFF` oder `Urlaub` steht:
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `frost_protection_temp` | 7 °C | Niemals unter diesen Wert (alle Modi) |
+
+---
+
+## Konfiguration per Service
+
+Alle Einstellungen können auch per HA-Service gesetzt werden:
+
+```yaml
+service: intelligent_heating_control.update_global_settings
+data:
+  demand_threshold: 20
+  away_temp: 15
+  frost_protection_temp: 8
+  night_setback_enabled: true
+  night_setback_offset: 3
+  solar_entity: sensor.solar_leistung
+  solar_surplus_threshold: 800
+```
+
+Siehe [services.md](services.md) für alle verfügbaren Parameter.

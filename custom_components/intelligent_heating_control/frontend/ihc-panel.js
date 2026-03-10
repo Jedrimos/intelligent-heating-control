@@ -453,6 +453,18 @@ class IHCPanel extends HTMLElement {
         runtime_today_minutes: 0,
         temp_history: [],
         avg_warmup_minutes: null,
+        // Room config (from climate entity extra_state_attributes)
+        temp_sensor: state.attributes.temp_sensor || "",
+        valve_entities: state.attributes.valve_entities || [],
+        window_sensors: state.attributes.window_sensors || [],
+        comfort_temp: state.attributes.comfort_temp ?? 21,
+        eco_temp: state.attributes.eco_temp ?? 18,
+        sleep_temp: state.attributes.sleep_temp ?? 17,
+        away_temp_room: state.attributes.away_temp_room ?? 16,
+        room_offset: state.attributes.room_offset ?? 0,
+        deadband: state.attributes.deadband ?? 0.5,
+        weight: state.attributes.weight ?? 1.0,
+        schedules: state.attributes.schedules || [],
       };
     });
     // Enrich from demand sensors
@@ -1123,15 +1135,22 @@ class IHCPanel extends HTMLElement {
             data-room="${r.entity_id}" style="font-size:13px">${r.name}</div>`
     ).join("");
 
-    // Get or init schedule data for this room
+    // Get or init schedule data for this room (load from room config if not yet editing)
     if (!this._editingSchedules[selId]) {
-      this._editingSchedules[selId] = [
-        { days: ["mon","tue","wed","thu","fri"],
-          periods: [{ start:"06:30", end:"08:00", temperature:22.0, offset:0.0 },
-                    { start:"17:00", end:"22:00", temperature:21.5, offset:0.0 }] },
-        { days: ["sat","sun"],
-          periods: [{ start:"08:00", end:"23:00", temperature:21.0, offset:0.5 }] },
-      ];
+      const existing = selRoom.schedules;
+      if (existing && existing.length > 0) {
+        // Deep-copy so edits don't mutate the source
+        this._editingSchedules[selId] = JSON.parse(JSON.stringify(existing));
+      } else {
+        // Default template for new rooms without schedules
+        this._editingSchedules[selId] = [
+          { days: ["mon","tue","wed","thu","fri"],
+            periods: [{ start:"06:30", end:"08:00", temperature:22.0, offset:0.0 },
+                      { start:"17:00", end:"22:00", temperature:21.5, offset:0.0 }] },
+          { days: ["sat","sun"],
+            periods: [{ start:"08:00", end:"23:00", temperature:21.0, offset:0.5 }] },
+        ];
+      }
     }
     const schedules = this._editingSchedules[selId];
 
@@ -1287,7 +1306,11 @@ class IHCPanel extends HTMLElement {
     const ot = this._st("sensor.ihc_aussentemperatur");
     const ct = this._st("sensor.ihc_heizkurven_zieltemperatur");
 
-    const rows = defaultCurve.map((pt, i) => `
+    // Load actual curve from sensor attributes (set by backend)
+    const savedPoints = ct?.attributes?.curve_points;
+    const curve = (savedPoints && savedPoints.length >= 2) ? savedPoints : defaultCurve;
+
+    const rows = curve.map((pt, i) => `
       <tr>
         <td><input type="number" class="curve-outdoor" value="${pt.outdoor_temp}" step="1" min="-30" max="40"> °C</td>
         <td><input type="number" class="curve-target"  value="${pt.target_temp}"  step="0.5" min="10" max="35"> °C</td>
@@ -1341,8 +1364,9 @@ class IHCPanel extends HTMLElement {
 
     content.querySelector("#save-curve").addEventListener("click", () => {
       const pts = this._collectCurvePoints(content);
-      this._callService("reload", {});
-      this._toast("✓ Kurve gespeichert – Integration neu geladen");
+      if (pts.length < 2) { this._toast("❌ Mindestens 2 Punkte erforderlich"); return; }
+      this._callService("update_global_settings", { heating_curve: { points: pts } });
+      this._toast("✓ Heizkurve gespeichert");
     });
 
     this._drawCurve(content);
@@ -1411,6 +1435,11 @@ class IHCPanel extends HTMLElement {
     this._showModal(`
       <div class="modal-title">+ Zimmer hinzufügen</div>
 
+      <!-- Shared datalists for entity autocomplete -->
+      <datalist id="m-sensor-list">${this._entityOptions(["sensor"])}</datalist>
+      <datalist id="m-climate-list">${this._entityOptions(["climate"])}</datalist>
+      <datalist id="m-binary-sensor-list">${this._entityOptions(["binary_sensor"])}</datalist>
+
       <div class="form-group">
         <label class="form-label">Zimmername *</label>
         <input type="text" class="form-input full" id="m-name" placeholder="z.B. Wohnzimmer">
@@ -1418,7 +1447,8 @@ class IHCPanel extends HTMLElement {
 
       <div class="form-group">
         <label class="form-label">Temperatursensor</label>
-        <input type="text" class="form-input full" id="m-sensor" placeholder="sensor.wohnzimmer_temp">
+        <input type="text" class="form-input full" id="m-sensor"
+          placeholder="sensor.wohnzimmer_temp" list="m-sensor-list" autocomplete="off">
         <span class="form-hint">Entity-ID des Temperatursensors</span>
       </div>
 
@@ -1426,8 +1456,9 @@ class IHCPanel extends HTMLElement {
         <div class="modal-section-title">Thermostate / TRVs (mehrere möglich)</div>
         <div class="entity-list" id="valve-list">
           <div class="entity-row">
-            <input type="text" class="form-input" placeholder="climate.wohnzimmer (optional)">
-            <button class="btn btn-secondary btn-icon add-entity" data-list="valve-list">+</button>
+            <input type="text" class="form-input" placeholder="climate.wohnzimmer (optional)"
+              list="m-climate-list" autocomplete="off">
+            <button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-datalist="m-climate-list">+</button>
           </div>
         </div>
       </div>
@@ -1436,8 +1467,9 @@ class IHCPanel extends HTMLElement {
         <div class="modal-section-title">Fenstersensoren (mehrere möglich)</div>
         <div class="entity-list" id="window-list">
           <div class="entity-row">
-            <input type="text" class="form-input" placeholder="binary_sensor.fenster_wz (optional)">
-            <button class="btn btn-secondary btn-icon add-entity" data-list="window-list">+</button>
+            <input type="text" class="form-input" placeholder="binary_sensor.fenster_wz (optional)"
+              list="m-binary-sensor-list" autocomplete="off">
+            <button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-datalist="m-binary-sensor-list">+</button>
           </div>
         </div>
       </div>
@@ -1520,8 +1552,45 @@ class IHCPanel extends HTMLElement {
     const room  = rooms[entityId];
     if (!room) return;
 
+    // Pre-fill existing valve entities
+    const valveRows = room.valve_entities.length > 0
+      ? room.valve_entities.map((e, i) => `
+          <div class="entity-row">
+            <input type="text" class="form-input" value="${e}"
+              list="m-climate-list" autocomplete="off" placeholder="climate.entity">
+            ${i === 0
+              ? `<button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-datalist="m-climate-list">+</button>`
+              : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
+          </div>`).join("")
+      : `<div class="entity-row">
+           <input type="text" class="form-input" placeholder="climate.entity (optional)"
+             list="m-climate-list" autocomplete="off">
+           <button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-datalist="m-climate-list">+</button>
+         </div>`;
+
+    // Pre-fill existing window sensors
+    const windowRows = room.window_sensors.length > 0
+      ? room.window_sensors.map((e, i) => `
+          <div class="entity-row">
+            <input type="text" class="form-input" value="${e}"
+              list="m-binary-sensor-list" autocomplete="off" placeholder="binary_sensor.fenster">
+            ${i === 0
+              ? `<button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-datalist="m-binary-sensor-list">+</button>`
+              : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
+          </div>`).join("")
+      : `<div class="entity-row">
+           <input type="text" class="form-input" placeholder="binary_sensor.fenster (optional)"
+             list="m-binary-sensor-list" autocomplete="off">
+           <button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-datalist="m-binary-sensor-list">+</button>
+         </div>`;
+
     this._showModal(`
       <div class="modal-title">✏️ ${room.name} bearbeiten</div>
+
+      <!-- Shared datalists for entity autocomplete -->
+      <datalist id="m-climate-list">${this._entityOptions(["climate"])}</datalist>
+      <datalist id="m-binary-sensor-list">${this._entityOptions(["binary_sensor"])}</datalist>
+      <datalist id="m-sensor-list">${this._entityOptions(["sensor"])}</datalist>
 
       <div class="info-box" style="margin-bottom:12px">
         Ist: <strong>${room.current_temp ?? "—"} °C</strong>
@@ -1538,22 +1607,59 @@ class IHCPanel extends HTMLElement {
         </select>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Temperatursensor</label>
+        <input type="text" class="form-input full" id="m-sensor"
+          value="${room.temp_sensor}" placeholder="sensor.wohnzimmer_temp"
+          list="m-sensor-list" autocomplete="off">
+      </div>
+
       <div class="modal-section">
         <div class="modal-section-title">Thermostate / TRVs (mehrere möglich)</div>
-        <div class="entity-list" id="valve-list">
-          <div class="entity-row">
-            <input type="text" class="form-input" placeholder="climate.entity (optional)">
-            <button class="btn btn-secondary btn-icon add-entity" data-list="valve-list">+</button>
+        <div class="entity-list" id="valve-list">${valveRows}</div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-title">Fenstersensoren (mehrere möglich)</div>
+        <div class="entity-list" id="window-list">${windowRows}</div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-title">Temperatur-Presets</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Komfort (°C)</label>
+            <input type="number" class="form-input" id="m-comfort" value="${room.comfort_temp}" step="0.5" min="15" max="30">
+          </div>
+          <div class="settings-item">
+            <label>Eco (°C)</label>
+            <input type="number" class="form-input" id="m-eco" value="${room.eco_temp}" step="0.5" min="10" max="25">
+          </div>
+          <div class="settings-item">
+            <label>Schlafen (°C)</label>
+            <input type="number" class="form-input" id="m-sleep" value="${room.sleep_temp}" step="0.5" min="10" max="25">
+          </div>
+          <div class="settings-item">
+            <label>Abwesend (°C)</label>
+            <input type="number" class="form-input" id="m-away-room" value="${room.away_temp_room}" step="0.5" min="5" max="22">
           </div>
         </div>
       </div>
 
       <div class="modal-section">
-        <div class="modal-section-title">Fenstersensoren (mehrere möglich)</div>
-        <div class="entity-list" id="window-list">
-          <div class="entity-row">
-            <input type="text" class="form-input" placeholder="binary_sensor.fenster (optional)">
-            <button class="btn btn-secondary btn-icon add-entity" data-list="window-list">+</button>
+        <div class="modal-section-title">Erweitert</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Zimmer-Offset (°C)</label>
+            <input type="number" class="form-input" id="m-offset" value="${room.room_offset}" step="0.5" min="-5" max="5">
+          </div>
+          <div class="settings-item">
+            <label>Totband (°C)</label>
+            <input type="number" class="form-input" id="m-deadband" value="${room.deadband}" step="0.1" min="0.1" max="2">
+          </div>
+          <div class="settings-item">
+            <label>Gewichtung</label>
+            <input type="number" class="form-input" id="m-weight" value="${room.weight}" step="0.1" min="0.1" max="5">
           </div>
         </div>
       </div>
@@ -1567,17 +1673,34 @@ class IHCPanel extends HTMLElement {
       </div>
 
       <div class="btn-row">
-        <button class="btn btn-primary" id="modal-confirm">Modus speichern</button>
+        <button class="btn btn-primary" id="modal-confirm">💾 Speichern</button>
         <button class="btn btn-secondary modal-close-btn">Abbrechen</button>
       </div>
     `, async () => {
       const modal  = this.shadowRoot.querySelector("#modal-root .modal");
       const roomId = room.room_id;
       if (!roomId) { this._toast("❌ room_id fehlt – bitte HA neu starten"); return; }
-      const mode = modal.querySelector("#m-mode").value;
+      const mode    = modal.querySelector("#m-mode").value;
+      const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
+      const windows = [...modal.querySelectorAll("#window-list input")].map(i => i.value.trim()).filter(Boolean);
       await this._callService("set_room_mode", { id: roomId, mode });
+      await this._callService("update_room", {
+        id: roomId,
+        temp_sensor:    modal.querySelector("#m-sensor").value.trim(),
+        valve_entity:   valves[0] || "",
+        valve_entities: valves,
+        window_sensor:  windows[0] || "",
+        window_sensors: windows,
+        comfort_temp:   parseFloat(modal.querySelector("#m-comfort").value),
+        eco_temp:       parseFloat(modal.querySelector("#m-eco").value),
+        sleep_temp:     parseFloat(modal.querySelector("#m-sleep").value),
+        away_temp_room: parseFloat(modal.querySelector("#m-away-room").value),
+        room_offset:    parseFloat(modal.querySelector("#m-offset").value),
+        deadband:       parseFloat(modal.querySelector("#m-deadband").value),
+        weight:         parseFloat(modal.querySelector("#m-weight").value),
+      });
       this._closeModal();
-      this._toast(`✓ ${room.name}: ${MODE_LABELS[mode]}`);
+      this._toast(`✓ ${room.name} gespeichert`);
     });
 
     // Boost button inside modal (doesn't close modal)
@@ -1640,17 +1763,27 @@ class IHCPanel extends HTMLElement {
     setTimeout(() => {
       this.shadowRoot.querySelectorAll(".add-entity").forEach(btn => {
         btn.addEventListener("click", () => {
-          const listId = btn.dataset.list;
-          const list   = this.shadowRoot.querySelector(`#${listId}`);
+          const listId    = btn.dataset.list;
+          const datalistId = btn.dataset.datalist || "";
+          const list      = this.shadowRoot.querySelector(`#${listId}`);
           if (!list) return;
+          const placeholder = btn.closest(".entity-row").querySelector("input").placeholder;
           const row = document.createElement("div");
           row.className = "entity-row";
           row.innerHTML = `
-            <input type="text" class="form-input" placeholder="${btn.closest(".entity-row").querySelector("input").placeholder}">
+            <input type="text" class="form-input" placeholder="${placeholder}"
+              ${datalistId ? `list="${datalistId}"` : ""} autocomplete="off">
             <button class="btn btn-danger btn-icon remove-entity">✕</button>`;
           list.appendChild(row);
           row.querySelector(".remove-entity").addEventListener("click", () => row.remove());
         });
+      });
+      // Also bind remove-entity buttons already in DOM (pre-filled rows)
+      this.shadowRoot.querySelectorAll(".remove-entity").forEach(btn => {
+        if (!btn._bound) {
+          btn._bound = true;
+          btn.addEventListener("click", () => btn.closest(".entity-row").remove());
+        }
       });
     }, 30);
   }
