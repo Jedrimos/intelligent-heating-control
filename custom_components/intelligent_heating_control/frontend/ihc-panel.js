@@ -826,12 +826,15 @@ class IHCPanel extends HTMLElement {
           <label class="form-label">System-Modus manuell setzen</label>
           <div class="form-row">
             <select class="form-select" id="system-mode-select">
-              ${Object.entries(SYSTEM_MODE_LABELS).map(([k, v]) =>
-                `<option value="${k}" ${curMode === k || curMode === v ? "selected" : ""}>${v}</option>`
-              ).join("")}
+              ${Object.entries(SYSTEM_MODE_LABELS)
+                .filter(([k]) => k !== "cool" || a.enable_cooling)
+                .map(([k, v]) =>
+                  `<option value="${k}" ${curMode === k || curMode === v ? "selected" : ""}>${v}</option>`
+                ).join("")}
             </select>
             <button class="btn btn-primary" id="set-system-mode">Setzen</button>
           </div>
+          ${!a.enable_cooling ? `<span class="form-hint">„Kühlen"-Modus erst verfügbar wenn Kühlung unter System-Hardware aktiviert</span>` : ""}
         </div>
       </div>
 
@@ -1189,6 +1192,8 @@ class IHCPanel extends HTMLElement {
     }
 
     const roomList = Object.values(rooms);
+    // Clear stale reference if the previously selected room was deleted
+    if (this._scheduleRoom && !rooms[this._scheduleRoom]) this._scheduleRoom = null;
     const selId  = this._scheduleRoom || roomList[0].entity_id;
     const selRoom = rooms[selId] || roomList[0];
 

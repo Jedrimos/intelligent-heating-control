@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.storage import Store
 from homeassistant.const import STATE_ON, STATE_OFF, STATE_UNAVAILABLE, STATE_UNKNOWN
 
 from .const import (
@@ -58,6 +59,7 @@ from .const import (
     CONF_MAX_TEMP,
     CONF_ENABLE_COOLING,
     CONF_SYSTEM_MODE,
+    STORAGE_KEY,
     CONF_AWAY_TEMP,
     CONF_VACATION_TEMP,
     CONF_CURVE_POINTS,
@@ -142,7 +144,10 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._config_entry = config_entry
         self._entry_id = config_entry.entry_id
 
-        # Runtime state (persisted in hass.data)
+        # Persistent storage for runtime state
+        self._store: Store = Store(hass, 1, f"{STORAGE_KEY}.{config_entry.entry_id}")
+
+        # Runtime state (persisted via Store)
         self._system_mode: str = SYSTEM_MODE_AUTO
         self._room_modes: Dict[str, str] = {}
         self._room_manual_temps: Dict[str, float] = {}
@@ -178,10 +183,13 @@ class IHCCoordinator(DataUpdateCoordinator):
         opts = dict(self._config_entry.data)
         opts.update(self._config_entry.options)
 
-        # Heating curve
+        # Heating curve – fall back to defaults if saved curve has fewer than 2 points
         curve_points = opts.get(CONF_HEATING_CURVE, {}).get(
             CONF_CURVE_POINTS, DEFAULT_HEATING_CURVE
         )
+        if not isinstance(curve_points, list) or len(curve_points) < 2:
+            _LOGGER.warning("IHC: Heating curve has < 2 points, using defaults")
+            curve_points = DEFAULT_HEATING_CURVE
         self._heating_curve = HeatingCurve(curve_points)
 
         # Schedule managers per room
@@ -201,6 +209,23 @@ class IHCCoordinator(DataUpdateCoordinator):
             min_rooms_demand=int(opts.get(CONF_MIN_ROOMS_DEMAND, DEFAULT_MIN_ROOMS_DEMAND)),
         )
 
+    async def async_load_runtime_state(self) -> None:
+        """Load persisted runtime state (system_mode, room_modes, manual temps) from Store."""
+        data = await self._store.async_load()
+        if not data:
+            return
+        self._system_mode = data.get("system_mode", SYSTEM_MODE_AUTO)
+        self._room_modes = data.get("room_modes", {})
+        self._room_manual_temps = data.get("room_manual_temps", {})
+
+    async def _async_save_runtime_state(self) -> None:
+        """Persist current runtime state to Store."""
+        await self._store.async_save({
+            "system_mode": self._system_mode,
+            "room_modes": self._room_modes,
+            "room_manual_temps": self._room_manual_temps,
+        })
+
     def get_config(self) -> dict:
         """Return merged config (data + options)."""
         cfg = dict(self._config_entry.data)
@@ -219,6 +244,7 @@ class IHCCoordinator(DataUpdateCoordinator):
 
     def set_system_mode(self, mode: str) -> None:
         self._system_mode = mode
+        self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
     def get_system_mode(self) -> str:
@@ -226,6 +252,7 @@ class IHCCoordinator(DataUpdateCoordinator):
 
     def set_room_mode(self, room_id: str, mode: str) -> None:
         self._room_modes[room_id] = mode
+        self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
     def get_room_mode(self, room_id: str) -> str:
@@ -234,6 +261,7 @@ class IHCCoordinator(DataUpdateCoordinator):
     def set_room_manual_temp(self, room_id: str, temp: float) -> None:
         self._room_manual_temps[room_id] = temp
         self._room_modes[room_id] = ROOM_MODE_MANUAL
+        self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
     def get_room_manual_temp(self, room_id: str) -> Optional[float]:
@@ -243,6 +271,7 @@ class IHCCoordinator(DataUpdateCoordinator):
         """Activate boost mode for a room for the given duration."""
         self._boost_until[room_id] = datetime.now() + timedelta(minutes=duration_minutes)
         self._room_modes[room_id] = ROOM_MODE_COMFORT
+        self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
     def cancel_room_boost(self, room_id: str) -> None:
@@ -250,6 +279,7 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._boost_until.pop(room_id, None)
         if self._room_modes.get(room_id) == ROOM_MODE_COMFORT:
             self._room_modes[room_id] = ROOM_MODE_AUTO
+        self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
     def get_boost_remaining_minutes(self, room_id: str) -> int:
@@ -321,11 +351,13 @@ class IHCCoordinator(DataUpdateCoordinator):
             _LOGGER.info("IHC: All persons away – activating auto-away mode")
             self._system_mode = SYSTEM_MODE_AWAY
             self._presence_away_active = True
+            self.hass.async_create_task(self._async_save_runtime_state())
 
         elif someone_home and self._presence_away_active:
             _LOGGER.info("IHC: Person arrived home – restoring auto mode")
             self._system_mode = SYSTEM_MODE_AUTO
             self._presence_away_active = False
+            self.hass.async_create_task(self._async_save_runtime_state())
 
     # ------------------------------------------------------------------
     # Night setback

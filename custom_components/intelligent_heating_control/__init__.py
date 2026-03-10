@@ -67,6 +67,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     coordinator = IHCCoordinator(hass, entry)
+    await coordinator.async_load_runtime_state()
     await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -235,7 +236,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         safe["rooms"] = [
             {k: v for k, v in r.items() if k not in ("schedules",)} for r in coordinator.get_rooms()
         ]
-        payload = json.dumps(cfg, indent=2, default=str)
+        payload = json.dumps(safe, indent=2, default=str)
         hass.components.persistent_notification.async_create(
             message=f"```json\n{payload}\n```",
             title="IHC Konfigurationsexport",
