@@ -25,6 +25,7 @@ from .const import (
     CONF_BOILER_KW, CONF_SOLAR_ENTITY, CONF_SOLAR_SURPLUS_THRESHOLD, CONF_SOLAR_BOOST_TEMP,
     CONF_ENERGY_PRICE_ENTITY, CONF_ENERGY_PRICE_THRESHOLD, CONF_ENERGY_PRICE_ECO_OFFSET,
     CONF_FLOW_TEMP_ENTITY,
+    CONF_VACATION_START, CONF_VACATION_END,
     DEFAULT_AWAY_TEMP, DEFAULT_VACATION_TEMP,
     DEFAULT_SUMMER_THRESHOLD, DEFAULT_FROST_PROTECTION_TEMP,
     DEFAULT_NIGHT_SETBACK_OFFSET, DEFAULT_PREHEAT_MINUTES,
@@ -104,6 +105,9 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "summer_mode":            d.get("summer_mode", False),
             "night_setback_active":   d.get("night_setback_active", False),
             "presence_away_active":   d.get("presence_away_active", False),
+            "vacation_auto_active":   d.get("vacation_auto_active", False),
+            "vacation_range":         d.get("vacation_range", {}),
+            "efficiency_score":       d.get("efficiency_score"),
             "system_mode":            d.get("system_mode", "auto"),
             "heating_runtime_today":  d.get("heating_runtime_today", 0.0),
             # Controller settings (read by frontend panel)
@@ -143,6 +147,8 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "energy_price_threshold":      cfg.get(CONF_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_THRESHOLD),
             "energy_price_eco_offset":     cfg.get(CONF_ENERGY_PRICE_ECO_OFFSET, DEFAULT_ENERGY_PRICE_ECO_OFFSET),
             "flow_temp_entity":            cfg.get(CONF_FLOW_TEMP_ENTITY, ""),
+            "vacation_start":              cfg.get(CONF_VACATION_START, ""),
+            "vacation_end":               cfg.get(CONF_VACATION_END, ""),
         }
 
 
@@ -232,6 +238,7 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
                 "temp_history": room.get("temp_history", []),          # Roadmap 1.1
                 "avg_warmup_minutes": room.get("avg_warmup_minutes"),  # Roadmap 1.1
                 "anomaly": room.get("anomaly"),                        # Roadmap 1.1
+                "room_presence_active": room.get("room_presence_active"),  # Roadmap 1.2
             }
         return {}
 

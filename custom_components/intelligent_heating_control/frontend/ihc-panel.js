@@ -490,6 +490,8 @@ class IHCPanel extends HTMLElement {
           rooms[climateId].temp_history = state.attributes.temp_history;
         if (state.attributes.avg_warmup_minutes !== undefined)
           rooms[climateId].avg_warmup_minutes = state.attributes.avg_warmup_minutes;
+        if (state.attributes.room_presence_active !== undefined)
+          rooms[climateId].room_presence_active = state.attributes.room_presence_active;
       }
     });
     // Enrich runtime from runtime sensors
@@ -532,6 +534,8 @@ class IHCPanel extends HTMLElement {
       energy_price:              ea.energy_price != null ? parseFloat(ea.energy_price) : null,
       energy_price_eco_active:   ea.energy_price_eco_active || false,
       flow_temp:                 ea.flow_temp != null ? parseFloat(ea.flow_temp) : null,
+      vacation_auto_active:      a.vacation_auto_active || false,
+      efficiency_score:          a.efficiency_score != null ? parseFloat(a.efficiency_score) : null,
     };
   }
 
@@ -632,7 +636,7 @@ class IHCPanel extends HTMLElement {
           <div class="demand-bar-bg">
             <div class="demand-bar" style="width:${room.demand}%;background:${this._demandColor(room.demand)}"></div>
           </div>
-          <div class="demand-label">${room.demand} % Anforderung · ${src}${room.night_setback > 0 ? ` · 🌙-${room.night_setback}°` : ""}</div>
+          <div class="demand-label">${room.demand} % Anforderung · ${src}${room.night_setback > 0 ? ` · 🌙-${room.night_setback}°` : ""}${room.room_presence_active === false ? ` · 🚶 kein Anwesenheit` : ""}</div>
           <div class="mode-chips">${modeChips}
             <span class="mode-chip boost" data-room-id="${room.room_id}" data-action="boost"
               title="60min Boost">⚡</span>
@@ -656,6 +660,7 @@ class IHCPanel extends HTMLElement {
       ${g.presence_away_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);border-color:#e65100;">🚶 <strong>Anwesenheits-Abwesend</strong> – niemand zuhause</div>` : ""}
       ${g.solar_boost > 0 ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fffde7,#fff9c4);border-color:#f9a825;">🌞 <strong>Solarüberschuss</strong> – ${g.solar_power != null ? g.solar_power + " W · " : ""}Zieltemp. +${g.solar_boost}°C angehoben</div>` : ""}
       ${g.energy_price_eco_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#c62828;">💶 <strong>Hoher Strompreis</strong> – ${g.energy_price != null ? g.energy_price.toFixed(3) + " €/kWh · " : ""}Eco-Modus aktiv</div>` : ""}
+      ${g.vacation_auto_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-color:#2e7d32;">✈️ <strong>Urlaubs-Modus aktiv</strong> – automatisch durch Urlaubszeitraum</div>` : ""}
 
       <div class="status-grid">
         <div class="status-item">
@@ -693,6 +698,10 @@ class IHCPanel extends HTMLElement {
         ${g.flow_temp != null ? `<div class="status-item">
           <div class="status-label">Vorlauf</div>
           <div class="status-value" style="font-size:16px">${g.flow_temp} °C</div>
+        </div>` : ""}
+        ${g.efficiency_score != null ? `<div class="status-item">
+          <div class="status-label">Effizienz</div>
+          <div class="status-value ${g.efficiency_score >= 80 ? "ok" : g.efficiency_score >= 50 ? "warn" : "on"}" style="font-size:16px" title="Verhältnis Soll-Heizzeit zu Ist-Laufzeit">${g.efficiency_score} %</div>
         </div>` : ""}
       </div>
 
@@ -1075,6 +1084,27 @@ class IHCPanel extends HTMLElement {
         </div>
       </div>
 
+      <!-- Urlaubs-Assistent -->
+      <div class="card">
+        <div class="card-title">✈️ Urlaubs-Assistent</div>
+        <div class="info-box">Schaltet automatisch auf den Modus „Urlaub" wenn das heutige Datum im angegebenen Zeitraum liegt. Urlaubs-Temperatur wird unter <em>Temperaturen</em> oben eingestellt.</div>
+        ${g.vacation_auto_active ? `<div class="info-box" style="background:#e3f2fd;border-color:#1565c0;">✈️ Automatischer Urlaubs-Modus ist <strong>aktiv</strong></div>` : ""}
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Urlaub von</label>
+            <input type="date" class="form-input" id="vacation-start" value="${a.vacation_start || ""}">
+          </div>
+          <div class="settings-item">
+            <label>Urlaub bis (inkl.)</label>
+            <input type="date" class="form-input" id="vacation-end" value="${a.vacation_end || ""}">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="save-vacation-range">💾 Urlaub speichern</button>
+          <button class="btn btn-secondary" id="clear-vacation-range">✕ Urlaub löschen</button>
+        </div>
+      </div>
+
       <!-- Backup -->
       <div class="card">
         <div class="card-title">💾 Backup &amp; Restore</div>
@@ -1108,32 +1138,46 @@ class IHCPanel extends HTMLElement {
     });
 
     content.querySelector("#save-temp-settings").addEventListener("click", () => {
+      const awayT  = parseFloat(content.querySelector("#away-temp").value);
+      const vacT   = parseFloat(content.querySelector("#vacation-temp").value);
+      const frostT = parseFloat(content.querySelector("#frost-temp").value);
+      const sumT   = parseFloat(content.querySelector("#summer-threshold").value);
+      if ([awayT, vacT, frostT, sumT].some(isNaN)) { this._toast("⚠️ Ungültiger Temperaturwert"); return; }
       this._callService("update_global_settings", {
-        away_temp:              parseFloat(content.querySelector("#away-temp").value),
-        vacation_temp:          parseFloat(content.querySelector("#vacation-temp").value),
-        frost_protection_temp:  parseFloat(content.querySelector("#frost-temp").value),
+        away_temp:              awayT,
+        vacation_temp:          vacT,
+        frost_protection_temp:  frostT,
         summer_mode_enabled:    content.querySelector("#summer-enabled").value === "true",
-        summer_threshold:       parseFloat(content.querySelector("#summer-threshold").value),
+        summer_threshold:       sumT,
       });
       this._toast("✓ Temperatur-Einstellungen gespeichert");
     });
 
     content.querySelector("#save-night-settings").addEventListener("click", () => {
+      const offset = parseFloat(content.querySelector("#night-setback-offset").value);
+      const preheat = parseInt(content.querySelector("#preheat-minutes").value);
+      if (isNaN(offset) || isNaN(preheat)) { this._toast("⚠️ Ungültiger Wert"); return; }
       this._callService("update_global_settings", {
         night_setback_enabled:  content.querySelector("#night-setback-enabled").value === "true",
-        night_setback_offset:   parseFloat(content.querySelector("#night-setback-offset").value),
-        preheat_minutes:        parseInt(content.querySelector("#preheat-minutes").value),
+        night_setback_offset:   offset,
+        preheat_minutes:        preheat,
       });
       this._toast("✓ Nachtabsenkung/Vorheizen gespeichert");
     });
 
     content.querySelector("#save-global-settings").addEventListener("click", () => {
+      const thresh  = parseFloat(content.querySelector("#demand-threshold").value);
+      const hyst    = parseFloat(content.querySelector("#demand-hysteresis").value);
+      const minOn   = parseInt(content.querySelector("#min-on-time").value);
+      const minOff  = parseInt(content.querySelector("#min-off-time").value);
+      const minRooms = parseInt(content.querySelector("#min-rooms").value);
+      if ([thresh, hyst, minOn, minOff, minRooms].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
       this._callService("update_global_settings", {
-        demand_threshold:   parseFloat(content.querySelector("#demand-threshold").value),
-        demand_hysteresis:  parseFloat(content.querySelector("#demand-hysteresis").value),
-        min_on_time:        parseInt(content.querySelector("#min-on-time").value),
-        min_off_time:       parseInt(content.querySelector("#min-off-time").value),
-        min_rooms_demand:   parseInt(content.querySelector("#min-rooms").value),
+        demand_threshold:   thresh,
+        demand_hysteresis:  hyst,
+        min_on_time:        minOn,
+        min_off_time:       minOff,
+        min_rooms_demand:   minRooms,
       });
       this._toast("✓ Klimabaustein-Einstellungen gespeichert");
     });
@@ -1145,15 +1189,21 @@ class IHCPanel extends HTMLElement {
     });
 
     content.querySelector("#save-energy-settings").addEventListener("click", () => {
+      const boilerKw     = parseFloat(content.querySelector("#boiler-kw").value);
+      const solarSurplus = parseFloat(content.querySelector("#solar-surplus-threshold").value);
+      const solarBoost   = parseFloat(content.querySelector("#solar-boost-temp").value);
+      const priceThresh  = parseFloat(content.querySelector("#energy-price-threshold").value);
+      const priceEco     = parseFloat(content.querySelector("#energy-price-eco-offset").value);
+      if ([boilerKw, solarSurplus, solarBoost, priceThresh, priceEco].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
       this._callService("update_global_settings", {
-        boiler_kw:                  parseFloat(content.querySelector("#boiler-kw").value),
+        boiler_kw:                  boilerKw,
         flow_temp_entity:           content.querySelector("#flow-temp-entity").value.trim(),
         solar_entity:               content.querySelector("#solar-entity").value.trim(),
-        solar_surplus_threshold:    parseFloat(content.querySelector("#solar-surplus-threshold").value),
-        solar_boost_temp:           parseFloat(content.querySelector("#solar-boost-temp").value),
+        solar_surplus_threshold:    solarSurplus,
+        solar_boost_temp:           solarBoost,
         energy_price_entity:        content.querySelector("#energy-price-entity").value.trim(),
-        energy_price_threshold:     parseFloat(content.querySelector("#energy-price-threshold").value),
-        energy_price_eco_offset:    parseFloat(content.querySelector("#energy-price-eco-offset").value),
+        energy_price_threshold:     priceThresh,
+        energy_price_eco_offset:    priceEco,
       });
       this._toast("✓ Energie/Solar-Einstellungen gespeichert");
     });
@@ -1161,6 +1211,20 @@ class IHCPanel extends HTMLElement {
     content.querySelector("#export-config-btn").addEventListener("click", () => {
       this._callService("export_config", {});
       this._toast("✓ Konfiguration wird als Benachrichtigung erstellt...");
+    });
+
+    content.querySelector("#save-vacation-range").addEventListener("click", () => {
+      const start = content.querySelector("#vacation-start").value;
+      const end   = content.querySelector("#vacation-end").value;
+      if (!start || !end) { this._toast("⚠️ Bitte Von- und Bis-Datum angeben"); return; }
+      if (start > end) { this._toast("⚠️ Das Von-Datum muss vor dem Bis-Datum liegen"); return; }
+      this._callService("update_global_settings", { vacation_start: start, vacation_end: end });
+      this._toast("✓ Urlaubszeitraum gespeichert");
+    });
+
+    content.querySelector("#clear-vacation-range").addEventListener("click", () => {
+      this._callService("update_global_settings", { vacation_start: "", vacation_end: "" });
+      this._toast("✓ Urlaubszeitraum gelöscht");
     });
   }
 

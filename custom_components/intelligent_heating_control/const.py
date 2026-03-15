@@ -170,6 +170,10 @@ CONF_FLOW_TEMP_ENTITY: Final = "flow_temp_entity"               # boiler flow-te
 # Roadmap 1.1 – Temperature history
 CONF_TEMP_HISTORY_SIZE: Final = 48                              # keep last N readings per room
 
+# Roadmap 1.2 – Vacation assistant (date range for automatic vacation mode)
+CONF_VACATION_START: Final = "vacation_start"    # ISO date string "YYYY-MM-DD"
+CONF_VACATION_END: Final = "vacation_end"        # ISO date string "YYYY-MM-DD" (inclusive)
+
 # Defaults for new options
 DEFAULT_BOILER_KW: Final = 20.0
 DEFAULT_SOLAR_SURPLUS_THRESHOLD: Final = 1000   # W

@@ -237,6 +237,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "energy_price_entity", "energy_price_threshold", "energy_price_eco_offset",
             # Roadmap 1.4 – Flow temp
             "flow_temp_entity",
+            # Roadmap 1.2 – Vacation assistant
+            "vacation_start", "vacation_end",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:
