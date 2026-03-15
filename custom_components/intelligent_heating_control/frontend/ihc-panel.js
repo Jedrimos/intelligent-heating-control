@@ -364,13 +364,23 @@ class IHCPanel extends HTMLElement {
 
   _startAutoRefresh() {
     if (this._refreshTimer) clearInterval(this._refreshTimer);
-    // Track pointer interactions so we never rebuild DOM during a click
+    // Track pointer interactions so we never rebuild DOM during a click.
+    // On mobile, browsers delay the click event up to 300ms after pointerup
+    // (double-tap prevention). We clear the flag after a 400ms grace period
+    // so the 5s timer never re-renders the DOM in that window.
     const sr = this.shadowRoot;
     if (!this._interactionTracked) {
       this._interactionTracked = true;
-      sr.addEventListener("pointerdown", () => { this._userInteracting = true; }, true);
-      sr.addEventListener("pointerup",   () => { this._userInteracting = false; }, true);
-      sr.addEventListener("pointercancel", () => { this._userInteracting = false; }, true);
+      sr.addEventListener("pointerdown", () => {
+        this._userInteracting = true;
+        if (this._interactionTimer) clearTimeout(this._interactionTimer);
+      }, true);
+      const _clearInteraction = () => {
+        if (this._interactionTimer) clearTimeout(this._interactionTimer);
+        this._interactionTimer = setTimeout(() => { this._userInteracting = false; }, 400);
+      };
+      sr.addEventListener("pointerup",     _clearInteraction, true);
+      sr.addEventListener("pointercancel", _clearInteraction, true);
     }
     this._refreshTimer = setInterval(() => {
       if (!this._hass || this._modalOpen || this._userInteracting) return;
@@ -890,7 +900,9 @@ class IHCPanel extends HTMLElement {
           this._callService("boost_room", { id: roomId, duration_minutes: 60 });
           this._toast("⚡ Boost aktiviert (60 min)");
         } else {
-          this._callService("set_room_mode", { id: roomId, mode: chip.dataset.mode });
+          const m = chip.dataset.mode;
+          this._callService("set_room_mode", { id: roomId, mode: m });
+          this._toast(`✓ Modus: ${MODE_LABELS[m] || m}`);
         }
       });
     });
