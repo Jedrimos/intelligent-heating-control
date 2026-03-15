@@ -875,6 +875,14 @@ class IHCPanel extends HTMLElement {
             <datalist id="cooling-switch-list">${this._entityOptions(["switch", "input_boolean"])}</datalist>
             <span class="form-hint">Schaltet Kühlaggregat/Klimaanlage</span>
           </div>
+          <div class="settings-item">
+            <label>Steuerungsmodus</label>
+            <select class="form-select" id="controller-mode">
+              <option value="switch" ${(a.controller_mode || "switch") === "switch" ? "selected" : ""}>🔌 Heizungsschalter</option>
+              <option value="trv" ${(a.controller_mode || "switch") === "trv" ? "selected" : ""}>🌡️ TRV-Modus</option>
+            </select>
+            <span class="form-hint">TRV: bei zu wenig Anforderung werden alle Thermostate auf Frostschutz geschlossen</span>
+          </div>
         </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="save-hardware-settings">💾 Hardware speichern</button>
@@ -1009,14 +1017,6 @@ class IHCPanel extends HTMLElement {
             <label>Min. Zimmer mit Anforderung</label>
             <input type="number" class="form-input" id="min-rooms"
               min="1" max="20" step="1" value="${a.min_rooms_demand ?? 1}">
-          </div>
-          <div class="settings-item">
-            <label>Steuerungsmodus</label>
-            <select class="form-select" id="controller-mode">
-              <option value="switch" ${(a.controller_mode || "switch") === "switch" ? "selected" : ""}>🔌 Heizungsschalter</option>
-              <option value="trv" ${(a.controller_mode || "switch") === "trv" ? "selected" : ""}>🌡️ TRV-Modus</option>
-            </select>
-            <span class="form-hint">TRV: bei zu wenig Anforderung werden alle Thermostate auf Frostschutz geschlossen</span>
           </div>
         </div>
         <div class="btn-row">
@@ -1214,6 +1214,7 @@ class IHCPanel extends HTMLElement {
         enable_cooling:      content.querySelector("#enable-cooling").value === "true",
         cooling_switch:      content.querySelector("#cooling-switch").value.trim(),
         weather_entity:      content.querySelector("#weather-entity").value.trim(),
+        controller_mode:     content.querySelector("#controller-mode").value,
       });
       this._toast("✓ Hardware-Einstellungen gespeichert");
     });
@@ -1265,7 +1266,6 @@ class IHCPanel extends HTMLElement {
         min_on_time:        minOn,
         min_off_time:       minOff,
         min_rooms_demand:   minRooms,
-        controller_mode:    content.querySelector("#controller-mode").value,
       });
       this._toast("✓ Klimabaustein-Einstellungen gespeichert");
     });
