@@ -61,38 +61,58 @@ const STYLES = `
                 margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
   .card-subtitle { font-size: 12px; color: var(--secondary-text-color); margin-bottom: 16px; }
 
+  /* Overview hero */
+  .overview-hero { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 700px) { .overview-hero { grid-template-columns: 1fr; } }
+  .hero-card { background: var(--card-background-color,#fff); border-radius: 12px; padding: 16px 18px;
+               box-shadow: 0 1px 6px rgba(0,0,0,.08); display: flex; flex-direction: column; gap: 4px; }
+  .hero-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
+                color: var(--secondary-text-color); margin-bottom: 2px; }
+  .hero-value { font-size: 26px; font-weight: 700; color: var(--primary-text-color); line-height: 1.1; }
+  .hero-value.heating { color: var(--error-color, #e53935); }
+  .hero-value.ok { color: var(--success-color, #43a047); }
+  .hero-sub { font-size: 12px; color: var(--secondary-text-color); }
+
   /* Status bar */
-  .status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                 gap: 10px; margin-bottom: 20px; }
-  .status-item { background: var(--card-background-color, #fff); border-radius: 10px; padding: 14px 12px;
+  .status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                 gap: 8px; margin-bottom: 16px; }
+  .status-item { background: var(--card-background-color, #fff); border-radius: 10px; padding: 12px 10px;
                  box-shadow: 0 1px 4px rgba(0,0,0,.08); text-align: center; }
   .status-label { font-size: 10px; color: var(--secondary-text-color); text-transform: uppercase;
-                  letter-spacing: 0.6px; margin-bottom: 6px; }
-  .status-value { font-size: 20px; font-weight: 700; color: var(--primary-text-color); }
+                  letter-spacing: 0.6px; margin-bottom: 4px; }
+  .status-value { font-size: 18px; font-weight: 700; color: var(--primary-text-color); }
   .status-value.on { color: var(--error-color, #e53935); }
   .status-value.ok { color: var(--success-color, #43a047); }
   .status-value.warn { color: #fb8c00; }
 
   /* Room cards – Übersicht */
-  .rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
   .room-card {
     background: var(--card-background-color, #fff);
     border-radius: 12px; padding: 16px;
     box-shadow: 0 1px 6px rgba(0,0,0,.08);
-    border-left: 4px solid var(--divider-color, #e0e0e0);
+    border-top: 3px solid var(--divider-color, #e0e0e0);
     transition: border-color 0.3s, box-shadow 0.3s;
   }
   .room-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,.14); }
-  .room-card.heating { border-left-color: var(--error-color, #e53935); }
-  .room-card.satisfied { border-left-color: var(--success-color, #43a047); }
-  .room-card.window-open { border-left-color: #1e88e5; }
-  .room-card.off { border-left-color: #9e9e9e; }
+  .room-card.heating { border-top-color: var(--error-color, #e53935); }
+  .room-card.satisfied { border-top-color: var(--success-color, #43a047); }
+  .room-card.window-open { border-top-color: #1e88e5; }
+  .room-card.off { border-top-color: #9e9e9e; }
 
   .room-name { font-size: 14px; font-weight: 700; margin-bottom: 10px;
                display: flex; align-items: center; justify-content: space-between; }
 
   /* Temp display */
-  .temp-display { display: flex; align-items: baseline; gap: 6px; margin-bottom: 10px; }
+  .temp-display { display: flex; align-items: center; gap: 0; margin-bottom: 10px; }
+  .temp-block { display: flex; flex-direction: column; align-items: center; flex: 1; }
+  .temp-main { font-size: 30px; font-weight: 300; color: var(--primary-text-color); line-height: 1.1; }
+  .temp-label { font-size: 10px; color: var(--secondary-text-color); text-transform: uppercase;
+                letter-spacing: 0.5px; }
+  .temp-sep { font-size: 18px; color: var(--divider-color, #e0e0e0); padding: 0 6px; }
+  .temp-target-block { display: flex; flex-direction: column; align-items: center; flex: 1; }
+  .temp-target-val { font-size: 24px; font-weight: 600; color: var(--primary-color); line-height: 1.1; }
+  /* keep for compat */
   .temp-current { font-size: 28px; font-weight: 300; color: var(--primary-text-color); }
   .temp-arrow { font-size: 16px; color: var(--secondary-text-color); }
   .temp-target { font-size: 18px; font-weight: 600; color: var(--primary-color); }
@@ -106,11 +126,11 @@ const STYLES = `
 
   /* Quick-mode chips */
   .mode-chips { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
-  .mode-chip { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
+  .mode-chip { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
                border: 1.5px solid var(--divider-color); cursor: pointer;
                transition: all 0.15s; color: var(--secondary-text-color);
-               background: transparent; }
-  .mode-chip:hover { border-color: var(--primary-color); color: var(--primary-color); }
+               background: transparent; display: inline-flex; align-items: center; gap: 3px; }
+  .mode-chip:hover { border-color: var(--primary-color); color: var(--primary-color); background: var(--secondary-background-color); }
   .mode-chip.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
   .mode-chip.boost { border-color: #fb8c00; color: #fb8c00; }
   .mode-chip.boost:hover, .mode-chip.boost.active { background: #fb8c00; color: white; }
@@ -584,7 +604,30 @@ class IHCPanel extends HTMLElement {
     const g = this._getGlobal();
     const rooms = this._getRoomData();
 
-    const roomCards = Object.values(rooms).map(room => {
+    // Sort rooms: heating → window open → demanding → satisfied → off
+    const sortedRooms = Object.values(rooms).sort((a, b) => {
+      const priority = r => {
+        if (r.window_open) return 1;
+        if (r.demand > 0 && g.heating_active) return 0;
+        if (r.room_mode === "off") return 4;
+        if (r.demand === 0) return 3;
+        return 2;
+      };
+      return priority(a) - priority(b);
+    });
+
+    const srcMap = {
+      "heating_curve": "Heizkurve", "schedule": "Zeitplan",
+      "preheat": "⏱ Vorheizen", "comfort": "Komfort",
+      "eco": "Eco", "sleep": "Schlafen",
+      "system_away": "Sys. Abwesend", "system_vacation": "Urlaub",
+      "room_off": "Aus", "manual": "Manuell", "room_away": "Abwesend",
+      "frost_protection": "❄ Frostschutz",
+      "guest_mode": "🎉 Gäste",
+      "room_presence_eco": "🚶 Eco (leer)",
+    };
+
+    const roomCards = sortedRooms.map(room => {
       const isHeating  = room.demand > 0 && g.heating_active;
       const isWindow   = room.window_open;
       const isOff      = room.room_mode === "off";
@@ -607,23 +650,22 @@ class IHCPanel extends HTMLElement {
         return "";
       })();
 
-      const srcMap = {
-        "heating_curve": "Heizkurve", "schedule": "Zeitplan",
-        "preheat": "⏱ Vorheizen", "comfort": "Komfort",
-        "eco": "Eco", "sleep": "Schlafen",
-        "system_away": "Sys. Abwesend", "system_vacation": "Urlaub",
-        "room_off": "Aus", "manual": "Manuell", "room_away": "Abwesend",
-        "frost_protection": "❄ Frostschutz",
-        "guest_mode": "🎉 Gäste",
-        "room_presence_eco": "🚶 Eco (leer)",
-      };
       const src = srcMap[room.source] || room.source;
+
+      // Calculate temp difference for visual cue
+      const tempDiff = (room.current_temp !== null && room.target_temp !== null)
+        ? room.target_temp - room.current_temp : null;
+      const tempDiffStr = tempDiff !== null
+        ? (tempDiff > 0.2 ? `<span style="color:var(--error-color,#e53935);font-size:11px">↑ ${tempDiff.toFixed(1)}°</span>`
+           : tempDiff < -0.2 ? `<span style="color:var(--success-color,#43a047);font-size:11px">↓ ${Math.abs(tempDiff).toFixed(1)}°</span>`
+           : `<span style="color:var(--success-color,#43a047);font-size:11px">≈</span>`)
+        : "";
 
       const modeChips = ["auto","comfort","eco","sleep","away","off"].map(m => {
         const isActive = room.room_mode === m;
         return `<span class="mode-chip ${isActive ? "active" : ""}"
           data-room-id="${room.room_id}" data-mode="${m}"
-          title="${MODE_LABELS[m]}">${MODE_ICONS[m]}</span>`;
+          title="${MODE_LABELS[m]}">${MODE_ICONS[m]} <span style="font-size:10px">${MODE_LABELS[m]}</span></span>`;
       }).join("");
 
       const anomalyBanner = room.anomaly === "sensor_stuck"
@@ -644,44 +686,74 @@ class IHCPanel extends HTMLElement {
             ${statusBadge}
           </div>
           <div class="temp-display">
-            <span class="temp-current">${room.current_temp !== null ? room.current_temp : "—"}</span>
-            <span class="temp-unit">°C</span>
-            <span class="temp-arrow">→</span>
-            <span class="temp-target">${room.target_temp !== null ? room.target_temp : "—"}</span>
-            <span class="temp-unit">°C</span>
+            <div class="temp-block">
+              <div class="temp-main">${room.current_temp !== null ? room.current_temp : "—"}<span style="font-size:14px;font-weight:400">°C</span></div>
+              <div class="temp-label">Ist</div>
+            </div>
+            <div class="temp-sep">|</div>
+            <div class="temp-target-block">
+              <div class="temp-target-val">${room.target_temp !== null ? room.target_temp : "—"}<span style="font-size:13px;font-weight:400">°C</span></div>
+              <div class="temp-label" style="display:flex;align-items:center;gap:4px">Soll ${tempDiffStr}</div>
+            </div>
           </div>
           <div class="demand-bar-bg">
             <div class="demand-bar" style="width:${room.demand}%;background:${this._demandColor(room.demand)}"></div>
           </div>
-          <div class="demand-label">${room.demand} % Anforderung · ${src}${room.night_setback > 0 ? ` · 🌙-${room.night_setback}°` : ""}${room.room_presence_active === false ? ` · 🚶 kein Anwesenheit` : ""}</div>
+          <div class="demand-label">${room.demand} % · ${src}${room.night_setback > 0 ? ` · 🌙-${room.night_setback}°` : ""}${room.room_presence_active === false ? ` · 🚶 niemand da` : ""}</div>
           <div class="mode-chips">${modeChips}
             <span class="mode-chip boost" data-room-id="${room.room_id}" data-action="boost"
-              title="60min Boost">⚡</span>
+              title="60min Boost">⚡ <span style="font-size:10px">Boost</span></span>
           </div>
           ${room.next_period && !room.schedule_active ? `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:4px">📅 Nächster Zeitplan: ${room.next_period.start}–${room.next_period.end} · ${room.next_period.temperature}°C</div>` : ""}
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
-            ${room.runtime_today_minutes > 0 ? `<span style="font-size:10px;color:var(--secondary-text-color)">⏱ ${room.runtime_today_minutes} min</span>` : "<span></span>"}
-            ${room.avg_warmup_minutes ? `<span style="font-size:10px;color:var(--secondary-text-color)" title="Ø Aufheizzeit">🌡️ ${room.avg_warmup_minutes} min</span>` : ""}
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+            ${room.runtime_today_minutes > 0 ? `<span style="font-size:10px;color:var(--secondary-text-color)">⏱ ${room.runtime_today_minutes} min heute</span>` : "<span></span>"}
+            ${room.avg_warmup_minutes ? `<span style="font-size:10px;color:var(--secondary-text-color)" title="Ø Aufheizzeit">🌡️ Ø ${room.avg_warmup_minutes} min</span>` : ""}
             ${this._sparkline(room.temp_history)}
           </div>
         </div>`;
     }).join("");
 
-    content.innerHTML = `
-      ${Object.keys(rooms).length === 0 ? `<div class="info-box">
-        Noch keine Zimmer konfiguriert. Gehe zum Tab <strong>Zimmer</strong> und füge dein erstes Zimmer hinzu.
-      </div>` : ""}
+    // Build system banners
+    const banners = [
+      g.summer_mode           ? `<div class="summer-banner">☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</div>` : "",
+      g.night_setback_active  ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#1565c0;">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
+      g.presence_away_active  ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);border-color:#e65100;">🚶 <strong>Anwesenheits-Abwesend</strong> – niemand zuhause</div>` : "",
+      g.solar_boost > 0       ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fffde7,#fff9c4);border-color:#f9a825;">🌞 <strong>Solarüberschuss</strong> – ${g.solar_power != null ? g.solar_power + " W · " : ""}+${g.solar_boost}°C angehoben</div>` : "",
+      g.energy_price_eco_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#c62828;">💶 <strong>Hoher Strompreis</strong> – ${g.energy_price != null ? g.energy_price.toFixed(3) + " €/kWh · " : ""}Eco-Modus aktiv</div>` : "",
+      g.vacation_auto_active  ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-color:#2e7d32;">✈️ <strong>Urlaubs-Modus aktiv</strong></div>` : "",
+      g.return_preheat_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#1565c0;">🏠 <strong>Rückkehr-Vorheizung aktiv</strong> – Haus wird aufgeheizt</div>` : "",
+      g.guest_mode_active     ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#880e4f;">🎉 <strong>Gäste-Modus aktiv</strong>${g.guest_remaining_minutes != null ? ` – noch ${g.guest_remaining_minutes} min` : ""}</div>` : "",
+      g.weather_forecast && g.weather_forecast.cold_warning ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8eaf6,#c5cae9);border-color:#1a237e;">🥶 <strong>Kältewarnung</strong> – Tiefsttemperatur heute: ${g.weather_forecast.forecast_today_min}°C</div>` : "",
+    ].filter(Boolean).join("");
 
-      ${g.summer_mode ? `<div class="summer-banner">☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</div>` : ""}
-      ${g.night_setback_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#1565c0;">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : ""}
-      ${g.presence_away_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);border-color:#e65100;">🚶 <strong>Anwesenheits-Abwesend</strong> – niemand zuhause</div>` : ""}
-      ${g.solar_boost > 0 ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fffde7,#fff9c4);border-color:#f9a825;">🌞 <strong>Solarüberschuss</strong> – ${g.solar_power != null ? g.solar_power + " W · " : ""}Zieltemp. +${g.solar_boost}°C angehoben</div>` : ""}
-      ${g.energy_price_eco_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#c62828;">💶 <strong>Hoher Strompreis</strong> – ${g.energy_price != null ? g.energy_price.toFixed(3) + " €/kWh · " : ""}Eco-Modus aktiv</div>` : ""}
-      ${g.vacation_auto_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-color:#2e7d32;">✈️ <strong>Urlaubs-Modus aktiv</strong> – automatisch durch Urlaubszeitraum</div>` : ""}
-      ${g.return_preheat_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#1565c0;">🏠 <strong>Rückkehr-Vorheizung aktiv</strong> – Haus wird vor Rückkehr aufgeheizt</div>` : ""}
-      ${g.guest_mode_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#880e4f;">🎉 <strong>Gäste-Modus aktiv</strong>${g.guest_remaining_minutes != null ? ` – noch ${g.guest_remaining_minutes} min` : ""}</div>` : ""}
-      ${g.weather_forecast && g.weather_forecast.cold_warning ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8eaf6,#c5cae9);border-color:#1a237e;">🥶 <strong>Kältewarnung</strong> – Tiefsttemperatur heute: ${g.weather_forecast.forecast_today_min}°C</div>` : ""}
+    // Hero section: 3 key stats prominently displayed
+    const heatingState = g.heating_active ? "🔥 Heizt" : g.no_switch ? "— kein Schalter" : "✓ Bereit";
+    const heatingCls   = g.heating_active ? "heating" : "ok";
+    const modeDisplay  = SYSTEM_MODE_LABELS[g.system_mode] || g.system_mode;
+    const demandNum    = g.total_demand != null ? `${g.total_demand} %` : "—";
+    const demandCls    = (g.total_demand || 0) > 0 ? "warn" : "ok";
 
+    const heroSection = `
+      <div class="overview-hero">
+        <div class="hero-card">
+          <div class="hero-label">Heizung</div>
+          <div class="hero-value ${heatingCls}">${heatingState}</div>
+          <div class="hero-sub">${g.rooms_demanding} Zimmer mit Anforderung</div>
+        </div>
+        <div class="hero-card">
+          <div class="hero-label">Gesamtanforderung</div>
+          <div class="hero-value ${demandCls}">${demandNum}</div>
+          <div class="hero-sub">Modus: ${modeDisplay}</div>
+        </div>
+        <div class="hero-card">
+          <div class="hero-label">Energie heute</div>
+          <div class="hero-value">${g.energy_today_kwh} <span style="font-size:16px;font-weight:400">kWh</span></div>
+          <div class="hero-sub">⏱ ${g.heating_runtime_today} min Laufzeit</div>
+        </div>
+      </div>`;
+
+    // Secondary stats grid (compact)
+    const statsGrid = `
       <div class="status-grid">
         <div class="status-item">
           <div class="status-label">Außentemp.</div>
@@ -691,48 +763,33 @@ class IHCPanel extends HTMLElement {
           <div class="status-label">Kurven-Ziel</div>
           <div class="status-value">${this._fmt(g.curve_target, " °C")}</div>
         </div>
-        <div class="status-item">
-          <div class="status-label">Anforderung</div>
-          <div class="status-value ${(g.total_demand || 0) > 0 ? "warn" : "ok"}">${this._fmt(g.total_demand, " %")}</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Heizung</div>
-          <div class="status-value ${g.heating_active ? "on" : "ok"}">${g.heating_active ? "🔥 EIN" : g.no_switch ? "— kein Schalter" : "✓ AUS"}</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Zimmer aktiv</div>
-          <div class="status-value">${g.rooms_demanding}</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Modus</div>
-          <div class="status-value" style="font-size:13px;padding-top:4px">${SYSTEM_MODE_LABELS[g.system_mode] || g.system_mode}</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Laufzeit heute</div>
-          <div class="status-value" style="font-size:16px">${g.heating_runtime_today} min</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Energie heute</div>
-          <div class="status-value" style="font-size:16px">${g.energy_today_kwh} kWh</div>
-        </div>
-        ${g.heating_runtime_yesterday > 0 ? `<div class="status-item" title="Gestriger Verbrauch zum Vergleich">
+        ${g.flow_temp != null ? `<div class="status-item">
+          <div class="status-label">Vorlauf</div>
+          <div class="status-value">${g.flow_temp} °C</div>
+        </div>` : ""}
+        ${g.efficiency_score != null ? `<div class="status-item" title="Verhältnis Soll-Heizzeit zu Ist-Laufzeit">
+          <div class="status-label">Effizienz</div>
+          <div class="status-value ${g.efficiency_score >= 80 ? "ok" : g.efficiency_score >= 50 ? "warn" : "on"}">${g.efficiency_score} %</div>
+        </div>` : ""}
+        ${g.heating_runtime_yesterday > 0 ? `<div class="status-item" title="Gestriger Verbrauch">
           <div class="status-label">Gestern</div>
-          <div class="status-value ${g.energy_today_kwh > g.energy_yesterday_kwh ? "on" : "ok"}" style="font-size:16px">${g.energy_yesterday_kwh} kWh</div>
+          <div class="status-value ${g.energy_today_kwh > g.energy_yesterday_kwh ? "on" : "ok"}" style="font-size:15px">${g.energy_yesterday_kwh} kWh</div>
         </div>` : ""}
         ${g.weather_forecast ? `<div class="status-item" title="Wettervorhersage">
           <div class="status-label">Wetter heute</div>
-          <div class="status-value" style="font-size:13px">${g.weather_forecast.condition || "—"}${g.weather_forecast.forecast_today_min != null ? ` ${g.weather_forecast.forecast_today_min}–${g.weather_forecast.forecast_today_max}°C` : ""}</div>
+          <div class="status-value" style="font-size:13px">${g.weather_forecast.condition || "—"}${g.weather_forecast.forecast_today_min != null ? ` ${g.weather_forecast.forecast_today_min}–${g.weather_forecast.forecast_today_max}°` : ""}</div>
         </div>` : ""}
-        ${g.flow_temp != null ? `<div class="status-item">
-          <div class="status-label">Vorlauf</div>
-          <div class="status-value" style="font-size:16px">${g.flow_temp} °C</div>
-        </div>` : ""}
-        ${g.efficiency_score != null ? `<div class="status-item">
-          <div class="status-label">Effizienz</div>
-          <div class="status-value ${g.efficiency_score >= 80 ? "ok" : g.efficiency_score >= 50 ? "warn" : "on"}" style="font-size:16px" title="Verhältnis Soll-Heizzeit zu Ist-Laufzeit">${g.efficiency_score} %</div>
-        </div>` : ""}
-      </div>
+      </div>`;
 
+    content.innerHTML = `
+      ${Object.keys(rooms).length === 0 ? `<div class="info-box">
+        Noch keine Zimmer konfiguriert. Gehe zum Tab <strong>Zimmer</strong> und füge dein erstes Zimmer hinzu.
+      </div>` : ""}
+
+      ${banners}
+      ${heroSection}
+      ${statsGrid}
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--secondary-text-color);margin-bottom:10px">${sortedRooms.length} Zimmer</div>
       <div class="rooms-grid">${roomCards}</div>
     `;
 
@@ -976,6 +1033,12 @@ class IHCPanel extends HTMLElement {
             <input type="number" class="form-input" id="preheat-minutes"
               min="0" max="120" step="5" value="${a.preheat_minutes ?? 0}">
             <span class="form-hint">Wie früh vor Zeitplan-Start wird vorgeheizt (0 = aus)</span>
+          </div>
+          <div class="settings-item">
+            <label>Sonnen-Entität</label>
+            <input type="text" class="form-input" id="sun-entity"
+              placeholder="sun.sun" value="${a.sun_entity ?? 'sun.sun'}">
+            <span class="form-hint">Entität zur Tag/Nacht-Erkennung (Standard: sun.sun)</span>
           </div>
         </div>
         <div class="btn-row">
@@ -1249,6 +1312,7 @@ class IHCPanel extends HTMLElement {
         night_setback_enabled:  content.querySelector("#night-setback-enabled").value === "true",
         night_setback_offset:   offset,
         preheat_minutes:        preheat,
+        sun_entity:             content.querySelector("#sun-entity").value.trim() || "sun.sun",
       });
       this._toast("✓ Nachtabsenkung/Vorheizen gespeichert");
     });
