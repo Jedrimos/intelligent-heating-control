@@ -171,6 +171,12 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "schedules": room_cfg.get("schedules", []),
             "next_period": d.get("next_period"),
             "anomaly": d.get("anomaly"),
+            # Mold protection
+            "humidity_sensor": room_cfg.get("humidity_sensor", ""),
+            "mold_protection_enabled": room_cfg.get("mold_protection_enabled", True),
+            "mold": d.get("mold"),
+            # Presence
+            "room_presence_active": d.get("room_presence_active"),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:

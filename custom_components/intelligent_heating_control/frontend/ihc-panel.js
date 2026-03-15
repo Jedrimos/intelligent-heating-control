@@ -1868,6 +1868,21 @@ class IHCPanel extends HTMLElement {
         </div>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Luftfeuchtigkeitssensor (optional)</label>
+        <input type="text" class="form-input full" id="m-humidity-sensor"
+          placeholder="sensor.wohnzimmer_humidity" list="m-sensor-list" autocomplete="off">
+        <span class="form-hint">Für Schimmelschutz-Erkennung</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Schimmelschutz</label>
+        <select class="form-input full" id="m-mold-enabled">
+          <option value="true">Aktiviert</option>
+          <option value="false">Deaktiviert</option>
+        </select>
+      </div>
+
       <div class="modal-section">
         <div class="modal-section-title">Temperatur-Presets</div>
         <div class="settings-grid">
@@ -1922,18 +1937,20 @@ class IHCPanel extends HTMLElement {
 
       await this._callService("add_room", {
         name,
-        temp_sensor:    modal.querySelector("#m-sensor").value.trim(),
-        valve_entity:   valves[0] || "",
-        valve_entities: valves,
-        window_sensor:  windows[0] || "",
-        window_sensors: windows,
-        room_offset:    parseFloat(modal.querySelector("#m-offset").value),
-        comfort_temp:   parseFloat(modal.querySelector("#m-comfort").value),
-        eco_temp:       parseFloat(modal.querySelector("#m-eco").value),
-        sleep_temp:     parseFloat(modal.querySelector("#m-sleep").value),
-        away_temp_room: parseFloat(modal.querySelector("#m-away-room").value),
-        deadband:       parseFloat(modal.querySelector("#m-deadband").value),
-        weight:         parseFloat(modal.querySelector("#m-weight").value),
+        temp_sensor:            modal.querySelector("#m-sensor").value.trim(),
+        valve_entity:           valves[0] || "",
+        valve_entities:         valves,
+        window_sensor:          windows[0] || "",
+        window_sensors:         windows,
+        room_offset:            parseFloat(modal.querySelector("#m-offset").value),
+        comfort_temp:           parseFloat(modal.querySelector("#m-comfort").value),
+        eco_temp:               parseFloat(modal.querySelector("#m-eco").value),
+        sleep_temp:             parseFloat(modal.querySelector("#m-sleep").value),
+        away_temp_room:         parseFloat(modal.querySelector("#m-away-room").value),
+        deadband:               parseFloat(modal.querySelector("#m-deadband").value),
+        weight:                 parseFloat(modal.querySelector("#m-weight").value),
+        humidity_sensor:        modal.querySelector("#m-humidity-sensor").value.trim(),
+        mold_protection_enabled: modal.querySelector("#m-mold-enabled").value === "true",
       });
       this._closeModal();
       this._toast("✓ Zimmer hinzugefügt – HA lädt Entitäten neu");

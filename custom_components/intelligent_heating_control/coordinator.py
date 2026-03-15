@@ -255,7 +255,14 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._room_modes = data.get("room_modes", {})
         self._room_manual_temps = data.get("room_manual_temps", {})
         self._vacation_auto_active = data.get("vacation_auto_active", False)
+        self._heating_runtime_today = data.get("heating_runtime_today", 0.0)
         self._heating_runtime_yesterday = data.get("heating_runtime_yesterday", 0.0)
+        self._room_runtime_today = data.get("room_runtime_today", {})
+        self._return_preheat_active = data.get("return_preheat_active", False)
+        # Restore the day number so we don't falsely roll over on first update
+        stored_day = data.get("runtime_day")
+        if stored_day is not None:
+            self._runtime_day = stored_day
         # Guest mode revert time (ISO string → datetime)
         guest_until_str = data.get("guest_mode_until")
         if guest_until_str:
@@ -276,7 +283,11 @@ class IHCCoordinator(DataUpdateCoordinator):
             "room_modes": self._room_modes,
             "room_manual_temps": self._room_manual_temps,
             "vacation_auto_active": self._vacation_auto_active,
+            "heating_runtime_today": self._heating_runtime_today,
             "heating_runtime_yesterday": self._heating_runtime_yesterday,
+            "room_runtime_today": self._room_runtime_today,
+            "runtime_day": self._runtime_day,
+            "return_preheat_active": self._return_preheat_active,
             "guest_mode_until": self._guest_mode_until.isoformat() if self._guest_mode_until else None,
             # Persist temperature history so sparklines survive HA restarts
             "temp_history": {rid: list(hist) for rid, hist in self._temp_history.items()},
