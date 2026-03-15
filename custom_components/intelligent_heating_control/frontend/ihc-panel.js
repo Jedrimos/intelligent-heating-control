@@ -499,9 +499,14 @@ class IHCPanel extends HTMLElement {
         valve_entities: state.attributes.valve_entities || [],
         window_sensors: state.attributes.window_sensors || [],
         comfort_temp: state.attributes.comfort_temp ?? 21,
-        eco_temp: state.attributes.eco_temp ?? 18,
-        sleep_temp: state.attributes.sleep_temp ?? 17,
         away_temp_room: state.attributes.away_temp_room ?? 16,
+        eco_offset: state.attributes.eco_offset ?? 3,
+        sleep_offset: state.attributes.sleep_offset ?? 4,
+        eco_max_temp: state.attributes.eco_max_temp ?? 21,
+        sleep_max_temp: state.attributes.sleep_max_temp ?? 19,
+        comfort_temp_eff: state.attributes.comfort_temp_eff ?? null,
+        eco_temp_eff: state.attributes.eco_temp_eff ?? null,
+        sleep_temp_eff: state.attributes.sleep_temp_eff ?? null,
         room_offset: state.attributes.room_offset ?? 0,
         deadband: state.attributes.deadband ?? 0.5,
         weight: state.attributes.weight ?? 1.0,
@@ -2054,22 +2059,41 @@ class IHCPanel extends HTMLElement {
 
       <div class="modal-section">
         <div class="modal-section-title">Temperatur-Presets</div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
+          Komfort wird von der Außentemperatur berechnet (Heizkurve).
+          Eco und Schlaf = Komfort minus Abzug, mit optionalem Maximum.
+        </div>
         <div class="settings-grid">
           <div class="settings-item">
-            <label>Komfort (°C)</label>
+            <label>Komfort Fallback (°C)</label>
             <input type="number" class="form-input" id="m-comfort" value="21" step="0.5" min="15" max="30">
-          </div>
-          <div class="settings-item">
-            <label>Eco (°C)</label>
-            <input type="number" class="form-input" id="m-eco" value="18" step="0.5" min="10" max="25">
-          </div>
-          <div class="settings-item">
-            <label>Schlafen (°C)</label>
-            <input type="number" class="form-input" id="m-sleep" value="17" step="0.5" min="10" max="25">
+            <span class="form-hint">Nur wenn kein Außensensor vorhanden</span>
           </div>
           <div class="settings-item">
             <label>Abwesend (°C)</label>
             <input type="number" class="form-input" id="m-away-room" value="16" step="0.5" min="5" max="22">
+          </div>
+        </div>
+        <div class="settings-grid" style="margin-top:8px">
+          <div class="settings-item">
+            <label>Eco Abzug (°C)</label>
+            <input type="number" class="form-input" id="m-eco-offset" value="3" step="0.5" min="0" max="10">
+            <span class="form-hint">Eco = Komfort − Abzug</span>
+          </div>
+          <div class="settings-item">
+            <label>Eco Maximum (°C)</label>
+            <input type="number" class="form-input" id="m-eco-max" value="21" step="0.5" min="10" max="28">
+            <span class="form-hint">Eco nie höher als dieser Wert</span>
+          </div>
+          <div class="settings-item">
+            <label>Schlaf Abzug (°C)</label>
+            <input type="number" class="form-input" id="m-sleep-offset" value="4" step="0.5" min="0" max="10">
+            <span class="form-hint">Schlaf = Komfort − Abzug</span>
+          </div>
+          <div class="settings-item">
+            <label>Schlaf Maximum (°C)</label>
+            <input type="number" class="form-input" id="m-sleep-max" value="19" step="0.5" min="10" max="25">
+            <span class="form-hint">Schlaf nie höher als dieser Wert</span>
           </div>
         </div>
       </div>
@@ -2127,9 +2151,11 @@ class IHCPanel extends HTMLElement {
         window_sensors:         windows,
         room_offset:            parseFloat(modal.querySelector("#m-offset").value),
         comfort_temp:           parseFloat(modal.querySelector("#m-comfort").value),
-        eco_temp:               parseFloat(modal.querySelector("#m-eco").value),
-        sleep_temp:             parseFloat(modal.querySelector("#m-sleep").value),
         away_temp_room:         parseFloat(modal.querySelector("#m-away-room").value),
+        eco_offset:             parseFloat(modal.querySelector("#m-eco-offset").value),
+        eco_max_temp:           parseFloat(modal.querySelector("#m-eco-max").value),
+        sleep_offset:           parseFloat(modal.querySelector("#m-sleep-offset").value),
+        sleep_max_temp:         parseFloat(modal.querySelector("#m-sleep-max").value),
         deadband:               parseFloat(modal.querySelector("#m-deadband").value),
         weight:                 parseFloat(modal.querySelector("#m-weight").value),
         humidity_sensor:        modal.querySelector("#m-humidity-sensor").value.trim(),
@@ -2222,22 +2248,42 @@ class IHCPanel extends HTMLElement {
 
       <div class="modal-section">
         <div class="modal-section-title">Temperatur-Presets</div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
+          Komfort-Temperatur wird von der Außentemperatur berechnet (Heizkurve).
+          Eco und Schlaf werden als Abzug davon berechnet.
+          ${room.comfort_temp_eff != null ? `<strong>Aktuell: Komfort ${room.comfort_temp_eff.toFixed(1)}°C · Eco ${room.eco_temp_eff != null ? room.eco_temp_eff.toFixed(1) : '—'}°C · Schlaf ${room.sleep_temp_eff != null ? room.sleep_temp_eff.toFixed(1) : '—'}°C</strong>` : ''}
+        </div>
         <div class="settings-grid">
           <div class="settings-item">
-            <label>Komfort (°C)</label>
+            <label>Komfort Fallback (°C)</label>
             <input type="number" class="form-input" id="m-comfort" value="${room.comfort_temp}" step="0.5" min="15" max="30">
-          </div>
-          <div class="settings-item">
-            <label>Eco (°C)</label>
-            <input type="number" class="form-input" id="m-eco" value="${room.eco_temp}" step="0.5" min="10" max="25">
-          </div>
-          <div class="settings-item">
-            <label>Schlafen (°C)</label>
-            <input type="number" class="form-input" id="m-sleep" value="${room.sleep_temp}" step="0.5" min="10" max="25">
+            <span class="form-hint">Wird benutzt wenn kein Außensensor vorhanden</span>
           </div>
           <div class="settings-item">
             <label>Abwesend (°C)</label>
             <input type="number" class="form-input" id="m-away-room" value="${room.away_temp_room}" step="0.5" min="5" max="22">
+          </div>
+        </div>
+        <div class="settings-grid" style="margin-top:8px">
+          <div class="settings-item">
+            <label>Eco Abzug (°C)</label>
+            <input type="number" class="form-input" id="m-eco-offset" value="${room.eco_offset}" step="0.5" min="0" max="10">
+            <span class="form-hint">Eco = Komfort − Abzug</span>
+          </div>
+          <div class="settings-item">
+            <label>Eco Maximum (°C)</label>
+            <input type="number" class="form-input" id="m-eco-max" value="${room.eco_max_temp}" step="0.5" min="10" max="28">
+            <span class="form-hint">Eco nie höher als dieser Wert</span>
+          </div>
+          <div class="settings-item">
+            <label>Schlaf Abzug (°C)</label>
+            <input type="number" class="form-input" id="m-sleep-offset" value="${room.sleep_offset}" step="0.5" min="0" max="10">
+            <span class="form-hint">Schlaf = Komfort − Abzug</span>
+          </div>
+          <div class="settings-item">
+            <label>Schlaf Maximum (°C)</label>
+            <input type="number" class="form-input" id="m-sleep-max" value="${room.sleep_max_temp}" step="0.5" min="10" max="25">
+            <span class="form-hint">Schlaf nie höher als dieser Wert</span>
           </div>
         </div>
       </div>
@@ -2322,9 +2368,11 @@ class IHCPanel extends HTMLElement {
         window_sensor:  windows[0] || "",
         window_sensors: windows,
         comfort_temp:   parseFloat(modal.querySelector("#m-comfort").value),
-        eco_temp:       parseFloat(modal.querySelector("#m-eco").value),
-        sleep_temp:     parseFloat(modal.querySelector("#m-sleep").value),
         away_temp_room: parseFloat(modal.querySelector("#m-away-room").value),
+        eco_offset:     parseFloat(modal.querySelector("#m-eco-offset").value),
+        eco_max_temp:   parseFloat(modal.querySelector("#m-eco-max").value),
+        sleep_offset:   parseFloat(modal.querySelector("#m-sleep-offset").value),
+        sleep_max_temp: parseFloat(modal.querySelector("#m-sleep-max").value),
         room_offset:    parseFloat(modal.querySelector("#m-offset").value),
         deadband:       parseFloat(modal.querySelector("#m-deadband").value),
         weight:         parseFloat(modal.querySelector("#m-weight").value),

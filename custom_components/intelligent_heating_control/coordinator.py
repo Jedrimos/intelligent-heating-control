@@ -142,6 +142,14 @@ from .const import (
     CONF_WEATHER_COLD_BOOST,
     DEFAULT_WEATHER_COLD_BOOST,
     CONF_HA_SCHEDULES,
+    CONF_ECO_OFFSET,
+    CONF_SLEEP_OFFSET,
+    CONF_ECO_MAX_TEMP,
+    CONF_SLEEP_MAX_TEMP,
+    DEFAULT_ECO_OFFSET,
+    DEFAULT_SLEEP_OFFSET,
+    DEFAULT_ECO_MAX_TEMP,
+    DEFAULT_SLEEP_MAX_TEMP,
     CONF_HUMIDITY_SENSOR,
     CONF_MOLD_PROTECTION_ENABLED,
     CONF_MOLD_HUMIDITY_THRESHOLD,
@@ -1032,6 +1040,40 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         return False
 
+    def _get_room_preset_temps(self, room: dict, outdoor_temp: Optional[float]) -> tuple[float, float, float]:
+        """
+        Compute outdoor-regulated comfort/eco/sleep base temperatures for a room.
+
+        comfort = heating_curve(outdoor_temp)  [fallback: room comfort_temp if no sensor]
+        eco     = min(eco_max_temp,   comfort - eco_offset)
+        sleep   = min(sleep_max_temp, comfort - sleep_offset)
+
+        Values are bounded by room min_temp/max_temp but do NOT include room_offset
+        (that is applied separately in _calculate_target_temp when returning).
+
+        Returns (comfort_base, eco_base, sleep_base) – all WITHOUT room_offset.
+        """
+        min_temp = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
+        max_temp = float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
+
+        if outdoor_temp is not None:
+            comfort_base = self._heating_curve.get_target_temp(outdoor_temp)
+        else:
+            # No outdoor sensor: fall back to the room's stored comfort_temp
+            comfort_base = float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP))
+
+        comfort_base = min(max_temp, max(min_temp, comfort_base))
+
+        eco_offset  = float(room.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET))
+        eco_max     = float(room.get(CONF_ECO_MAX_TEMP, DEFAULT_ECO_MAX_TEMP))
+        eco_base    = min(eco_max, min(max_temp, max(min_temp, comfort_base - eco_offset)))
+
+        sleep_offset = float(room.get(CONF_SLEEP_OFFSET, DEFAULT_SLEEP_OFFSET))
+        sleep_max    = float(room.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP))
+        sleep_base   = min(sleep_max, min(max_temp, max(min_temp, comfort_base - sleep_offset)))
+
+        return comfort_base, eco_base, sleep_base
+
     def _calculate_target_temp(self, room: dict, outdoor_temp: Optional[float]) -> tuple[float, dict]:
         """
         Calculate the effective target temperature for a room.
@@ -1055,6 +1097,9 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         frost_temp = self._get_frost_protection_temp()
 
+        # Compute outdoor-regulated base temps (WITHOUT room_offset — applied at return time)
+        comfort_base, eco_base, sleep_base = self._get_room_preset_temps(room, outdoor_temp)
+
         # --- 1. System mode overrides ---
         if system_mode == SYSTEM_MODE_OFF:
             # Frost protection: even in OFF we keep a minimum
@@ -1070,15 +1115,13 @@ class IHCCoordinator(DataUpdateCoordinator):
             return max(vac_temp, frost_temp), {"source": "system_vacation", "schedule_active": False}
 
         if system_mode == SYSTEM_MODE_GUEST:
-            comfort = float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP))
-            return min(max_temp, max(min_temp, comfort + room_offset)), {
+            return min(max_temp, max(min_temp, comfort_base + room_offset)), {
                 "source": "guest_mode", "schedule_active": False
             }
 
         # --- 1b. Room-specific presence auto-eco (Roadmap 1.2) ---
         if not self._check_room_presence(room) and room_mode == ROOM_MODE_AUTO:
-            eco = float(room.get(CONF_ECO_TEMP, DEFAULT_ECO_TEMP))
-            return min(max_temp, max(min_temp, eco + room_offset)), {
+            return min(max_temp, max(min_temp, eco_base + room_offset)), {
                 "source": "room_presence_eco", "schedule_active": False
             }
 
@@ -1091,21 +1134,21 @@ class IHCCoordinator(DataUpdateCoordinator):
             return away_r, {"source": "room_away", "schedule_active": False}
 
         if room_mode == ROOM_MODE_COMFORT:
-            comfort = float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP))
-            return min(max_temp, max(min_temp, comfort + room_offset)), {
-                "source": "comfort", "schedule_active": False
+            return min(max_temp, max(min_temp, comfort_base + room_offset)), {
+                "source": "comfort", "schedule_active": False,
+                "comfort_base": comfort_base,
             }
 
         if room_mode == ROOM_MODE_ECO:
-            eco = float(room.get(CONF_ECO_TEMP, DEFAULT_ECO_TEMP))
-            return min(max_temp, max(min_temp, eco + room_offset)), {
-                "source": "eco", "schedule_active": False
+            return min(max_temp, max(min_temp, eco_base + room_offset)), {
+                "source": "eco", "schedule_active": False,
+                "eco_base": eco_base,
             }
 
         if room_mode == ROOM_MODE_SLEEP:
-            sleep = float(room.get(CONF_SLEEP_TEMP, DEFAULT_SLEEP_TEMP))
-            return min(max_temp, max(min_temp, sleep + room_offset)), {
-                "source": "sleep", "schedule_active": False
+            return min(max_temp, max(min_temp, sleep_base + room_offset)), {
+                "source": "sleep", "schedule_active": False,
+                "sleep_base": sleep_base,
             }
 
         if room_mode == ROOM_MODE_MANUAL:
@@ -1130,9 +1173,9 @@ class IHCCoordinator(DataUpdateCoordinator):
         ha_scheds = room.get(CONF_HA_SCHEDULES, [])
         if ha_scheds:
             mode_to_temp = {
-                ROOM_MODE_COMFORT: float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)),
-                ROOM_MODE_ECO:     float(room.get(CONF_ECO_TEMP, DEFAULT_ECO_TEMP)),
-                ROOM_MODE_SLEEP:   float(room.get(CONF_SLEEP_TEMP, DEFAULT_SLEEP_TEMP)),
+                ROOM_MODE_COMFORT: comfort_base,
+                ROOM_MODE_ECO:     eco_base,
+                ROOM_MODE_SLEEP:   sleep_base,
                 ROOM_MODE_AWAY:    float(room.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
             }
             for ha_sched in ha_scheds:
@@ -1160,11 +1203,11 @@ class IHCCoordinator(DataUpdateCoordinator):
                         "night_setback": night_setback,
                     }
             # Schedules configured but none active right now → Eco fallback
-            eco_temp = float(room.get(CONF_ECO_TEMP, DEFAULT_ECO_TEMP))
-            target = min(max_temp, max(min_temp, eco_temp + room_offset - night_setback))
+            target = min(max_temp, max(min_temp, eco_base + room_offset - night_setback))
             return target, {
                 "source": "ha_schedule_eco",
                 "schedule_active": False,
+                "eco_base": eco_base,
                 "night_setback": night_setback,
             }
 
@@ -1200,18 +1243,15 @@ class IHCCoordinator(DataUpdateCoordinator):
                 }
 
         # --- 4. Heating curve + room offset (default / outside schedule) ---
-        if outdoor_temp is not None:
-            curve_target = self._heating_curve.get_target_temp(outdoor_temp)
-        else:
-            # Fallback: use comfort temp if no outdoor sensor available
-            curve_target = float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP))
-
-        target = curve_target + room_offset - night_setback
+        # comfort_base is already the curve-derived comfort target (see _get_room_preset_temps)
+        target = comfort_base + room_offset - night_setback
         target = min(max_temp, max(min_temp, target))
         return target, {
             "source": "heating_curve",
             "schedule_active": False,
-            "curve_base": curve_target,
+            "curve_base": comfort_base,
+            "eco_base": eco_base,
+            "sleep_base": sleep_base,
             "room_offset": room_offset,
             "night_setback": night_setback,
         }
@@ -1336,6 +1376,8 @@ class IHCCoordinator(DataUpdateCoordinator):
             room_presence_active = self._check_room_presence(room)
 
             target_temp, meta = self._calculate_target_temp(room, outdoor_temp)
+            # Store the outdoor-regulated effective preset temps so entities can expose them
+            comfort_eff, eco_eff, sleep_eff = self._get_room_preset_temps(room, outdoor_temp)
 
             # Apply solar boost (Roadmap 1.3)
             if solar_boost > 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
@@ -1396,6 +1438,10 @@ class IHCCoordinator(DataUpdateCoordinator):
                 "anomaly": self._detect_sensor_anomaly(room_id),    # Roadmap 1.1
                 "room_presence_active": room_presence_active,       # Roadmap 1.2
                 "mold": mold_data,                                  # Roadmap 2.0
+                # Outdoor-regulated effective preset temps (for display in frontend)
+                "comfort_temp_eff": comfort_eff,
+                "eco_temp_eff": eco_eff,
+                "sleep_temp_eff": sleep_eff,
                 # Ensure night_setback is always present (meta may omit it for mode overrides)
                 "night_setback": 0.0,
                 **meta,

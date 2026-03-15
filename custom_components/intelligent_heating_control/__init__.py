@@ -54,6 +54,14 @@ from .const import (
     CONF_HUMIDITY_SENSOR,
     CONF_MOLD_PROTECTION_ENABLED,
     DEFAULT_MOLD_PROTECTION_ENABLED,
+    CONF_ECO_OFFSET,
+    CONF_SLEEP_OFFSET,
+    CONF_ECO_MAX_TEMP,
+    CONF_SLEEP_MAX_TEMP,
+    DEFAULT_ECO_OFFSET,
+    DEFAULT_SLEEP_OFFSET,
+    DEFAULT_ECO_MAX_TEMP,
+    DEFAULT_SLEEP_MAX_TEMP,
 )
 from .coordinator import IHCCoordinator
 
@@ -177,9 +185,11 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_DEADBAND: float(call.data.get(CONF_DEADBAND, DEFAULT_DEADBAND)),
             CONF_WEIGHT: float(call.data.get(CONF_WEIGHT, DEFAULT_WEIGHT)),
             CONF_COMFORT_TEMP: float(call.data.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)),
-            CONF_ECO_TEMP: float(call.data.get(CONF_ECO_TEMP, DEFAULT_ECO_TEMP)),
-            CONF_SLEEP_TEMP: float(call.data.get(CONF_SLEEP_TEMP, DEFAULT_SLEEP_TEMP)),
             CONF_AWAY_TEMP_ROOM: float(call.data.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
+            CONF_ECO_OFFSET: float(call.data.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET)),
+            CONF_SLEEP_OFFSET: float(call.data.get(CONF_SLEEP_OFFSET, DEFAULT_SLEEP_OFFSET)),
+            CONF_ECO_MAX_TEMP: float(call.data.get(CONF_ECO_MAX_TEMP, DEFAULT_ECO_MAX_TEMP)),
+            CONF_SLEEP_MAX_TEMP: float(call.data.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP)),
             CONF_WINDOW_SENSOR: call.data.get(CONF_WINDOW_SENSOR, ""),
             CONF_WINDOW_SENSORS: call.data.get(CONF_WINDOW_SENSORS, []),
             CONF_MIN_TEMP: float(call.data.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)),
