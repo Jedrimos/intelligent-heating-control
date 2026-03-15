@@ -112,6 +112,7 @@ SYSTEM_MODE_COOL: Final = "cool"
 SYSTEM_MODE_OFF: Final = "off"
 SYSTEM_MODE_AWAY: Final = "away"
 SYSTEM_MODE_VACATION: Final = "vacation"
+SYSTEM_MODE_GUEST: Final = "guest"
 SYSTEM_MODES: Final = [
     SYSTEM_MODE_AUTO,
     SYSTEM_MODE_HEAT,
@@ -233,7 +234,6 @@ CONTROLLER_MODE_TRV: Final = "trv"         # control TRVs directly (close them w
 DEFAULT_CONTROLLER_MODE: Final = CONTROLLER_MODE_SWITCH
 
 # Gäste-Modus
-SYSTEM_MODE_GUEST: Final = "guest"
 CONF_GUEST_DURATION_HOURS: Final = "guest_duration_hours"
 DEFAULT_GUEST_DURATION_HOURS: Final = 24
 
