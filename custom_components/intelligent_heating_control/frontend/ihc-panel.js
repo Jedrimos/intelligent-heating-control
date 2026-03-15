@@ -528,6 +528,11 @@ class IHCPanel extends HTMLElement {
         ha_schedules: state.attributes.ha_schedules || [],
         next_period: state.attributes.next_period || null,
         anomaly: state.attributes.anomaly || null,
+        // Energy
+        radiator_kw: state.attributes.radiator_kw ?? 1.0,
+        hkv_sensor: state.attributes.hkv_sensor || "",
+        hkv_factor: state.attributes.hkv_factor ?? 0.083,
+        energy_today_kwh: state.attributes.energy_today_kwh ?? 0,
       };
     });
     // Enrich from demand sensors
@@ -763,7 +768,7 @@ class IHCPanel extends HTMLElement {
           </div>
           ${room.next_period && !room.schedule_active ? `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:4px">📅 Nächster Zeitplan: ${room.next_period.start}–${room.next_period.end} · ${room.next_period.temperature}°C</div>` : ""}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
-            ${room.runtime_today_minutes > 0 ? `<span style="font-size:10px;color:var(--secondary-text-color)">⏱ ${room.runtime_today_minutes} min heute</span>` : "<span></span>"}
+            ${room.runtime_today_minutes > 0 ? `<span style="font-size:10px;color:var(--secondary-text-color)">⏱ ${room.runtime_today_minutes} min${room.energy_today_kwh > 0 ? ` · ~${room.energy_today_kwh} kWh` : ""}</span>` : "<span></span>"}
             ${room.avg_warmup_minutes ? `<span style="font-size:10px;color:var(--secondary-text-color)" title="Ø Aufheizzeit">🌡️ Ø ${room.avg_warmup_minutes} min</span>` : ""}
             ${this._sparkline(room.temp_history)}
           </div>
@@ -2077,6 +2082,32 @@ class IHCPanel extends HTMLElement {
       </div>
 
       <div class="modal-section">
+        <div class="modal-section-title">Energieerfassung</div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
+          Im TRV-Modus wird der Verbrauch pro Zimmer geschätzt. Mit einem Heizkostenverteiler-Sensor
+          (Wireless M-Bus) ist die Abrechnung direkt aus dem Gerät möglich.
+        </div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Heizleistung Zimmer (kW)</label>
+            <input type="number" class="form-input" id="m-radiator-kw" value="1.0" step="0.1" min="0.1" max="5.0">
+            <span class="form-hint">Nennleistung der Heizkörper im Zimmer</span>
+          </div>
+          <div class="settings-item">
+            <label>HKV-Sensor (optional)</label>
+            <input type="text" class="form-input" id="m-hkv-sensor"
+              placeholder="sensor.hkv_wohnzimmer" list="m-sensor-list" autocomplete="off">
+            <span class="form-hint">Wireless M-Bus / Ista / Techem Einheitenzähler</span>
+          </div>
+          <div class="settings-item">
+            <label>HKV-Faktor (kWh/Einheit)</label>
+            <input type="number" class="form-input" id="m-hkv-factor" value="0.083" step="0.001" min="0.001" max="1.0">
+            <span class="form-hint">Aus Ihrer Jahresabrechnung: Gesamtkostenkennzahl</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
         <div class="modal-section-title">Temperatur-Presets</div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
           Komfort wird von der Außentemperatur berechnet (Heizkurve).
@@ -2194,6 +2225,9 @@ class IHCPanel extends HTMLElement {
         weight:                 parseFloat(modal.querySelector("#m-weight").value),
         humidity_sensor:        modal.querySelector("#m-humidity-sensor").value.trim(),
         mold_protection_enabled: modal.querySelector("#m-mold-enabled").value === "true",
+        radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
+        hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
+        hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         ha_schedules,
       });
       this._closeModal();
@@ -2366,6 +2400,35 @@ class IHCPanel extends HTMLElement {
       </div>
 
       <div class="modal-section">
+        <div class="modal-section-title">Energieerfassung</div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
+          TRV-Modus: Verbrauch = Anforderungszeit × Heizleistung.
+          Mit HKV-Sensor (Heizkostenverteiler, z.B. Wireless M-Bus) wird der Zählerwert direkt ausgelesen.
+        </div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Heizleistung Zimmer (kW)</label>
+            <input type="number" class="form-input" id="m-radiator-kw"
+              value="${room.radiator_kw ?? 1.0}" step="0.1" min="0.1" max="5.0">
+            <span class="form-hint">Nennleistung aller Heizkörper im Zimmer</span>
+          </div>
+          <div class="settings-item">
+            <label>HKV-Sensor (optional)</label>
+            <input type="text" class="form-input" id="m-hkv-sensor"
+              value="${room.hkv_sensor || ''}" placeholder="sensor.hkv_wohnzimmer"
+              list="m-sensor-list" autocomplete="off">
+            <span class="form-hint">Ista / Techem / Wireless M-Bus Einheitenzähler</span>
+          </div>
+          <div class="settings-item">
+            <label>HKV-Faktor (kWh/Einheit)</label>
+            <input type="number" class="form-input" id="m-hkv-factor"
+              value="${room.hkv_factor ?? 0.083}" step="0.001" min="0.001" max="1.0">
+            <span class="form-hint">Aus der Jahresabrechnung: Gesamtenergie ÷ Gesamteinheiten</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
         <div class="modal-section-title">📅 HA Zeitpläne <span style="font-weight:400;font-size:10px">(optional)</span></div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
           Verbindet bestehende HA <code>schedule.*</code>-Entitäten mit diesem Zimmer.
@@ -2426,6 +2489,9 @@ class IHCPanel extends HTMLElement {
         weight:         parseFloat(modal.querySelector("#m-weight").value),
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
+        radiator_kw:              parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
+        hkv_sensor:               modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
+        hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         ha_schedules,
       });
       this._closeModal();

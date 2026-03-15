@@ -161,6 +161,12 @@ from .const import (
     CONF_MOLD_HUMIDITY_THRESHOLD,
     DEFAULT_MOLD_HUMIDITY_THRESHOLD,
     DEFAULT_MOLD_PROTECTION_ENABLED,
+    # Per-room energy / HKV
+    CONF_RADIATOR_KW,
+    CONF_HKV_SENSOR,
+    CONF_HKV_FACTOR,
+    DEFAULT_RADIATOR_KW,
+    DEFAULT_HKV_FACTOR,
 )
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
@@ -212,6 +218,8 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._room_demand_started: Dict[str, datetime] = {}  # room_id → when demand went > 0
         self._room_runtime_today: Dict[str, float] = {}      # room_id → seconds today
         self._runtime_day: int = datetime.now().day           # to detect day rollover
+        # HKV (Heizkostenverteiler) – per-room reading at start of current day
+        self._hkv_day_start: Dict[str, Optional[float]] = {}  # room_id → Einheiten at 00:00
 
         # Flag: suppress the update_listener reload for internal option writes
         self._suppress_reload: bool = False
@@ -912,15 +920,22 @@ class IHCCoordinator(DataUpdateCoordinator):
             self._heating_runtime_today = 0.0
             self._room_runtime_today = {}
             self._runtime_day = today
+            # Reset HKV day-start so sensor deltas are measured from midnight
+            self._hkv_day_start = {}
             self.hass.async_create_task(self._async_save_runtime_state())
 
     def _update_runtime_tracking(self, should_heat: bool, room_data: dict) -> None:
         """Track heating on-times for energy statistics."""
         now = datetime.now()
         self._reset_runtime_if_new_day()
+        controller_mode = self.get_config().get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
 
         # Global heating runtime
-        if should_heat:
+        # In TRV mode there is no central switch; treat "any room demanding" as heating active
+        global_heat = should_heat if controller_mode != CONTROLLER_MODE_TRV else any(
+            rd.get("demand", 0.0) > 0 for rd in room_data.values()
+        )
+        if global_heat:
             if self._heating_started_at is None:
                 self._heating_started_at = now
         else:
@@ -929,10 +944,13 @@ class IHCCoordinator(DataUpdateCoordinator):
                 self._heating_runtime_today += elapsed
                 self._heating_started_at = None
 
-        # Per-room demand runtime (demand > 0 counts as "room heating")
+        # Per-room demand runtime
+        # TRV mode: count whenever TRV is open (demand > 0) – building heating runs independently
+        # Switch mode: count only when central heater is also on (demand > 0 AND should_heat)
         for room_id, rdata in room_data.items():
             demand = rdata.get("demand", 0.0)
-            if demand > 0 and should_heat:
+            room_heating = demand > 0 and (should_heat or controller_mode == CONTROLLER_MODE_TRV)
+            if room_heating:
                 if room_id not in self._room_demand_started:
                     self._room_demand_started[room_id] = now
             else:
@@ -961,6 +979,41 @@ class IHCCoordinator(DataUpdateCoordinator):
         if started is not None:
             total += (datetime.now() - started).total_seconds()
         return round(total / 60.0, 1)
+
+    def _calculate_room_energy_today(self, room: dict, room_id: str) -> float:
+        """
+        Calculate today's energy estimate for one room.
+
+        Priority order:
+          1. HKV sensor (Heizkostenverteiler) – most accurate for Mietwohnung.
+             Reads the live sensor delta since midnight and multiplies by
+             hkv_factor (kWh/Einheit from the annual billing statement).
+          2. Runtime × radiator_kw – per-room thermal power × demand-open time.
+             Works in both TRV mode (demand > 0 independent of boiler) and
+             switch mode (runtime already gated on boiler-on).
+        """
+        # --- Option 1: HKV sensor ---
+        hkv_entity = room.get(CONF_HKV_SENSOR, "")
+        hkv_factor = float(room.get(CONF_HKV_FACTOR, DEFAULT_HKV_FACTOR))
+        if hkv_entity:
+            state = self.hass.states.get(hkv_entity)
+            if state and state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+                try:
+                    current_val = float(state.state)
+                    day_start = self._hkv_day_start.get(room_id)
+                    if day_start is None:
+                        # First reading of the day – store as baseline
+                        self._hkv_day_start[room_id] = current_val
+                        return 0.0
+                    delta = max(0.0, current_val - day_start)
+                    return round(delta * hkv_factor, 3)
+                except (ValueError, TypeError):
+                    pass  # fall through to runtime estimate
+
+        # --- Option 2: runtime × radiator power ---
+        radiator_kw = float(room.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW))
+        room_runtime_min = self.get_room_runtime_today_minutes(room_id)
+        return round(room_runtime_min / 60.0 * radiator_kw, 3)
 
     # ------------------------------------------------------------------
     # Roadmap 1.3 – Heizungsoptimierungs-Score
@@ -1525,11 +1578,31 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         night_setback_active = self._is_night_setback_active()
 
-        # Roadmap 1.3 – Energy cost estimate + efficiency score
+        # Energy cost estimate
         cfg = self.get_config()
         boiler_kw = float(cfg.get(CONF_BOILER_KW, DEFAULT_BOILER_KW))
-        energy_today_kwh = round(self.get_heating_runtime_today_minutes() / 60.0 * boiler_kw, 2)
-        energy_yesterday_kwh = round(self.get_heating_runtime_yesterday_minutes() / 60.0 * boiler_kw, 2)
+
+        # Per-room energy calculation (works for both switch and TRV mode)
+        rooms_list = self.get_rooms()
+        for room in rooms_list:
+            room_id = room.get(CONF_ROOM_ID, "")
+            if room_id and room_id in room_data:
+                room_data[room_id]["energy_today_kwh"] = self._calculate_room_energy_today(room, room_id)
+
+        if controller_mode == CONTROLLER_MODE_TRV:
+            # TRV/Mietwohnung: total = sum of all rooms (no central boiler kW)
+            energy_today_kwh = round(
+                sum(rd.get("energy_today_kwh", 0.0) for rd in room_data.values()), 2
+            )
+            # Yesterday not easily tracked per-room; fall back to runtime-based with boiler_kw
+            energy_yesterday_kwh = round(
+                self.get_heating_runtime_yesterday_minutes() / 60.0 * boiler_kw, 2
+            )
+        else:
+            # Switch mode: global boiler runtime × boiler_kw
+            energy_today_kwh = round(self.get_heating_runtime_today_minutes() / 60.0 * boiler_kw, 2)
+            energy_yesterday_kwh = round(self.get_heating_runtime_yesterday_minutes() / 60.0 * boiler_kw, 2)
+
         efficiency_score = self.calculate_efficiency_score(outdoor_temp)
 
         # Roadmap 2.0 – Weather forecast

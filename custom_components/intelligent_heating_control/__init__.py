@@ -54,6 +54,11 @@ from .const import (
     CONF_HUMIDITY_SENSOR,
     CONF_MOLD_PROTECTION_ENABLED,
     DEFAULT_MOLD_PROTECTION_ENABLED,
+    CONF_RADIATOR_KW,
+    CONF_HKV_SENSOR,
+    CONF_HKV_FACTOR,
+    DEFAULT_RADIATOR_KW,
+    DEFAULT_HKV_FACTOR,
     CONF_ECO_OFFSET,
     CONF_SLEEP_OFFSET,
     CONF_AWAY_OFFSET,
@@ -207,6 +212,9 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_HA_SCHEDULES: call.data.get(CONF_HA_SCHEDULES, []),
             CONF_HUMIDITY_SENSOR: call.data.get(CONF_HUMIDITY_SENSOR, ""),
             CONF_MOLD_PROTECTION_ENABLED: call.data.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED),
+            CONF_RADIATOR_KW: float(call.data.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW)),
+            CONF_HKV_SENSOR: call.data.get(CONF_HKV_SENSOR, ""),
+            CONF_HKV_FACTOR: float(call.data.get(CONF_HKV_FACTOR, DEFAULT_HKV_FACTOR)),
         }
         await coordinator.async_add_room(room_config)
 
