@@ -654,12 +654,20 @@ class IHCPanel extends HTMLElement {
       "room_off": "Aus", "manual": "Manuell", "room_away": "Abwesend",
       "frost_protection": "❄ Frostschutz",
       "guest_mode": "🎉 Gäste",
-      "room_presence_eco": "🚶 Eco (leer)",
+      "room_presence_eco": "🚶 Eco (leer)",   // legacy – kept for old stored states
+      "room_presence_away": "🚶 Abwesend",
       "ha_schedule": "📅 HA Zeitplan",
       "ha_schedule_eco": "📅 HA Zeitplan (Eco)",
       "ha_schedule_sleep": "📅 HA Zeitplan (Schlaf)",
       "room_presence_away": "🚶 Abwesend",
     };
+
+    // Which system modes fully override room modes? (must be defined before roomCards map)
+    const OVERRIDE_MODES = ["away", "vacation", "off", "guest"];
+    const systemOverrides = OVERRIDE_MODES.includes(g.system_mode);
+    const overrideLabel = systemOverrides
+      ? ({ away: "🚶 Abwesend", vacation: "✈️ Urlaub", off: "⛔ Aus", guest: "🎉 Gäste" }[g.system_mode] || g.system_mode)
+      : null;
 
     const roomCards = sortedRooms.map(room => {
       const isHeating  = room.demand > 0 && g.heating_active;
@@ -751,13 +759,6 @@ class IHCPanel extends HTMLElement {
           </div>
         </div>`;
     }).join("");
-
-    // Which system modes fully override room modes?
-    const OVERRIDE_MODES = ["away", "vacation", "off", "guest"];
-    const systemOverrides = OVERRIDE_MODES.includes(g.system_mode);
-    const overrideLabel = systemOverrides
-      ? ({ away: "🚶 Abwesend", vacation: "✈️ Urlaub", off: "⛔ Aus", guest: "🎉 Gäste" }[g.system_mode] || g.system_mode)
-      : null;
 
     // Build system banners
     const banners = [
