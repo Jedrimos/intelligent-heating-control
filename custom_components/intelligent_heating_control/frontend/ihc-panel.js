@@ -509,7 +509,6 @@ class IHCPanel extends HTMLElement {
         valve_entities: state.attributes.valve_entities || [],
         window_sensors: state.attributes.window_sensors || [],
         comfort_temp: state.attributes.comfort_temp ?? 21,
-        away_temp_room: state.attributes.away_temp_room ?? 16,
         eco_offset: state.attributes.eco_offset ?? 3,
         sleep_offset: state.attributes.sleep_offset ?? 4,
         away_offset: state.attributes.away_offset ?? 6,
@@ -587,7 +586,6 @@ class IHCPanel extends HTMLElement {
     return {
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
-      no_switch:                 !sw,
       system_mode:               sel ? sel.state : "—",
       curve_target:              ct  ? parseFloat(ct.state) : null,
       outdoor_temp:              ot  ? parseFloat(ot.state) : null,
@@ -674,7 +672,6 @@ class IHCPanel extends HTMLElement {
       "ha_schedule": "📅 HA Zeitplan",
       "ha_schedule_eco": "📅 HA Zeitplan (Eco)",
       "ha_schedule_sleep": "📅 HA Zeitplan (Schlaf)",
-      "room_presence_away": "🚶 Abwesend",
     };
 
     // Which system modes fully override room modes? (must be defined before roomCards map)
@@ -790,7 +787,7 @@ class IHCPanel extends HTMLElement {
     ].filter(Boolean).join("");
 
     // Hero section
-    const heatingState = g.heating_active ? "🔥 Heizt" : g.no_switch ? "— kein Schalter" : "✓ Bereit";
+    const heatingState = g.heating_active ? "🔥 Heizt" : "✓ Bereit";
     const heatingCls   = g.heating_active ? "heating" : "ok";
     const demandNum    = g.total_demand != null ? `${g.total_demand} %` : "—";
     const demandCls    = (g.total_demand || 0) > 0 ? "warn" : "ok";
@@ -2182,8 +2179,8 @@ class IHCPanel extends HTMLElement {
         <div class="settings-item" style="margin-bottom:10px">
           <label>Wenn kein Zeitplan aktiv</label>
           <select class="form-select" id="m-sched-off-mode">
-            <option value="eco"   ${(typeof room !== 'undefined' ? room.ha_schedule_off_mode : 'eco') === 'eco'   ? 'selected' : ''}>Eco-Temperatur</option>
-            <option value="sleep" ${(typeof room !== 'undefined' ? room.ha_schedule_off_mode : 'eco') === 'sleep' ? 'selected' : ''}>Schlaf-Temperatur</option>
+            <option value="eco" selected>Eco-Temperatur</option>
+            <option value="sleep">Schlaf-Temperatur</option>
           </select>
         </div>
         <datalist id="m-schedule-list">${this._entityOptions(["schedule"])}</datalist>

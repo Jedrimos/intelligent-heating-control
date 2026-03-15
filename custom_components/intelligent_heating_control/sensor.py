@@ -214,7 +214,9 @@ class IHCCurveTargetSensor(_IHCBase, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         cfg = self.coordinator.get_config()
-        curve_data = cfg.get("heating_curve", {})
+        curve_data = cfg.get("heating_curve") or {}
+        if not isinstance(curve_data, dict):
+            curve_data = {}
         return {
             "curve_points": curve_data.get("points", []),
         }

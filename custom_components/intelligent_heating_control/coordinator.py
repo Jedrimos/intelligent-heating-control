@@ -14,6 +14,7 @@ Responsible for:
 from __future__ import annotations
 
 import logging
+import math
 import uuid
 from collections import deque
 from datetime import date, datetime, timedelta
@@ -46,8 +47,6 @@ from .const import (
     CONF_DEADBAND,
     CONF_WEIGHT,
     CONF_COMFORT_TEMP,
-    CONF_ECO_TEMP,
-    CONF_SLEEP_TEMP,
     CONF_AWAY_TEMP_ROOM,
     CONF_WINDOW_SENSOR,
     CONF_WINDOW_SENSORS,
@@ -102,8 +101,6 @@ from .const import (
     DEFAULT_DEADBAND,
     DEFAULT_WEIGHT,
     DEFAULT_COMFORT_TEMP,
-    DEFAULT_ECO_TEMP,
-    DEFAULT_SLEEP_TEMP,
     DEFAULT_AWAY_TEMP_ROOM,
     DEFAULT_AWAY_TEMP,
     DEFAULT_VACATION_TEMP,
@@ -297,6 +294,14 @@ class IHCCoordinator(DataUpdateCoordinator):
                     self._guest_mode_active = True
             except ValueError:
                 pass
+        # Restore HKV day-start baselines (so energy deltas survive HA restarts)
+        self._hkv_day_start = data.get("hkv_day_start", {})
+        # Restore boost expiry times (ISO string → datetime)
+        for rid, dt_str in data.get("boost_until", {}).items():
+            try:
+                self._boost_until[rid] = datetime.fromisoformat(dt_str)
+            except (ValueError, TypeError):
+                pass
         # Restore temperature history (Roadmap 1.1 – persisted across restarts)
         for room_id, entries in data.get("temp_history", {}).items():
             self._temp_history[room_id] = deque(entries, maxlen=CONF_TEMP_HISTORY_SIZE)
@@ -314,6 +319,10 @@ class IHCCoordinator(DataUpdateCoordinator):
             "runtime_day": self._runtime_day,
             "return_preheat_active": self._return_preheat_active,
             "guest_mode_until": self._guest_mode_until.isoformat() if self._guest_mode_until else None,
+            # Persist HKV day-start baselines so energy deltas survive HA restarts
+            "hkv_day_start": self._hkv_day_start,
+            # Persist boost expiry times so active boosts survive HA restarts
+            "boost_until": {rid: dt.isoformat() for rid, dt in self._boost_until.items()},
             # Persist temperature history so sparklines survive HA restarts
             "temp_history": {rid: list(hist) for rid, hist in self._temp_history.items()},
         })
@@ -792,7 +801,7 @@ class IHCCoordinator(DataUpdateCoordinator):
             "cold_warning": False,
         }
         if forecast_list:
-            today_fc = forecast_list[0] if forecast_list else {}
+            today_fc = forecast_list[0]
             result["forecast_today_min"] = today_fc.get("templow")
             result["forecast_today_max"] = today_fc.get("temperature")
             cold_threshold = float(cfg.get(CONF_WEATHER_COLD_THRESHOLD, DEFAULT_WEATHER_COLD_THRESHOLD))
@@ -830,7 +839,6 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Magnus formula approximation for dew point
         dew_point = None
         if current_temp is not None and humidity > 0:
-            import math
             a = 17.27
             b = 237.7
             alpha = ((a * current_temp) / (b + current_temp)) + math.log(humidity / 100.0)
@@ -1224,6 +1232,10 @@ class IHCCoordinator(DataUpdateCoordinator):
                 return min(max_temp, max(min_temp, manual)), {
                     "source": "manual", "schedule_active": False
                 }
+            # No stored manual temp (e.g. after restart without persisted value) –
+            # fall back to auto so the room continues heating normally.
+            self._room_modes[room_id] = ROOM_MODE_AUTO
+            room_mode = ROOM_MODE_AUTO
 
         # Determine night setback modifier (applied to schedule and curve temps)
         night_setback = 0.0
@@ -1579,7 +1591,6 @@ class IHCCoordinator(DataUpdateCoordinator):
         night_setback_active = self._is_night_setback_active()
 
         # Energy cost estimate
-        cfg = self.get_config()
         boiler_kw = float(cfg.get(CONF_BOILER_KW, DEFAULT_BOILER_KW))
 
         # Per-room energy calculation (works for both switch and TRV mode)
