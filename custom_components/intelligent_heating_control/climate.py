@@ -157,6 +157,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "boost_remaining": d.get("boost_remaining", 0),
             "night_setback": d.get("night_setback", 0.0),
             "runtime_today_minutes": d.get("runtime_today_minutes", 0.0),
+            "energy_today_kwh": d.get("energy_today_kwh", 0.0),
             # Room config – exposed for frontend panel
             "temp_sensor": room_cfg.get("temp_sensor", ""),
             "valve_entities": room_cfg.get("valve_entities", []),
@@ -183,6 +184,10 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "ha_schedules": room_cfg.get("ha_schedules", []),
             "next_period": d.get("next_period"),
             "anomaly": d.get("anomaly"),
+            # Per-room energy config
+            "radiator_kw": room_cfg.get("radiator_kw", 1.0),
+            "hkv_sensor": room_cfg.get("hkv_sensor", ""),
+            "hkv_factor": room_cfg.get("hkv_factor", 0.083),
             # Mold protection
             "humidity_sensor": room_cfg.get("humidity_sensor", ""),
             "mold_protection_enabled": room_cfg.get("mold_protection_enabled", True),

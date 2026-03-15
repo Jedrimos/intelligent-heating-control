@@ -59,9 +59,13 @@ from .const import (
     CONF_DEADBAND,
     CONF_WEIGHT,
     CONF_COMFORT_TEMP,
-    CONF_ECO_TEMP,
-    CONF_SLEEP_TEMP,
     CONF_AWAY_TEMP_ROOM,
+    CONF_ECO_OFFSET,
+    CONF_SLEEP_OFFSET,
+    CONF_AWAY_OFFSET,
+    CONF_ECO_MAX_TEMP,
+    CONF_SLEEP_MAX_TEMP,
+    CONF_AWAY_MAX_TEMP,
     CONF_WINDOW_SENSOR,
     CONF_WINDOW_OPEN_TEMP,
     CONF_WINDOW_REACTION_TIME,
@@ -76,8 +80,6 @@ from .const import (
     DEFAULT_DEADBAND,
     DEFAULT_WEIGHT,
     DEFAULT_COMFORT_TEMP,
-    DEFAULT_ECO_TEMP,
-    DEFAULT_SLEEP_TEMP,
     DEFAULT_AWAY_TEMP_ROOM,
     DEFAULT_AWAY_TEMP,
     DEFAULT_VACATION_TEMP,
@@ -90,6 +92,12 @@ from .const import (
     DEFAULT_FROST_PROTECTION_TEMP,
     DEFAULT_NIGHT_SETBACK_OFFSET,
     DEFAULT_PREHEAT_MINUTES,
+    DEFAULT_ECO_OFFSET,
+    DEFAULT_SLEEP_OFFSET,
+    DEFAULT_AWAY_OFFSET,
+    DEFAULT_ECO_MAX_TEMP,
+    DEFAULT_SLEEP_MAX_TEMP,
+    DEFAULT_AWAY_MAX_TEMP,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -446,32 +454,44 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
         errors: dict = {}
 
         if user_input is not None:
-            # Parse the curve from individual fields
+            # Parse the curve from individual fields (up to 15 points, skip empty)
             try:
                 points = []
-                for i in range(7):
+                for i in range(15):
                     ot_key = f"outdoor_{i}"
                     tt_key = f"target_{i}"
-                    if ot_key in user_input and tt_key in user_input:
+                    ot = user_input.get(ot_key)
+                    tt = user_input.get(tt_key)
+                    if ot is not None and tt is not None:
                         points.append({
-                            "outdoor_temp": float(user_input[ot_key]),
-                            "target_temp": float(user_input[tt_key]),
+                            "outdoor_temp": float(ot),
+                            "target_temp": float(tt),
                         })
                 points = sorted(points, key=lambda p: p["outdoor_temp"])
                 self._options[CONF_HEATING_CURVE] = {CONF_CURVE_POINTS: points}
                 return self.async_create_entry(title="", data=self._options)
-            except (ValueError, KeyError) as e:
+            except (ValueError, KeyError):
                 errors["base"] = "invalid_curve"
 
-        # Build form with 7 curve point rows
+        # Build form with up to 15 curve point rows (show all existing + 2 spares)
+        _max_points = min(15, max(7, len(current_curve) + 2))
         schema_dict = {}
-        for i, pt in enumerate(current_curve[:7]):
-            schema_dict[vol.Optional(f"outdoor_{i}", default=float(pt["outdoor_temp"]))] = (
-                selector.selector({"number": {"min": -30, "max": 40, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}})
-            )
-            schema_dict[vol.Optional(f"target_{i}", default=float(pt["target_temp"]))] = (
-                selector.selector({"number": {"min": 10, "max": 30, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}})
-            )
+        for i in range(_max_points):
+            pt = current_curve[i] if i < len(current_curve) else None
+            if pt is not None:
+                schema_dict[vol.Optional(f"outdoor_{i}", default=float(pt["outdoor_temp"]))] = (
+                    selector.selector({"number": {"min": -30, "max": 40, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}})
+                )
+                schema_dict[vol.Optional(f"target_{i}", default=float(pt["target_temp"]))] = (
+                    selector.selector({"number": {"min": 10, "max": 80, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}})
+                )
+            else:
+                schema_dict[vol.Optional(f"outdoor_{i}")] = (
+                    selector.selector({"number": {"min": -30, "max": 40, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}})
+                )
+                schema_dict[vol.Optional(f"target_{i}")] = (
+                    selector.selector({"number": {"min": 10, "max": 80, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}})
+                )
 
         return self.async_show_form(
             step_id="heating_curve",
@@ -506,9 +526,13 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                     CONF_DEADBAND: float(user_input.get(CONF_DEADBAND, DEFAULT_DEADBAND)),
                     CONF_WEIGHT: float(user_input.get(CONF_WEIGHT, DEFAULT_WEIGHT)),
                     CONF_COMFORT_TEMP: float(user_input.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)),
-                    CONF_ECO_TEMP: float(user_input.get(CONF_ECO_TEMP, DEFAULT_ECO_TEMP)),
-                    CONF_SLEEP_TEMP: float(user_input.get(CONF_SLEEP_TEMP, DEFAULT_SLEEP_TEMP)),
                     CONF_AWAY_TEMP_ROOM: float(user_input.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
+                    CONF_ECO_OFFSET: float(user_input.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET)),
+                    CONF_SLEEP_OFFSET: float(user_input.get(CONF_SLEEP_OFFSET, DEFAULT_SLEEP_OFFSET)),
+                    CONF_AWAY_OFFSET: float(user_input.get(CONF_AWAY_OFFSET, DEFAULT_AWAY_OFFSET)),
+                    CONF_ECO_MAX_TEMP: float(user_input.get(CONF_ECO_MAX_TEMP, DEFAULT_ECO_MAX_TEMP)),
+                    CONF_SLEEP_MAX_TEMP: float(user_input.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP)),
+                    CONF_AWAY_MAX_TEMP: float(user_input.get(CONF_AWAY_MAX_TEMP, DEFAULT_AWAY_MAX_TEMP)),
                     CONF_WINDOW_SENSOR: single_window,
                     CONF_WINDOW_SENSORS: [single_window] if single_window else [],
                     CONF_MIN_TEMP: float(user_input.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)),
@@ -543,14 +567,14 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_COMFORT_TEMP, default=DEFAULT_COMFORT_TEMP): selector.selector({
                 "number": {"min": 15, "max": 30, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            vol.Optional(CONF_ECO_TEMP, default=DEFAULT_ECO_TEMP): selector.selector({
-                "number": {"min": 10, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            vol.Optional(CONF_ECO_OFFSET, default=DEFAULT_ECO_OFFSET): selector.selector({
+                "number": {"min": 0, "max": 8, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            vol.Optional(CONF_SLEEP_TEMP, default=DEFAULT_SLEEP_TEMP): selector.selector({
-                "number": {"min": 10, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            vol.Optional(CONF_SLEEP_OFFSET, default=DEFAULT_SLEEP_OFFSET): selector.selector({
+                "number": {"min": 0, "max": 8, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            vol.Optional(CONF_AWAY_TEMP_ROOM, default=DEFAULT_AWAY_TEMP_ROOM): selector.selector({
-                "number": {"min": 5, "max": 20, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            vol.Optional(CONF_AWAY_OFFSET, default=DEFAULT_AWAY_OFFSET): selector.selector({
+                "number": {"min": 0, "max": 10, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             vol.Optional(CONF_MIN_TEMP, default=DEFAULT_MIN_TEMP): selector.selector({
                 "number": {"min": 5, "max": 15, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
@@ -625,14 +649,14 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_COMFORT_TEMP, default=float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP))): selector.selector({
                 "number": {"min": 15, "max": 30, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            vol.Optional(CONF_ECO_TEMP, default=float(room.get(CONF_ECO_TEMP, DEFAULT_ECO_TEMP))): selector.selector({
-                "number": {"min": 10, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            vol.Optional(CONF_ECO_OFFSET, default=float(room.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET))): selector.selector({
+                "number": {"min": 0, "max": 8, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            vol.Optional(CONF_SLEEP_TEMP, default=float(room.get(CONF_SLEEP_TEMP, DEFAULT_SLEEP_TEMP))): selector.selector({
-                "number": {"min": 10, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            vol.Optional(CONF_SLEEP_OFFSET, default=float(room.get(CONF_SLEEP_OFFSET, DEFAULT_SLEEP_OFFSET))): selector.selector({
+                "number": {"min": 0, "max": 8, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            vol.Optional(CONF_AWAY_TEMP_ROOM, default=float(room.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM))): selector.selector({
-                "number": {"min": 5, "max": 20, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            vol.Optional(CONF_AWAY_OFFSET, default=float(room.get(CONF_AWAY_OFFSET, DEFAULT_AWAY_OFFSET))): selector.selector({
+                "number": {"min": 0, "max": 10, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             vol.Optional(CONF_MIN_TEMP, default=float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))): selector.selector({
                 "number": {"min": 5, "max": 15, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}

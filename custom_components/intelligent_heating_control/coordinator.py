@@ -14,6 +14,7 @@ Responsible for:
 from __future__ import annotations
 
 import logging
+import math
 import uuid
 from collections import deque
 from datetime import date, datetime, timedelta
@@ -46,8 +47,6 @@ from .const import (
     CONF_DEADBAND,
     CONF_WEIGHT,
     CONF_COMFORT_TEMP,
-    CONF_ECO_TEMP,
-    CONF_SLEEP_TEMP,
     CONF_AWAY_TEMP_ROOM,
     CONF_WINDOW_SENSOR,
     CONF_WINDOW_SENSORS,
@@ -102,8 +101,6 @@ from .const import (
     DEFAULT_DEADBAND,
     DEFAULT_WEIGHT,
     DEFAULT_COMFORT_TEMP,
-    DEFAULT_ECO_TEMP,
-    DEFAULT_SLEEP_TEMP,
     DEFAULT_AWAY_TEMP_ROOM,
     DEFAULT_AWAY_TEMP,
     DEFAULT_VACATION_TEMP,
@@ -161,10 +158,43 @@ from .const import (
     CONF_MOLD_HUMIDITY_THRESHOLD,
     DEFAULT_MOLD_HUMIDITY_THRESHOLD,
     DEFAULT_MOLD_PROTECTION_ENABLED,
+    # Per-room energy / HKV
+    CONF_RADIATOR_KW,
+    CONF_HKV_SENSOR,
+    CONF_HKV_FACTOR,
+    DEFAULT_RADIATOR_KW,
+    DEFAULT_HKV_FACTOR,
+    # v1.3 – Adaptive curve & predictive pre-heat
+    CONF_ADAPTIVE_CURVE_ENABLED,
+    CONF_ADAPTIVE_CURVE_MAX_DELTA,
+    DEFAULT_ADAPTIVE_CURVE_ENABLED,
+    DEFAULT_ADAPTIVE_CURVE_MAX_DELTA,
+    CONF_ADAPTIVE_PREHEAT_ENABLED,
+    DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
+    # v1.4 – ETA pre-heat, vacation calendar
+    CONF_ETA_PREHEAT_ENABLED,
+    DEFAULT_ETA_PREHEAT_ENABLED,
+    CONF_VACATION_CALENDAR,
+    CONF_VACATION_CALENDAR_KEYWORD,
+    DEFAULT_VACATION_CALENDAR_KEYWORD,
+    # v1.5 – Cooling target, PID, smart meter, price forecast
+    CONF_COOLING_TARGET_TEMP,
+    DEFAULT_COOLING_TARGET_TEMP,
+    CONF_FLOW_TEMP_SENSOR,
+    CONF_PID_KP,
+    CONF_PID_KI,
+    CONF_PID_KD,
+    DEFAULT_PID_KP,
+    DEFAULT_PID_KI,
+    DEFAULT_PID_KD,
+    CONF_SMART_METER_ENTITY,
+    CONF_PRICE_FORECAST_ATTRIBUTE,
+    DEFAULT_PRICE_FORECAST_ATTRIBUTE,
 )
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
 from .heating_controller import HeatingController
+from .flow_temp_pid import FlowTempPID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -212,6 +242,8 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._room_demand_started: Dict[str, datetime] = {}  # room_id → when demand went > 0
         self._room_runtime_today: Dict[str, float] = {}      # room_id → seconds today
         self._runtime_day: int = datetime.now().day           # to detect day rollover
+        # HKV (Heizkostenverteiler) – per-room reading at start of current day
+        self._hkv_day_start: Dict[str, Optional[float]] = {}  # room_id → Einheiten at 00:00
 
         # Flag: suppress the update_listener reload for internal option writes
         self._suppress_reload: bool = False
@@ -224,6 +256,20 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Roadmap 1.1 – Warmup tracking (for predictive pre-heating)
         self._warmup_start: Dict[str, Optional[datetime]] = {}    # room_id → when heat request started
         self._warmup_history: Dict[str, List[float]] = {}          # room_id → list of warmup minutes
+
+        # v1.3 – Adaptive heating curve: cumulative offset applied so far
+        self._curve_adaptation_delta: float = 0.0   # °C total shift applied
+        self._curve_last_adapted: Optional[int] = None  # day-of-year when last adapted
+
+        # v1.5 – PID controller for flow temperature
+        self._flow_pid: FlowTempPID = FlowTempPID()
+        self._flow_pid_last_setpoint: Optional[float] = None  # detect large setpoint jumps
+
+        # v1.5 – Smart meter daily baseline
+        self._smart_meter_day_start: Optional[float] = None
+
+        # v1.4 – Vacation calendar last-check (to avoid calling service every minute)
+        self._vac_calendar_last_check: Optional[int] = None  # day-of-year
 
         # Build sub-components from config
         self._rebuild_from_config()
@@ -289,9 +335,23 @@ class IHCCoordinator(DataUpdateCoordinator):
                     self._guest_mode_active = True
             except ValueError:
                 pass
-        # Restore temperature history (Roadmap 1.1 – persisted across restarts)
+        # Restore HKV day-start baselines (so energy deltas survive HA restarts)
+        self._hkv_day_start = data.get("hkv_day_start", {})
+        # Restore smart meter baseline
+        self._smart_meter_day_start = data.get("smart_meter_day_start")
+        # Restore boost expiry times (ISO string → datetime)
+        for rid, dt_str in data.get("boost_until", {}).items():
+            try:
+                self._boost_until[rid] = datetime.fromisoformat(dt_str)
+            except (ValueError, TypeError):
+                pass
+        # Restore temperature history (persisted across restarts)
         for room_id, entries in data.get("temp_history", {}).items():
             self._temp_history[room_id] = deque(entries, maxlen=CONF_TEMP_HISTORY_SIZE)
+        # Restore warmup history (for predictive pre-heating)
+        self._warmup_history = data.get("warmup_history", {})
+        # Restore adaptive curve state
+        self._curve_adaptation_delta = float(data.get("curve_adaptation_delta", 0.0))
 
     async def _async_save_runtime_state(self) -> None:
         """Persist current runtime state to Store."""
@@ -306,8 +366,18 @@ class IHCCoordinator(DataUpdateCoordinator):
             "runtime_day": self._runtime_day,
             "return_preheat_active": self._return_preheat_active,
             "guest_mode_until": self._guest_mode_until.isoformat() if self._guest_mode_until else None,
+            # Persist HKV day-start baselines so energy deltas survive HA restarts
+            "hkv_day_start": self._hkv_day_start,
+            # Persist smart meter baseline
+            "smart_meter_day_start": self._smart_meter_day_start,
+            # Persist boost expiry times so active boosts survive HA restarts
+            "boost_until": {rid: dt.isoformat() for rid, dt in self._boost_until.items()},
             # Persist temperature history so sparklines survive HA restarts
             "temp_history": {rid: list(hist) for rid, hist in self._temp_history.items()},
+            # Persist warmup history for predictive pre-heating
+            "warmup_history": self._warmup_history,
+            # Persist adaptive curve state
+            "curve_adaptation_delta": self._curve_adaptation_delta,
         })
 
     def get_config(self) -> dict:
@@ -612,13 +682,23 @@ class IHCCoordinator(DataUpdateCoordinator):
     # ------------------------------------------------------------------
 
     def _update_temp_history(self, room_id: str, current_temp: Optional[float]) -> None:
-        """Append the current temperature reading to the per-room history deque."""
+        """Append hourly temperature snapshot to the per-room history deque (7 days)."""
         if current_temp is None:
             return
         history = self._temp_history.setdefault(
             room_id, deque(maxlen=CONF_TEMP_HISTORY_SIZE)
         )
-        ts = datetime.now().strftime("%H:%M")
+        now = datetime.now()
+        # Only store one reading per hour (55-minute guard)
+        if history:
+            last_entry = list(history)[-1]
+            try:
+                last_dt = datetime.fromisoformat(last_entry["t"])
+                if (now - last_dt).total_seconds() < 3300:  # 55 min
+                    return
+            except (ValueError, KeyError):
+                pass  # old format or missing – allow overwrite
+        ts = now.isoformat(timespec="minutes")   # "2026-03-15T14:30"
         history.append({"t": ts, "v": round(current_temp, 1)})
 
     def get_temp_history(self, room_id: str) -> list:
@@ -776,18 +856,27 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Current conditions
         current_temp = attrs.get("temperature")
         forecast_list = attrs.get("forecast", [])
+        cold_threshold = float(cfg.get(CONF_WEATHER_COLD_THRESHOLD, DEFAULT_WEATHER_COLD_THRESHOLD))
         result = {
             "condition": state.state,
             "current_temp": current_temp,
             "forecast_today_min": None,
             "forecast_today_max": None,
             "cold_warning": False,
+            "forecast": [],  # multi-day: list of {day_offset, datetime, min, max, condition}
         }
+        for i, fc in enumerate(forecast_list[:3]):
+            result["forecast"].append({
+                "day_offset": i,
+                "datetime": fc.get("datetime"),
+                "min": fc.get("templow"),
+                "max": fc.get("temperature"),
+                "condition": fc.get("condition"),
+            })
         if forecast_list:
-            today_fc = forecast_list[0] if forecast_list else {}
+            today_fc = forecast_list[0]
             result["forecast_today_min"] = today_fc.get("templow")
             result["forecast_today_max"] = today_fc.get("temperature")
-            cold_threshold = float(cfg.get(CONF_WEATHER_COLD_THRESHOLD, DEFAULT_WEATHER_COLD_THRESHOLD))
             min_temp = today_fc.get("templow")
             if min_temp is not None and min_temp <= cold_threshold:
                 result["cold_warning"] = True
@@ -822,7 +911,6 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Magnus formula approximation for dew point
         dew_point = None
         if current_temp is not None and humidity > 0:
-            import math
             a = 17.27
             b = 237.7
             alpha = ((a * current_temp) / (b + current_temp)) + math.log(humidity / 100.0)
@@ -888,17 +976,47 @@ class IHCCoordinator(DataUpdateCoordinator):
 
     def _calculate_flow_temp(self, outdoor_temp: Optional[float], total_demand: float) -> Optional[float]:
         """
-        Calculate boiler flow temperature from outdoor temp + demand.
-        Simple linear: higher demand or lower outdoor temp → higher flow temp.
+        Calculate boiler flow temperature setpoint.
+
+        Uses a linear weather-compensation curve as the desired setpoint, then
+        applies a PID correction if a flow-temp sensor (CONF_FLOW_TEMP_SENSOR) is
+        configured. Without the sensor, the raw curve value is returned directly.
+
+        Weather-compensation base: cold outside → higher flow temp.
+        Demand modulation: ±10°C depending on current aggregate demand.
         """
         if outdoor_temp is None:
             return None
-        # Base flow temp from outdoor: cold outside → higher flow
-        base = 70.0 - (outdoor_temp * 1.5)
-        base = max(30.0, min(80.0, base))
+        # Weather-compensation base (linear)
+        setpoint = 70.0 - (outdoor_temp * 1.5)
+        setpoint = max(30.0, min(80.0, setpoint))
         # Modulate by demand (0–100 → ±10°C)
-        base += (total_demand / 100.0) * 10.0 - 5.0
-        return round(max(30.0, min(80.0, base)), 1)
+        setpoint += (total_demand / 100.0) * 10.0 - 5.0
+        setpoint = round(max(30.0, min(80.0, setpoint)), 1)
+
+        # PID correction when a measurement sensor is available
+        cfg = self.get_config()
+        flow_sensor = cfg.get(CONF_FLOW_TEMP_SENSOR)
+        if flow_sensor:
+            state = self.hass.states.get(flow_sensor)
+            if state and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                try:
+                    measured = float(state.state)
+                    # Reset PID if setpoint shifted significantly (> 5°C jump)
+                    if self._flow_pid_last_setpoint is not None and abs(setpoint - self._flow_pid_last_setpoint) > 5:
+                        self._flow_pid.reset()
+                    self._flow_pid_last_setpoint = setpoint
+                    kp = float(cfg.get(CONF_PID_KP, DEFAULT_PID_KP))
+                    ki = float(cfg.get(CONF_PID_KI, DEFAULT_PID_KI))
+                    kd = float(cfg.get(CONF_PID_KD, DEFAULT_PID_KD))
+                    self._flow_pid.kp = kp
+                    self._flow_pid.ki = ki
+                    self._flow_pid.kd = kd
+                    return round(self._flow_pid.compute(setpoint, measured), 1)
+                except (ValueError, TypeError):
+                    pass  # fall through to raw setpoint
+
+        return setpoint
 
     # ------------------------------------------------------------------
     # Energy / runtime tracking
@@ -912,15 +1030,24 @@ class IHCCoordinator(DataUpdateCoordinator):
             self._heating_runtime_today = 0.0
             self._room_runtime_today = {}
             self._runtime_day = today
+            # Reset HKV day-start so sensor deltas are measured from midnight
+            self._hkv_day_start = {}
+            # Reset smart meter baseline
+            self._smart_meter_day_start = None
             self.hass.async_create_task(self._async_save_runtime_state())
 
     def _update_runtime_tracking(self, should_heat: bool, room_data: dict) -> None:
         """Track heating on-times for energy statistics."""
         now = datetime.now()
         self._reset_runtime_if_new_day()
+        controller_mode = self.get_config().get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
 
         # Global heating runtime
-        if should_heat:
+        # In TRV mode there is no central switch; treat "any room demanding" as heating active
+        global_heat = should_heat if controller_mode != CONTROLLER_MODE_TRV else any(
+            rd.get("demand", 0.0) > 0 for rd in room_data.values()
+        )
+        if global_heat:
             if self._heating_started_at is None:
                 self._heating_started_at = now
         else:
@@ -929,10 +1056,13 @@ class IHCCoordinator(DataUpdateCoordinator):
                 self._heating_runtime_today += elapsed
                 self._heating_started_at = None
 
-        # Per-room demand runtime (demand > 0 counts as "room heating")
+        # Per-room demand runtime
+        # TRV mode: count whenever TRV is open (demand > 0) – building heating runs independently
+        # Switch mode: count only when central heater is also on (demand > 0 AND should_heat)
         for room_id, rdata in room_data.items():
             demand = rdata.get("demand", 0.0)
-            if demand > 0 and should_heat:
+            room_heating = demand > 0 and (should_heat or controller_mode == CONTROLLER_MODE_TRV)
+            if room_heating:
                 if room_id not in self._room_demand_started:
                     self._room_demand_started[room_id] = now
             else:
@@ -961,6 +1091,259 @@ class IHCCoordinator(DataUpdateCoordinator):
         if started is not None:
             total += (datetime.now() - started).total_seconds()
         return round(total / 60.0, 1)
+
+    def _calculate_room_energy_today(self, room: dict, room_id: str) -> float:
+        """
+        Calculate today's energy estimate for one room.
+
+        Priority order:
+          1. HKV sensor (Heizkostenverteiler) – most accurate for Mietwohnung.
+             Reads the live sensor delta since midnight and multiplies by
+             hkv_factor (kWh/Einheit from the annual billing statement).
+          2. Runtime × radiator_kw – per-room thermal power × demand-open time.
+             Works in both TRV mode (demand > 0 independent of boiler) and
+             switch mode (runtime already gated on boiler-on).
+        """
+        # --- Option 1: HKV sensor ---
+        hkv_entity = room.get(CONF_HKV_SENSOR, "")
+        hkv_factor = float(room.get(CONF_HKV_FACTOR, DEFAULT_HKV_FACTOR))
+        if hkv_entity:
+            state = self.hass.states.get(hkv_entity)
+            if state and state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+                try:
+                    current_val = float(state.state)
+                    day_start = self._hkv_day_start.get(room_id)
+                    if day_start is None:
+                        # First reading of the day – store as baseline
+                        self._hkv_day_start[room_id] = current_val
+                        return 0.0
+                    delta = max(0.0, current_val - day_start)
+                    return round(delta * hkv_factor, 3)
+                except (ValueError, TypeError):
+                    pass  # fall through to runtime estimate
+
+        # --- Option 2: runtime × radiator power ---
+        radiator_kw = float(room.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW))
+        room_runtime_min = self.get_room_runtime_today_minutes(room_id)
+        return round(room_runtime_min / 60.0 * radiator_kw, 3)
+
+    def _get_smart_meter_energy_today(self) -> Optional[float]:
+        """
+        Return today's energy consumption in kWh from a smart meter sensor.
+
+        The sensor must have state_class = TOTAL_INCREASING (e.g. utility_meter.*
+        or any sensor.* that accumulates kWh since a fixed point).
+        A daily baseline is stored at midnight and subtracted to get the day delta.
+        Returns None when no sensor is configured.
+        """
+        cfg = self.get_config()
+        meter_entity = cfg.get(CONF_SMART_METER_ENTITY)
+        if not meter_entity:
+            return None
+        state = self.hass.states.get(meter_entity)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+        try:
+            current = float(state.state)
+        except (ValueError, TypeError):
+            return None
+        if self._smart_meter_day_start is None:
+            self._smart_meter_day_start = current
+            return 0.0
+        return round(max(0.0, current - self._smart_meter_day_start), 3)
+
+    def _get_price_forecast_offset(self) -> float:
+        """
+        Dynamic price-based temperature offset using hourly price forecast.
+
+        Reads 'today_prices' (or CONF_PRICE_FORECAST_ATTRIBUTE) from the energy
+        price sensor – compatible with Tibber integration and HACS Nordpool.
+
+        Returns a positive value to RAISE the setpoint (cheap hour → store heat)
+        or a negative value to LOWER it (expensive hour → save energy).
+        Falls back to the simple threshold logic when no hourly prices are found.
+        """
+        cfg = self.get_config()
+        price_entity = cfg.get(CONF_ENERGY_PRICE_ENTITY)
+        if not price_entity:
+            return 0.0
+        state = self.hass.states.get(price_entity)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return 0.0
+
+        eco_offset = float(cfg.get(CONF_ENERGY_PRICE_ECO_OFFSET, DEFAULT_ENERGY_PRICE_ECO_OFFSET))
+        solar_boost = float(cfg.get(CONF_SOLAR_BOOST_TEMP, DEFAULT_SOLAR_BOOST_TEMP))
+
+        # Hourly forecast path (Tibber / Nordpool)
+        forecast_attr = cfg.get(CONF_PRICE_FORECAST_ATTRIBUTE, DEFAULT_PRICE_FORECAST_ATTRIBUTE)
+        today_prices = state.attributes.get(forecast_attr, [])
+        if today_prices and isinstance(today_prices, list):
+            current_hour = datetime.now().hour
+            if current_hour < len(today_prices):
+                current_price = float(today_prices[current_hour])
+                avg_price = sum(float(p) for p in today_prices) / len(today_prices)
+                if avg_price > 0:
+                    if current_price > avg_price * 1.3:    # ≥30% above avg → reduce demand
+                        return -eco_offset
+                    elif current_price < avg_price * 0.7:  # ≥30% below avg → pre-heat
+                        return solar_boost
+                return 0.0
+
+        # Simple threshold fallback
+        try:
+            price = float(state.state)
+            threshold = float(cfg.get(CONF_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_THRESHOLD))
+            return -eco_offset if price > threshold else 0.0
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _get_eta_preheat_minutes(self) -> Optional[float]:
+        """
+        Check person.*/device_tracker.* entities for an ETA home arrival.
+
+        Reads the 'estimated_arrival_time' attribute (set by the Google Maps
+        travel time integration or similar). Returns the number of minutes
+        until the earliest ETA within the next 2 hours, or None.
+        """
+        cfg = self.get_config()
+        if not cfg.get(CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED):
+            return None
+        entities = cfg.get(CONF_PRESENCE_ENTITIES, [])
+        min_minutes: Optional[float] = None
+        for entity_id in entities:
+            if not entity_id:
+                continue
+            state = self.hass.states.get(entity_id)
+            if state is None:
+                continue
+            eta_attr = state.attributes.get("estimated_arrival_time")
+            if not eta_attr:
+                continue
+            try:
+                eta_dt = datetime.fromisoformat(str(eta_attr).replace("Z", "+00:00"))
+                # Normalise to naive local time for comparison
+                if eta_dt.tzinfo is not None:
+                    from datetime import timezone
+                    eta_dt = eta_dt.astimezone(timezone.utc).replace(tzinfo=None)
+                minutes = (eta_dt - datetime.utcnow()).total_seconds() / 60
+                if 0 < minutes <= 120:
+                    min_minutes = min(min_minutes or minutes, minutes)
+            except (ValueError, TypeError, AttributeError):
+                pass
+        return min_minutes
+
+    def _adapt_heating_curve(self) -> None:
+        """
+        Adaptive heating curve: subtly adjust the curve up/down based on whether
+        rooms are systematically warm-up faster or slower than expected.
+
+        Logic:
+          - Compute the average warmup minutes across all rooms.
+          - If avg > preheat_minutes + 15 min  → rooms heat too slowly → shift curve +0.5°C
+          - If avg < preheat_minutes - 15 min  → rooms heat too quickly → shift curve -0.5°C
+          - Maximum total shift: ±CONF_ADAPTIVE_CURVE_MAX_DELTA (default ±3°C)
+          - Runs at most once per day.
+        """
+        cfg = self.get_config()
+        if not cfg.get(CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED):
+            return
+        today_yday = datetime.now().timetuple().tm_yday
+        if self._curve_last_adapted == today_yday:
+            return
+        self._curve_last_adapted = today_yday
+
+        # Need at least 3 rooms with warmup data
+        all_warmups = [wm for wms in self._warmup_history.values() for wm in wms if wm > 0]
+        if len(all_warmups) < 3:
+            return
+
+        avg_warmup = sum(all_warmups) / len(all_warmups)
+        target_warmup = float(cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES)) or 30.0
+        max_delta = float(cfg.get(CONF_ADAPTIVE_CURVE_MAX_DELTA, DEFAULT_ADAPTIVE_CURVE_MAX_DELTA))
+        step = 0.5  # °C per adaptation step
+
+        if avg_warmup > target_warmup + 15:
+            delta = step
+        elif avg_warmup < target_warmup - 15:
+            delta = -step
+        else:
+            return
+
+        # Enforce maximum cumulative delta
+        new_total = self._curve_adaptation_delta + delta
+        if abs(new_total) > max_delta:
+            return
+
+        # Apply shift to all curve points
+        current_points = cfg.get(CONF_HEATING_CURVE, {}).get(CONF_CURVE_POINTS, DEFAULT_HEATING_CURVE)
+        new_points = [
+            {"outdoor_temp": p["outdoor_temp"], "target_temp": round(p["target_temp"] + delta, 1)}
+            for p in current_points
+        ]
+        self._curve_adaptation_delta = new_total
+        self._heating_curve.update_points(new_points)
+
+        # Persist curve via config entry options
+        new_options = dict(self._config_entry.options)
+        new_options[CONF_HEATING_CURVE] = {CONF_CURVE_POINTS: new_points}
+        self._suppress_reload = True
+        self.hass.config_entries.async_update_entry(self._config_entry, options=new_options)
+        _LOGGER.info(
+            "Adaptive heating curve: shifted %.1f°C (total %.1f°C). avg_warmup=%.1f min",
+            delta, self._curve_adaptation_delta, avg_warmup,
+        )
+        self.hass.async_create_task(self._async_save_runtime_state())
+
+    async def _async_check_vacation_calendar(self) -> None:
+        """
+        Auto-detect vacation periods from a HA calendar entity.
+
+        Calls 'calendar.get_events' for the next 30 days and searches for
+        events whose summary contains CONF_VACATION_CALENDAR_KEYWORD (default: "urlaub").
+        If found, updates vacation_start/end in config options automatically.
+        """
+        cfg = self.get_config()
+        cal_entity = cfg.get(CONF_VACATION_CALENDAR)
+        if not cal_entity:
+            return
+        today_yday = datetime.now().timetuple().tm_yday
+        if self._vac_calendar_last_check == today_yday:
+            return
+        self._vac_calendar_last_check = today_yday
+
+        keyword = cfg.get(CONF_VACATION_CALENDAR_KEYWORD, DEFAULT_VACATION_CALENDAR_KEYWORD).lower()
+        today = date.today()
+        end_date = today + timedelta(days=30)
+        try:
+            result = await self.hass.services.async_call(
+                "calendar", "get_events",
+                {
+                    "entity_id": cal_entity,
+                    "start_date_time": today.isoformat() + "T00:00:00",
+                    "end_date_time": end_date.isoformat() + "T23:59:59",
+                },
+                blocking=True,
+                return_response=True,
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Vacation calendar check failed: %s", err)
+            return
+
+        events = (result or {}).get(cal_entity, {}).get("events", [])
+        for event in events:
+            summary = event.get("summary", "").lower()
+            if keyword in summary:
+                start_str = str(event.get("start", ""))[:10]
+                end_str   = str(event.get("end",   ""))[:10]
+                if start_str and end_str:
+                    if start_str != cfg.get(CONF_VACATION_START) or end_str != cfg.get(CONF_VACATION_END):
+                        _LOGGER.info("Vacation calendar: found '%s' → %s – %s", summary, start_str, end_str)
+                        new_opts = dict(self._config_entry.options)
+                        new_opts[CONF_VACATION_START] = start_str
+                        new_opts[CONF_VACATION_END]   = end_str
+                        self._suppress_reload = True
+                        self.hass.config_entries.async_update_entry(self._config_entry, options=new_opts)
+                return  # first match wins
 
     # ------------------------------------------------------------------
     # Roadmap 1.3 – Heizungsoptimierungs-Score
@@ -1117,6 +1500,13 @@ class IHCCoordinator(DataUpdateCoordinator):
             # Frost protection: even in OFF we keep a minimum
             return frost_temp, {"source": "frost_protection", "schedule_active": False}
 
+        if system_mode == SYSTEM_MODE_COOL:
+            # Cooling mode: target is the configured cooling temperature (room wants to stay BELOW this)
+            cooling_target = float(cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP))
+            return min(max_temp, max(min_temp, cooling_target)), {
+                "source": "cooling_mode", "schedule_active": False
+            }
+
         if system_mode == SYSTEM_MODE_AWAY:
             away_temp = float(cfg.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP))
             # Frost protection: away temp must be at least frost_temp
@@ -1171,6 +1561,10 @@ class IHCCoordinator(DataUpdateCoordinator):
                 return min(max_temp, max(min_temp, manual)), {
                     "source": "manual", "schedule_active": False
                 }
+            # No stored manual temp (e.g. after restart without persisted value) –
+            # fall back to auto so the room continues heating normally.
+            self._room_modes[room_id] = ROOM_MODE_AUTO
+            room_mode = ROOM_MODE_AUTO
 
         # Determine night setback modifier (applied to schedule and curve temps)
         night_setback = 0.0
@@ -1178,8 +1572,14 @@ class IHCCoordinator(DataUpdateCoordinator):
         if night_active:
             night_setback = float(cfg.get(CONF_NIGHT_SETBACK_OFFSET, DEFAULT_NIGHT_SETBACK_OFFSET))
 
-        # Pre-heat window: look ahead into schedule to decide if we should heat early
-        preheat_minutes = int(cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES))
+        # Pre-heat window: use adaptive warmup history when enabled, else static config
+        static_preheat = int(cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES))
+        if cfg.get(CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED):
+            avg_warmup = self.get_avg_warmup_minutes(room_id)
+            # Use historical warmup + 10% safety buffer (floor = static config)
+            preheat_minutes = max(static_preheat, round(avg_warmup * 1.1)) if avg_warmup else static_preheat
+        else:
+            preheat_minutes = static_preheat
 
         # --- 3a. HA schedule entities (external schedule.* entities with optional condition) ---
         # Each entry uses an existing room preset (comfort/eco/sleep/away) – no separate temp needed.
@@ -1349,8 +1749,14 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Vacation assistant: auto-activate/deactivate based on date range (Roadmap 1.2)
         self._update_vacation_auto_mode()
 
+        # v1.4 – Auto-detect vacation from HA calendar (once per day)
+        self.hass.async_create_task(self._async_check_vacation_calendar())
+
         # Rückkehr-Vorheizung: pre-heat before returning from vacation (Roadmap 2.0)
         self._update_vacation_return_preheat()
+
+        # v1.3 – Adaptive heating curve (once per day)
+        self._adapt_heating_curve()
 
         # Persist temperature history once per hour (survives HA restarts)
         now = datetime.now()
@@ -1369,8 +1775,11 @@ class IHCCoordinator(DataUpdateCoordinator):
         room_data: Dict[str, dict] = {}
 
         solar_boost = self._get_solar_boost()
-        price_eco_offset = self._get_energy_price_eco_offset()
+        # Use enhanced price-forecast offset (Tibber / Nordpool hourly aware)
+        price_eco_offset = self._get_price_forecast_offset()
         cold_boost = self._get_weather_cold_boost()
+        # v1.4 – ETA pre-heat: minutes until someone arrives home
+        eta_minutes = self._get_eta_preheat_minutes()
 
         for room in self.get_rooms():
             room_id = room.get(CONF_ROOM_ID, "")
@@ -1525,14 +1934,37 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         night_setback_active = self._is_night_setback_active()
 
-        # Roadmap 1.3 – Energy cost estimate + efficiency score
-        cfg = self.get_config()
+        # Energy cost estimate
         boiler_kw = float(cfg.get(CONF_BOILER_KW, DEFAULT_BOILER_KW))
-        energy_today_kwh = round(self.get_heating_runtime_today_minutes() / 60.0 * boiler_kw, 2)
-        energy_yesterday_kwh = round(self.get_heating_runtime_yesterday_minutes() / 60.0 * boiler_kw, 2)
+
+        # Per-room energy calculation (works for both switch and TRV mode)
+        rooms_list = self.get_rooms()
+        for room in rooms_list:
+            room_id = room.get(CONF_ROOM_ID, "")
+            if room_id and room_id in room_data:
+                room_data[room_id]["energy_today_kwh"] = self._calculate_room_energy_today(room, room_id)
+
+        if controller_mode == CONTROLLER_MODE_TRV:
+            # TRV/Mietwohnung: total = sum of all rooms (no central boiler kW)
+            energy_today_kwh = round(
+                sum(rd.get("energy_today_kwh", 0.0) for rd in room_data.values()), 2
+            )
+            # Yesterday not easily tracked per-room; fall back to runtime-based with boiler_kw
+            energy_yesterday_kwh = round(
+                self.get_heating_runtime_yesterday_minutes() / 60.0 * boiler_kw, 2
+            )
+        else:
+            # Switch mode: prefer smart meter if available, else runtime × boiler_kw
+            sm_energy = self._get_smart_meter_energy_today()
+            if sm_energy is not None:
+                energy_today_kwh = round(sm_energy, 2)
+            else:
+                energy_today_kwh = round(self.get_heating_runtime_today_minutes() / 60.0 * boiler_kw, 2)
+            energy_yesterday_kwh = round(self.get_heating_runtime_yesterday_minutes() / 60.0 * boiler_kw, 2)
+
         efficiency_score = self.calculate_efficiency_score(outdoor_temp)
 
-        # Roadmap 2.0 – Weather forecast
+        # Weather forecast (multi-day)
         weather_forecast = self._get_weather_forecast()
 
         # Guest mode info
@@ -1551,25 +1983,28 @@ class IHCCoordinator(DataUpdateCoordinator):
             "summer_mode": summer_mode,
             "night_setback_active": night_setback_active,
             "presence_away_active": self._presence_away_active,
-            "vacation_auto_active": self._vacation_auto_active,         # Roadmap 1.2
-            "vacation_range": self.get_vacation_range(),                # Roadmap 1.2
-            "return_preheat_active": self._return_preheat_active,       # Roadmap 2.0
+            "vacation_auto_active": self._vacation_auto_active,
+            "vacation_range": self.get_vacation_range(),
+            "return_preheat_active": self._return_preheat_active,
             "system_mode": self._system_mode,
-            "controller_mode": controller_mode,                         # Roadmap 2.0
-            "guest_mode_active": self._guest_mode_active,               # Roadmap 2.0
-            "guest_remaining_minutes": guest_remaining_minutes,         # Roadmap 2.0
+            "controller_mode": controller_mode,
+            "guest_mode_active": self._guest_mode_active,
+            "guest_remaining_minutes": guest_remaining_minutes,
             "heating_runtime_today": self.get_heating_runtime_today_minutes(),
-            "heating_runtime_yesterday": self.get_heating_runtime_yesterday_minutes(),  # Roadmap 2.0
+            "heating_runtime_yesterday": self.get_heating_runtime_yesterday_minutes(),
             "energy_today_kwh": energy_today_kwh,
-            "energy_yesterday_kwh": energy_yesterday_kwh,               # Roadmap 2.0
-            "efficiency_score": efficiency_score,                       # Roadmap 1.3
+            "energy_yesterday_kwh": energy_yesterday_kwh,
+            "efficiency_score": efficiency_score,
             "solar_boost": solar_boost,
             "cold_boost": cold_boost,
             "solar_power": self._get_solar_power(),
             "energy_price": self._get_current_energy_price(),
             "energy_price_eco_offset": price_eco_offset,
             "flow_temp": flow_temp,
-            "weather_forecast": weather_forecast,                       # Roadmap 2.0
+            "weather_forecast": weather_forecast,
+            "eta_preheat_minutes": eta_minutes,          # v1.4 – ETA-based pre-heat
+            "adaptive_curve_delta": self._curve_adaptation_delta,  # v1.3 – debug info
+            "curve_adaptation_enabled": cfg.get(CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED),
             "rooms": room_data,
             "debug": self._controller.get_debug_info(),
         }

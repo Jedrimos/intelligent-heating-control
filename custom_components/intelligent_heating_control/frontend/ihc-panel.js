@@ -364,13 +364,23 @@ class IHCPanel extends HTMLElement {
 
   _startAutoRefresh() {
     if (this._refreshTimer) clearInterval(this._refreshTimer);
-    // Track pointer interactions so we never rebuild DOM during a click
+    // Track pointer interactions so we never rebuild DOM during a click.
+    // On mobile, browsers delay the click event up to 300ms after pointerup
+    // (double-tap prevention). We clear the flag after a 400ms grace period
+    // so the 5s timer never re-renders the DOM in that window.
     const sr = this.shadowRoot;
     if (!this._interactionTracked) {
       this._interactionTracked = true;
-      sr.addEventListener("pointerdown", () => { this._userInteracting = true; }, true);
-      sr.addEventListener("pointerup",   () => { this._userInteracting = false; }, true);
-      sr.addEventListener("pointercancel", () => { this._userInteracting = false; }, true);
+      sr.addEventListener("pointerdown", () => {
+        this._userInteracting = true;
+        if (this._interactionTimer) clearTimeout(this._interactionTimer);
+      }, true);
+      const _clearInteraction = () => {
+        if (this._interactionTimer) clearTimeout(this._interactionTimer);
+        this._interactionTimer = setTimeout(() => { this._userInteracting = false; }, 400);
+      };
+      sr.addEventListener("pointerup",     _clearInteraction, true);
+      sr.addEventListener("pointercancel", _clearInteraction, true);
     }
     this._refreshTimer = setInterval(() => {
       if (!this._hass || this._modalOpen || this._userInteracting) return;
@@ -499,7 +509,6 @@ class IHCPanel extends HTMLElement {
         valve_entities: state.attributes.valve_entities || [],
         window_sensors: state.attributes.window_sensors || [],
         comfort_temp: state.attributes.comfort_temp ?? 21,
-        away_temp_room: state.attributes.away_temp_room ?? 16,
         eco_offset: state.attributes.eco_offset ?? 3,
         sleep_offset: state.attributes.sleep_offset ?? 4,
         away_offset: state.attributes.away_offset ?? 6,
@@ -518,6 +527,11 @@ class IHCPanel extends HTMLElement {
         ha_schedules: state.attributes.ha_schedules || [],
         next_period: state.attributes.next_period || null,
         anomaly: state.attributes.anomaly || null,
+        // Energy
+        radiator_kw: state.attributes.radiator_kw ?? 1.0,
+        hkv_sensor: state.attributes.hkv_sensor || "",
+        hkv_factor: state.attributes.hkv_factor ?? 0.083,
+        energy_today_kwh: state.attributes.energy_today_kwh ?? 0,
       };
     });
     // Enrich from demand sensors
@@ -572,7 +586,6 @@ class IHCPanel extends HTMLElement {
     return {
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
-      no_switch:                 !sw,
       system_mode:               sel ? sel.state : "—",
       curve_target:              ct  ? parseFloat(ct.state) : null,
       outdoor_temp:              ot  ? parseFloat(ot.state) : null,
@@ -597,6 +610,8 @@ class IHCPanel extends HTMLElement {
       guest_remaining_minutes:   a.guest_remaining_minutes != null ? a.guest_remaining_minutes : null,
       weather_forecast:          a.weather_forecast || null,
       cold_boost:                ea.cold_boost != null ? parseFloat(ea.cold_boost) : 0,
+      eta_preheat_minutes:       a.eta_preheat_minutes != null ? parseFloat(a.eta_preheat_minutes) : null,
+      adaptive_curve_delta:      a.adaptive_curve_delta != null ? parseFloat(a.adaptive_curve_delta) : 0,
     };
   }
 
@@ -659,7 +674,6 @@ class IHCPanel extends HTMLElement {
       "ha_schedule": "📅 HA Zeitplan",
       "ha_schedule_eco": "📅 HA Zeitplan (Eco)",
       "ha_schedule_sleep": "📅 HA Zeitplan (Schlaf)",
-      "room_presence_away": "🚶 Abwesend",
     };
 
     // Which system modes fully override room modes? (must be defined before roomCards map)
@@ -753,7 +767,7 @@ class IHCPanel extends HTMLElement {
           </div>
           ${room.next_period && !room.schedule_active ? `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:4px">📅 Nächster Zeitplan: ${room.next_period.start}–${room.next_period.end} · ${room.next_period.temperature}°C</div>` : ""}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
-            ${room.runtime_today_minutes > 0 ? `<span style="font-size:10px;color:var(--secondary-text-color)">⏱ ${room.runtime_today_minutes} min heute</span>` : "<span></span>"}
+            ${room.runtime_today_minutes > 0 ? `<span style="font-size:10px;color:var(--secondary-text-color)">⏱ ${room.runtime_today_minutes} min${room.energy_today_kwh > 0 ? ` · ~${room.energy_today_kwh} kWh` : ""}</span>` : "<span></span>"}
             ${room.avg_warmup_minutes ? `<span style="font-size:10px;color:var(--secondary-text-color)" title="Ø Aufheizzeit">🌡️ Ø ${room.avg_warmup_minutes} min</span>` : ""}
             ${this._sparkline(room.temp_history)}
           </div>
@@ -772,10 +786,11 @@ class IHCPanel extends HTMLElement {
       g.return_preheat_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#1565c0;">🏠 <strong>Rückkehr-Vorheizung aktiv</strong> – Haus wird aufgeheizt</div>` : "",
       g.guest_mode_active     ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#880e4f;">🎉 <strong>Gäste-Modus aktiv</strong>${g.guest_remaining_minutes != null ? ` – noch ${g.guest_remaining_minutes} min` : ""}</div>` : "",
       g.weather_forecast && g.weather_forecast.cold_warning ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8eaf6,#c5cae9);border-color:#1a237e;">🥶 <strong>Kältewarnung</strong> – Tiefsttemperatur heute: <strong>${g.weather_forecast.forecast_today_min}°C</strong>${g.weather_forecast.forecast_today_max != null ? ` / max. ${g.weather_forecast.forecast_today_max}°C` : ""}</div>` : "",
+      g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90 ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-color:#2e7d32;">🏠 <strong>ETA-Vorheizen</strong> – Ankunft in ~${Math.round(g.eta_preheat_minutes)} min – Heizung bereitet sich vor</div>` : "",
     ].filter(Boolean).join("");
 
     // Hero section
-    const heatingState = g.heating_active ? "🔥 Heizt" : g.no_switch ? "— kein Schalter" : "✓ Bereit";
+    const heatingState = g.heating_active ? "🔥 Heizt" : "✓ Bereit";
     const heatingCls   = g.heating_active ? "heating" : "ok";
     const demandNum    = g.total_demand != null ? `${g.total_demand} %` : "—";
     const demandCls    = (g.total_demand || 0) > 0 ? "warn" : "ok";
@@ -846,15 +861,24 @@ class IHCPanel extends HTMLElement {
           <div class="status-value ${g.energy_today_kwh > g.energy_yesterday_kwh ? "on" : "ok"}" style="font-size:15px">${g.energy_yesterday_kwh} kWh</div>
         </div>` : ""}
         ${g.weather_forecast ? (() => {
-          const wc = WEATHER_CONDITIONS[g.weather_forecast.condition] || { label: g.weather_forecast.condition || "—", icon: "🌡️" };
-          const range = g.weather_forecast.forecast_today_min != null
-            ? `${g.weather_forecast.forecast_today_min}–${g.weather_forecast.forecast_today_max}°C`
-            : "";
-          return `<div class="status-item" title="Wettervorhersage">
-            <div class="status-label">Wetter heute</div>
-            <div class="status-value" style="font-size:18px">${wc.icon}</div>
-            <div style="font-size:11px;color:var(--secondary-text-color);margin-top:2px">${wc.label}</div>
-            ${range ? `<div style="font-size:11px;font-weight:600;color:var(--primary-text-color)">${range}</div>` : ""}
+          const fc = g.weather_forecast;
+          const wc = WEATHER_CONDITIONS[fc.condition] || { label: fc.condition || "—", icon: "🌡️" };
+          const range = fc.forecast_today_min != null ? `${fc.forecast_today_min}–${fc.forecast_today_max}°C` : "";
+          const dayLabels = ["Heute","Morgen","Übermorgen"];
+          const fcDays = (fc.forecast || []).slice(0, 3).map((d, i) => {
+            const dc = WEATHER_CONDITIONS[d.condition] || { icon: "🌡️" };
+            return `<span style="display:inline-flex;flex-direction:column;align-items:center;margin:0 4px;font-size:10px">
+              <span>${dayLabels[i] || ""}</span>
+              <span style="font-size:13px">${dc.icon}</span>
+              <span style="font-weight:600">${d.min != null ? d.min : "?"}/${d.max != null ? d.max : "?"}°</span>
+            </span>`;
+          }).join("");
+          return `<div class="status-item" title="Wettervorhersage 3 Tage" style="min-width:100px">
+            <div class="status-label">Wetter</div>
+            <div style="font-size:18px">${wc.icon}</div>
+            <div style="font-size:10px;color:var(--secondary-text-color)">${wc.label}</div>
+            ${range ? `<div style="font-size:10px;font-weight:600">${range}</div>` : ""}
+            ${fcDays ? `<div style="display:flex;margin-top:4px">${fcDays}</div>` : ""}
           </div>`;
         })() : ""}
       </div>`;
@@ -890,7 +914,9 @@ class IHCPanel extends HTMLElement {
           this._callService("boost_room", { id: roomId, duration_minutes: 60 });
           this._toast("⚡ Boost aktiviert (60 min)");
         } else {
-          this._callService("set_room_mode", { id: roomId, mode: chip.dataset.mode });
+          const m = chip.dataset.mode;
+          this._callService("set_room_mode", { id: roomId, mode: m });
+          this._toast(`✓ Modus: ${MODE_LABELS[m] || m}`);
         }
       });
     });
@@ -1238,12 +1264,70 @@ class IHCPanel extends HTMLElement {
             <span class="form-hint">Für Energieberechnung (kWh = Laufzeit × kW)</span>
           </div>
           <div class="settings-item">
-            <label>Vorlauftemperatur-Entität</label>
+            <label>Vorlauftemperatur-Entität (Setzen)</label>
             <input type="text" class="form-input" id="flow-temp-entity"
               placeholder="number.boiler_flow_temp (leer = deaktiviert)"
               value="${a.flow_temp_entity ?? ''}" list="flow-temp-list">
             <datalist id="flow-temp-list">${this._entityOptions(["number"])}</datalist>
             <span class="form-hint">Setzt die Vorlauftemperatur automatisch</span>
+          </div>
+          <div class="settings-item">
+            <label>Vorlauftemperatur-Sensor (PID-Rückmessung)</label>
+            <input type="text" class="form-input" id="flow-temp-sensor"
+              placeholder="sensor.boiler_flow_temp (leer = kein PID)"
+              value="${a.flow_temp_sensor ?? ''}" list="flow-sensor-list">
+            <datalist id="flow-sensor-list">${this._entityOptions(["sensor"])}</datalist>
+            <span class="form-hint">Wenn gesetzt: PID-Regler nutzt Ist-Vorlauftemperatur</span>
+          </div>
+          <div class="settings-item">
+            <label>Smart-Meter-Sensor (kWh)</label>
+            <input type="text" class="form-input" id="smart-meter-entity"
+              placeholder="sensor.strom_zaehler (leer = deaktiviert)"
+              value="${a.smart_meter_entity ?? ''}" list="meter-list">
+            <datalist id="meter-list">${this._entityOptions(["sensor"])}</datalist>
+            <span class="form-hint">TOTAL_INCREASING kWh-Sensor für echten Verbrauch</span>
+          </div>
+          <div class="settings-item">
+            <label>Kühl-Zieltemperatur (°C)</label>
+            <input type="number" class="form-input" id="cooling-target-temp"
+              min="18" max="30" step="0.5" value="${a.cooling_target_temp ?? 24}">
+            <span class="form-hint">Zieltemperatur im Kühlmodus</span>
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="card-title" style="font-size:13px;margin-top:0">🧠 Intelligente Regelung</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Adaptive Heizkurve</label>
+            <select class="form-select" id="adaptive-curve-enabled">
+              <option value="false" ${!a.adaptive_curve_enabled ? "selected" : ""}>Deaktiviert</option>
+              <option value="true" ${a.adaptive_curve_enabled ? "selected" : ""}>Aktiviert (lernt automatisch)</option>
+            </select>
+            <span class="form-hint">Passt Heizkurve ±0.5°C/Tag an (max. ±3°C)</span>
+          </div>
+          <div class="settings-item">
+            <label>Adaptives Vorheizen</label>
+            <select class="form-select" id="adaptive-preheat-enabled">
+              <option value="true" ${a.adaptive_preheat_enabled !== false ? "selected" : ""}>Aktiviert (nutzt Aufheizhistorie)</option>
+              <option value="false" ${a.adaptive_preheat_enabled === false ? "selected" : ""}>Deaktiviert (fixer Wert)</option>
+            </select>
+            <span class="form-hint">Berechnet Vorheizdauer aus Vergangenheitsdaten</span>
+          </div>
+          <div class="settings-item">
+            <label>ETA-basiertes Vorheizen</label>
+            <select class="form-select" id="eta-preheat-enabled">
+              <option value="false" ${!a.eta_preheat_enabled ? "selected" : ""}>Deaktiviert</option>
+              <option value="true" ${a.eta_preheat_enabled ? "selected" : ""}>Aktiviert (Google Maps ETA)</option>
+            </select>
+            <span class="form-hint">Heizt wenn person.* ETA-Attribut ≤90 min</span>
+          </div>
+          <div class="settings-item">
+            <label>Urlaubs-Kalender</label>
+            <input type="text" class="form-input" id="vacation-calendar"
+              placeholder="calendar.urlaub (leer = deaktiviert)"
+              value="${a.vacation_calendar ?? ''}" list="calendar-list">
+            <datalist id="calendar-list">${this._entityOptions(["calendar"])}</datalist>
+            <span class="form-hint">Events mit „urlaub" im Titel aktivieren Urlaubs-Modus automatisch</span>
           </div>
         </div>
         <hr class="divider">
@@ -1465,12 +1549,19 @@ class IHCPanel extends HTMLElement {
       this._callService("update_global_settings", {
         boiler_kw:                  boilerKw,
         flow_temp_entity:           content.querySelector("#flow-temp-entity").value.trim(),
+        flow_temp_sensor:           content.querySelector("#flow-temp-sensor").value.trim(),
         solar_entity:               content.querySelector("#solar-entity").value.trim(),
         solar_surplus_threshold:    solarSurplus,
         solar_boost_temp:           solarBoost,
         energy_price_entity:        content.querySelector("#energy-price-entity").value.trim(),
         energy_price_threshold:     priceThresh,
         energy_price_eco_offset:    priceEco,
+        smart_meter_entity:         content.querySelector("#smart-meter-entity").value.trim(),
+        cooling_target_temp:        parseFloat(content.querySelector("#cooling-target-temp").value) || 24,
+        adaptive_curve_enabled:     content.querySelector("#adaptive-curve-enabled").value === "true",
+        adaptive_preheat_enabled:   content.querySelector("#adaptive-preheat-enabled").value === "true",
+        eta_preheat_enabled:        content.querySelector("#eta-preheat-enabled").value === "true",
+        vacation_calendar:          content.querySelector("#vacation-calendar").value.trim(),
       });
       this._toast("✓ Energie/Solar-Einstellungen gespeichert");
     });
@@ -2065,6 +2156,32 @@ class IHCPanel extends HTMLElement {
       </div>
 
       <div class="modal-section">
+        <div class="modal-section-title">Energieerfassung</div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
+          Im TRV-Modus wird der Verbrauch pro Zimmer geschätzt. Mit einem Heizkostenverteiler-Sensor
+          (Wireless M-Bus) ist die Abrechnung direkt aus dem Gerät möglich.
+        </div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Heizleistung Zimmer (kW)</label>
+            <input type="number" class="form-input" id="m-radiator-kw" value="1.0" step="0.1" min="0.1" max="5.0">
+            <span class="form-hint">Nennleistung der Heizkörper im Zimmer</span>
+          </div>
+          <div class="settings-item">
+            <label>HKV-Sensor (optional)</label>
+            <input type="text" class="form-input" id="m-hkv-sensor"
+              placeholder="sensor.hkv_wohnzimmer" list="m-sensor-list" autocomplete="off">
+            <span class="form-hint">Wireless M-Bus / Ista / Techem Einheitenzähler</span>
+          </div>
+          <div class="settings-item">
+            <label>HKV-Faktor (kWh/Einheit)</label>
+            <input type="number" class="form-input" id="m-hkv-factor" value="0.083" step="0.001" min="0.001" max="1.0">
+            <span class="form-hint">Aus Ihrer Jahresabrechnung: Gesamtkostenkennzahl</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
         <div class="modal-section-title">Temperatur-Presets</div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
           Komfort wird von der Außentemperatur berechnet (Heizkurve).
@@ -2139,8 +2256,8 @@ class IHCPanel extends HTMLElement {
         <div class="settings-item" style="margin-bottom:10px">
           <label>Wenn kein Zeitplan aktiv</label>
           <select class="form-select" id="m-sched-off-mode">
-            <option value="eco"   ${(typeof room !== 'undefined' ? room.ha_schedule_off_mode : 'eco') === 'eco'   ? 'selected' : ''}>Eco-Temperatur</option>
-            <option value="sleep" ${(typeof room !== 'undefined' ? room.ha_schedule_off_mode : 'eco') === 'sleep' ? 'selected' : ''}>Schlaf-Temperatur</option>
+            <option value="eco" selected>Eco-Temperatur</option>
+            <option value="sleep">Schlaf-Temperatur</option>
           </select>
         </div>
         <datalist id="m-schedule-list">${this._entityOptions(["schedule"])}</datalist>
@@ -2182,6 +2299,9 @@ class IHCPanel extends HTMLElement {
         weight:                 parseFloat(modal.querySelector("#m-weight").value),
         humidity_sensor:        modal.querySelector("#m-humidity-sensor").value.trim(),
         mold_protection_enabled: modal.querySelector("#m-mold-enabled").value === "true",
+        radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
+        hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
+        hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         ha_schedules,
       });
       this._closeModal();
@@ -2334,6 +2454,22 @@ class IHCPanel extends HTMLElement {
       </div>
 
       <div class="modal-section">
+        <div class="modal-section-title">👤 Zimmer-Anwesenheit</div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:8px">
+          Wenn konfiguriert: Zimmer wechselt auf Abwesend-Temperatur wenn niemand anwesend.
+          Kommagetrennte Liste von <code>person.*</code> / <code>device_tracker.*</code> Entitäten.
+        </div>
+        <div class="settings-item">
+          <label>Anwesenheits-Entitäten</label>
+          <input type="text" class="form-input" id="m-presence-entities"
+            value="${(room.room_presence_entities || []).join(', ')}"
+            placeholder="person.max, device_tracker.handy (leer = immer anwesend)"
+            list="m-presence-list" autocomplete="off">
+          <datalist id="m-presence-list">${this._entityOptions(["person","device_tracker","input_boolean","binary_sensor"])}</datalist>
+        </div>
+      </div>
+
+      <div class="modal-section">
         <div class="modal-section-title">Schimmelschutz</div>
         <div class="settings-grid">
           <div class="settings-item">
@@ -2349,6 +2485,35 @@ class IHCPanel extends HTMLElement {
               <option value="true" ${room.mold_protection_enabled !== false ? "selected" : ""}>Aktiviert</option>
               <option value="false" ${room.mold_protection_enabled === false ? "selected" : ""}>Deaktiviert</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-title">Energieerfassung</div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
+          TRV-Modus: Verbrauch = Anforderungszeit × Heizleistung.
+          Mit HKV-Sensor (Heizkostenverteiler, z.B. Wireless M-Bus) wird der Zählerwert direkt ausgelesen.
+        </div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Heizleistung Zimmer (kW)</label>
+            <input type="number" class="form-input" id="m-radiator-kw"
+              value="${room.radiator_kw ?? 1.0}" step="0.1" min="0.1" max="5.0">
+            <span class="form-hint">Nennleistung aller Heizkörper im Zimmer</span>
+          </div>
+          <div class="settings-item">
+            <label>HKV-Sensor (optional)</label>
+            <input type="text" class="form-input" id="m-hkv-sensor"
+              value="${room.hkv_sensor || ''}" placeholder="sensor.hkv_wohnzimmer"
+              list="m-sensor-list" autocomplete="off">
+            <span class="form-hint">Ista / Techem / Wireless M-Bus Einheitenzähler</span>
+          </div>
+          <div class="settings-item">
+            <label>HKV-Faktor (kWh/Einheit)</label>
+            <input type="number" class="form-input" id="m-hkv-factor"
+              value="${room.hkv_factor ?? 0.083}" step="0.001" min="0.001" max="1.0">
+            <span class="form-hint">Aus der Jahresabrechnung: Gesamtenergie ÷ Gesamteinheiten</span>
           </div>
         </div>
       </div>
@@ -2414,6 +2579,11 @@ class IHCPanel extends HTMLElement {
         weight:         parseFloat(modal.querySelector("#m-weight").value),
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
+        radiator_kw:              parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
+        hkv_sensor:               modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
+        hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
+        room_presence_entities:   (modal.querySelector("#m-presence-entities")?.value || "")
+                                    .split(",").map(s => s.trim()).filter(Boolean),
         ha_schedules,
       });
       this._closeModal();

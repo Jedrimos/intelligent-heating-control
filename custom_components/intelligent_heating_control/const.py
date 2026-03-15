@@ -49,8 +49,6 @@ CONF_WEIGHT: Final = "weight"
 CONF_MIN_TEMP: Final = "min_temp"
 CONF_MAX_TEMP: Final = "max_temp"
 CONF_COMFORT_TEMP: Final = "comfort_temp"
-CONF_ECO_TEMP: Final = "eco_temp"
-CONF_SLEEP_TEMP: Final = "sleep_temp"
 CONF_AWAY_TEMP_ROOM: Final = "away_temp_room"
 CONF_WINDOW_SENSOR: Final = "window_sensor"
 CONF_WINDOW_SENSORS: Final = "window_sensors"   # list – mehrere Fenstersensoren
@@ -64,6 +62,9 @@ CONF_ECO_MAX_TEMP: Final = "eco_max_temp"          # hard ceiling for eco temper
 CONF_SLEEP_MAX_TEMP: Final = "sleep_max_temp"      # hard ceiling for sleep temperature
 CONF_AWAY_MAX_TEMP: Final = "away_max_temp"        # hard ceiling for per-room away temperature
 CONF_HA_SCHEDULE_OFF_MODE: Final = "ha_schedule_off_mode"  # "eco" or "sleep" when no HA schedule active
+CONF_RADIATOR_KW: Final = "radiator_kw"          # rated heat output of this room's radiator(s) in kW
+CONF_HKV_SENSOR: Final = "hkv_sensor"            # HA sensor entity with live HKV Einheiten reading
+CONF_HKV_FACTOR: Final = "hkv_factor"            # kWh per HKV-Einheit (from annual billing statement)
 CONF_SCHEDULES: Final = "schedules"
 CONF_SCHEDULE_DAYS: Final = "days"
 CONF_SCHEDULE_PERIODS: Final = "periods"
@@ -87,8 +88,6 @@ DEFAULT_MIN_ROOMS_DEMAND: Final = 1
 DEFAULT_DEADBAND: Final = 0.5
 DEFAULT_WEIGHT: Final = 1.0
 DEFAULT_COMFORT_TEMP: Final = 21.0
-DEFAULT_ECO_TEMP: Final = 18.0
-DEFAULT_SLEEP_TEMP: Final = 17.0
 DEFAULT_AWAY_TEMP_ROOM: Final = 16.0
 DEFAULT_AWAY_TEMP: Final = 16.0
 DEFAULT_VACATION_TEMP: Final = 14.0
@@ -103,6 +102,8 @@ DEFAULT_ECO_MAX_TEMP: Final = 21.0    # eco never above 21°C
 DEFAULT_SLEEP_MAX_TEMP: Final = 19.0  # sleep never above 19°C
 DEFAULT_AWAY_MAX_TEMP: Final = 18.0   # per-room away never above 18°C
 DEFAULT_HA_SCHEDULE_OFF_MODE: Final = "eco"  # fallback when no HA schedule active
+DEFAULT_RADIATOR_KW: Final = 1.0             # kW – sensible default for a single-radiator room
+DEFAULT_HKV_FACTOR: Final = 0.083           # kWh per Einheit (typical district-heating value)
 DEFAULT_SUMMER_THRESHOLD: Final = 18.0
 DEFAULT_FROST_PROTECTION_TEMP: Final = 7.0
 DEFAULT_NIGHT_SETBACK_OFFSET: Final = 2.0
@@ -182,13 +183,50 @@ CONF_ENERGY_PRICE_ECO_OFFSET: Final = "energy_price_eco_offset" # °C reduction 
 CONF_TEMP_CALIBRATION: Final = "temp_calibration"               # per-room sensor offset (°C)
 CONF_ROOM_PRESENCE_ENTITIES: Final = "room_presence_entities"   # per-room presence list
 CONF_FLOW_TEMP_ENTITY: Final = "flow_temp_entity"               # boiler flow-temp number entity
+CONF_FLOW_TEMP_SENSOR: Final = "flow_temp_sensor"               # sensor.* to read actual flow temp (PID feedback)
 
-# Roadmap 1.1 – Temperature history
-CONF_TEMP_HISTORY_SIZE: Final = 48                              # keep last N readings per room
+# Roadmap 1.1 – Temperature history (7 days × 24 hours of hourly snapshots)
+CONF_TEMP_HISTORY_SIZE: Final = 168                             # 7 × 24 hourly readings per room
 
 # Roadmap 1.2 – Vacation assistant (date range for automatic vacation mode)
 CONF_VACATION_START: Final = "vacation_start"    # ISO date string "YYYY-MM-DD"
 CONF_VACATION_END: Final = "vacation_end"        # ISO date string "YYYY-MM-DD" (inclusive)
+CONF_VACATION_CALENDAR: Final = "vacation_calendar"         # calendar.* entity to auto-detect vacation
+CONF_VACATION_CALENDAR_KEYWORD: Final = "vacation_calendar_keyword"  # keyword to match in event summary
+DEFAULT_VACATION_CALENDAR_KEYWORD: Final = "urlaub"
+
+# v1.3 – Adaptive heating curve
+CONF_ADAPTIVE_CURVE_ENABLED: Final = "adaptive_curve_enabled"
+CONF_ADAPTIVE_CURVE_MAX_DELTA: Final = "adaptive_curve_max_delta"   # max total °C shift allowed
+DEFAULT_ADAPTIVE_CURVE_ENABLED: Final = False
+DEFAULT_ADAPTIVE_CURVE_MAX_DELTA: Final = 3.0
+
+# v1.3 – Predictive pre-heating (uses warmup history when available)
+CONF_ADAPTIVE_PREHEAT_ENABLED: Final = "adaptive_preheat_enabled"
+DEFAULT_ADAPTIVE_PREHEAT_ENABLED: Final = True
+
+# v1.4 – ETA-based pre-heating
+CONF_ETA_PREHEAT_ENABLED: Final = "eta_preheat_enabled"
+DEFAULT_ETA_PREHEAT_ENABLED: Final = False
+
+# v1.5 – Cooling mode target temperature
+CONF_COOLING_TARGET_TEMP: Final = "cooling_target_temp"
+DEFAULT_COOLING_TARGET_TEMP: Final = 24.0
+
+# v1.5 – PID flow temperature controller
+CONF_PID_KP: Final = "pid_kp"
+CONF_PID_KI: Final = "pid_ki"
+CONF_PID_KD: Final = "pid_kd"
+DEFAULT_PID_KP: Final = 2.0
+DEFAULT_PID_KI: Final = 0.1
+DEFAULT_PID_KD: Final = 0.5
+
+# v1.5 – Smart meter integration
+CONF_SMART_METER_ENTITY: Final = "smart_meter_entity"   # sensor.* with accumulated kWh (TOTAL_INCREASING)
+
+# v1.5 – Tibber / dynamic price forecast attribute
+CONF_PRICE_FORECAST_ATTRIBUTE: Final = "price_forecast_attribute"
+DEFAULT_PRICE_FORECAST_ATTRIBUTE: Final = "today_prices"
 
 # Defaults for new options
 DEFAULT_BOILER_KW: Final = 20.0

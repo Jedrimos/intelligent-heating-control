@@ -57,6 +57,8 @@ async def async_setup_entry(
         IHCCurveTargetSensor(coordinator, entry),
         IHCHeatingRuntimeSensor(coordinator, entry),
         IHCEnergyTodaySensor(coordinator, entry),
+        IHCEnergyYesterdaySensor(coordinator, entry),
+        IHCHeatingRuntimeYesterdaySensor(coordinator, entry),
     ]
     for room in coordinator.get_rooms():
         entities.append(IHCRoomDemandSensor(coordinator, entry, room))
@@ -214,7 +216,9 @@ class IHCCurveTargetSensor(_IHCBase, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         cfg = self.coordinator.get_config()
-        curve_data = cfg.get("heating_curve", {})
+        curve_data = cfg.get("heating_curve") or {}
+        if not isinstance(curve_data, dict):
+            curve_data = {}
         return {
             "curve_points": curve_data.get("points", []),
         }
@@ -361,8 +365,49 @@ class IHCEnergyTodaySensor(_IHCBase, SensorEntity):
             "energy_price":             d.get("energy_price"),
             "energy_price_eco_active":  (d.get("energy_price_eco_offset") or 0.0) > 0,
             "flow_temp":                d.get("flow_temp"),
-            "energy_yesterday_kwh":     d.get("energy_yesterday_kwh", 0.0),  # Roadmap 2.0
+            "energy_yesterday_kwh":     d.get("energy_yesterday_kwh", 0.0),
+            "eta_preheat_minutes":      d.get("eta_preheat_minutes"),
+            "adaptive_curve_delta":     d.get("adaptive_curve_delta", 0.0),
         }
+
+
+class IHCEnergyYesterdaySensor(_IHCBase, SensorEntity):
+    """Energy consumed yesterday in kWh – useful for daily comparison statistics."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_native_unit_of_measurement = "kWh"
+    _attr_icon = "mdi:lightning-bolt-outline"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_energy_yesterday_kwh"
+        self._attr_name = "IHC Energie gestern"
+
+    @property
+    def native_value(self):
+        if self.coordinator.data:
+            return self.coordinator.data.get("energy_yesterday_kwh", 0.0)
+        return None
+
+
+class IHCHeatingRuntimeYesterdaySensor(_IHCBase, SensorEntity):
+    """Heating runtime yesterday in minutes."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "min"
+    _attr_icon = "mdi:timer-outline"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_heating_runtime_yesterday"
+        self._attr_name = "IHC Heizlaufzeit gestern"
+
+    @property
+    def native_value(self):
+        if self.coordinator.data:
+            return self.coordinator.data.get("heating_runtime_yesterday", 0.0)
+        return None
 
 
 class IHCRoomRuntimeSensor(_IHCBase, SensorEntity):
