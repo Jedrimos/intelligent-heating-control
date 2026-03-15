@@ -31,28 +31,49 @@ Die Hauptentität des Zimmers. Kompatibel mit allen HA-Features die `climate.*` 
 | `temp_sensor` | string | Entity-ID des konfigurierten Temperatursensors |
 | `valve_entities` | list | Liste der konfigurierten TRV/Thermostat-Entity-IDs |
 | `window_sensors` | list | Liste der konfigurierten Fenstersensor-Entity-IDs |
-| `comfort_temp` | float | Konfigurierter Komfort-Preset |
-| `eco_temp` | float | Konfigurierter Eco-Preset |
-| `sleep_temp` | float | Konfigurierter Schlaf-Preset |
-| `away_temp_room` | float | Konfigurierter Abwesend-Preset |
+| `comfort_temp` | float | Fallback-Komforttemperatur (wenn kein Außensensor) |
+| `eco_offset` | float | Eco-Abzug von der Komforttemperatur in °C |
+| `eco_max_temp` | float | Maximale Eco-Temperatur (Deckelung) |
+| `sleep_offset` | float | Schlaf-Abzug von der Komforttemperatur in °C |
+| `sleep_max_temp` | float | Maximale Schlaf-Temperatur (Deckelung) |
+| `away_offset` | float | Abwesend-Abzug von der Komforttemperatur in °C |
+| `away_max_temp` | float | Maximale Abwesend-Temperatur (Deckelung) |
+| `ha_schedule_off_mode` | string | Fallback-Modus bei inaktivem HA-Zeitplan (`eco` / `sleep`) |
+| `comfort_temp_eff` | float | Berechnete effektive Komforttemperatur (aktuell) |
+| `eco_temp_eff` | float | Berechnete effektive Eco-Temperatur (aktuell) |
+| `sleep_temp_eff` | float | Berechnete effektive Schlaf-Temperatur (aktuell) |
+| `away_temp_eff` | float | Berechnete effektive Abwesend-Temperatur (aktuell) |
 | `room_offset` | float | Konfigurierter Zimmer-Offset |
 | `deadband` | float | Konfiguriertes Totband |
 | `weight` | float | Konfigurierte Klimabaustein-Gewichtung |
-| `schedules` | list | Alle konfigurierten Zeitpläne als Liste |
+| `schedules` | list | Alle konfigurierten internen Zeitpläne als Liste |
+| `ha_schedules` | list | Alle konfigurierten HA schedule.* Bindungen |
+| `humidity_sensor` | string | Entity-ID des konfigurierten Luftfeuchtigkeit-Sensors |
+| `mold_protection_enabled` | bool | Schimmelschutz aktiviert? |
+| `mold` | dict | Schimmelschutz-Status: `{risk, dew_point, humidity}` |
+| `room_presence_active` | bool | Zimmer-spezifische Anwesenheit (wenn konfiguriert) |
 
 **Mögliche `source`-Werte:**
 
 | Wert | Beschreibung |
 |------|-------------|
-| `heating_curve` | Heizkurve + Zimmer-Offset |
-| `schedule` | Aktiver Zeitplan |
-| `preheat` | Vorheizen vor Zeitplan |
-| `comfort` | Komfort-Preset |
-| `eco` | Eco-Preset |
-| `sleep` | Schlaf-Preset |
-| `room_away` | Zimmer-Abwesend-Preset |
+| `heating_curve` | Heizkurve + Zimmer-Offset (Auto-Modus, kein Zeitplan) |
+| `schedule` | Aktiver interner Zeitplan |
+| `preheat` | Vorheizen vor internem Zeitplan |
+| `ha_schedule_comfort` | Aktiver HA-Zeitplan (Komfort-Modus) |
+| `ha_schedule_eco` | Aktiver HA-Zeitplan (Eco-Modus) |
+| `ha_schedule_sleep` | Aktiver HA-Zeitplan (Schlaf-Modus) |
+| `ha_schedule_away` | Aktiver HA-Zeitplan (Abwesend-Modus) |
+| `ha_schedule_eco` | Fallback bei inaktivem HA-Zeitplan (eco-Modus) |
+| `ha_schedule_sleep` | Fallback bei inaktivem HA-Zeitplan (sleep-Modus) |
+| `comfort` | Zimmer-Preset: Komfort (outdoor-geregelt) |
+| `eco` | Zimmer-Preset: Eco (outdoor-geregelt) |
+| `sleep` | Zimmer-Preset: Schlaf (outdoor-geregelt) |
+| `room_away` | Zimmer-Preset: Abwesend (outdoor-geregelt) |
+| `room_presence_away` | Anwesenheits-Auto: alle weg → Abwesend-Temperatur |
+| `guest` | Gäste-Modus aktiv |
 | `manual` | Manuell gesetzte Temperatur |
-| `system_away` | System-Abwesend-Modus |
+| `system_away` | System-Abwesend-Modus (globale away_temp) |
 | `system_vacation` | Urlaubs-Modus |
 | `room_off` | Zimmer-AUS-Modus |
 | `frost_protection` | Frostschutz aktiv |

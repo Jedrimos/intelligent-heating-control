@@ -55,14 +55,31 @@ oder über **Einstellungen → Integrationen → IHC → Konfigurieren → Zimme
 | `valve_entities` | Liste der Thermostate/TRVs | `[climate.wohnzimmer_trv]` |
 | `window_sensors` | Liste der Fenstersensoren | `[binary_sensor.fenster_wz]` |
 
-#### Temperatur-Presets
+#### Temperatur-Presets (outdoor-geregelt)
 
-| Preset | Standard | Verwendet wenn Zimmermodus = |
-|--------|---------|------------------------------|
-| `comfort_temp` | 21 °C | Komfort |
-| `eco_temp` | 18 °C | Eco |
-| `sleep_temp` | 17 °C | Schlafen |
-| `away_temp_room` | 16 °C | Zimmer-Abwesend |
+Alle Presets werden **dynamisch aus der Heizkurve** berechnet:
+
+```
+comfort_base = Heizkurve(Außentemperatur)   [Fallback: comfort_temp wenn kein Außensensor]
+eco_base     = min(eco_max_temp,    comfort_base − eco_offset)
+sleep_base   = min(sleep_max_temp,  comfort_base − sleep_offset)
+away_base    = min(away_max_temp,   comfort_base − away_offset)
+```
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `comfort_temp` | 21 °C | Fallback-Komforttemperatur wenn kein Außensensor konfiguriert ist |
+| `eco_offset` | 3 °C | Eco = Komfort − `eco_offset` |
+| `eco_max_temp` | 21 °C | Eco nie höher als dieser Wert (Deckelung bei milden Perioden) |
+| `sleep_offset` | 4 °C | Schlaf = Komfort − `sleep_offset` |
+| `sleep_max_temp` | 19 °C | Schlaf nie höher als dieser Wert |
+| `away_offset` | 6 °C | Abwesend = Komfort − `away_offset` |
+| `away_max_temp` | 18 °C | Abwesend nie höher als dieser Wert |
+
+> **Beispiel** bei Außentemperatur 0 °C (Heizkurve → 22 °C):
+> Eco = min(21, 22−3) = **19 °C** · Schlaf = min(19, 22−4) = **18 °C** · Abwesend = min(18, 22−6) = **16 °C**
+
+Die berechneten Effektivwerte werden als `comfort_temp_eff`, `eco_temp_eff`, `sleep_temp_eff`, `away_temp_eff` in den Climate-Attributen exponiert.
 
 #### Erweiterte Einstellungen
 
@@ -73,6 +90,34 @@ oder über **Einstellungen → Integrationen → IHC → Konfigurieren → Zimme
 | `weight` | 1,0 | Gewichtung im Klimabaustein (1,0 = normal, 2,0 = doppelt) |
 | `min_temp` | 5 °C | Minimale Temperaturgrenze |
 | `max_temp` | 30 °C | Maximale Temperaturgrenze |
+
+#### HA Zeitpläne (schedule.* Entities)
+
+Pro Zimmer können beliebig viele bestehende **`schedule.*`-Entitäten** als Heizplan eingebunden werden.
+
+Jede Bindung konfiguriert:
+
+| Feld | Beschreibung |
+|------|-------------|
+| `entity` | Entity-ID des HA-Zeitplan (`schedule.*`) |
+| `mode` | Temperaturmodus: `comfort` / `eco` / `sleep` / `away` |
+| `condition_entity` | Optional: Bedingungsentität (schaltet zwischen Zeitplänen um) |
+| `condition_state` | Zustand den die Bedingungsentität haben muss (Standard: `on`) |
+
+**`ha_schedule_off_mode`** (pro Zimmer): Wenn kein HA-Zeitplan aktiv ist, welche Temperatur verwenden?
+- `eco` (Standard): Eco-Temperatur (outdoor-geregelt)
+- `sleep`: Schlaf-Temperatur (outdoor-geregelt)
+
+> HA-Zeitpläne haben Vorrang vor internen Zeitplänen im Auto-Modus.
+
+#### Schimmelschutz
+
+| Feld | Standard | Beschreibung |
+|------|---------|-------------|
+| `humidity_sensor` | — | Optionaler Luftfeuchtigkeit-Sensor (`sensor.*`) |
+| `mold_protection_enabled` | true | Automatische Temperaturerhöhung bei Schimmelrisiko aktivieren |
+
+Wenn `humidity_sensor` konfiguriert ist, berechnet IHC laufend den Taupunkt. Bei Schimmelgefahr (relative Feuchte nahe Taupunkt) wird die Zieltemperatur automatisch angehoben. Der aktuelle Status ist im Attribut `mold` der Climate-Entity abrufbar.
 
 ### Zimmer bearbeiten
 
@@ -152,6 +197,28 @@ Zeiträume die über Mitternacht gehen (z.B. 22:00–06:00) werden unterstützt.
 Wenn `preheat_minutes > 0` eingestellt ist, startet die Heizung entsprechend früher um die Zieltemperatur pünktlich zum Zeitplan-Start zu erreichen.
 
 **Einstellung:** IHC Panel → Einstellungen → Nachtabsenkung & Vorheizen
+
+---
+
+## Gäste-Modus
+
+**IHC Panel → Einstellungen → Systemmodus → Gäste-Modus**
+
+Aktiviert vorübergehend den Komfortbetrieb für alle Zimmer ohne Konfigurationsänderung.
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `guest_duration_hours` | 4 | Dauer des Gäste-Modus in Stunden |
+
+```yaml
+# Gäste-Modus per Service aktivieren
+service: intelligent_heating_control.activate_guest_mode
+data:
+  duration_hours: 6  # optional – Standard aus Einstellungen
+
+# Gäste-Modus beenden
+service: intelligent_heating_control.deactivate_guest_mode
+```
 
 ---
 

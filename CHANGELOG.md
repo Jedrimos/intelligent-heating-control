@@ -11,10 +11,77 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Geplant
 - Adaptive Heizkurve (Auto-Learning)
-- Wettervorhersage-Integration
 - ETA-basiertes Vorheizen bei Heimkehr
-- Schimmelschutz-Modus (Temperatur + Luftfeuchte)
 - Anforderungs-Heatmap im Dashboard
+- Temperaturverlauf-Graph (24h Ist/Soll/Außen)
+
+---
+
+## [1.2.0] - 2026-03-15
+
+### Hinzugefügt
+
+#### Außentemperaturgeführte Preset-Temperaturen (Breaking Change)
+- **Alle Zimmer-Temperaturen werden jetzt von der Heizkurve geführt** statt als feste Werte konfiguriert
+- `comfort_temp` = Heizkurven-Zielwert (dynamisch, Außentemperatur-abhängig)
+- `eco_temp` = Komfort − konfigurierbarer `eco_offset` (Standard: 3 °C)
+- `sleep_temp` = Komfort − konfigurierbarer `sleep_offset` (Standard: 4 °C)
+- `away_temp` = Komfort − konfigurierbarer `away_offset` (Standard: 6 °C)
+- Pro Modus ein konfigurierbares **Maximum** (`eco_max_temp`, `sleep_max_temp`, `away_max_temp`) damit die Werte in milden Perioden nicht zu hoch werden
+- Effektive Ist-Werte werden als `comfort_temp_eff`, `eco_temp_eff`, `sleep_temp_eff`, `away_temp_eff` in den Climate-Attributen exposes und im Bearbeiten-Dialog angezeigt
+- `comfort_temp` bleibt als Fallback-Wert wenn kein Außensensor konfiguriert ist
+
+#### HA Schedule-Integration (Zeitplan-Entitäten aus HA)
+- Pro Zimmer können beliebig viele bestehende **`schedule.*`-Entitäten** als Heizplan eingebunden werden
+- Jede Bindung konfiguriert: Entität, Temperaturmodus (Komfort/Eco/Schlaf/Abwesend) und optionale Bedingung
+- **Bedingungsentität**: eine `input_boolean.*`, `binary_sensor.*`, `person.*` oder andere Entität schaltet zwischen Zeitplänen um (z. B. Kinderzimmer: Zeitplan A wenn Kinder zuhause, Zeitplan B wenn nicht)
+- `ha_schedule_off_mode`: Wählbar ob bei keinem aktiven Zeitplan Eco- oder Schlaf-Temperatur verwendet wird
+- Priorität: HA-Zeitpläne greifen vor internen Zeitplänen im Auto-Modus
+
+#### Anwesenheit → Abwesend (statt Eco)
+- Wenn die Anwesenheitserkennung niemanden zuhause erkennt, wird jetzt die **Abwesend-Temperatur** verwendet (outdoor-geführt) statt der Eco-Temperatur
+- Quelle im Frontend: `🚶 Abwesend` statt `🚶 Eco (leer)`
+
+#### Wettervorhersage in der Heizregelung
+- Neuer Parameter `weather_cold_boost`: Temperatur-Boost (°C) der bei einer Kältewarnung automatisch auf alle Zimmer angewendet wird
+- `weather_cold_threshold`: Prognostizierte Temperatur unter der eine Kältewarnung ausgelöst wird
+- Beide Parameter konfigurierbar im Panel → Einstellungen → Hardware & Sensoren
+
+#### Wetteranzeige verbessert
+- Wetterbedingungen werden jetzt auf **Deutsch** angezeigt mit großem Emoji
+- Alle 15 Standard-HA-Wetterzustände übersetzt (sonnig, bewölkt, Regen, Schnee, Gewitter etc.)
+- Temperaturbereich (min/max) aus Tagesvorhersage
+
+#### Gäste-Modus
+- Neuer Systemmodus `guest` für temporären Komfortbetrieb aller Zimmer
+- Konfigurierbare Dauer in Stunden (`guest_duration_hours`)
+
+#### Schimmelschutz pro Zimmer
+- Pro Zimmer optionaler `humidity_sensor` (Luftfeuchtigkeit)
+- `mold_protection_enabled`: Automatische Temperaturerhöhung bei Schimmelrisiko
+- Mold-Status als Attribut `mold` in der Climate-Entität (Risikostatus + Taupunkt)
+
+#### Übersicht-Tab neu gestaltet
+- **Hero-Bereich** oben: Heizstatus | Gesamtanforderung | Systemmodus — mit Dropdown direkt bedienbar
+- **Override-Banner** pro Raumkarte wenn Systemmodus den Zimmermodus übersteuert
+- **Temperatur-Differenz-Indikator** (↑/↓/≈) zeigt ob Raum noch aufheizt oder Ziel bereits erreicht
+- Zimmer sortiert nach Priorität: Heizt > Fenster offen > Anforderung > Zufrieden > Aus
+- Wetterbereich in der Statusleiste nutzt deutschen Namen + Emoji
+
+#### Einstellungen erweitert
+- `sun_entity` jetzt im Panel konfigurierbar (war bisher nur über Config-Flow zugänglich)
+- `weather_cold_threshold` und `weather_cold_boost` im Panel konfigurierbar
+
+### Geändert
+
+- **Temperatur-Presets** (eco/sleep/away) sind nicht mehr als feste °C-Werte konfigurierbar, sondern als Abzug (`_offset`) + Maximum (`_max_temp`) relativ zur Heizkurve
+- `room_presence_eco`-Quelle umbenannt zu `room_presence_away` (reflektiert das tatsächliche Verhalten)
+- `ROOM_MODE_AWAY` bei explizitem Zimmer-Abwesend-Modus nutzt jetzt ebenfalls den outdoor-geregelten `away_base`-Wert
+
+### Behoben
+
+- **Frontend ReferenceError**: `systemOverrides` und `overrideLabel` wurden nach dem `.map()`-Callback definiert, in dem sie schon verwendet wurden → Override-Banner hat nie angezeigt
+- **Stale srcMap-Eintrag**: `room_presence_away` hatte keine Zuordnung im srcMap → roher String statt Label angezeigt
 
 ---
 
@@ -24,17 +91,17 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 #### Frontend Panel
 - **Entity-Autocomplete**: Texteingaben für Temperatursensor, Thermostate/TRVs und Fenstersensoren im „Zimmer hinzufügen"- und „Zimmer bearbeiten"-Modal zeigen jetzt Vorschläge aus dem HA-Entitäten-Katalog während der Eingabe (`<datalist>`-basiert)
-- **Zimmer bearbeiten – vorausgefüllt**: Das Bearbeiten-Modal lädt jetzt alle bestehenden Konfigurationsdaten korrekt vor (Thermostate, Fenstersensoren, Temperatursensor, Temperatur-Presets, Offset, Totband, Gewichtung) statt leere Felder anzuzeigen
-- **Zimmer bearbeiten – speichert alle Felder**: Die Bestätigung im Edit-Modal speichert nun alle Felder via `update_room` Service statt nur den Betriebsmodus
-- **Heizkurve laden**: Der Heizkurven-Tab zeigt jetzt die tatsächlich konfigurierte Kurve aus den Sensor-Attributen statt immer die Standardkurve (Hardcode)
-- **Heizkurve speichern**: War komplett defekt – hat nur `reload` aufgerufen ohne die Kurve zu speichern. Ruft jetzt korrekt `update_global_settings` mit den Kurvenpoints auf
-- **Zeitpläne laden**: Der Zeitplan-Tab lädt jetzt die tatsächlich gespeicherten Zeitpläne des Zimmers statt immer Beispielzeitpläne anzuzeigen
-- **Neue Entitätszeilen**: Beim Klick auf `+` in Thermostat/Fenstersensor-Listen erhalten neue Zeilen ebenfalls die korrekte Datalist für Autocomplete
+- **Zimmer bearbeiten – vorausgefüllt**: Das Bearbeiten-Modal lädt jetzt alle bestehenden Konfigurationsdaten korrekt vor
+- **Zimmer bearbeiten – speichert alle Felder**: Die Bestätigung im Edit-Modal speichert nun alle Felder via `update_room` Service
+- **Heizkurve laden**: Zeigt jetzt die tatsächlich konfigurierte Kurve statt immer die Standardkurve
+- **Heizkurve speichern**: Ruft jetzt korrekt `update_global_settings` mit den Kurvenpoints auf
+- **Zeitpläne laden**: Lädt jetzt die tatsächlich gespeicherten Zeitpläne statt Beispieldaten
+- **Neue Entitätszeilen**: Beim Klick auf `+` erhalten neue Zeilen ebenfalls die korrekte Datalist
 
 #### Backend
-- **`update_global_settings` Service**: `heating_curve` fehlte in der Liste erlaubter Keys → Heizkurve konnte nie über das Panel gespeichert werden
-- **Climate-Entity Attribute**: `extra_state_attributes` exposen jetzt alle Raumkonfigurationsdaten (`temp_sensor`, `valve_entities`, `window_sensors`, `schedules`, alle Temperatur-Presets, `room_offset`, `deadband`, `weight`) → Grundlage für das Frontend-Laden
-- **Kurven-Sensor Attribute**: `IHCCurveTargetSensor` exposes `curve_points` als Attribut → Grundlage für das Laden der Heizkurve im Panel
+- **`update_global_settings` Service**: `heating_curve` fehlte in der Liste erlaubter Keys
+- **Climate-Entity Attribute**: `extra_state_attributes` exposen jetzt alle Raumkonfigurationsdaten
+- **Kurven-Sensor Attribute**: `IHCCurveTargetSensor` exposes `curve_points` als Attribut
 
 ---
 
@@ -45,75 +112,23 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 #### Hinzugefügt
 
 ##### Kernfunktionen
-- **Heizkurve (Außentemperaturgeführte Regelung)**
-  - Lineare Interpolation zwischen konfigurierbaren Kurven-Punkten
-  - Bis zu 7 Stützpunkte, Graphen-Vorschau mit Canvas
-  - Automatischer Fallback auf Komforttemperatur ohne Außensensor
-- **Zimmer-Offset per Raum**
-  - Individueller ±5 °C Offset zur Heizkurven-Basistemperatur
-  - Laufzeit-anpassbar via `number.ihc_<zimmer>_offset` Entität
-- **Zeitpläne mit Offset**
-  - Wöchentliche Zeitpläne mit beliebig vielen Tagesgruppen und Zeiträumen
-  - Pro Zeitraum: eigene Temperatur + eigener Offset
-  - Formel: `Ziel = Zeitplan-Temp + Zeitplan-Offset + Zimmer-Offset`
-  - Übernacht-Zeiträume unterstützt (z.B. 22:00–06:00)
-
-##### Klimabaustein (Loxone-Style)
-- Proportionale Anforderungsberechnung pro Zimmer (0–100 %)
-- Gewichteter Durchschnitt aller Zimmeranforderungen
-- Konfigurierbare Einschaltschwelle (Standard: 15 %)
-- Hysterese für stabilen Betrieb (Standard: 5 %)
-- Mindest-Einschaltzeit und Mindest-Ausschaltzeit (Kesselschutz)
-- Mindestanzahl Zimmer mit Anforderung als Bedingung
-
-##### Betriebsmodi
-- **Systemmodi**: Automatisch, Heizen, Kühlen, Aus, Abwesend, Urlaub
-- **Zimmermodi**: Automatisch, Komfort, Eco, Schlafen, Abwesend, Aus, Manuell
-- Temperatur-Presets pro Zimmer: Komfort, Eco, Schlaf, Abwesend
-- Globale Abwesend- und Urlaubstemperatur
-- Frostschutz-Temperatur (wirkt auch im OFF/Urlaub-Modus)
-
-##### Zimmersteuerung
-- Temperatursensor pro Zimmer
-- Direkte Thermostat/TRV-Steuerung (climate-Entities)
-- **Mehrere TRVs pro Zimmer** (valve_entities Liste)
-- **Mehrere Fenstersensoren pro Zimmer** (window_sensors Liste)
-- Fenster-offen-Erkennung via Binärsensor
-- Min/Max Temperaturgrenzen pro Zimmer
-- Zimmergewichtung für Klimabaustein
-
-##### Erweiterte Funktionen (Roadmap 1.2–1.4 Basis)
-- **Anwesenheitserkennung**: Automatischer Abwesend-Modus wenn alle konfigurierten Personen weg sind
+- **Heizkurve** – Außentemperaturgeführte Basistemperatur mit konfigurierbaren Stützpunkten (lineare Interpolation)
+- **Klimabaustein** – Loxone-artiger zentraler Regler, aggregiert alle Zimmeranforderungen gewichtet
+- **Zeitpläne** – Wöchentliche Zeitpläne mit Tagesgruppen, eigener Temperatur und Offset je Zeitraum
+- **Multi-TRV**: Mehrere Thermostate + Fenstersensoren pro Zimmer
+- **Boost-Funktion**: Zeitlich begrenzter Komfortmodus per Button oder Service
+- **Anwesenheitserkennung**: Automatischer Abwesend-Modus wenn niemand zuhause
 - **Nachtabsenkung**: Sonnenstandsbasiert mit konfigurierbarem Offset
 - **Vorheizen (Pre-Heat)**: Heizstart X Minuten vor Zeitplan-Beginn
-- **Boost-Funktion**: Zeitlich begrenzter Komfortmodus pro Zimmer (Service + UI-Button)
 - **Sommerautomatik**: Heizung gesperrt wenn Außentemperatur über Schwellenwert
-- **Solar-Überschuss-Heizung**: Temperatur-Boost wenn Solar-Leistung > Schwellenwert
+- **Solar-Überschuss-Heizung**: Temperatur-Boost bei Solarüberschuss
 - **Dynamischer Strompreis**: Eco-Modus bei hohem Energiepreis
 - **Vorlauftemperatur-Steuerung**: Weiterleitung an `number.*` Entity
-- **Temperaturhistorie**: Letzten N Messwerte pro Zimmer als Sparkline
-- **Aufheiz-Zeitverfolgung**: Ø Minuten bis Zieltemperatur erreicht
-
-##### Home Assistant Integration
-- Config Flow (3-Schritt Einrichtung)
-- Options Flow (Zimmer verwalten, Heizkurve, alle Einstellungen)
-- 5 HA-Platforms: `climate`, `sensor`, `switch`, `number`, `select`
-- Deutschsprachige Übersetzungen (`de.json`)
-- Englischsprachige Übersetzungen (`en.json`)
-- HA-Services: `add_room`, `remove_room`, `update_room`, `set_room_mode`, `set_system_mode`, `boost_room`, `update_global_settings`, `export_config`, `reload`
-- HACS-kompatibel (`hacs.json`)
-
-##### Frontend Panel
-- Eigenes Panel in der HA-Seitenleiste (`IHC`)
-- **Tab „Übersicht"**: Echtzeit-Raumkarten mit Temperaturen, Anforderungen, Modus-Chips, Boost-Button; Klima-Status-Leiste; Sommer/Nacht/Präsenz-Banner
-- **Tab „Zimmer"**: Zimmerverwaltung mit Hinzufügen/Bearbeiten/Löschen
-- **Tab „Einstellungen"**: Systemmodus, Temperaturen, Nachtabsenkung, Klimabaustein, Anwesenheit, Energie/Solar
-- **Tab „Zeitpläne"**: Wöchentlicher Zeitplan-Editor pro Zimmer
-- **Tab „Heizkurve"**: Kurven-Editor mit Canvas-Vorschau und Außentemperatur-Marker
-- Auto-Refresh alle 5 Sekunden (nur Übersicht-Tab)
-- Toast-Benachrichtigungen für Aktionen
-- Modal bleibt bei HA-State-Updates offen (kein DOM-Reset)
-- Responsive Design (Mobile-optimiert)
+- **Frostschutz**: Greift auch bei OFF/Urlaub-Modus
+- **Config Flow** (3-Schritt Einrichtung) + Options Flow
+- **5 HA-Platforms**: `climate`, `sensor`, `switch`, `number`, `select`
+- **Custom Panel** mit 5 Tabs in der HA-Seitenleiste
+- **HACS-kompatibel**
 
 ---
 

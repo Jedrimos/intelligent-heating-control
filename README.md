@@ -2,12 +2,12 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![HA Version](https://img.shields.io/badge/HA-2023.6%2B-blue.svg)](https://home-assistant.io)
-[![Version](https://img.shields.io/badge/Version-1.0.1-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.2.0-green.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Eine fortschrittliche, zentral aggregierende Heizungssteuerung für Home Assistant – inspiriert von Loxone und Advanced Heating Control v5.
 
-**Das Grundprinzip:** Jeder Raum berechnet seine Heizanforderung (0–100 %). Der Klimabaustein aggregiert alle Anforderungen gewichtet und entscheidet zentral, ob die Heizung läuft. Die Solltemperatur pro Zimmer wird aus einer konfigurierbaren Außentemperatur-Heizkurve + individuellem Zimmer-Offset berechnet. Zeitpläne können diesen Wert überschreiben.
+**Das Grundprinzip:** Jeder Raum berechnet seine Heizanforderung (0–100 %). Der Klimabaustein aggregiert alle Anforderungen gewichtet und entscheidet zentral, ob die Heizung läuft. **Alle Preset-Temperaturen** (Komfort / Eco / Schlaf / Abwesend) werden dynamisch aus der Außentemperatur-Heizkurve berechnet – Eco und Schlaf als konfigurierbarer Abzug von der Komforttemperatur, jeweils mit einstellbarer Obergrenze. HA `schedule.*` Entities können als Heizplan eingebunden werden.
 
 ---
 
@@ -16,14 +16,17 @@ Eine fortschrittliche, zentral aggregierende Heizungssteuerung für Home Assista
 | Feature | Beschreibung |
 |---------|-------------|
 | 🏗️ **Klimabaustein** | Loxone-artiger zentraler Regler – aggregiert alle Zimmer, entscheidet den Kessel |
-| 📈 **Heizkurve** | Außentemperaturgeführte Basistemperatur mit konfigurierbaren Stützpunkten |
-| 📅 **Zeitpläne** | Wöchentliche Zeitpläne mit Tagesgruppen und eigenem Offset je Zeitraum |
+| 📈 **Heizkurve** | Außentemperaturgeführte Basistemperatur – alle Presets (Komfort/Eco/Schlaf/Abwesend) folgen der Kurve |
+| 📅 **Zeitpläne** | Wöchentliche Zeitpläne + HA `schedule.*` Entities als Heizplan pro Zimmer |
 | 🚪 **Multi-TRV** | Mehrere Thermostate + Fenstersensoren pro Zimmer |
 | ⚡ **Boost** | Zeitlich begrenzter Komfortmodus per Button oder Service |
-| 🚶 **Anwesenheit** | Automatischer Abwesend-Modus wenn niemand zuhause ist |
+| 🚶 **Anwesenheit** | Automatischer Abwesend-Modus (outdoor-geregelt) wenn niemand zuhause ist |
 | 🌙 **Nachtabsenkung** | Sonnenstandsbasierte Temperaturabsenkung |
 | ☀️ **Solar-Boost** | Mehr Heizen wenn Solarüberschuss vorhanden |
 | 💶 **Strompreis** | Eco-Modus bei hohem dynamischen Strompreis |
+| 🌦️ **Wettervorhersage** | Automatischer Temperatur-Boost bei prognostizierter Kältewelle |
+| 💧 **Schimmelschutz** | Pro Zimmer: Taupunktberechnung + automatische Temperaturerhöhung bei Risiko |
+| 🧳 **Gäste-Modus** | Vorübergehend Komfortbetrieb aller Zimmer ohne Konfigurationsänderung |
 | ❄️ **Frostschutz** | Immer aktiv, auch bei OFF-Modus |
 | 🖥️ **Custom Panel** | Eigenes Dashboard-Panel mit 5 Tabs in der HA-Seitenleiste |
 
@@ -81,8 +84,10 @@ Pro Zimmer konfigurierbar:
 - Temperatursensor (`sensor.*`)
 - Ein oder mehrere Thermostate/TRVs (`climate.*`)
 - Ein oder mehrere Fenstersensoren (`binary_sensor.*`)
-- Temperatur-Presets (Komfort / Eco / Schlaf / Abwesend)
+- Komfort-Fallback-Temperatur + Eco/Schlaf/Abwesend als Abzug von der Heizkurve
+- HA `schedule.*` Entities als Heizplan (mit Temperaturmodus und optionaler Bedingung)
 - Zimmer-Offset, Totband, Gewichtung
+- Luftfeuchtigkeit-Sensor + Schimmelschutz
 
 ### 3. Heizkurve anpassen
 
@@ -132,21 +137,35 @@ Zusätzlich: Mindest-Einschaltzeit und Mindest-Ausschaltzeit schützen den Kesse
 
 ### Solltemperatur-Berechnung (Prioritäten)
 
+Alle Preset-Temperaturen werden zuvor aus der Heizkurve berechnet:
 ```
-1. System OFF/Urlaub   → Frostschutz-Temperatur
-2. System Abwesend     → Globale Abwesend-Temperatur
-3. Zimmer Manuell      → Manuell eingestellte Temperatur
-4. Zimmer Aus          → Frostschutz
-5. Zimmer Komfort/Eco/Schlaf/Abwesend → Preset-Temperatur
-6. Aktiver Zeitplan    → Zeitplan-Temp + Zeitplan-Offset + Zimmer-Offset
-7. Vorheizen           → Nächste Zeitplan-Temperatur (wenn Pre-Heat aktiv)
-8. Heizkurve           → Heizkurven-Basis + Zimmer-Offset
+comfort_base  = Heizkurve(Außentemperatur)           [Fallback: comfort_temp falls kein Sensor]
+eco_base      = min(eco_max_temp,    comfort_base − eco_offset)
+sleep_base    = min(sleep_max_temp,  comfort_base − sleep_offset)
+away_base     = min(away_max_temp,   comfort_base − away_offset)
+```
+
+Dann die Prioritätskette pro Zimmer:
+```
+1. System OFF/Urlaub       → Frostschutz-Temperatur
+2. System Abwesend         → Globale Abwesend-Temperatur
+3. Gäste-Modus             → comfort_base + Zimmer-Offset
+4. Anwesenheit (alle weg)  → away_base + Zimmer-Offset
+5. Zimmer Manuell          → Manuell eingestellte Temperatur
+6. Zimmer Aus              → Frostschutz
+7. Zimmer Komfort/Eco/Schlaf/Abwesend → outdoor-geregelte Preset-Temp
+8. Aktiver HA-Zeitplan     → Preset des Zeitplan-Modus (Komfort/Eco/Schlaf/Abwesend)
+9. Aktiver interner Zeitplan → Zeitplan-Temp + Zeitplan-Offset + Zimmer-Offset
+10. Vorheizen              → Nächste Zeitplan-Temperatur (wenn Pre-Heat aktiv)
+11. Heizkurve              → comfort_base + Zimmer-Offset
 ```
 
 Korrekturen werden zusätzlich angewendet:
 - **Nachtabsenkung**: -X °C wenn Sonne unter dem Horizont
 - **Solar-Boost**: +X °C wenn Solarleistung > Schwellenwert
 - **Energiepreis-Eco**: -X °C wenn Strompreis > Schwellenwert
+- **Wetter-Kälte-Boost**: +X °C wenn Vorhersage unter Schwellenwert
+- **Schimmelschutz**: automatische Temperaturerhöhung bei Schimmelrisiko
 - **Fenster offen**: sofort 0 % Anforderung (kein Heizen bei offenem Fenster)
 
 ---
@@ -195,10 +214,14 @@ data:
     - binary_sensor.fenster_wohnzimmer_links
     - binary_sensor.fenster_wohnzimmer_rechts
   room_offset: 1.5
-  comfort_temp: 22.0
-  eco_temp: 18.0
-  sleep_temp: 17.0
-  away_temp_room: 16.0
+  comfort_temp: 22.0          # Fallback wenn kein Außensensor
+  eco_offset: 3.0             # Eco = Komfort − 3 °C
+  eco_max_temp: 21.0          # Eco nie höher als 21 °C
+  sleep_offset: 4.0           # Schlaf = Komfort − 4 °C
+  sleep_max_temp: 19.0        # Schlaf nie höher als 19 °C
+  away_offset: 6.0            # Abwesend = Komfort − 6 °C
+  away_max_temp: 18.0         # Abwesend nie höher als 18 °C
+  ha_schedule_off_mode: eco   # Fallback bei inaktivem HA-Zeitplan
   deadband: 0.5
   weight: 1.5
 
@@ -374,8 +397,8 @@ Beiträge sind herzlich willkommen!
 
 Sieh dir die [ROADMAP.md](ROADMAP.md) an für alle geplanten Funktionen, darunter:
 - Adaptive Heizkurve (Auto-Learning)
-- Wettervorhersage-Integration
-- Schimmelschutz-Modus
+- ETA-basiertes Vorheizen bei Heimkehr
+- Anforderungs-Heatmap im Dashboard
 - KI-basierte Temperaturvorhersage
 - Lovelace-Card für das HA-Dashboard
 - Und vieles mehr

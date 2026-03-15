@@ -22,15 +22,29 @@ data:
     - binary_sensor.fenster_wz_links
     - binary_sensor.fenster_wz_rechts
   room_offset: 1.5                          # Standard: 0.0
-  comfort_temp: 22.0                        # Standard: 21.0
-  eco_temp: 18.0                            # Standard: 18.0
-  sleep_temp: 17.0                          # Standard: 17.0
-  away_temp_room: 16.0                      # Standard: 16.0
+  comfort_temp: 22.0                        # Fallback wenn kein Außensensor (Standard: 21.0)
+  # Outdoor-geregelte Offsets (alle relativ zu comfort_base von der Heizkurve)
+  eco_offset: 3.0                           # Standard: 3.0  → Eco = Komfort − 3 °C
+  eco_max_temp: 21.0                        # Standard: 21.0 → Eco nie über 21 °C
+  sleep_offset: 4.0                         # Standard: 4.0  → Schlaf = Komfort − 4 °C
+  sleep_max_temp: 19.0                      # Standard: 19.0 → Schlaf nie über 19 °C
+  away_offset: 6.0                          # Standard: 6.0  → Abwesend = Komfort − 6 °C
+  away_max_temp: 18.0                       # Standard: 18.0 → Abwesend nie über 18 °C
+  ha_schedule_off_mode: eco                 # eco | sleep – Fallback bei inaktivem HA-Zeitplan
   deadband: 0.5                             # Standard: 0.5
   weight: 1.5                               # Standard: 1.0
   min_temp: 5.0                             # Standard: 5.0
   max_temp: 30.0                            # Standard: 30.0
-  schedules: []                             # Zeitpläne (leer = keine)
+  schedules: []                             # Interne Zeitpläne (leer = keine)
+  ha_schedules:                             # HA schedule.* Entities als Heizplan
+    - entity: schedule.wohnzimmer_plan
+      mode: comfort                         # comfort | eco | sleep | away
+    - entity: schedule.wohnzimmer_nacht
+      mode: sleep
+      condition_entity: input_boolean.kinder_zuhause
+      condition_state: "on"
+  humidity_sensor: sensor.wohnzimmer_luftfeuchte   # optional – für Schimmelschutz
+  mold_protection_enabled: true             # Standard: true
 ```
 
 ---
@@ -97,10 +111,10 @@ data:
 | Modus | Beschreibung |
 |-------|-------------|
 | `auto` | Zeitplan + Heizkurve (Standardmodus) |
-| `comfort` | Feste Komfort-Temperatur (aus Preset) |
-| `eco` | Feste Eco-Temperatur (aus Preset) |
-| `sleep` | Feste Schlaf-Temperatur (aus Preset) |
-| `away` | Zimmer-Abwesend-Temperatur (aus Preset) |
+| `comfort` | Outdoor-geregelte Komfort-Temperatur |
+| `eco` | Outdoor-geregelte Eco-Temperatur (Komfort − eco_offset, max eco_max_temp) |
+| `sleep` | Outdoor-geregelte Schlaf-Temperatur (Komfort − sleep_offset, max sleep_max_temp) |
+| `away` | Outdoor-geregelte Abwesend-Temperatur (Komfort − away_offset, max away_max_temp) |
 | `off` | Zimmer ausschalten (0 % Anforderung, nur Frostschutz) |
 | `manual` | Manuell über `climate.*` eingestellte Temperatur |
 
@@ -152,6 +166,28 @@ data:
 ```
 
 Während des Boosts wird der Zimmermodus auf `comfort` gesetzt. Nach Ablauf kehrt das Zimmer automatisch zum vorherigen Modus zurück.
+
+---
+
+## `activate_guest_mode`
+
+Aktiviert den Gäste-Modus (alle Zimmer auf Komfort-Temperatur für eine konfigurierbare Dauer).
+
+```yaml
+service: intelligent_heating_control.activate_guest_mode
+data:
+  duration_hours: 4  # optional – Standard aus Einstellungen (guest_duration_hours)
+```
+
+---
+
+## `deactivate_guest_mode`
+
+Beendet den Gäste-Modus sofort.
+
+```yaml
+service: intelligent_heating_control.deactivate_guest_mode
+```
 
 ---
 
@@ -224,6 +260,14 @@ data:
   # Verbundene Geräte
   heating_switch: switch.heizkessel
   outdoor_temp_sensor: sensor.aussentemperatur
+
+  # Wettervorhersage & Kälte-Boost
+  weather_entity: weather.home
+  weather_cold_threshold: 0.0   # °C – Vorhersage unter diesem Wert → Kälte-Boost
+  weather_cold_boost: 1.0       # °C – Boost bei Kältewarnung
+
+  # Gäste-Modus Standarddauer
+  guest_duration_hours: 4
 ```
 
 ---

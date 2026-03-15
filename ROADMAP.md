@@ -27,7 +27,25 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ---
 
-## Version 1.1 – Intelligentere Regelung
+## ✅ Bereits umgesetzt (v1.2.0)
+
+- [x] **Alle Temperaturen outdoor-geregelt**: Komfort/Eco/Schlaf/Abwesend folgen der Heizkurve
+- [x] **Konfigurierbarer Offset pro Modus**: Eco/Schlaf/Abwesend = Komfort − einstellbarer Abzug
+- [x] **Maximum pro Modus**: Eco/Schlaf/Abwesend-Temps haben konfigurierbare Obergrenzen
+- [x] **HA Schedule-Integration**: `schedule.*`-Entities als Heizplan pro Zimmer einbindbar
+- [x] **HA-Zeitplan-Modus**: Jede Bindung konfiguriert Temperaturmodus (Komfort/Eco/Schlaf/Abwesend)
+- [x] **`ha_schedule_off_mode`**: Einstellbarer Fallback bei keinem aktiven HA-Zeitplan (Eco oder Schlaf)
+- [x] **Anwesenheit → Abwesend-Temperatur**: Wenn niemand zuhause, outdoor-geregelte Abwesend-Temp statt Eco
+- [x] **Gäste-Modus**: Systemweiter Komfortbetrieb mit konfigurierbarer Dauer
+- [x] **Schimmelschutz pro Zimmer**: Luftfeuchtigkeit + Taupunktberechnung + automatische Temperaturerhöhung
+- [x] **Wettervorhersage in der Heizregelung**: Automatischer Kälte-Boost bei prognostizierter Kältewelle
+- [x] **Wetteranzeige auf Deutsch**: Alle 15 HA-Wetterzustände übersetzt mit Emoji
+- [x] **Übersicht-Tab neu gestaltet**: Hero-Bereich, Override-Banner, Temperatur-Differenz-Indikator
+- [x] **`sun_entity` im Panel konfigurierbar**
+
+---
+
+## Version 1.3 – Intelligentere Regelung
 
 ### Adaptive Heizkurve (Auto-Learning)
 - Die Heizkurve lernt automatisch aus vergangenen Daten
@@ -41,11 +59,10 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 - Beispiel: *„Wohnzimmer braucht bei -5°C im Schnitt 48 min → Heizung um 16:12 starten für 17:00 Ziel"*
 - Integration mit HA Weather-Forecast für morgen-basierte Planung
 
-### Wettervorhersage-Integration
-- OpenMeteo / HA `weather.*` Entity als Datenquelle
-- Präventives Vorheizen vor prognostiziertem Kälteeinbruch
+### Wettervorhersage-Integration (erweitert)
+- Mehrere Tage Vorhersage-Tiefe (bereits: aktueller Tag)
 - Tagesplanung: „Morgen wird es -8°C – Zeitpläne entsprechend anpassen"
-- Anzeige der Wettervorhersage im Übersicht-Tab
+- Vorhersage-Graph im Übersicht-Tab
 
 ### Temperaturverlauf-Analyse
 - Erweiterte Speicherung der letzten 7 Tage pro Zimmer (stündliche Snapshots)
@@ -55,12 +72,11 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ---
 
-## Version 1.2 – Präsenz & Personensteuerung
+## Version 1.4 – Präsenz & Personensteuerung
 
 ### Verbesserte Anwesenheitserkennung
 - **ETA-basiertes Vorheizen**: Wenn Person X nach Hause fährt (Google Maps ETA via HA) → Heizung X Minuten vor Ankunft starten
 - **Multi-Zonen-Anwesenheit**: Verschiedene Heimzonen (Hauptwohnsitz, Wochenendhaus)
-- **Gäste-Modus**: Vorübergehend Komfort-Preset für alle Zimmer ohne Konfigurationsänderung
 
 ### Zimmer-spezifische Anwesenheit
 - Pro Zimmer: eigene `person.*` / `device_tracker.*` Entitäten konfigurierbar
@@ -76,7 +92,7 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ---
 
-## Version 1.3 – Energieoptimierung *(Basis bereits vorhanden)*
+## Version 1.5 – Energieoptimierung *(Basis bereits vorhanden)*
 
 ### Echte Energiestatistiken
 - Tages-/Wochen-/Monatsauswertungen mit Vergleich zur Vorperiode
@@ -101,13 +117,7 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ---
 
-## Version 1.4 – Erweiterte Raumsteuerung *(Basis bereits vorhanden)*
-
-### Schimmelschutz-Modus
-- Kombination aus Temperaturmessung + Luftfeuchtigkeit (wenn Sensor vorhanden)
-- Taupunkt-Berechnung pro Zimmer
-- Automatische Temperaturerhöhung wenn Schimmelrisiko erkannt wird
-- Push-Alarm: *„Schlafzimmer: Schimmelgefahr! Luftfeuchte 78% bei 16°C"*
+## Version 1.6 – Erweiterte Raumsteuerung
 
 ### CO₂-Sensor-Integration
 - Lüftungsempfehlung bei zu hohem CO₂-Wert
@@ -134,7 +144,7 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ---
 
-## Version 1.5 – UI/UX & Konfiguration
+## Version 1.7 – UI/UX & Konfiguration
 
 ### Erweitertes Dashboard
 - **Zeitplan-Kalenderansicht**: Wochenüberblick aller Zimmer gleichzeitig (Heatmap-Stil)
@@ -243,6 +253,6 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ---
 
-*Zuletzt aktualisiert: 2026-03-10*
+*Zuletzt aktualisiert: 2026-03-15*
 
 *Beiträge und Feature-Requests sind herzlich willkommen über [GitHub Issues](https://github.com/Jedrimos/intelligent-heatingcontroll/issues)*
