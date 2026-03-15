@@ -164,6 +164,9 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._room_runtime_today: Dict[str, float] = {}      # room_id → seconds today
         self._runtime_day: int = datetime.now().day           # to detect day rollover
 
+        # Flag: suppress the update_listener reload for internal option writes
+        self._suppress_reload: bool = False
+
         # Roadmap 1.1 – Temperature history per room (deque of (ts_iso, temp) tuples)
         self._temp_history: Dict[str, deque] = {}
 
@@ -921,6 +924,8 @@ class IHCCoordinator(DataUpdateCoordinator):
                 "boost_remaining": self.get_boost_remaining_minutes(room_id),
                 "temp_history": self.get_temp_history(room_id),     # Roadmap 1.1
                 "avg_warmup_minutes": self.get_avg_warmup_minutes(room_id),
+                # Ensure night_setback is always present (meta may omit it for mode overrides)
+                "night_setback": 0.0,
                 **meta,
             }
 
@@ -1015,7 +1020,7 @@ class IHCCoordinator(DataUpdateCoordinator):
         await self.async_request_refresh()
 
     async def async_update_room(self, room_id: str, updates: dict) -> None:
-        """Update a room's configuration."""
+        """Update a room's configuration (no entity changes → no reload needed)."""
         new_options = dict(self._config_entry.options)
         rooms = list(new_options.get(CONF_ROOMS, []))
         for i, room in enumerate(rooms):
@@ -1023,18 +1028,26 @@ class IHCCoordinator(DataUpdateCoordinator):
                 rooms[i] = {**room, **updates}
                 break
         new_options[CONF_ROOMS] = rooms
-        self.hass.config_entries.async_update_entry(
-            self._config_entry, options=new_options
-        )
+        self._suppress_reload = True
+        try:
+            self.hass.config_entries.async_update_entry(
+                self._config_entry, options=new_options
+            )
+        finally:
+            self._suppress_reload = False
         self._rebuild_from_config()
         await self.async_request_refresh()
 
     async def async_update_global_settings(self, updates: dict) -> None:
-        """Update global settings (threshold, curve, etc.)."""
+        """Update global settings (threshold, curve, etc.) – no entity changes → no reload."""
         new_options = dict(self._config_entry.options)
         new_options.update(updates)
-        self.hass.config_entries.async_update_entry(
-            self._config_entry, options=new_options
-        )
+        self._suppress_reload = True
+        try:
+            self.hass.config_entries.async_update_entry(
+                self._config_entry, options=new_options
+            )
+        finally:
+            self._suppress_reload = False
         self._rebuild_from_config()
         await self.async_request_refresh()

@@ -228,6 +228,7 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
                 "window_open": room.get("window_open", False),
                 "room_mode": room.get("room_mode", "auto"),
                 "source": room.get("source", ""),
+                "night_setback": room.get("night_setback", 0.0),
                 "temp_history": room.get("temp_history", []),          # Roadmap 1.1
                 "avg_warmup_minutes": room.get("avg_warmup_minutes"),  # Roadmap 1.1
             }

@@ -112,7 +112,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload the config entry when options change."""
+    """Reload the config entry when options change (e.g. from HA options flow).
+
+    Suppressed when the coordinator itself triggers an internal options update
+    (add/remove/update room, global settings) to avoid redundant full reloads.
+    """
+    coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if coordinator is not None and getattr(coordinator, "_suppress_reload", False):
+        return
     await hass.config_entries.async_reload(entry.entry_id)
 
 
