@@ -97,6 +97,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_ADD_ROOM, SERVICE_REMOVE_ROOM, SERVICE_UPDATE_ROOM,
         SERVICE_SET_ROOM_MODE, SERVICE_SET_SYSTEM_MODE, SERVICE_BOOST_ROOM,
         "reload", "export_config", "update_global_settings",
+        "activate_guest_mode", "deactivate_guest_mode",
     ]:
         hass.services.async_remove(DOMAIN, service)
 
@@ -239,6 +240,10 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "flow_temp_entity",
             # Roadmap 1.2 – Vacation assistant
             "vacation_start", "vacation_end",
+            # Roadmap 2.0
+            "controller_mode", "guest_duration_hours",
+            "vacation_return_preheat_days",
+            "weather_entity", "weather_cold_threshold",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:
@@ -264,6 +269,13 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             },
         )
 
+    async def handle_activate_guest_mode(call: ServiceCall) -> None:
+        duration = call.data.get("duration_hours")
+        coordinator.activate_guest_mode(int(duration) if duration is not None else None)
+
+    async def handle_deactivate_guest_mode(call: ServiceCall) -> None:
+        coordinator.deactivate_guest_mode()
+
     hass.services.async_register(DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
     hass.services.async_register(DOMAIN, SERVICE_REMOVE_ROOM, handle_remove_room)
     hass.services.async_register(DOMAIN, SERVICE_UPDATE_ROOM, handle_update_room)
@@ -273,3 +285,5 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     hass.services.async_register(DOMAIN, "reload", handle_reload)
     hass.services.async_register(DOMAIN, "export_config", handle_export_config)
     hass.services.async_register(DOMAIN, "update_global_settings", handle_update_global_settings)
+    hass.services.async_register(DOMAIN, "activate_guest_mode", handle_activate_guest_mode)
+    hass.services.async_register(DOMAIN, "deactivate_guest_mode", handle_deactivate_guest_mode)

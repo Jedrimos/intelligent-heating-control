@@ -30,6 +30,7 @@ SYSTEM_MODE_LABELS = {
     "off": "Aus",
     "away": "Abwesend",
     "vacation": "Urlaub",
+    "guest": "Gäste-Modus",
 }
 
 ROOM_MODE_LABELS = {

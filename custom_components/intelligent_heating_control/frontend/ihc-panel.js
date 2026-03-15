@@ -1,7 +1,7 @@
 /**
- * Intelligent Heating Control – Frontend Panel v2
+ * Intelligent Heating Control – Frontend Panel v3
  *
- * Tabs: Übersicht | Zimmer | Einstellungen | Zeitpläne | Heizkurve
+ * Tabs: Übersicht | Zimmer | Einstellungen | Zeitpläne | Heizkurve | Kalender
  *
  * Fixes vs v1:
  *  - Modal bleibt offen (set hass() zerstört es nicht mehr)
@@ -27,7 +27,7 @@ const MODE_ICONS = {
 };
 const SYSTEM_MODE_LABELS = {
   auto: "Automatisch", heat: "Heizen", cool: "Kühlen",
-  off: "Aus", away: "Abwesend", vacation: "Urlaub"
+  off: "Aus", away: "Abwesend", vacation: "Urlaub", guest: "Gäste-Modus"
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -369,6 +369,7 @@ class IHCPanel extends HTMLElement {
         <div class="tab" data-tab="settings">⚙️ Einstellungen</div>
         <div class="tab" data-tab="schedules">📅 Zeitpläne</div>
         <div class="tab" data-tab="curve">📈 Heizkurve</div>
+        <div class="tab" data-tab="calendar">🗓️ Kalender</div>
       </div>
       <div id="tab-content"></div>
     `;
@@ -420,6 +421,7 @@ class IHCPanel extends HTMLElement {
       case "settings":   this._renderSettings(content); break;
       case "schedules":  this._renderSchedules(content); break;
       case "curve":      this._renderCurve(content); break;
+      case "calendar":   this._renderCalendar(content); break;
     }
   }
 
@@ -492,6 +494,8 @@ class IHCPanel extends HTMLElement {
           rooms[climateId].avg_warmup_minutes = state.attributes.avg_warmup_minutes;
         if (state.attributes.room_presence_active !== undefined)
           rooms[climateId].room_presence_active = state.attributes.room_presence_active;
+        if (state.attributes.mold !== undefined)
+          rooms[climateId].mold = state.attributes.mold;
       }
     });
     // Enrich runtime from runtime sensors
@@ -528,14 +532,21 @@ class IHCPanel extends HTMLElement {
       night_setback_active:      a.night_setback_active || false,
       presence_away_active:      a.presence_away_active || false,
       heating_runtime_today:     rt  ? parseFloat(rt.state) || 0 : (a.heating_runtime_today || 0),
+      heating_runtime_yesterday: a.heating_runtime_yesterday || 0,
       energy_today_kwh:          egy ? parseFloat(egy.state) || 0 : 0,
+      energy_yesterday_kwh:      ea.energy_yesterday_kwh || 0,
       solar_boost:               ea.solar_boost || 0,
       solar_power:               ea.solar_power != null ? parseFloat(ea.solar_power) : null,
       energy_price:              ea.energy_price != null ? parseFloat(ea.energy_price) : null,
       energy_price_eco_active:   ea.energy_price_eco_active || false,
       flow_temp:                 ea.flow_temp != null ? parseFloat(ea.flow_temp) : null,
       vacation_auto_active:      a.vacation_auto_active || false,
+      return_preheat_active:     a.return_preheat_active || false,
       efficiency_score:          a.efficiency_score != null ? parseFloat(a.efficiency_score) : null,
+      controller_mode:           a.controller_mode || "switch",
+      guest_mode_active:         a.guest_mode_active || false,
+      guest_remaining_minutes:   a.guest_remaining_minutes != null ? a.guest_remaining_minutes : null,
+      weather_forecast:          a.weather_forecast || null,
     };
   }
 
@@ -603,6 +614,8 @@ class IHCPanel extends HTMLElement {
         "system_away": "Sys. Abwesend", "system_vacation": "Urlaub",
         "room_off": "Aus", "manual": "Manuell", "room_away": "Abwesend",
         "frost_protection": "❄ Frostschutz",
+        "guest_mode": "🎉 Gäste",
+        "room_presence_eco": "🚶 Eco (leer)",
       };
       const src = srcMap[room.source] || room.source;
 
@@ -619,9 +632,13 @@ class IHCPanel extends HTMLElement {
         ? `<div style="font-size:10px;color:#e65100;background:#fff3e0;border-radius:6px;padding:3px 7px;margin-bottom:6px">⚠️ Starker Temperaturabfall erkannt</div>`
         : "";
 
+      const moldBanner = room.mold && room.mold.risk
+        ? `<div style="font-size:10px;color:#1a237e;background:#e8eaf6;border-radius:6px;padding:3px 7px;margin-bottom:6px">💧 Schimmelrisiko – Feuchte ${room.mold.humidity}%${room.mold.dew_point != null ? `, Taupunkt ${room.mold.dew_point}°C` : ""}</div>`
+        : "";
+
       return `
         <div class="${cls}">
-          ${anomalyBanner}
+          ${anomalyBanner}${moldBanner}
           <div class="room-name">
             <span>${room.name}</span>
             ${statusBadge}
@@ -661,6 +678,9 @@ class IHCPanel extends HTMLElement {
       ${g.solar_boost > 0 ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fffde7,#fff9c4);border-color:#f9a825;">🌞 <strong>Solarüberschuss</strong> – ${g.solar_power != null ? g.solar_power + " W · " : ""}Zieltemp. +${g.solar_boost}°C angehoben</div>` : ""}
       ${g.energy_price_eco_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#c62828;">💶 <strong>Hoher Strompreis</strong> – ${g.energy_price != null ? g.energy_price.toFixed(3) + " €/kWh · " : ""}Eco-Modus aktiv</div>` : ""}
       ${g.vacation_auto_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-color:#2e7d32;">✈️ <strong>Urlaubs-Modus aktiv</strong> – automatisch durch Urlaubszeitraum</div>` : ""}
+      ${g.return_preheat_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#1565c0;">🏠 <strong>Rückkehr-Vorheizung aktiv</strong> – Haus wird vor Rückkehr aufgeheizt</div>` : ""}
+      ${g.guest_mode_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#880e4f;">🎉 <strong>Gäste-Modus aktiv</strong>${g.guest_remaining_minutes != null ? ` – noch ${g.guest_remaining_minutes} min` : ""}</div>` : ""}
+      ${g.weather_forecast && g.weather_forecast.cold_warning ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8eaf6,#c5cae9);border-color:#1a237e;">🥶 <strong>Kältewarnung</strong> – Tiefsttemperatur heute: ${g.weather_forecast.forecast_today_min}°C</div>` : ""}
 
       <div class="status-grid">
         <div class="status-item">
@@ -695,6 +715,14 @@ class IHCPanel extends HTMLElement {
           <div class="status-label">Energie heute</div>
           <div class="status-value" style="font-size:16px">${g.energy_today_kwh} kWh</div>
         </div>
+        ${g.heating_runtime_yesterday > 0 ? `<div class="status-item" title="Gestriger Verbrauch zum Vergleich">
+          <div class="status-label">Gestern</div>
+          <div class="status-value ${g.energy_today_kwh > g.energy_yesterday_kwh ? "on" : "ok"}" style="font-size:16px">${g.energy_yesterday_kwh} kWh</div>
+        </div>` : ""}
+        ${g.weather_forecast ? `<div class="status-item" title="Wettervorhersage">
+          <div class="status-label">Wetter heute</div>
+          <div class="status-value" style="font-size:13px">${g.weather_forecast.condition || "—"}${g.weather_forecast.forecast_today_min != null ? ` ${g.weather_forecast.forecast_today_min}–${g.weather_forecast.forecast_today_max}°C` : ""}</div>
+        </div>` : ""}
         ${g.flow_temp != null ? `<div class="status-item">
           <div class="status-label">Vorlauf</div>
           <div class="status-value" style="font-size:16px">${g.flow_temp} °C</div>
@@ -814,6 +842,14 @@ class IHCPanel extends HTMLElement {
               value="${a.heating_switch ?? ''}" list="heating-switch-list" autocomplete="off">
             <datalist id="heating-switch-list">${this._entityOptions(["switch", "input_boolean"])}</datalist>
             <span class="form-hint">Schaltet physisch den Heizkessel ein/aus</span>
+          </div>
+          <div class="settings-item">
+            <label>Wettervorhersage-Entität</label>
+            <input type="text" class="form-input" id="weather-entity"
+              placeholder="weather.home (leer = deaktiviert)"
+              value="${a.weather_entity ?? ''}" list="weather-entity-list" autocomplete="off">
+            <datalist id="weather-entity-list">${this._entityOptions(["weather"])}</datalist>
+            <span class="form-hint">Zeigt Wettervorhersage und Kältewarnung</span>
           </div>
           <div class="settings-item">
             <label>Kühlung aktivieren</label>
@@ -966,9 +1002,38 @@ class IHCPanel extends HTMLElement {
             <input type="number" class="form-input" id="min-rooms"
               min="1" max="20" step="1" value="${a.min_rooms_demand ?? 1}">
           </div>
+          <div class="settings-item">
+            <label>Steuerungsmodus</label>
+            <select class="form-select" id="controller-mode">
+              <option value="switch" ${(a.controller_mode || "switch") === "switch" ? "selected" : ""}>🔌 Heizungsschalter</option>
+              <option value="trv" ${(a.controller_mode || "switch") === "trv" ? "selected" : ""}>🌡️ TRV-Modus</option>
+            </select>
+            <span class="form-hint">TRV: bei zu wenig Anforderung werden alle Thermostate auf Frostschutz geschlossen</span>
+          </div>
         </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="save-global-settings">💾 Klimabaustein speichern</button>
+        </div>
+      </div>
+
+      <!-- Gäste-Modus -->
+      <div class="card">
+        <div class="card-title">🎉 Gäste-Modus</div>
+        ${g.guest_mode_active ? `<div class="info-box" style="background:#fce4ec;border-color:#880e4f;">🎉 Gäste-Modus ist <strong>aktiv</strong>${g.guest_remaining_minutes != null ? ` – noch ${g.guest_remaining_minutes} min` : ""}</div>` : ""}
+        <div class="info-box">Im Gäste-Modus heizen alle Zimmer auf Komfort-Temperatur. Optional wird nach einer bestimmten Zeit automatisch zurückgeschaltet.</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Dauer (Stunden, 0 = unbegrenzt)</label>
+            <input type="number" class="form-input" id="guest-duration"
+              min="0" max="168" step="1" value="${a.guest_duration_hours ?? 24}">
+            <span class="form-hint">Nach dieser Zeit wird automatisch auf Auto zurückgeschaltet</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          ${g.guest_mode_active
+            ? `<button class="btn btn-secondary" id="deactivate-guest-mode">✕ Gäste-Modus beenden</button>`
+            : `<button class="btn btn-primary" id="activate-guest-mode">🎉 Gäste-Modus aktivieren</button>`}
+          <button class="btn btn-secondary" id="save-guest-duration">💾 Standarddauer speichern</button>
         </div>
       </div>
 
@@ -1098,6 +1163,12 @@ class IHCPanel extends HTMLElement {
             <label>Urlaub bis (inkl.)</label>
             <input type="date" class="form-input" id="vacation-end" value="${a.vacation_end || ""}">
           </div>
+          <div class="settings-item">
+            <label>Rückkehr-Vorheizung (Tage)</label>
+            <input type="number" class="form-input" id="vacation-return-preheat"
+              min="0" max="14" step="1" value="${a.vacation_return_preheat_days ?? 0}">
+            <span class="form-hint">N Tage vor Urlaubsende wird auf Auto geschaltet (0 = aus)</span>
+          </div>
         </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="save-vacation-range">💾 Urlaub speichern</button>
@@ -1127,6 +1198,7 @@ class IHCPanel extends HTMLElement {
         heating_switch:      content.querySelector("#heating-switch").value.trim(),
         enable_cooling:      content.querySelector("#enable-cooling").value === "true",
         cooling_switch:      content.querySelector("#cooling-switch").value.trim(),
+        weather_entity:      content.querySelector("#weather-entity").value.trim(),
       });
       this._toast("✓ Hardware-Einstellungen gespeichert");
     });
@@ -1178,9 +1250,23 @@ class IHCPanel extends HTMLElement {
         min_on_time:        minOn,
         min_off_time:       minOff,
         min_rooms_demand:   minRooms,
+        controller_mode:    content.querySelector("#controller-mode").value,
       });
       this._toast("✓ Klimabaustein-Einstellungen gespeichert");
     });
+
+    // Presence tracker overflow toggle
+    const trackerToggle = content.querySelector("#tracker-toggle");
+    if (trackerToggle) {
+      trackerToggle.addEventListener("click", () => {
+        const overflow = content.querySelector("#tracker-overflow");
+        const open = overflow.style.display === "flex";
+        overflow.style.display = open ? "none" : "flex";
+        trackerToggle.textContent = open
+          ? `▸ ${overflow.children.length} weitere Geräte anzeigen`
+          : `▾ Weniger anzeigen`;
+      });
+    }
 
     content.querySelector("#save-presence-settings").addEventListener("click", () => {
       const checked = [...content.querySelectorAll(".presence-cb:checked")].map(cb => cb.value);
@@ -1216,9 +1302,14 @@ class IHCPanel extends HTMLElement {
     content.querySelector("#save-vacation-range").addEventListener("click", () => {
       const start = content.querySelector("#vacation-start").value;
       const end   = content.querySelector("#vacation-end").value;
+      const preheatDays = parseInt(content.querySelector("#vacation-return-preheat").value) || 0;
       if (!start || !end) { this._toast("⚠️ Bitte Von- und Bis-Datum angeben"); return; }
       if (start > end) { this._toast("⚠️ Das Von-Datum muss vor dem Bis-Datum liegen"); return; }
-      this._callService("update_global_settings", { vacation_start: start, vacation_end: end });
+      this._callService("update_global_settings", {
+        vacation_start: start,
+        vacation_end: end,
+        vacation_return_preheat_days: preheatDays,
+      });
       this._toast("✓ Urlaubszeitraum gespeichert");
     });
 
@@ -1226,24 +1317,84 @@ class IHCPanel extends HTMLElement {
       this._callService("update_global_settings", { vacation_start: "", vacation_end: "" });
       this._toast("✓ Urlaubszeitraum gelöscht");
     });
+
+    // Gäste-Modus
+    const activateGuest = content.querySelector("#activate-guest-mode");
+    if (activateGuest) {
+      activateGuest.addEventListener("click", () => {
+        const dur = parseInt(content.querySelector("#guest-duration").value) || 24;
+        this._callService("activate_guest_mode", { duration_hours: dur });
+        this._toast(`🎉 Gäste-Modus aktiviert (${dur} h)`);
+      });
+    }
+    const deactivateGuest = content.querySelector("#deactivate-guest-mode");
+    if (deactivateGuest) {
+      deactivateGuest.addEventListener("click", () => {
+        this._callService("deactivate_guest_mode", {});
+        this._toast("✓ Gäste-Modus beendet");
+      });
+    }
+    content.querySelector("#save-guest-duration").addEventListener("click", () => {
+      const dur = parseInt(content.querySelector("#guest-duration").value);
+      if (isNaN(dur)) { this._toast("⚠️ Ungültiger Wert"); return; }
+      this._callService("update_global_settings", { guest_duration_hours: dur });
+      this._toast("✓ Standarddauer gespeichert");
+    });
   }
 
   // ── Helper: Presence checkboxes from HA states ──────────────────────────────
   _renderPresenceCheckboxes(currentEntities) {
     if (!this._hass) return "";
-    const allEntities = Object.keys(this._hass.states)
-      .filter(id => id.startsWith("person.") || id.startsWith("device_tracker.") || id.startsWith("input_boolean."))
-      .sort();
-    if (!allEntities.length) return "<em style='color:var(--secondary-text-color);font-size:12px'>Keine person.* / device_tracker.* Entitäten gefunden</em>";
-    return allEntities.map(id => {
+
+    const homeStates = new Set(["home", "on"]);
+    const mkChip = id => {
       const state = this._hass.states[id];
       const label = state?.attributes?.friendly_name || id;
+      const isHome = homeStates.has((state?.state || "").toLowerCase());
       const checked = currentEntities.includes(id) ? "checked" : "";
-      return `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:4px 8px;border:1px solid var(--divider-color);border-radius:6px">
-        <input type="checkbox" class="presence-cb" value="${id}" ${checked}>
-        <span>${label}</span>
+      const dot = isHome
+        ? `<span style="width:7px;height:7px;border-radius:50%;background:#43a047;flex-shrink:0"></span>`
+        : `<span style="width:7px;height:7px;border-radius:50%;background:#bdbdbd;flex-shrink:0"></span>`;
+      return `<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;
+          padding:6px 10px;border:1px solid var(--divider-color);border-radius:8px;
+          background:${checked ? "var(--primary-color,#03a9f4)1a" : "transparent"}">
+        <input type="checkbox" class="presence-cb" value="${id}" ${checked} style="margin:0">
+        ${dot}
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+        <span style="font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${isHome ? "zuhause" : "weg"}</span>
       </label>`;
-    }).join("");
+    };
+
+    const persons  = Object.keys(this._hass.states).filter(id => id.startsWith("person.")).sort();
+    const trackers = Object.keys(this._hass.states).filter(id => id.startsWith("device_tracker.")).sort();
+    const booleans = Object.keys(this._hass.states).filter(id => id.startsWith("input_boolean.")).sort();
+
+    if (!persons.length && !trackers.length && !booleans.length)
+      return "<em style='color:var(--secondary-text-color);font-size:12px'>Keine person.* / device_tracker.* Entitäten gefunden</em>";
+
+    const section = (title, ids) => ids.length === 0 ? "" : `
+      <div style="font-size:11px;font-weight:600;color:var(--secondary-text-color);
+          text-transform:uppercase;letter-spacing:.5px;margin:10px 0 5px">${title}</div>
+      <div style="display:flex;flex-direction:column;gap:4px">${ids.map(mkChip).join("")}</div>`;
+
+    // Device-trackers get a collapse toggle if more than 5
+    let trackerBlock = "";
+    if (trackers.length > 0) {
+      const shown  = trackers.slice(0, 5);
+      const hidden = trackers.slice(5);
+      trackerBlock = `
+        <div style="font-size:11px;font-weight:600;color:var(--secondary-text-color);
+            text-transform:uppercase;letter-spacing:.5px;margin:10px 0 5px">Geräte (device_tracker)</div>
+        <div style="display:flex;flex-direction:column;gap:4px">${shown.map(mkChip).join("")}</div>
+        ${hidden.length ? `
+          <div id="tracker-overflow" style="display:none;flex-direction:column;gap:4px">${hidden.map(mkChip).join("")}</div>
+          <button type="button" id="tracker-toggle"
+            style="margin-top:6px;font-size:12px;color:var(--primary-color);background:none;border:none;cursor:pointer;padding:2px 0;text-align:left">
+            ▸ ${hidden.length} weitere Geräte anzeigen
+          </button>` : ""}`;
+    }
+
+    return section("Personen", persons) + trackerBlock + section("Schalter (input_boolean)", booleans);
   }
 
   // ── Helper: datalist options for entity pickers ─────────────────────────────
@@ -1252,7 +1403,13 @@ class IHCPanel extends HTMLElement {
     return Object.keys(this._hass.states)
       .filter(id => !domains.length || domains.some(d => id.startsWith(d + ".")))
       .sort()
-      .map(id => `<option value="${id}">`)
+      .map(id => {
+        const state = this._hass.states[id];
+        const name  = state?.attributes?.friendly_name;
+        // Show "Friendly Name – entity.id" so users can search by name OR id
+        const label = name && name !== id ? `${name} – ${id}` : id;
+        return `<option value="${id}" label="${label}">`;
+      })
       .join("");
   }
 
@@ -1433,6 +1590,100 @@ class IHCPanel extends HTMLElement {
       });
       this._toast(`✓ Zeitpläne für „${selRoom.name}" gespeichert`);
     });
+  }
+
+  // ── Kalender Tab (Wochenübersicht) ─────────────────────────────────────────
+
+  _renderCalendar(content) {
+    const rooms = Object.values(this._getRoomData());
+    if (!rooms.length) {
+      content.innerHTML = `<div class="info-box">Keine Zimmer konfiguriert. Füge zuerst Zimmer hinzu.</div>`;
+      return;
+    }
+
+    // Build a 7-day × 24-hour heatmap for each room
+    // For each room, for each day×hour cell, find what temperature would be active
+    const HOURS = Array.from({ length: 24 }, (_, h) => h);
+    const tempToColor = (temp) => {
+      if (temp === null) return "var(--secondary-background-color, #f5f5f5)";
+      // Range roughly 14–24°C → blue to red
+      const lo = 14, hi = 24;
+      const t = Math.max(0, Math.min(1, (temp - lo) / (hi - lo)));
+      // Blue (cold) → orange (warm) → red (hot)
+      const r = Math.round(30  + t * 200);
+      const g = Math.round(100 - t * 60);
+      const b = Math.round(200 - t * 180);
+      return `rgb(${r},${g},${b})`;
+    };
+
+    const roomHeatmaps = rooms.map(room => {
+      const schedules = room.schedules || [];
+      // Build 7×24 grid
+      const grid = DAY_KEYS.map(dayKey => {
+        return HOURS.map(hour => {
+          const timeMin = hour * 60;
+          let activeTemp = null;
+          for (const sched of schedules) {
+            if (!sched.days || !sched.days.includes(dayKey)) continue;
+            for (const period of (sched.periods || [])) {
+              const [sh, sm] = (period.start || "0:0").split(":").map(Number);
+              const [eh, em] = (period.end   || "0:0").split(":").map(Number);
+              const startMin = sh * 60 + sm;
+              const endMin   = eh * 60 + em;
+              const inPeriod = startMin <= endMin
+                ? (timeMin >= startMin && timeMin < endMin)
+                : (timeMin >= startMin || timeMin < endMin);
+              if (inPeriod) { activeTemp = period.temperature ?? null; break; }
+            }
+            if (activeTemp !== null) break;
+          }
+          return activeTemp;
+        });
+      });
+
+      const cols = HOURS.map((_, h) =>
+        `<div style="font-size:9px;text-align:center;color:var(--secondary-text-color);width:${100/24}%;min-width:0">${h % 3 === 0 ? h + "h" : ""}</div>`
+      ).join("");
+
+      const rows = DAY_KEYS.map((dayKey, di) => {
+        const cells = grid[di].map(temp =>
+          `<div title="${temp != null ? temp + " °C" : "—"}" style="
+            flex:1;height:22px;background:${tempToColor(temp)};
+            border-radius:2px;margin:1px;
+            display:flex;align-items:center;justify-content:center;
+            font-size:8px;color:rgba(255,255,255,0.8);font-weight:600">
+            ${temp != null ? temp : ""}
+          </div>`
+        ).join("");
+        return `<div style="display:flex;align-items:center;gap:0;margin-bottom:1px">
+          <div style="width:24px;font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${DAYS[di]}</div>
+          <div style="display:flex;flex:1;gap:0">${cells}</div>
+        </div>`;
+      }).join("");
+
+      return `
+        <div class="card" style="padding:12px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px">🚪 ${room.name}</div>
+          <div style="display:flex;margin-left:24px;margin-bottom:2px">${cols}</div>
+          ${rows}
+          <div style="margin-top:6px;display:flex;gap:6px;align-items:center;font-size:10px;color:var(--secondary-text-color)">
+            <span>Kalt</span>
+            <div style="flex:1;height:6px;border-radius:3px;background:linear-gradient(to right,rgb(30,100,200),rgb(200,80,20),rgb(230,40,20))"></div>
+            <span>Warm</span>
+          </div>
+        </div>`;
+    }).join("");
+
+    content.innerHTML = `
+      <div class="card">
+        <div class="card-title">🗓️ Wochenübersicht – Zeitpläne</div>
+        <div class="info-box">
+          Zeigt für jedes Zimmer welche Temperatur laut Zeitplan zu jeder Stunde aktiv ist.<br>
+          Graue Zellen = außerhalb Zeitplan (Heizkurve aktiv).
+        </div>
+      </div>
+      ${roomHeatmaps || '<div class="info-box">Keine Zeitpläne konfiguriert. Gehe zum Tab <strong>Zeitpläne</strong>.</div>'}
+    `;
   }
 
   // ── Heizkurve Tab ──────────────────────────────────────────────────────────
@@ -1617,6 +1868,21 @@ class IHCPanel extends HTMLElement {
         </div>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Luftfeuchtigkeitssensor (optional)</label>
+        <input type="text" class="form-input full" id="m-humidity-sensor"
+          placeholder="sensor.wohnzimmer_humidity" list="m-sensor-list" autocomplete="off">
+        <span class="form-hint">Für Schimmelschutz-Erkennung</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Schimmelschutz</label>
+        <select class="form-input full" id="m-mold-enabled">
+          <option value="true">Aktiviert</option>
+          <option value="false">Deaktiviert</option>
+        </select>
+      </div>
+
       <div class="modal-section">
         <div class="modal-section-title">Temperatur-Presets</div>
         <div class="settings-grid">
@@ -1671,18 +1937,20 @@ class IHCPanel extends HTMLElement {
 
       await this._callService("add_room", {
         name,
-        temp_sensor:    modal.querySelector("#m-sensor").value.trim(),
-        valve_entity:   valves[0] || "",
-        valve_entities: valves,
-        window_sensor:  windows[0] || "",
-        window_sensors: windows,
-        room_offset:    parseFloat(modal.querySelector("#m-offset").value),
-        comfort_temp:   parseFloat(modal.querySelector("#m-comfort").value),
-        eco_temp:       parseFloat(modal.querySelector("#m-eco").value),
-        sleep_temp:     parseFloat(modal.querySelector("#m-sleep").value),
-        away_temp_room: parseFloat(modal.querySelector("#m-away-room").value),
-        deadband:       parseFloat(modal.querySelector("#m-deadband").value),
-        weight:         parseFloat(modal.querySelector("#m-weight").value),
+        temp_sensor:            modal.querySelector("#m-sensor").value.trim(),
+        valve_entity:           valves[0] || "",
+        valve_entities:         valves,
+        window_sensor:          windows[0] || "",
+        window_sensors:         windows,
+        room_offset:            parseFloat(modal.querySelector("#m-offset").value),
+        comfort_temp:           parseFloat(modal.querySelector("#m-comfort").value),
+        eco_temp:               parseFloat(modal.querySelector("#m-eco").value),
+        sleep_temp:             parseFloat(modal.querySelector("#m-sleep").value),
+        away_temp_room:         parseFloat(modal.querySelector("#m-away-room").value),
+        deadband:               parseFloat(modal.querySelector("#m-deadband").value),
+        weight:                 parseFloat(modal.querySelector("#m-weight").value),
+        humidity_sensor:        modal.querySelector("#m-humidity-sensor").value.trim(),
+        mold_protection_enabled: modal.querySelector("#m-mold-enabled").value === "true",
       });
       this._closeModal();
       this._toast("✓ Zimmer hinzugefügt – HA lädt Entitäten neu");
@@ -1808,6 +2076,26 @@ class IHCPanel extends HTMLElement {
       </div>
 
       <div class="modal-section">
+        <div class="modal-section-title">Schimmelschutz</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Feuchtigkeitssensor</label>
+            <input type="text" class="form-input" id="m-humidity-sensor"
+              value="${room.humidity_sensor || ''}" placeholder="sensor.feuchte (optional)"
+              list="m-sensor-list" autocomplete="off">
+            <span class="form-hint">Schimmelrisiko-Erkennung</span>
+          </div>
+          <div class="settings-item">
+            <label>Schimmelschutz</label>
+            <select class="form-select" id="m-mold-protection">
+              <option value="true" ${room.mold_protection_enabled !== false ? "selected" : ""}>Aktiviert</option>
+              <option value="false" ${room.mold_protection_enabled === false ? "selected" : ""}>Deaktiviert</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
         <div class="modal-section-title">Schnell-Boost</div>
         <div class="form-row">
           <input type="number" class="form-input" id="m-boost-dur" value="60" min="5" max="480" step="5"> min
@@ -1841,6 +2129,8 @@ class IHCPanel extends HTMLElement {
         room_offset:    parseFloat(modal.querySelector("#m-offset").value),
         deadband:       parseFloat(modal.querySelector("#m-deadband").value),
         weight:         parseFloat(modal.querySelector("#m-weight").value),
+        humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
+        mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
       });
       this._closeModal();
       this._toast(`✓ ${room.name} gespeichert`);

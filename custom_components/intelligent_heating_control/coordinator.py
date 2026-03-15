@@ -126,6 +126,24 @@ from .const import (
     # Roadmap 1.2 – Vacation assistant
     CONF_VACATION_START,
     CONF_VACATION_END,
+    # Roadmap 2.0 – New features
+    CONF_CONTROLLER_MODE,
+    CONTROLLER_MODE_SWITCH,
+    CONTROLLER_MODE_TRV,
+    DEFAULT_CONTROLLER_MODE,
+    SYSTEM_MODE_GUEST,
+    CONF_GUEST_DURATION_HOURS,
+    DEFAULT_GUEST_DURATION_HOURS,
+    CONF_VACATION_RETURN_PREHEAT_DAYS,
+    DEFAULT_VACATION_RETURN_PREHEAT_DAYS,
+    CONF_WEATHER_ENTITY,
+    CONF_WEATHER_COLD_THRESHOLD,
+    DEFAULT_WEATHER_COLD_THRESHOLD,
+    CONF_HUMIDITY_SENSOR,
+    CONF_MOLD_PROTECTION_ENABLED,
+    CONF_MOLD_HUMIDITY_THRESHOLD,
+    DEFAULT_MOLD_HUMIDITY_THRESHOLD,
+    DEFAULT_MOLD_PROTECTION_ENABLED,
 )
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
@@ -163,9 +181,17 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Roadmap 1.2 – Vacation assistant: track auto-vacation mode
         self._vacation_auto_active: bool = False  # True when activated by date range
 
+        # Roadmap 2.0 – Guest mode
+        self._guest_mode_active: bool = False
+        self._guest_mode_until: Optional[datetime] = None  # auto-revert time
+
+        # Roadmap 2.0 – Vacation return pre-heat: switched to AUTO N days before vac_end
+        self._return_preheat_active: bool = False
+
         # Energy / runtime tracking
         self._heating_started_at: Optional[datetime] = None
         self._heating_runtime_today: float = 0.0       # total seconds today
+        self._heating_runtime_yesterday: float = 0.0   # total seconds yesterday (Roadmap 2.0)
         self._room_demand_started: Dict[str, datetime] = {}  # room_id → when demand went > 0
         self._room_runtime_today: Dict[str, float] = {}      # room_id → seconds today
         self._runtime_day: int = datetime.now().day           # to detect day rollover
@@ -229,6 +255,23 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._room_modes = data.get("room_modes", {})
         self._room_manual_temps = data.get("room_manual_temps", {})
         self._vacation_auto_active = data.get("vacation_auto_active", False)
+        self._heating_runtime_today = data.get("heating_runtime_today", 0.0)
+        self._heating_runtime_yesterday = data.get("heating_runtime_yesterday", 0.0)
+        self._room_runtime_today = data.get("room_runtime_today", {})
+        self._return_preheat_active = data.get("return_preheat_active", False)
+        # Restore the day number so we don't falsely roll over on first update
+        stored_day = data.get("runtime_day")
+        if stored_day is not None:
+            self._runtime_day = stored_day
+        # Guest mode revert time (ISO string → datetime)
+        guest_until_str = data.get("guest_mode_until")
+        if guest_until_str:
+            try:
+                self._guest_mode_until = datetime.fromisoformat(guest_until_str)
+                if self._system_mode == SYSTEM_MODE_GUEST:
+                    self._guest_mode_active = True
+            except ValueError:
+                pass
         # Restore temperature history (Roadmap 1.1 – persisted across restarts)
         for room_id, entries in data.get("temp_history", {}).items():
             self._temp_history[room_id] = deque(entries, maxlen=CONF_TEMP_HISTORY_SIZE)
@@ -240,6 +283,12 @@ class IHCCoordinator(DataUpdateCoordinator):
             "room_modes": self._room_modes,
             "room_manual_temps": self._room_manual_temps,
             "vacation_auto_active": self._vacation_auto_active,
+            "heating_runtime_today": self._heating_runtime_today,
+            "heating_runtime_yesterday": self._heating_runtime_yesterday,
+            "room_runtime_today": self._room_runtime_today,
+            "runtime_day": self._runtime_day,
+            "return_preheat_active": self._return_preheat_active,
+            "guest_mode_until": self._guest_mode_until.isoformat() if self._guest_mode_until else None,
             # Persist temperature history so sparklines survive HA restarts
             "temp_history": {rid: list(hist) for rid, hist in self._temp_history.items()},
         })
@@ -446,6 +495,78 @@ class IHCCoordinator(DataUpdateCoordinator):
             "active": self._vacation_auto_active,
         }
 
+    def _update_vacation_return_preheat(self) -> None:
+        """
+        Roadmap 2.0 – Rückkehr-Vorheizung.
+        Switch from VACATION mode to AUTO N days before the configured vac_end date.
+        This allows the house to be warm when residents return from vacation.
+        """
+        cfg = self.get_config()
+        preheat_days = int(cfg.get(CONF_VACATION_RETURN_PREHEAT_DAYS, DEFAULT_VACATION_RETURN_PREHEAT_DAYS))
+        if preheat_days <= 0:
+            return
+        end_str = cfg.get(CONF_VACATION_END, "")
+        if not end_str:
+            return
+        try:
+            vac_end = date.fromisoformat(end_str)
+        except ValueError:
+            return
+        today = date.today()
+        days_until_return = (vac_end - today).days
+        # Activate pre-heat if within preheat_days before end AND system is currently in vacation
+        if 0 <= days_until_return < preheat_days and self._system_mode == SYSTEM_MODE_VACATION and self._vacation_auto_active:
+            _LOGGER.info("IHC: Vacation return in %d days – switching to AUTO for pre-heating", days_until_return)
+            self._system_mode = SYSTEM_MODE_AUTO
+            self._vacation_auto_active = False
+            self._return_preheat_active = True
+            self.hass.async_create_task(self._async_save_runtime_state())
+        elif days_until_return >= preheat_days and self._return_preheat_active:
+            # Reset flag if vacation dates changed and we are outside preheat window again
+            self._return_preheat_active = False
+
+    # ------------------------------------------------------------------
+    # Roadmap 2.0 – Guest mode
+    # ------------------------------------------------------------------
+
+    def activate_guest_mode(self, duration_hours: Optional[int] = None) -> None:
+        """
+        Activate guest mode: all rooms get comfort temperature.
+        Optionally auto-reverts to AUTO after duration_hours.
+        """
+        cfg = self.get_config()
+        hours = duration_hours if duration_hours is not None else int(
+            cfg.get(CONF_GUEST_DURATION_HOURS, DEFAULT_GUEST_DURATION_HOURS)
+        )
+        self._system_mode = SYSTEM_MODE_GUEST
+        self._guest_mode_active = True
+        self._guest_mode_until = datetime.now() + timedelta(hours=hours) if hours > 0 else None
+        _LOGGER.info("IHC: Guest mode activated (duration: %s h)", hours if hours > 0 else "indefinite")
+        self.hass.async_create_task(self._async_save_runtime_state())
+        self.hass.async_create_task(self.async_request_refresh())
+
+    def deactivate_guest_mode(self) -> None:
+        """Deactivate guest mode and return to AUTO."""
+        self._system_mode = SYSTEM_MODE_AUTO
+        self._guest_mode_active = False
+        self._guest_mode_until = None
+        _LOGGER.info("IHC: Guest mode deactivated")
+        self.hass.async_create_task(self._async_save_runtime_state())
+        self.hass.async_create_task(self.async_request_refresh())
+
+    def _check_guest_mode_expiry(self) -> None:
+        """Auto-revert guest mode when its timer expires."""
+        if not self._guest_mode_active:
+            return
+        if self._guest_mode_until is None:
+            return
+        if datetime.now() >= self._guest_mode_until:
+            _LOGGER.info("IHC: Guest mode timer expired – returning to AUTO")
+            self._system_mode = SYSTEM_MODE_AUTO
+            self._guest_mode_active = False
+            self._guest_mode_until = None
+            self.hass.async_create_task(self._async_save_runtime_state())
+
     # ------------------------------------------------------------------
     # Night setback
     # ------------------------------------------------------------------
@@ -603,6 +724,95 @@ class IHCCoordinator(DataUpdateCoordinator):
             return None
 
     # ------------------------------------------------------------------
+    # Roadmap 2.0 – Weather forecast
+    # ------------------------------------------------------------------
+
+    def _get_weather_forecast(self) -> Optional[dict]:
+        """
+        Read forecast from a weather.* entity (HA native forecast attribute).
+        Returns dict with today's min/max forecast temp and condition, or None.
+        """
+        cfg = self.get_config()
+        weather_entity = cfg.get(CONF_WEATHER_ENTITY)
+        if not weather_entity:
+            return None
+        state = self.hass.states.get(weather_entity)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+        attrs = state.attributes
+        # Current conditions
+        current_temp = attrs.get("temperature")
+        forecast_list = attrs.get("forecast", [])
+        result = {
+            "condition": state.state,
+            "current_temp": current_temp,
+            "forecast_today_min": None,
+            "forecast_today_max": None,
+            "cold_warning": False,
+        }
+        if forecast_list:
+            today_fc = forecast_list[0] if forecast_list else {}
+            result["forecast_today_min"] = today_fc.get("templow")
+            result["forecast_today_max"] = today_fc.get("temperature")
+            cold_threshold = float(cfg.get(CONF_WEATHER_COLD_THRESHOLD, DEFAULT_WEATHER_COLD_THRESHOLD))
+            min_temp = today_fc.get("templow")
+            if min_temp is not None and min_temp <= cold_threshold:
+                result["cold_warning"] = True
+        return result
+
+    # ------------------------------------------------------------------
+    # Roadmap 2.0 – Schimmelschutz (mold protection)
+    # ------------------------------------------------------------------
+
+    def _check_mold_risk(self, room: dict, current_temp: Optional[float]) -> Optional[dict]:
+        """
+        Check mold risk for a room using humidity sensor.
+        Calculates approximate dew point and flags risk when humidity is high.
+        Returns dict with humidity, dew_point, risk_level, or None if no sensor.
+        """
+        if not room.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED):
+            return None
+        humidity_sensor = room.get(CONF_HUMIDITY_SENSOR)
+        if not humidity_sensor:
+            return None
+        state = self.hass.states.get(humidity_sensor)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+        try:
+            humidity = float(state.state)
+        except ValueError:
+            return None
+
+        threshold = float(room.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD))
+        risk = humidity >= threshold
+
+        # Magnus formula approximation for dew point
+        dew_point = None
+        if current_temp is not None and humidity > 0:
+            import math
+            a = 17.27
+            b = 237.7
+            alpha = ((a * current_temp) / (b + current_temp)) + math.log(humidity / 100.0)
+            dew_point = round((b * alpha) / (a - alpha), 1)
+
+        return {
+            "humidity": round(humidity, 1),
+            "dew_point": dew_point,
+            "risk": risk,
+            "threshold": threshold,
+        }
+
+    def _get_mold_temp_boost(self, room: dict, current_temp: Optional[float]) -> float:
+        """
+        Return temperature boost (°C) to reduce mold risk.
+        When mold risk is detected, raise target temp by 1°C to reduce relative humidity.
+        """
+        mold = self._check_mold_risk(room, current_temp)
+        if mold and mold["risk"]:
+            return 1.0
+        return 0.0
+
+    # ------------------------------------------------------------------
     # Roadmap 1.4 – Room sensor calibration & flow temp
     # ------------------------------------------------------------------
 
@@ -664,9 +874,12 @@ class IHCCoordinator(DataUpdateCoordinator):
     def _reset_runtime_if_new_day(self) -> None:
         today = datetime.now().day
         if today != self._runtime_day:
+            # Save today's runtime as yesterday before reset
+            self._heating_runtime_yesterday = self._heating_runtime_today
             self._heating_runtime_today = 0.0
             self._room_runtime_today = {}
             self._runtime_day = today
+            self.hass.async_create_task(self._async_save_runtime_state())
 
     def _update_runtime_tracking(self, should_heat: bool, room_data: dict) -> None:
         """Track heating on-times for energy statistics."""
@@ -703,6 +916,10 @@ class IHCCoordinator(DataUpdateCoordinator):
         if self._heating_started_at is not None:
             total += (datetime.now() - self._heating_started_at).total_seconds()
         return round(total / 60.0, 1)
+
+    def get_heating_runtime_yesterday_minutes(self) -> float:
+        """Total heating runtime yesterday in minutes."""
+        return round(self._heating_runtime_yesterday / 60.0, 1)
 
     def get_room_runtime_today_minutes(self, room_id: str) -> float:
         """Room heating demand runtime today in minutes."""
@@ -832,6 +1049,12 @@ class IHCCoordinator(DataUpdateCoordinator):
         if system_mode == SYSTEM_MODE_VACATION:
             vac_temp = float(cfg.get(CONF_VACATION_TEMP, DEFAULT_VACATION_TEMP))
             return max(vac_temp, frost_temp), {"source": "system_vacation", "schedule_active": False}
+
+        if system_mode == SYSTEM_MODE_GUEST:
+            comfort = float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP))
+            return min(max_temp, max(min_temp, comfort + room_offset)), {
+                "source": "guest_mode", "schedule_active": False
+            }
 
         # --- 1b. Room-specific presence auto-eco (Roadmap 1.2) ---
         if not self._check_room_presence(room) and room_mode == ROOM_MODE_AUTO:
@@ -998,11 +1221,17 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Expire any boost timers
         self._check_boost_expiry()
 
+        # Check guest mode timer expiry (Roadmap 2.0)
+        self._check_guest_mode_expiry()
+
         # Presence-based auto-away
         self._update_presence_auto_away()
 
         # Vacation assistant: auto-activate/deactivate based on date range (Roadmap 1.2)
         self._update_vacation_auto_mode()
+
+        # Rückkehr-Vorheizung: pre-heat before returning from vacation (Roadmap 2.0)
+        self._update_vacation_return_preheat()
 
         # Persist temperature history once per hour (survives HA restarts)
         now = datetime.now()
@@ -1054,6 +1283,12 @@ class IHCCoordinator(DataUpdateCoordinator):
                 target_temp = max(float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)), target_temp - price_eco_offset)
                 meta["price_eco_offset"] = price_eco_offset
 
+            # Mold protection boost (Roadmap 2.0) – raise target to reduce humidity risk
+            mold_boost = self._get_mold_temp_boost(room, current_temp)
+            if mold_boost > 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation"):
+                target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + mold_boost)
+                meta["mold_boost"] = mold_boost
+
             # Update controller state for this room
             controller_state = self._controller.update_room(
                 room_id=room_id,
@@ -1074,9 +1309,8 @@ class IHCCoordinator(DataUpdateCoordinator):
                 is_now_warm=demand == 0 and current_temp is not None,
             )
 
-            # Propagate setpoint to all TRV / climate entities
-            if not window_open and room_mode != ROOM_MODE_OFF:
-                self._set_valve_entities(room, target_temp)
+            # Collect mold data for room info
+            mold_data = self._check_mold_risk(room, current_temp)
 
             room_data[room_id] = {
                 "name": room.get(CONF_ROOM_NAME, room_id),
@@ -1092,6 +1326,7 @@ class IHCCoordinator(DataUpdateCoordinator):
                 "next_period": self.get_next_schedule_period(room_id),  # Roadmap 1.1
                 "anomaly": self._detect_sensor_anomaly(room_id),    # Roadmap 1.1
                 "room_presence_active": room_presence_active,       # Roadmap 1.2
+                "mold": mold_data,                                  # Roadmap 2.0
                 # Ensure night_setback is always present (meta may omit it for mode overrides)
                 "night_setback": 0.0,
                 **meta,
@@ -1100,6 +1335,7 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Klimabaustein decision
         cfg = self.get_config()
         enable_cooling = bool(cfg.get(CONF_ENABLE_COOLING, False))
+        controller_mode = cfg.get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
         # Sommerautomatik: block heating if outdoor temp exceeds threshold
         should_heat = False if summer_mode else self._controller.should_heat(self._system_mode)
         should_cool = self._controller.should_cool(self._system_mode) if enable_cooling else False
@@ -1113,8 +1349,40 @@ class IHCCoordinator(DataUpdateCoordinator):
         for room_id in room_data:
             room_data[room_id]["runtime_today_minutes"] = self.get_room_runtime_today_minutes(room_id)
 
-        # Control the physical heating/cooling switches
-        self._set_heating_switch(should_heat)
+        # Apply TRV setpoints and/or control heating switch
+        frost_temp = self._get_frost_protection_temp()
+        if controller_mode == CONTROLLER_MODE_TRV:
+            # TRV mode: control TRVs directly
+            # When heating should be active → send calculated target temps
+            # When not → send frost protection temp to close all TRVs
+            for room in self.get_rooms():
+                room_id = room.get(CONF_ROOM_ID, "")
+                if not room_id or room_id not in room_data:
+                    continue
+                rdata = room_data[room_id]
+                room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
+                window_open = rdata.get("window_open", False)
+                if window_open or room_mode == ROOM_MODE_OFF:
+                    continue
+                if should_heat:
+                    self._set_valve_entities(room, rdata["target_temp"])
+                else:
+                    # Close TRVs to frost protection to prevent over-heating
+                    self._set_valve_entities(room, frost_temp)
+            # TRV mode does NOT use a heating switch (no central boiler switch)
+        else:
+            # Switch mode: propagate setpoints to TRVs, control central heating switch
+            for room in self.get_rooms():
+                room_id = room.get(CONF_ROOM_ID, "")
+                if not room_id or room_id not in room_data:
+                    continue
+                rdata = room_data[room_id]
+                room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
+                window_open = rdata.get("window_open", False)
+                if not window_open and room_mode != ROOM_MODE_OFF:
+                    self._set_valve_entities(room, rdata["target_temp"])
+            self._set_heating_switch(should_heat)
+
         if enable_cooling:
             self._set_cooling_switch(should_cool)
 
@@ -1129,7 +1397,17 @@ class IHCCoordinator(DataUpdateCoordinator):
         cfg = self.get_config()
         boiler_kw = float(cfg.get(CONF_BOILER_KW, DEFAULT_BOILER_KW))
         energy_today_kwh = round(self.get_heating_runtime_today_minutes() / 60.0 * boiler_kw, 2)
+        energy_yesterday_kwh = round(self.get_heating_runtime_yesterday_minutes() / 60.0 * boiler_kw, 2)
         efficiency_score = self.calculate_efficiency_score(outdoor_temp)
+
+        # Roadmap 2.0 – Weather forecast
+        weather_forecast = self._get_weather_forecast()
+
+        # Guest mode info
+        guest_remaining_minutes = None
+        if self._guest_mode_active and self._guest_mode_until:
+            remaining = (self._guest_mode_until - datetime.now()).total_seconds() / 60
+            guest_remaining_minutes = max(0, round(remaining))
 
         return {
             "outdoor_temp": outdoor_temp,
@@ -1143,15 +1421,22 @@ class IHCCoordinator(DataUpdateCoordinator):
             "presence_away_active": self._presence_away_active,
             "vacation_auto_active": self._vacation_auto_active,         # Roadmap 1.2
             "vacation_range": self.get_vacation_range(),                # Roadmap 1.2
+            "return_preheat_active": self._return_preheat_active,       # Roadmap 2.0
             "system_mode": self._system_mode,
+            "controller_mode": controller_mode,                         # Roadmap 2.0
+            "guest_mode_active": self._guest_mode_active,               # Roadmap 2.0
+            "guest_remaining_minutes": guest_remaining_minutes,         # Roadmap 2.0
             "heating_runtime_today": self.get_heating_runtime_today_minutes(),
+            "heating_runtime_yesterday": self.get_heating_runtime_yesterday_minutes(),  # Roadmap 2.0
             "energy_today_kwh": energy_today_kwh,
+            "energy_yesterday_kwh": energy_yesterday_kwh,               # Roadmap 2.0
             "efficiency_score": efficiency_score,                       # Roadmap 1.3
             "solar_boost": solar_boost,
             "solar_power": self._get_solar_power(),
             "energy_price": self._get_current_energy_price(),
             "energy_price_eco_offset": price_eco_offset,
             "flow_temp": flow_temp,
+            "weather_forecast": weather_forecast,                       # Roadmap 2.0
             "rooms": room_data,
             "debug": self._controller.get_debug_info(),
         }

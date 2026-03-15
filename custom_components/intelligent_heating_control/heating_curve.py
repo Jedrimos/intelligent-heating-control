@@ -55,6 +55,8 @@ class HeatingCurve:
             if x0 <= outdoor_temp <= x1:
                 y0 = pts[i]["target_temp"]
                 y1 = pts[i + 1]["target_temp"]
+                if x1 == x0:  # duplicate points – return the first value
+                    return float(y0)
                 ratio = (outdoor_temp - x0) / (x1 - x0)
                 return round(y0 + ratio * (y1 - y0), 1)
 

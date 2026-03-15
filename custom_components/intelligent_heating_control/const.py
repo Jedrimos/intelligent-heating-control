@@ -119,6 +119,7 @@ SYSTEM_MODES: Final = [
     SYSTEM_MODE_OFF,
     SYSTEM_MODE_AWAY,
     SYSTEM_MODE_VACATION,
+    SYSTEM_MODE_GUEST,
 ]
 
 ROOM_MODE_AUTO: Final = "auto"
@@ -222,3 +223,32 @@ ATTR_TOTAL_DEMAND: Final = "total_demand"
 ATTR_HEATING_ACTIVE: Final = "heating_active"
 ATTR_ROOMS_DEMANDING: Final = "rooms_demanding"
 ATTR_SYSTEM_MODE: Final = "system_mode"
+
+# Roadmap 2.0 – New features
+
+# TRV-Modus: Klimabaustein controller output mode
+CONF_CONTROLLER_MODE: Final = "controller_mode"
+CONTROLLER_MODE_SWITCH: Final = "switch"   # control a boiler switch (default)
+CONTROLLER_MODE_TRV: Final = "trv"         # control TRVs directly (close them when no demand)
+DEFAULT_CONTROLLER_MODE: Final = CONTROLLER_MODE_SWITCH
+
+# Gäste-Modus
+SYSTEM_MODE_GUEST: Final = "guest"
+CONF_GUEST_DURATION_HOURS: Final = "guest_duration_hours"
+DEFAULT_GUEST_DURATION_HOURS: Final = 24
+
+# Rückkehr-Vorheizung: start heating N days before vacation end
+CONF_VACATION_RETURN_PREHEAT_DAYS: Final = "vacation_return_preheat_days"
+DEFAULT_VACATION_RETURN_PREHEAT_DAYS: Final = 0  # disabled
+
+# Wettervorhersage
+CONF_WEATHER_ENTITY: Final = "weather_entity"
+CONF_WEATHER_COLD_THRESHOLD: Final = "weather_cold_threshold"  # °C below which cold warning shows
+DEFAULT_WEATHER_COLD_THRESHOLD: Final = 0.0
+
+# Schimmelschutz (mold protection) – per room
+CONF_HUMIDITY_SENSOR: Final = "humidity_sensor"
+CONF_MOLD_PROTECTION_ENABLED: Final = "mold_protection_enabled"
+CONF_MOLD_HUMIDITY_THRESHOLD: Final = "mold_humidity_threshold"  # % above which risk is elevated
+DEFAULT_MOLD_HUMIDITY_THRESHOLD: Final = 70.0
+DEFAULT_MOLD_PROTECTION_ENABLED: Final = True

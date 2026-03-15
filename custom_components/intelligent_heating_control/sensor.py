@@ -27,6 +27,11 @@ from .const import (
     CONF_ENERGY_PRICE_ENTITY, CONF_ENERGY_PRICE_THRESHOLD, CONF_ENERGY_PRICE_ECO_OFFSET,
     CONF_FLOW_TEMP_ENTITY,
     CONF_VACATION_START, CONF_VACATION_END,
+    # Roadmap 2.0
+    CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE,
+    CONF_GUEST_DURATION_HOURS, DEFAULT_GUEST_DURATION_HOURS,
+    CONF_VACATION_RETURN_PREHEAT_DAYS, DEFAULT_VACATION_RETURN_PREHEAT_DAYS,
+    CONF_WEATHER_ENTITY,
     DEFAULT_AWAY_TEMP, DEFAULT_VACATION_TEMP,
     DEFAULT_SUMMER_THRESHOLD, DEFAULT_FROST_PROTECTION_TEMP,
     DEFAULT_NIGHT_SETBACK_OFFSET, DEFAULT_PREHEAT_MINUTES,
@@ -106,11 +111,17 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "summer_mode":            d.get("summer_mode", False),
             "night_setback_active":   d.get("night_setback_active", False),
             "presence_away_active":   d.get("presence_away_active", False),
-            "vacation_auto_active":   d.get("vacation_auto_active", False),
-            "vacation_range":         d.get("vacation_range", {}),
-            "efficiency_score":       d.get("efficiency_score"),
-            "system_mode":            d.get("system_mode", "auto"),
-            "heating_runtime_today":  d.get("heating_runtime_today", 0.0),
+            "vacation_auto_active":        d.get("vacation_auto_active", False),
+            "vacation_range":              d.get("vacation_range", {}),
+            "efficiency_score":            d.get("efficiency_score"),
+            "system_mode":                 d.get("system_mode", "auto"),
+            "heating_runtime_today":       d.get("heating_runtime_today", 0.0),
+            "heating_runtime_yesterday":   d.get("heating_runtime_yesterday", 0.0),
+            "return_preheat_active":       d.get("return_preheat_active", False),
+            "controller_mode":             d.get("controller_mode", "switch"),
+            "guest_mode_active":           d.get("guest_mode_active", False),
+            "guest_remaining_minutes":     d.get("guest_remaining_minutes"),
+            "weather_forecast":            d.get("weather_forecast"),
             # Controller settings (read by frontend panel)
             "demand_threshold":     debug.get("demand_threshold"),
             "demand_hysteresis":    debug.get("demand_hysteresis"),
@@ -150,6 +161,11 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "flow_temp_entity":            cfg.get(CONF_FLOW_TEMP_ENTITY, ""),
             "vacation_start":              cfg.get(CONF_VACATION_START, ""),
             "vacation_end":               cfg.get(CONF_VACATION_END, ""),
+            # Roadmap 2.0
+            "controller_mode":             cfg.get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE),
+            "guest_duration_hours":        cfg.get(CONF_GUEST_DURATION_HOURS, DEFAULT_GUEST_DURATION_HOURS),
+            "vacation_return_preheat_days": cfg.get(CONF_VACATION_RETURN_PREHEAT_DAYS, DEFAULT_VACATION_RETURN_PREHEAT_DAYS),
+            "weather_entity":              cfg.get(CONF_WEATHER_ENTITY, ""),
         }
 
 
@@ -240,6 +256,7 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
                 "avg_warmup_minutes": room.get("avg_warmup_minutes"),  # Roadmap 1.1
                 "anomaly": room.get("anomaly"),                        # Roadmap 1.1
                 "room_presence_active": room.get("room_presence_active"),  # Roadmap 1.2
+                "mold": room.get("mold"),                                  # Roadmap 2.0
             }
         return {}
 
@@ -333,11 +350,12 @@ class IHCEnergyTodaySensor(_IHCBase, SensorEntity):
     def extra_state_attributes(self) -> dict:
         d = self.coordinator.data or {}
         return {
-            "solar_boost":           d.get("solar_boost", 0.0),
-            "solar_power":           d.get("solar_power"),
-            "energy_price":          d.get("energy_price"),
-            "energy_price_eco_active": (d.get("energy_price_eco_offset") or 0.0) > 0,
-            "flow_temp":             d.get("flow_temp"),
+            "solar_boost":              d.get("solar_boost", 0.0),
+            "solar_power":              d.get("solar_power"),
+            "energy_price":             d.get("energy_price"),
+            "energy_price_eco_active":  (d.get("energy_price_eco_offset") or 0.0) > 0,
+            "flow_temp":                d.get("flow_temp"),
+            "energy_yesterday_kwh":     d.get("energy_yesterday_kwh", 0.0),  # Roadmap 2.0
         }
 
 
