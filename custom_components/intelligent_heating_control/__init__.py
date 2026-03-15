@@ -81,10 +81,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if cfg.get(CONF_SHOW_PANEL, True):
         await _async_register_panel(hass)
 
-    # Register HA services
+    # Register HA services (always fresh, so the current coordinator is used)
     _register_services(hass, coordinator, entry)
 
-    # Reload when options change
+    # Reload when options change (e.g. from HA options flow)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
 
     return True
@@ -92,6 +92,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    # Unregister services so they are re-registered with the new coordinator on reload
+    for service in [
+        SERVICE_ADD_ROOM, SERVICE_REMOVE_ROOM, SERVICE_UPDATE_ROOM,
+        SERVICE_SET_ROOM_MODE, SERVICE_SET_SYSTEM_MODE, SERVICE_BOOST_ROOM,
+        "reload", "export_config", "update_global_settings",
+    ]:
+        hass.services.async_remove(DOMAIN, service)
+
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         hass.data[DOMAIN].pop(entry.entry_id, None)
@@ -243,13 +251,12 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             notification_id=f"{DOMAIN}_config_export",
         )
 
-    if not hass.services.has_service(DOMAIN, SERVICE_ADD_ROOM):
-        hass.services.async_register(DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
-        hass.services.async_register(DOMAIN, SERVICE_REMOVE_ROOM, handle_remove_room)
-        hass.services.async_register(DOMAIN, SERVICE_UPDATE_ROOM, handle_update_room)
-        hass.services.async_register(DOMAIN, SERVICE_SET_ROOM_MODE, handle_set_room_mode)
-        hass.services.async_register(DOMAIN, SERVICE_SET_SYSTEM_MODE, handle_set_system_mode)
-        hass.services.async_register(DOMAIN, SERVICE_BOOST_ROOM, handle_boost_room)
-        hass.services.async_register(DOMAIN, "reload", handle_reload)
-        hass.services.async_register(DOMAIN, "export_config", handle_export_config)
-        hass.services.async_register(DOMAIN, "update_global_settings", handle_update_global_settings)
+    hass.services.async_register(DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
+    hass.services.async_register(DOMAIN, SERVICE_REMOVE_ROOM, handle_remove_room)
+    hass.services.async_register(DOMAIN, SERVICE_UPDATE_ROOM, handle_update_room)
+    hass.services.async_register(DOMAIN, SERVICE_SET_ROOM_MODE, handle_set_room_mode)
+    hass.services.async_register(DOMAIN, SERVICE_SET_SYSTEM_MODE, handle_set_system_mode)
+    hass.services.async_register(DOMAIN, SERVICE_BOOST_ROOM, handle_boost_room)
+    hass.services.async_register(DOMAIN, "reload", handle_reload)
+    hass.services.async_register(DOMAIN, "export_config", handle_export_config)
+    hass.services.async_register(DOMAIN, "update_global_settings", handle_update_global_settings)
