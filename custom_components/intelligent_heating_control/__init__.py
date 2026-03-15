@@ -50,6 +50,10 @@ from .const import (
     ROOM_MODES,
     SYSTEM_MODES,
     CONF_SHOW_PANEL,
+    CONF_HA_SCHEDULES,
+    CONF_HUMIDITY_SENSOR,
+    CONF_MOLD_PROTECTION_ENABLED,
+    DEFAULT_MOLD_PROTECTION_ENABLED,
 )
 from .coordinator import IHCCoordinator
 
@@ -181,6 +185,9 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_MIN_TEMP: float(call.data.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)),
             CONF_MAX_TEMP: float(call.data.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
             CONF_SCHEDULES: call.data.get(CONF_SCHEDULES, []),
+            CONF_HA_SCHEDULES: call.data.get(CONF_HA_SCHEDULES, []),
+            CONF_HUMIDITY_SENSOR: call.data.get(CONF_HUMIDITY_SENSOR, ""),
+            CONF_MOLD_PROTECTION_ENABLED: call.data.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED),
         }
         await coordinator.async_add_room(room_config)
 

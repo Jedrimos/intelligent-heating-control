@@ -248,6 +248,14 @@ DEFAULT_WEATHER_COLD_THRESHOLD: Final = 0.0
 CONF_WEATHER_COLD_BOOST: Final = "weather_cold_boost"          # °C added to target when cold warning
 DEFAULT_WEATHER_COLD_BOOST: Final = 0.0                        # 0 = disabled by default
 
+# HA Schedule-Entitäten pro Zimmer
+CONF_HA_SCHEDULES: Final = "ha_schedules"
+# Each entry is a dict:
+#   entity          (str)  – schedule.* entity_id
+#   temperature     (float)– target temp when schedule is ON
+#   condition_entity(str)  – optional entity to check before using this schedule
+#   condition_state (str)  – state the condition_entity must have (default "on")
+
 # Schimmelschutz (mold protection) – per room
 CONF_HUMIDITY_SENSOR: Final = "humidity_sensor"
 CONF_MOLD_PROTECTION_ENABLED: Final = "mold_protection_enabled"

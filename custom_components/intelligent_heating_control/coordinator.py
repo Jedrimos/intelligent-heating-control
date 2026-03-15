@@ -141,6 +141,7 @@ from .const import (
     DEFAULT_WEATHER_COLD_THRESHOLD,
     CONF_WEATHER_COLD_BOOST,
     DEFAULT_WEATHER_COLD_BOOST,
+    CONF_HA_SCHEDULES,
     CONF_HUMIDITY_SENSOR,
     CONF_MOLD_PROTECTION_ENABLED,
     CONF_MOLD_HUMIDITY_THRESHOLD,
@@ -1123,7 +1124,51 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Pre-heat window: look ahead into schedule to decide if we should heat early
         preheat_minutes = int(cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES))
 
-        # --- 3. Active schedule or upcoming pre-heat period ---
+        # --- 3a. HA schedule entities (external schedule.* entities with optional condition) ---
+        # Each entry uses an existing room preset (comfort/eco/sleep/away) – no separate temp needed.
+        # First matching active schedule wins. If schedules are configured but none fires → Eco.
+        ha_scheds = room.get(CONF_HA_SCHEDULES, [])
+        if ha_scheds:
+            mode_to_temp = {
+                ROOM_MODE_COMFORT: float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)),
+                ROOM_MODE_ECO:     float(room.get(CONF_ECO_TEMP, DEFAULT_ECO_TEMP)),
+                ROOM_MODE_SLEEP:   float(room.get(CONF_SLEEP_TEMP, DEFAULT_SLEEP_TEMP)),
+                ROOM_MODE_AWAY:    float(room.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
+            }
+            for ha_sched in ha_scheds:
+                entity_id = ha_sched.get("entity", "")
+                if not entity_id:
+                    continue
+                # Check optional condition entity
+                cond_entity = ha_sched.get("condition_entity", "")
+                if cond_entity:
+                    cond_state = self.hass.states.get(cond_entity)
+                    expected = ha_sched.get("condition_state", "on")
+                    if cond_state is None or cond_state.state != expected:
+                        continue  # Condition not met – skip this binding
+                # Check whether the HA schedule is currently active
+                sched_state = self.hass.states.get(entity_id)
+                if sched_state and sched_state.state == STATE_ON:
+                    sched_mode = ha_sched.get("mode", ROOM_MODE_COMFORT)
+                    ha_temp = mode_to_temp.get(sched_mode, mode_to_temp[ROOM_MODE_COMFORT])
+                    target = min(max_temp, max(min_temp, ha_temp + room_offset - night_setback))
+                    return target, {
+                        "source": "ha_schedule",
+                        "schedule_active": True,
+                        "ha_schedule_entity": entity_id,
+                        "ha_schedule_mode": sched_mode,
+                        "night_setback": night_setback,
+                    }
+            # Schedules configured but none active right now → Eco fallback
+            eco_temp = float(room.get(CONF_ECO_TEMP, DEFAULT_ECO_TEMP))
+            target = min(max_temp, max(min_temp, eco_temp + room_offset - night_setback))
+            return target, {
+                "source": "ha_schedule_eco",
+                "schedule_active": False,
+                "night_setback": night_setback,
+            }
+
+        # --- 3b. Active internal schedule or upcoming pre-heat period ---
         schedule_mgr = self._schedule_managers.get(room_id)
         if schedule_mgr:
             active_period = schedule_mgr.get_active_period()

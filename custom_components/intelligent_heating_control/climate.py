@@ -169,6 +169,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "deadband": room_cfg.get("deadband", 0.5),
             "weight": room_cfg.get("weight", 1.0),
             "schedules": room_cfg.get("schedules", []),
+            "ha_schedules": room_cfg.get("ha_schedules", []),
             "next_period": d.get("next_period"),
             "anomaly": d.get("anomaly"),
             # Mold protection

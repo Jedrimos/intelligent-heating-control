@@ -506,6 +506,7 @@ class IHCPanel extends HTMLElement {
         deadband: state.attributes.deadband ?? 0.5,
         weight: state.attributes.weight ?? 1.0,
         schedules: state.attributes.schedules || [],
+        ha_schedules: state.attributes.ha_schedules || [],
         next_period: state.attributes.next_period || null,
         anomaly: state.attributes.anomaly || null,
       };
@@ -645,6 +646,8 @@ class IHCPanel extends HTMLElement {
       "frost_protection": "❄ Frostschutz",
       "guest_mode": "🎉 Gäste",
       "room_presence_eco": "🚶 Eco (leer)",
+      "ha_schedule": "📅 HA Zeitplan",
+      "ha_schedule_eco": "📅 HA Zeitplan (Eco)",
     };
 
     const roomCards = sortedRooms.map(room => {
@@ -2089,6 +2092,19 @@ class IHCPanel extends HTMLElement {
         </div>
       </div>
 
+      <div class="modal-section">
+        <div class="modal-section-title">📅 HA Zeitpläne <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
+          Verbindet bestehende HA <code>schedule.*</code>-Entitäten mit diesem Zimmer.
+          Wenn ein Zeitplan aktiv ist, wird die gewählte Temperatur (Komfort/Eco/Schlaf) verwendet.
+          Kein Zeitplan aktiv → Eco-Temperatur. Bedingung optional.
+        </div>
+        <datalist id="m-schedule-list">${this._entityOptions(["schedule"])}</datalist>
+        <datalist id="m-cond-list">${this._entityOptions(["input_boolean","binary_sensor","person","device_tracker"])}</datalist>
+        <div id="m-ha-sched-list"></div>
+        <button class="btn btn-secondary" id="m-add-ha-sched" style="font-size:12px;margin-top:6px">+ Zeitplan hinzufügen</button>
+      </div>
+
       <div class="btn-row">
         <button class="btn btn-primary" id="modal-confirm">Zimmer hinzufügen</button>
         <button class="btn btn-secondary modal-close-btn">Abbrechen</button>
@@ -2100,6 +2116,7 @@ class IHCPanel extends HTMLElement {
 
       const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
       const windows = [...modal.querySelectorAll("#window-list input")].map(i => i.value.trim()).filter(Boolean);
+      const ha_schedules = this._collectHaScheduleRows(modal);
 
       await this._callService("add_room", {
         name,
@@ -2117,11 +2134,13 @@ class IHCPanel extends HTMLElement {
         weight:                 parseFloat(modal.querySelector("#m-weight").value),
         humidity_sensor:        modal.querySelector("#m-humidity-sensor").value.trim(),
         mold_protection_enabled: modal.querySelector("#m-mold-enabled").value === "true",
+        ha_schedules,
       });
       this._closeModal();
       this._toast("✓ Zimmer hinzugefügt – HA lädt Entitäten neu");
     });
     this._bindEntityListAdders();
+    this._bindHaSchedAdder([], "m-ha-sched-list", "m-add-ha-sched");
   }
 
   _showEditRoomModal(entityId) {
@@ -2262,6 +2281,19 @@ class IHCPanel extends HTMLElement {
       </div>
 
       <div class="modal-section">
+        <div class="modal-section-title">📅 HA Zeitpläne <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
+          Verbindet bestehende HA <code>schedule.*</code>-Entitäten mit diesem Zimmer.
+          Wenn ein Zeitplan aktiv ist, wird die gewählte Temperatur (Komfort/Eco/Schlaf) verwendet.
+          Kein Zeitplan aktiv → Eco-Temperatur. Bedingung optional.
+        </div>
+        <datalist id="m-schedule-list">${this._entityOptions(["schedule"])}</datalist>
+        <datalist id="m-cond-list">${this._entityOptions(["input_boolean","binary_sensor","person","device_tracker"])}</datalist>
+        <div id="m-ha-sched-list"></div>
+        <button class="btn btn-secondary" id="m-add-ha-sched" style="font-size:12px;margin-top:6px">+ Zeitplan hinzufügen</button>
+      </div>
+
+      <div class="modal-section">
         <div class="modal-section-title">Schnell-Boost</div>
         <div class="form-row">
           <input type="number" class="form-input" id="m-boost-dur" value="60" min="5" max="480" step="5"> min
@@ -2280,6 +2312,7 @@ class IHCPanel extends HTMLElement {
       const mode    = modal.querySelector("#m-mode").value;
       const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
       const windows = [...modal.querySelectorAll("#window-list input")].map(i => i.value.trim()).filter(Boolean);
+      const ha_schedules = this._collectHaScheduleRows(modal);
       await this._callService("set_room_mode", { id: roomId, mode });
       await this._callService("update_room", {
         id: roomId,
@@ -2297,6 +2330,7 @@ class IHCPanel extends HTMLElement {
         weight:         parseFloat(modal.querySelector("#m-weight").value),
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
+        ha_schedules,
       });
       this._closeModal();
       this._toast(`✓ ${room.name} gespeichert`);
@@ -2316,6 +2350,7 @@ class IHCPanel extends HTMLElement {
     }, 50);
 
     this._bindEntityListAdders();
+    this._bindHaSchedAdder(room.ha_schedules || [], "m-ha-sched-list", "m-add-ha-sched");
   }
 
   _showConfirmModal(title, body, onConfirm) {
@@ -2385,6 +2420,60 @@ class IHCPanel extends HTMLElement {
         }
       });
     }, 30);
+  }
+
+  // ── HA Schedule row helpers ─────────────────────────────────────────────
+
+  /** Renders a single HA schedule row and returns its element. */
+  _makeHaSchedRow(entry = {}) {
+    const row = document.createElement("div");
+    row.className = "ha-sched-row";
+    row.style.cssText = "display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:6px;align-items:center;margin-bottom:6px";
+    row.innerHTML = `
+      <input type="text" class="form-input hs-entity" placeholder="schedule.zimmer"
+        list="m-schedule-list" autocomplete="off" value="${entry.entity || ''}">
+      <select class="form-select hs-mode" style="min-width:90px">
+        <option value="comfort" ${(entry.mode||'comfort')==='comfort'?'selected':''}>Komfort</option>
+        <option value="eco"     ${entry.mode==='eco'    ?'selected':''}>Eco</option>
+        <option value="sleep"   ${entry.mode==='sleep'  ?'selected':''}>Schlaf</option>
+        <option value="away"    ${entry.mode==='away'   ?'selected':''}>Abwesend</option>
+      </select>
+      <input type="text" class="form-input hs-cond" placeholder="Bedingung (optional)"
+        list="m-cond-list" autocomplete="off" value="${entry.condition_entity || ''}">
+      <input type="text" class="form-input hs-cond-state" placeholder="Zustand"
+        style="width:70px" value="${entry.condition_state || 'on'}">
+      <button class="btn btn-danger btn-icon hs-remove" title="Entfernen">✕</button>`;
+    row.querySelector(".hs-remove").addEventListener("click", () => row.remove());
+    return row;
+  }
+
+  /** Attaches the "add" button for HA schedule rows. Call after modal renders. */
+  _bindHaSchedAdder(existingEntries, listId, addBtnId) {
+    setTimeout(() => {
+      const list = this.shadowRoot.querySelector(`#${listId}`);
+      if (!list) return;
+      // Render pre-existing entries
+      existingEntries.forEach(entry => list.appendChild(this._makeHaSchedRow(entry)));
+      const btn = this.shadowRoot.querySelector(`#${addBtnId}`);
+      if (btn) btn.addEventListener("click", () => list.appendChild(this._makeHaSchedRow()));
+    }, 50);
+  }
+
+  /** Collects HA schedule rows from a modal container into an array. */
+  _collectHaScheduleRows(modal) {
+    return [...modal.querySelectorAll(".ha-sched-row")]
+      .map(row => {
+        const entity = row.querySelector(".hs-entity").value.trim();
+        if (!entity) return null;
+        const entry = { entity, mode: row.querySelector(".hs-mode").value };
+        const cond = row.querySelector(".hs-cond").value.trim();
+        if (cond) {
+          entry.condition_entity = cond;
+          entry.condition_state  = row.querySelector(".hs-cond-state").value.trim() || "on";
+        }
+        return entry;
+      })
+      .filter(Boolean);
   }
 
   // ── Service Calls ──────────────────────────────────────────────────────────
