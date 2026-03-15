@@ -169,6 +169,8 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         # Roadmap 1.1 – Temperature history per room (deque of (ts_iso, temp) tuples)
         self._temp_history: Dict[str, deque] = {}
+        # Track when history was last persisted (save at most once per hour)
+        self._history_last_saved: Optional[datetime] = None
 
         # Roadmap 1.1 – Warmup tracking (for predictive pre-heating)
         self._warmup_start: Dict[str, Optional[datetime]] = {}    # room_id → when heat request started
@@ -213,13 +215,16 @@ class IHCCoordinator(DataUpdateCoordinator):
         )
 
     async def async_load_runtime_state(self) -> None:
-        """Load persisted runtime state (system_mode, room_modes, manual temps) from Store."""
+        """Load persisted runtime state (system_mode, room_modes, manual temps, history) from Store."""
         data = await self._store.async_load()
         if not data:
             return
         self._system_mode = data.get("system_mode", SYSTEM_MODE_AUTO)
         self._room_modes = data.get("room_modes", {})
         self._room_manual_temps = data.get("room_manual_temps", {})
+        # Restore temperature history (Roadmap 1.1 – persisted across restarts)
+        for room_id, entries in data.get("temp_history", {}).items():
+            self._temp_history[room_id] = deque(entries, maxlen=CONF_TEMP_HISTORY_SIZE)
 
     async def _async_save_runtime_state(self) -> None:
         """Persist current runtime state to Store."""
@@ -227,6 +232,8 @@ class IHCCoordinator(DataUpdateCoordinator):
             "system_mode": self._system_mode,
             "room_modes": self._room_modes,
             "room_manual_temps": self._room_manual_temps,
+            # Persist temperature history so sparklines survive HA restarts
+            "temp_history": {rid: list(hist) for rid, hist in self._temp_history.items()},
         })
 
     def get_config(self) -> dict:
@@ -413,6 +420,13 @@ class IHCCoordinator(DataUpdateCoordinator):
             if len(history) > 10:
                 history.pop(0)
             self._warmup_start[room_id] = None
+
+    def get_next_schedule_period(self, room_id: str) -> Optional[dict]:
+        """Return the next scheduled period for a room (for informational display)."""
+        mgr = self._schedule_managers.get(room_id)
+        if mgr is None:
+            return None
+        return mgr.get_next_period()
 
     def get_avg_warmup_minutes(self, room_id: str) -> Optional[float]:
         """Average warmup duration in minutes for predictive pre-heating."""
@@ -856,6 +870,12 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Presence-based auto-away
         self._update_presence_auto_away()
 
+        # Persist temperature history once per hour (survives HA restarts)
+        now = datetime.now()
+        if self._history_last_saved is None or (now - self._history_last_saved).total_seconds() >= 3600:
+            self._history_last_saved = now
+            self.hass.async_create_task(self._async_save_runtime_state())
+
         outdoor_temp = self._get_outdoor_temp()
         curve_target = (
             self._heating_curve.get_target_temp(outdoor_temp)
@@ -924,6 +944,7 @@ class IHCCoordinator(DataUpdateCoordinator):
                 "boost_remaining": self.get_boost_remaining_minutes(room_id),
                 "temp_history": self.get_temp_history(room_id),     # Roadmap 1.1
                 "avg_warmup_minutes": self.get_avg_warmup_minutes(room_id),
+                "next_period": self.get_next_schedule_period(room_id),  # Roadmap 1.1
                 # Ensure night_setback is always present (meta may omit it for mode overrides)
                 "night_setback": 0.0,
                 **meta,

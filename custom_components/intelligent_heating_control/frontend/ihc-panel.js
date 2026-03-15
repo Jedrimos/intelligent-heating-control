@@ -465,6 +465,7 @@ class IHCPanel extends HTMLElement {
         deadband: state.attributes.deadband ?? 0.5,
         weight: state.attributes.weight ?? 1.0,
         schedules: state.attributes.schedules || [],
+        next_period: state.attributes.next_period || null,
       };
     });
     // Enrich from demand sensors
@@ -628,6 +629,7 @@ class IHCPanel extends HTMLElement {
             <span class="mode-chip boost" data-room-id="${room.room_id}" data-action="boost"
               title="60min Boost">⚡</span>
           </div>
+          ${room.next_period && !room.schedule_active ? `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:4px">📅 Nächster Zeitplan: ${room.next_period.start}–${room.next_period.end} · ${room.next_period.temperature}°C</div>` : ""}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
             ${room.runtime_today_minutes > 0 ? `<span style="font-size:10px;color:var(--secondary-text-color)">⏱ ${room.runtime_today_minutes} min</span>` : "<span></span>"}
             ${room.avg_warmup_minutes ? `<span style="font-size:10px;color:var(--secondary-text-color)" title="Ø Aufheizzeit">🌡️ ${room.avg_warmup_minutes} min</span>` : ""}

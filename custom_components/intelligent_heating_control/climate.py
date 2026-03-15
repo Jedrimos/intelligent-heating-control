@@ -168,6 +168,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "deadband": room_cfg.get("deadband", 0.5),
             "weight": room_cfg.get("weight", 1.0),
             "schedules": room_cfg.get("schedules", []),
+            "next_period": d.get("next_period"),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
