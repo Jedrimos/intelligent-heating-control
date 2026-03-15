@@ -45,37 +45,36 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ---
 
-## Version 1.3 – Intelligentere Regelung
+## ✅ Bereits umgesetzt (v1.3 + v1.4 + v1.5)
 
-### Adaptive Heizkurve (Auto-Learning)
-- Die Heizkurve lernt automatisch aus vergangenen Daten
-- Wenn ein Zimmer trotz Kurventemperatur zu kalt/warm ist, wird die Kurve leicht angepasst
-- Konfigurierbare Lernrate (aggressiv / konservativ) und maximale Abweichung
-- Protokoll der Kurvenanpassungen mit Zeitstempel
+### Einschränkungen behoben
+- [x] **Warmup-History persistiert**: Aufheizzeiten überleben HA-Neustarts (Store)
+- [x] **Heizkurven-Editor**: Config-Flow unterstützt jetzt bis zu 15 Stützpunkte (war: 7)
+- [x] **Kühlmodus fertiggestellt**: `SYSTEM_MODE_COOL` gibt konfigurierbare Kühl-Zieltemperatur zurück
+- [x] **Vorlauftemperatur PID-Regler**: Neues `flow_temp_pid.py` – wenn Sensor vorhanden, echte Rückkopplungsregelung statt linearem Modell
+- [x] **Temperaturhistorie**: 7-Tage-Speicherung mit stündlichen Snapshots (ISO-Timestamps), persistent im Store
 
-### Predictive Pre-Heating (Vorausschauendes Vorheizen)
-- Analysiert historische Aufheizzeiten pro Zimmer
-- Berechnet automatisch den idealen Start-Zeitpunkt damit die Zieltemperatur exakt zum Zeitplan erreicht wird
-- Beispiel: *„Wohnzimmer braucht bei -5°C im Schnitt 48 min → Heizung um 16:12 starten für 17:00 Ziel"*
-- Integration mit HA Weather-Forecast für morgen-basierte Planung
+### v1.3 – Intelligentere Regelung
+- [x] **Adaptive Heizkurve**: Lernt täglich aus Aufheizzeiten (±0.5°C/Tag, max. ±3°C, konfigurierbar), persistiert im Store
+- [x] **Predictive Pre-Heating**: Nutzt historische Aufheizzeiten (`avg_warmup × 1.1`) statt fixer Vorheizdauer – adaptiv und raumspezifisch
+- [x] **Wettervorhersage 3 Tage**: Übersicht zeigt nächste 3 Tage mit Min/Max/Icon im Hero-Bereich
+- [x] **Tibber/Nordpool Demand-Response**: Stündliche Preisliste (`today_prices`-Attribut) – günstige Stunden → Boost, teure Stunden → Eco (nicht nur Schwellenwert)
 
-### Wettervorhersage-Integration (erweitert)
-- Mehrere Tage Vorhersage-Tiefe (bereits: aktueller Tag)
-- Tagesplanung: „Morgen wird es -8°C – Zeitpläne entsprechend anpassen"
-- Vorhersage-Graph im Übersicht-Tab
+### v1.4 – Präsenz & Personensteuerung
+- [x] **ETA-basiertes Vorheizen**: Liest `estimated_arrival_time`-Attribut von `person.*`/`device_tracker.*`, heizt wenn ETA ≤ 90 min; Banner im Übersicht-Tab
+- [x] **Zimmer-Anwesenheit UI**: Edit-Modal hat neues Feld für `room_presence_entities` (kommagetrennt)
+- [x] **Kalender-Urlaubserkennung**: `vacation_calendar` + Keyword → auto. Urlaubs-Start/Ende aus HA-Kalender (1× täglich)
 
-### Temperaturverlauf-Analyse
-- Erweiterte Speicherung der letzten 7 Tage pro Zimmer (stündliche Snapshots)
-- Anomalie-Erkennung: plötzliche Abkühlung trotz laufender Heizung → Alarm
-- Mini-Sparkline-Graphen im Übersicht-Tab (bereits teilweise implementiert)
-- Tagesvergleich: „Heute vs. gestern – Abweichungen"
+### v1.5 – Energieoptimierung
+- [x] **Long-Term Statistics**: `IHCEnergyTodaySensor` (TOTAL_INCREASING + ENERGY) → HA erstellt automatisch LTS; neue Sensoren `IHCEnergyYesterdaySensor` und `IHCHeatingRuntimeYesterdaySensor`
+- [x] **Smart Meter Integration**: `smart_meter_entity` – liest echten Verbrauch aus `sensor.*` mit kWh (TOTAL_INCREASING), Delta seit Mitternacht
+- [x] **PID Vorlauftemperatur**: `flow_temp_sensor` als Rückmessquelle, `pid_kp/ki/kd` konfigurierbar im Panel
 
 ---
 
-## Version 1.4 – Präsenz & Personensteuerung
+## Version 1.6 – Erweiterte Raumsteuerung (nächste Priorität)
 
-### Verbesserte Anwesenheitserkennung
-- **ETA-basiertes Vorheizen**: Wenn Person X nach Hause fährt (Google Maps ETA via HA) → Heizung X Minuten vor Ankunft starten
+### Verbesserte Anwesenheitserkennung (Rest)
 - **Multi-Zonen-Anwesenheit**: Verschiedene Heimzonen (Hauptwohnsitz, Wochenendhaus)
 
 ### Zimmer-spezifische Anwesenheit

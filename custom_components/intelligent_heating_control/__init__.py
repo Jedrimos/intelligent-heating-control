@@ -266,10 +266,21 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # Roadmap 1.3 – Energy
             "boiler_kw", "solar_entity", "solar_surplus_threshold", "solar_boost_temp",
             "energy_price_entity", "energy_price_threshold", "energy_price_eco_offset",
-            # Roadmap 1.4 – Flow temp
-            "flow_temp_entity",
-            # Roadmap 1.2 – Vacation assistant
+            # Flow temp + PID feedback sensor
+            "flow_temp_entity", "flow_temp_sensor",
+            "pid_kp", "pid_ki", "pid_kd",
+            # Vacation assistant + calendar integration
             "vacation_start", "vacation_end",
+            "vacation_calendar", "vacation_calendar_keyword",
+            # v1.5 – Cooling target, smart meter, price forecast attribute
+            "cooling_target_temp",
+            "smart_meter_entity",
+            "price_forecast_attribute",
+            # v1.3 – Adaptive heating curve & predictive pre-heat
+            "adaptive_curve_enabled", "adaptive_curve_max_delta",
+            "adaptive_preheat_enabled",
+            # v1.4 – ETA-based pre-heat
+            "eta_preheat_enabled",
             # Roadmap 2.0
             "controller_mode", "guest_duration_hours",
             "vacation_return_preheat_days",

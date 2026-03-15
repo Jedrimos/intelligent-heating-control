@@ -183,13 +183,50 @@ CONF_ENERGY_PRICE_ECO_OFFSET: Final = "energy_price_eco_offset" # °C reduction 
 CONF_TEMP_CALIBRATION: Final = "temp_calibration"               # per-room sensor offset (°C)
 CONF_ROOM_PRESENCE_ENTITIES: Final = "room_presence_entities"   # per-room presence list
 CONF_FLOW_TEMP_ENTITY: Final = "flow_temp_entity"               # boiler flow-temp number entity
+CONF_FLOW_TEMP_SENSOR: Final = "flow_temp_sensor"               # sensor.* to read actual flow temp (PID feedback)
 
-# Roadmap 1.1 – Temperature history
-CONF_TEMP_HISTORY_SIZE: Final = 48                              # keep last N readings per room
+# Roadmap 1.1 – Temperature history (7 days × 24 hours of hourly snapshots)
+CONF_TEMP_HISTORY_SIZE: Final = 168                             # 7 × 24 hourly readings per room
 
 # Roadmap 1.2 – Vacation assistant (date range for automatic vacation mode)
 CONF_VACATION_START: Final = "vacation_start"    # ISO date string "YYYY-MM-DD"
 CONF_VACATION_END: Final = "vacation_end"        # ISO date string "YYYY-MM-DD" (inclusive)
+CONF_VACATION_CALENDAR: Final = "vacation_calendar"         # calendar.* entity to auto-detect vacation
+CONF_VACATION_CALENDAR_KEYWORD: Final = "vacation_calendar_keyword"  # keyword to match in event summary
+DEFAULT_VACATION_CALENDAR_KEYWORD: Final = "urlaub"
+
+# v1.3 – Adaptive heating curve
+CONF_ADAPTIVE_CURVE_ENABLED: Final = "adaptive_curve_enabled"
+CONF_ADAPTIVE_CURVE_MAX_DELTA: Final = "adaptive_curve_max_delta"   # max total °C shift allowed
+DEFAULT_ADAPTIVE_CURVE_ENABLED: Final = False
+DEFAULT_ADAPTIVE_CURVE_MAX_DELTA: Final = 3.0
+
+# v1.3 – Predictive pre-heating (uses warmup history when available)
+CONF_ADAPTIVE_PREHEAT_ENABLED: Final = "adaptive_preheat_enabled"
+DEFAULT_ADAPTIVE_PREHEAT_ENABLED: Final = True
+
+# v1.4 – ETA-based pre-heating
+CONF_ETA_PREHEAT_ENABLED: Final = "eta_preheat_enabled"
+DEFAULT_ETA_PREHEAT_ENABLED: Final = False
+
+# v1.5 – Cooling mode target temperature
+CONF_COOLING_TARGET_TEMP: Final = "cooling_target_temp"
+DEFAULT_COOLING_TARGET_TEMP: Final = 24.0
+
+# v1.5 – PID flow temperature controller
+CONF_PID_KP: Final = "pid_kp"
+CONF_PID_KI: Final = "pid_ki"
+CONF_PID_KD: Final = "pid_kd"
+DEFAULT_PID_KP: Final = 2.0
+DEFAULT_PID_KI: Final = 0.1
+DEFAULT_PID_KD: Final = 0.5
+
+# v1.5 – Smart meter integration
+CONF_SMART_METER_ENTITY: Final = "smart_meter_entity"   # sensor.* with accumulated kWh (TOTAL_INCREASING)
+
+# v1.5 – Tibber / dynamic price forecast attribute
+CONF_PRICE_FORECAST_ATTRIBUTE: Final = "price_forecast_attribute"
+DEFAULT_PRICE_FORECAST_ATTRIBUTE: Final = "today_prices"
 
 # Defaults for new options
 DEFAULT_BOILER_KW: Final = 20.0
