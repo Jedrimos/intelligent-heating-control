@@ -194,6 +194,12 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "mold": d.get("mold"),
             # Presence
             "room_presence_active": d.get("room_presence_active"),
+            # Ventilation advice + CO2
+            "co2_sensor": room_cfg.get("co2_sensor", ""),
+            "co2_threshold_good": room_cfg.get("co2_threshold_good", 800),
+            "co2_threshold_bad": room_cfg.get("co2_threshold_bad", 1200),
+            "co2_ppm": d.get("co2_ppm"),
+            "ventilation": d.get("ventilation"),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:

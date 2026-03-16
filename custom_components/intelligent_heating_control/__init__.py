@@ -50,6 +50,11 @@ from .const import (
     CONF_HUMIDITY_SENSOR,
     CONF_MOLD_PROTECTION_ENABLED,
     DEFAULT_MOLD_PROTECTION_ENABLED,
+    CONF_CO2_SENSOR,
+    CONF_CO2_THRESHOLD_GOOD,
+    CONF_CO2_THRESHOLD_BAD,
+    DEFAULT_CO2_THRESHOLD_GOOD,
+    DEFAULT_CO2_THRESHOLD_BAD,
     CONF_RADIATOR_KW,
     CONF_HKV_SENSOR,
     CONF_HKV_FACTOR,
@@ -98,7 +103,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     cfg = dict(entry.data)
     cfg.update(entry.options)
     if cfg.get(CONF_SHOW_PANEL, True):
-        await _async_register_panel(hass)
+        try:
+            await _async_register_panel(hass)
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning(
+                "IHC: Panel registration failed – integration will still work, "
+                "but the custom panel may not appear in the sidebar.",
+                exc_info=True,
+            )
 
     # Register HA services (always fresh, so the current coordinator is used)
     _register_services(hass, coordinator, entry)
@@ -240,6 +252,9 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_HA_SCHEDULES: call.data.get(CONF_HA_SCHEDULES, []),
             CONF_HUMIDITY_SENSOR: call.data.get(CONF_HUMIDITY_SENSOR, ""),
             CONF_MOLD_PROTECTION_ENABLED: call.data.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED),
+            CONF_CO2_SENSOR: call.data.get(CONF_CO2_SENSOR, ""),
+            CONF_CO2_THRESHOLD_GOOD: int(call.data.get(CONF_CO2_THRESHOLD_GOOD, DEFAULT_CO2_THRESHOLD_GOOD)),
+            CONF_CO2_THRESHOLD_BAD: int(call.data.get(CONF_CO2_THRESHOLD_BAD, DEFAULT_CO2_THRESHOLD_BAD)),
             CONF_RADIATOR_KW: float(call.data.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW)),
             CONF_HKV_SENSOR: call.data.get(CONF_HKV_SENSOR, ""),
             CONF_HKV_FACTOR: float(call.data.get(CONF_HKV_FACTOR, DEFAULT_HKV_FACTOR)),

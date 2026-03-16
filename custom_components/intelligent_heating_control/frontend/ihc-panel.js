@@ -582,6 +582,10 @@ class IHCPanel extends HTMLElement {
           rooms[climateId].room_presence_active = state.attributes.room_presence_active;
         if (state.attributes.mold !== undefined)
           rooms[climateId].mold = state.attributes.mold;
+        if (state.attributes.ventilation !== undefined)
+          rooms[climateId].ventilation = state.attributes.ventilation;
+        if (state.attributes.co2_ppm !== undefined)
+          rooms[climateId].co2_ppm = state.attributes.co2_ppm;
       }
     });
     // Enrich runtime from runtime sensors

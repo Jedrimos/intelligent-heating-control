@@ -272,6 +272,8 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
                 "anomaly": room.get("anomaly"),                        # Roadmap 1.1
                 "room_presence_active": room.get("room_presence_active"),  # Roadmap 1.2
                 "mold": room.get("mold"),                                  # Roadmap 2.0
+                "ventilation": room.get("ventilation"),                    # Ventilation advice
+                "co2_ppm": room.get("co2_ppm"),
             }
         return {}
 

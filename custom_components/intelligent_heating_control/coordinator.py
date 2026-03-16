@@ -120,6 +120,8 @@ from .const import (
     SYSTEM_MODE_OFF,
     SYSTEM_MODE_AWAY,
     SYSTEM_MODE_VACATION,
+    SYSTEM_MODE_COOL,
+    SYSTEM_MODE_HEAT,
     # Roadmap 1.2 – Vacation assistant
     CONF_VACATION_START,
     CONF_VACATION_END,
@@ -2039,9 +2041,12 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Apply TRV setpoints and/or control heating switch
         frost_temp = self._get_frost_protection_temp()
         if controller_mode == CONTROLLER_MODE_TRV:
-            # TRV mode: control TRVs directly
-            # When heating should be active → send calculated target temps
-            # When not → send frost protection temp to close all TRVs
+            # TRV mode: each TRV self-regulates — always send the desired target temp.
+            # The TRV opens/closes its valve based on its own thermostat (current vs target).
+            # We do NOT suppress setpoints based on should_heat because:
+            #   - There is no central boiler in TRV mode
+            #   - TRVs decide themselves whether to heat
+            # Exception: room OFF or window open → send frost_temp to fully close the TRV.
             for room in self.get_rooms():
                 room_id = room.get(CONF_ROOM_ID, "")
                 if not room_id or room_id not in room_data:
@@ -2050,12 +2055,11 @@ class IHCCoordinator(DataUpdateCoordinator):
                 room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
                 window_open = rdata.get("window_open", False)
                 if window_open or room_mode == ROOM_MODE_OFF:
-                    continue
-                if should_heat:
-                    self._set_valve_entities(room, rdata["target_temp"])
-                else:
-                    # Close TRVs to frost protection to prevent over-heating
+                    # Fully close TRV
                     self._set_valve_entities(room, frost_temp)
+                else:
+                    # Always send the desired target – TRV decides whether to heat
+                    self._set_valve_entities(room, rdata["target_temp"])
             # TRV mode does NOT use a heating switch (no central boiler switch)
         else:
             # Switch mode: propagate setpoints to TRVs, control central heating switch
@@ -2116,7 +2120,7 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Ventilation advice – compute per room now that outdoor_temp is known
         try:
             outdoor_humidity = self._get_outdoor_humidity()
-            weather_condition = (weather_forecast[0]["condition"] if weather_forecast else None)
+            weather_condition = (weather_forecast["condition"] if weather_forecast else None)
             energy_price_high = price_eco_offset > 0  # positive offset = eco active = high price period
             for room in self.get_rooms():
                 room_id = room.get(CONF_ROOM_ID, "")
