@@ -1368,11 +1368,14 @@ class IHCPanel extends HTMLElement {
       </details>` : ""}
     `;
 
-    content.querySelector("#diag-set-system-mode").addEventListener("click", () => {
-      const mode = content.querySelector("#diag-system-mode-select").value;
-      this._callService("set_system_mode", { mode });
-      this._toast(`✓ Modus: ${SYSTEM_MODE_LABELS[mode] || mode}`);
-    });
+    const setSystemModeBtn = content.querySelector("#diag-set-system-mode");
+    if (setSystemModeBtn) {
+      setSystemModeBtn.addEventListener("click", () => {
+        const mode = content.querySelector("#diag-system-mode-select").value;
+        this._callService("set_system_mode", { mode });
+        this._toast(`✓ Modus: ${SYSTEM_MODE_LABELS[mode] || mode}`);
+      });
+    }
 
     const deactivateGuest = content.querySelector("#diag-deactivate-guest");
     if (deactivateGuest) {
@@ -1382,17 +1385,20 @@ class IHCPanel extends HTMLElement {
       });
     }
 
-    content.querySelector("#diag-reset-stats").addEventListener("click", () => {
-      this._showConfirmModal(
-        "Statistik zurücksetzen?",
-        "Laufzeit und Energiedaten für heute werden auf 0 gesetzt.",
-        async () => {
-          await this._callService("reset_stats", {});
-          this._toast("✓ Statistik zurückgesetzt");
-          setTimeout(() => this._renderTabContent(), 800);
-        }
-      );
-    });
+    const resetStatsBtn = content.querySelector("#diag-reset-stats");
+    if (resetStatsBtn) {
+      resetStatsBtn.addEventListener("click", () => {
+        this._showConfirmModal(
+          "Statistik zurücksetzen?",
+          "Laufzeit und Energiedaten für heute werden auf 0 gesetzt.",
+          async () => {
+            await this._callService("reset_stats", {});
+            this._toast("✓ Statistik zurückgesetzt");
+            setTimeout(() => this._renderTabContent(), 800);
+          }
+        );
+      });
+    }
   }
 
   // ── Einstellungen Tab ──────────────────────────────────────────────────────

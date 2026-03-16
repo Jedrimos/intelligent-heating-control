@@ -502,36 +502,35 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
         """Add a new room."""
         errors: dict = {}
         if user_input is not None:
-            if not errors:
-                single_valve = user_input.get(CONF_VALVE_ENTITY, "")
-                single_window = user_input.get(CONF_WINDOW_SENSOR, "")
-                new_room = {
-                    CONF_ROOM_ID: str(uuid.uuid4())[:8],
-                    CONF_ROOM_NAME: user_input[CONF_ROOM_NAME],
-                    CONF_TEMP_SENSOR: user_input.get(CONF_TEMP_SENSOR, ""),
-                    CONF_VALVE_ENTITY: single_valve,
-                    CONF_VALVE_ENTITIES: [single_valve] if single_valve else [],
-                    CONF_ROOM_OFFSET: float(user_input.get(CONF_ROOM_OFFSET, 0.0)),
-                    CONF_DEADBAND: float(user_input.get(CONF_DEADBAND, DEFAULT_DEADBAND)),
-                    CONF_WEIGHT: float(user_input.get(CONF_WEIGHT, DEFAULT_WEIGHT)),
-                    CONF_COMFORT_TEMP: float(user_input.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)),
-                    CONF_AWAY_TEMP_ROOM: float(user_input.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
-                    CONF_ECO_OFFSET: float(user_input.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET)),
-                    CONF_SLEEP_OFFSET: float(user_input.get(CONF_SLEEP_OFFSET, DEFAULT_SLEEP_OFFSET)),
-                    CONF_AWAY_OFFSET: float(user_input.get(CONF_AWAY_OFFSET, DEFAULT_AWAY_OFFSET)),
-                    CONF_ECO_MAX_TEMP: float(user_input.get(CONF_ECO_MAX_TEMP, DEFAULT_ECO_MAX_TEMP)),
-                    CONF_SLEEP_MAX_TEMP: float(user_input.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP)),
-                    CONF_AWAY_MAX_TEMP: float(user_input.get(CONF_AWAY_MAX_TEMP, DEFAULT_AWAY_MAX_TEMP)),
-                    CONF_WINDOW_SENSOR: single_window,
-                    CONF_WINDOW_SENSORS: [single_window] if single_window else [],
-                    CONF_MIN_TEMP: float(user_input.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)),
-                    CONF_MAX_TEMP: float(user_input.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
-                    CONF_SCHEDULES: [],
-                }
-                rooms = list(self._options.get(CONF_ROOMS, []))
-                rooms.append(new_room)
-                self._options[CONF_ROOMS] = rooms
-                return self.async_create_entry(title="", data=self._options)
+            single_valve = user_input.get(CONF_VALVE_ENTITY, "")
+            single_window = user_input.get(CONF_WINDOW_SENSOR, "")
+            new_room = {
+                CONF_ROOM_ID: str(uuid.uuid4())[:8],
+                CONF_ROOM_NAME: user_input[CONF_ROOM_NAME],
+                CONF_TEMP_SENSOR: user_input.get(CONF_TEMP_SENSOR, ""),
+                CONF_VALVE_ENTITY: single_valve,
+                CONF_VALVE_ENTITIES: [single_valve] if single_valve else [],
+                CONF_ROOM_OFFSET: float(user_input.get(CONF_ROOM_OFFSET, 0.0)),
+                CONF_DEADBAND: float(user_input.get(CONF_DEADBAND, DEFAULT_DEADBAND)),
+                CONF_WEIGHT: float(user_input.get(CONF_WEIGHT, DEFAULT_WEIGHT)),
+                CONF_COMFORT_TEMP: float(user_input.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)),
+                CONF_AWAY_TEMP_ROOM: float(user_input.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
+                CONF_ECO_OFFSET: float(user_input.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET)),
+                CONF_SLEEP_OFFSET: float(user_input.get(CONF_SLEEP_OFFSET, DEFAULT_SLEEP_OFFSET)),
+                CONF_AWAY_OFFSET: float(user_input.get(CONF_AWAY_OFFSET, DEFAULT_AWAY_OFFSET)),
+                CONF_ECO_MAX_TEMP: float(user_input.get(CONF_ECO_MAX_TEMP, DEFAULT_ECO_MAX_TEMP)),
+                CONF_SLEEP_MAX_TEMP: float(user_input.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP)),
+                CONF_AWAY_MAX_TEMP: float(user_input.get(CONF_AWAY_MAX_TEMP, DEFAULT_AWAY_MAX_TEMP)),
+                CONF_WINDOW_SENSOR: single_window,
+                CONF_WINDOW_SENSORS: [single_window] if single_window else [],
+                CONF_MIN_TEMP: float(user_input.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)),
+                CONF_MAX_TEMP: float(user_input.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
+                CONF_SCHEDULES: [],
+            }
+            rooms = list(self._options.get(CONF_ROOMS, []))
+            rooms.append(new_room)
+            self._options[CONF_ROOMS] = rooms
+            return self.async_create_entry(title="", data=self._options)
 
         schema = vol.Schema({
             vol.Required(CONF_ROOM_NAME): str,

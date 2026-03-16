@@ -2019,8 +2019,8 @@ class IHCCoordinator(DataUpdateCoordinator):
                 if next_period:
                     try:
                         next_str = f" bis {next_period.get('start', '')} Uhr"
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        _LOGGER.debug("IHC: Could not format next period for notification: %s", exc)
                 # Send HA notification
                 self.hass.async_create_task(
                     self.hass.services.async_call(
