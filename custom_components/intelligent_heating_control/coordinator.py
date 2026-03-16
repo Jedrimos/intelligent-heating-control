@@ -2617,7 +2617,9 @@ class IHCCoordinator(DataUpdateCoordinator):
                     "IHC: HA-Zeitplan '%s' hat keine config_entry_id – "
                     "via YAML definiert? Nur UI-Helfer werden unterstützt.", entity_id
                 )
-                return []
+                # Return a sentinel so the frontend can show an informative message
+                # instead of just "no blocks". Heating logic still works (entity state on/off).
+                return [{"_yaml_defined": True}]
             config_entry = self.hass.config_entries.async_get_entry(entry.config_entry_id)
             if not config_entry:
                 _LOGGER.warning(

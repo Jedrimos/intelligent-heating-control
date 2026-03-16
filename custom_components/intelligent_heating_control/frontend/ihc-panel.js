@@ -902,7 +902,14 @@ class IHCPanel extends HTMLElement {
           <div class="demand-bar-bg">
             <div class="demand-bar" style="width:${room.demand}%;background:${this._demandColor(room.demand)}"></div>
           </div>
-          <div class="demand-label">${room.demand} % · ${src}${room.night_setback > 0 ? ` · 🌙-${room.night_setback}°` : ""}${room.room_presence_active === false ? ` · 🚶 niemand da` : ""}</div>
+          <div class="demand-label">${room.demand} % · ${src}${room.night_setback > 0 ? ` · 🌙-${room.night_setback}°` : ""}${room.room_presence_active === false ? ` · 🚶 niemand da` : ""}${room.co2_ppm > 0 ? ` · CO₂ ${room.co2_ppm} ppm` : ""}</div>
+          ${(room.trv_raw_temp != null || (room.trv_avg_valve != null && room.trv_avg_valve > 0) || room.trv_humidity != null) ? `
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0">
+            ${room.trv_raw_temp != null ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#fff3e0;color:#e65100" title="TRV-Rohtemperatur (vor Blending)">🌡️ TRV ${parseFloat(room.trv_raw_temp).toFixed(1)}°C</span>` : ""}
+            ${room.trv_avg_valve != null && room.trv_avg_valve > 0 ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#e3f2fd;color:#1565c0" title="Durchschnittliche Ventilöffnung aller TRVs">🔧 ${Math.round(room.trv_avg_valve)}%</span>` : ""}
+            ${room.trv_humidity != null ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#e8f5e9;color:#2e7d32" title="Luftfeuchtigkeit vom TRV-Sensor">💧 ${Math.round(room.trv_humidity)}%</span>` : ""}
+            ${room.trv_any_heating ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#fce4ec;color:#c62828" title="Mindestens ein TRV heizt aktiv">🔥 aktiv</span>` : ""}
+          </div>` : ""}
           <div class="room-mode-row">
             <select class="mode-select active-${room.room_mode || 'auto'}" data-room-id="${room.room_id}">
               ${modeOptions}
@@ -1411,10 +1418,18 @@ class IHCPanel extends HTMLElement {
     const ihcGrid  = buildGrid(room.schedules || []);
     const haBlocks = room.ha_schedule_blocks || {};
     const haSchedsCfg = room.ha_schedules || [];
-    const haGrids = Object.entries(haBlocks).map(([eid, blocks]) => {
-      const cfg = haSchedsCfg.find(s => s.entity === eid) || {};
-      return { entityId: eid, mode: cfg.mode || "comfort", grid: buildGrid(blocks, true) };
-    });
+    // Detect YAML-defined schedules (sentinel returned by coordinator when no config_entry_id)
+    const yamlEntityIds = new Set(
+      Object.entries(haBlocks)
+        .filter(([, blocks]) => Array.isArray(blocks) && blocks.some(b => b._yaml_defined))
+        .map(([eid]) => eid)
+    );
+    const haGrids = Object.entries(haBlocks)
+      .filter(([eid]) => !yamlEntityIds.has(eid))
+      .map(([eid, blocks]) => {
+        const cfg = haSchedsCfg.find(s => s.entity === eid) || {};
+        return { entityId: eid, mode: cfg.mode || "comfort", grid: buildGrid(blocks, true) };
+      });
 
     const cols = HOURS.map((_, h) =>
       `<div style="font-size:9px;text-align:center;color:var(--secondary-text-color);width:${100/24}%;min-width:0">${h % 3 === 0 ? h + "h" : ""}</div>`
@@ -1442,7 +1457,7 @@ class IHCPanel extends HTMLElement {
         <div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--secondary-text-color)">🏠 Verknüpfte HA-Zeitpläne</div>
         ${haGrids.map(hg => {
           const s = HA_MODE_STYLE[hg.mode] || HA_MODE_STYLE.comfort;
-          const cnt = haBlocks[hg.entityId]?.length ?? 0;
+          const cnt = haBlocks[hg.entityId]?.filter(b => !b._yaml_defined).length ?? 0;
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
             <div style="width:14px;height:14px;border-radius:3px;background:${s.color};border:1px solid rgba(0,0,0,0.15)"></div>
             <span style="font-size:11px;font-weight:600">${hg.entityId}</span>
@@ -1455,16 +1470,27 @@ class IHCPanel extends HTMLElement {
         }).join("")}
       </div>` : "";
 
+    // YAML-defined schedules banner
+    const yamlBanner = yamlEntityIds.size > 0 ? `
+      <div style="margin-top:8px;padding:8px 12px;background:#fff8e1;border:1px solid #f9a825;border-radius:8px;font-size:11px;line-height:1.5">
+        <strong>ℹ️ YAML-Zeitpläne erkannt:</strong>
+        ${[...yamlEntityIds].map(eid => `<code>${eid}</code>`).join(", ")}<br>
+        Diese Zeitpläne wurden via <strong>YAML</strong> angelegt. Die Wochenansicht ist nur für Zeitpläne verfügbar die
+        im HA-UI erstellt wurden (Einstellungen → Helfer → Zeitplan).
+        Die <strong>Heizfunktion</strong> arbeitet trotzdem korrekt – nur die visuelle Übersicht fehlt.<br>
+        <em>Lösung: Zeitplan im HA-UI neu erstellen und den YAML-Eintrag entfernen.</em>
+      </div>` : "";
+
     // Show hint if no HA schedule blocks loaded but ha_schedules are configured
     const haSchedsConfigured = haSchedsCfg.length > 0;
-    const haBlocksEmpty = haGrids.length === 0;
+    const haBlocksEmpty = haGrids.length === 0 && yamlEntityIds.size === 0;
     const haNoBlocksHint = haSchedsConfigured && haBlocksEmpty
       ? `<div style="font-size:11px;color:#e65100;margin-top:6px;padding:6px 8px;background:color-mix(in srgb,#e65100 10%,transparent);border-radius:6px">
           ⚠️ HA-Zeitpläne konfiguriert, aber keine Blöcke lesbar.
-          Stelle sicher, dass die Entitäten existieren und als UI-Helfer (nicht YAML) angelegt wurden.
+          Stelle sicher, dass die Entitäten existieren und als UI-Helfer (nicht YAML) im HA angelegt wurden.
          </div>` : "";
 
-    const noHint = (room.schedules?.length || 0) === 0 && haGrids.length === 0 && !haSchedsConfigured
+    const noHint = (room.schedules?.length || 0) === 0 && haGrids.length === 0 && yamlEntityIds.size === 0 && !haSchedsConfigured
       ? `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:8px">
           Kein Zeitplan — wechsle zum Tab <strong>📅 Zeitplan</strong> um einen zu erstellen.
          </div>` : "";
@@ -1482,6 +1508,7 @@ class IHCPanel extends HTMLElement {
           <span>Warm</span>
         </div>
         ${haLegend}
+        ${yamlBanner}
         ${haNoBlocksHint}
         ${noHint}
       </div>`;
@@ -1545,6 +1572,12 @@ class IHCPanel extends HTMLElement {
 
     // Room status table
     const fmtT = v => (v != null && !isNaN(v)) ? parseFloat(v).toFixed(1) + " °C" : "—";
+    // Check if any room has TRV or humidity data → show extra columns
+    const hasTrvData = roomList.some(r => r.trv_raw_temp != null || (r.trv_avg_valve != null && r.trv_avg_valve > 0));
+    const hasHumidity = roomList.some(r => r.trv_humidity != null || (r.mold && r.mold.humidity != null));
+    const hasCo2 = roomList.some(r => r.co2_ppm > 0);
+    const hasRuntime = roomList.some(r => r.runtime_today_minutes > 0);
+
     const roomRows = roomList.map(r => {
       const demColor = this._demandColor(r.demand);
       const modeLabel = MODE_ICONS[r.room_mode] + " " + (MODE_LABELS[r.room_mode] || r.room_mode);
@@ -1555,20 +1588,45 @@ class IHCPanel extends HTMLElement {
       else if (r.room_mode === "sleep")   effTemp = r.sleep_temp_eff;
       else if (r.room_mode === "away")    effTemp = r.away_temp_eff;
       const effHtml = effTemp != null ? `<span style="font-size:10px;color:var(--secondary-text-color);margin-left:2px">(→${parseFloat(effTemp).toFixed(1)})</span>` : "";
+
+      // Humidity from TRV or mold data
+      const humidity = r.trv_humidity != null ? r.trv_humidity : (r.mold?.humidity ?? null);
+      const moldRisk = r.mold && r.mold.risk;
+
+      // Status cell: window, boost, anomaly, mold, CO2
+      const statusParts = [];
+      if (r.window_open)        statusParts.push("🪟 Fenster");
+      if (r.boost_remaining > 0) statusParts.push(`⚡ Boost ${r.boost_remaining}min`);
+      if (r.anomaly === "sensor_stuck") statusParts.push("⚠️ Sensor hängt");
+      if (r.anomaly === "temp_drop")    statusParts.push("⚠️ Temp-Abfall");
+      if (moldRisk)             statusParts.push(`💧 Schimmel!`);
+      if (r.ventilation?.level === "urgent") statusParts.push("🪟❗ Lüften");
+
       return `<tr>
-        <td style="font-weight:500">${r.name}</td>
-        <td>${r.current_temp != null ? r.current_temp + " °C" : "—"}</td>
-        <td>${r.target_temp != null ? r.target_temp + " °C" : "—"}${effHtml}</td>
-        <td>
+        <td style="font-weight:500;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${r.name}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">
+          <div style="font-size:13px">${r.current_temp != null ? r.current_temp + " °C" : "—"}</div>
+          ${r.trv_raw_temp != null && hasTrvData ? `<div style="font-size:10px;color:#e65100;margin-top:1px" title="TRV-Rohtemperatur">TRV: ${parseFloat(r.trv_raw_temp).toFixed(1)}°</div>` : ""}
+        </td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">${r.target_temp != null ? r.target_temp + " °C" : "—"}${effHtml}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">
           <div style="display:flex;align-items:center;gap:6px">
             <div style="width:40px;height:7px;border-radius:4px;background:var(--divider-color)">
               <div style="width:${Math.min(r.demand,100)}%;height:100%;border-radius:4px;background:${demColor}"></div>
             </div>
             <span style="font-size:12px;color:${demColor};font-weight:600">${r.demand}%</span>
           </div>
+          ${r.trv_avg_valve > 0 && hasTrvData ? `<div style="font-size:10px;color:#1565c0;margin-top:2px" title="Durchschn. Ventilöffnung">Ventil: ${Math.round(r.trv_avg_valve)}%</div>` : ""}
         </td>
-        <td style="font-size:12px">${modeLabel}</td>
-        <td style="font-size:12px;color:var(--secondary-text-color)">${r.window_open ? "🪟 offen" : r.boost_remaining > 0 ? `⚡ Boost ${r.boost_remaining}min` : ""}</td>
+        ${hasHumidity ? `<td style="padding:6px 8px;border-bottom:1px solid var(--divider-color);font-size:12px">
+          ${humidity != null ? `<span style="${moldRisk ? "color:#c62828;font-weight:600" : "color:var(--secondary-text-color)"}" title="${moldRisk ? "⚠️ Schimmelrisiko!" : "Luftfeuchtigkeit"}">💧 ${Math.round(humidity)}%</span>` : "—"}
+        </td>` : ""}
+        ${hasCo2 ? `<td style="padding:6px 8px;border-bottom:1px solid var(--divider-color);font-size:12px">
+          ${r.co2_ppm > 0 ? `<span style="color:${r.co2_ppm > (r.co2_threshold_bad || 1200) ? "#c62828" : r.co2_ppm > (r.co2_threshold_good || 800) ? "#fb8c00" : "#43a047"}" title="CO₂-Konzentration">🌬️ ${r.co2_ppm}</span>` : "—"}
+        </td>` : ""}
+        <td style="font-size:12px;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${modeLabel}</td>
+        <td style="font-size:12px;padding:6px 8px;border-bottom:1px solid var(--divider-color);color:var(--secondary-text-color)">${statusParts.length ? statusParts.join(" · ") : ""}</td>
+        ${hasRuntime ? `<td style="font-size:11px;padding:6px 8px;border-bottom:1px solid var(--divider-color);color:var(--secondary-text-color)">${r.runtime_today_minutes > 0 ? `⏱ ${r.runtime_today_minutes} min` : ""}</td>` : ""}
       </tr>`;
     }).join("");
 
@@ -1705,12 +1763,15 @@ class IHCPanel extends HTMLElement {
           <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
               <tr style="color:var(--secondary-text-color);font-size:11px;text-transform:uppercase">
-                <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--divider-color)">Zimmer</th>
-                <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--divider-color)">Ist</th>
-                <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--divider-color)">Soll</th>
-                <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--divider-color)">Anforderung</th>
-                <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--divider-color)">Modus</th>
-                <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--divider-color)">Status</th>
+                <th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--divider-color)">Zimmer</th>
+                <th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--divider-color)">Ist °C</th>
+                <th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--divider-color)">Soll °C</th>
+                <th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--divider-color)">Anforderung</th>
+                ${hasHumidity ? `<th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--divider-color)">Feuchte</th>` : ""}
+                ${hasCo2 ? `<th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--divider-color)">CO₂ ppm</th>` : ""}
+                <th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--divider-color)">Modus</th>
+                <th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--divider-color)">Status</th>
+                ${hasRuntime ? `<th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--divider-color)">Laufzeit</th>` : ""}
               </tr>
             </thead>
             <tbody>
@@ -1781,8 +1842,8 @@ class IHCPanel extends HTMLElement {
                 <option value="trv" ${(a.controller_mode || "switch") === "trv" ? "selected" : ""}>🌡️ TRV-Modus (Thermostate direkt steuern)</option>
               </select>
               <span class="form-hint">
-                <strong>Heizungsschalter:</strong> IHC schaltet einen zentralen Kessel-Schalter.<br>
-                <strong>TRV-Modus:</strong> IHC schließt Thermostat-Ventile wenn kein Bedarf – kein Kesselschalter nötig.
+                <strong>🔌 Heizungsschalter:</strong> IHC schaltet einen zentralen Kessel-Schalter (z.B. <code>switch.heizung</code>). Geeignet für Gas/Öl-Heizungen mit einem Hauptschalter.<br>
+                <strong>🌡️ TRV-Modus:</strong> IHC öffnet/schließt smarte Thermostatventile (z.B. Homematic, Zigbee TRVs) direkt – kein separater Kesselschalter nötig.
               </span>
             </div>
             <div class="settings-item">
@@ -1790,33 +1851,33 @@ class IHCPanel extends HTMLElement {
               <input type="text" class="form-input" id="outdoor-sensor"
                 placeholder="sensor.aussensensor"
                 value="${a.outdoor_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
-              <span class="form-hint">Für Heizkurve und Sommerautomatik</span>
+              <span class="form-hint">Wird für die Heizkurve, Sommerautomatik und Kältewarnung benötigt. Empfohlen: Wetterdienst-Sensor oder externer Temperaturfühler.</span>
             </div>
             <div class="settings-item">
               <label>Heizungsschalter</label>
               <input type="text" class="form-input" id="heating-switch"
                 placeholder="switch.heizung (leer = deaktiviert)"
                 value="${a.heating_switch ?? ''}" data-ep-domains="switch,input_boolean" autocomplete="off">
-              <span class="form-hint">Nur im Heizungsschalter-Modus benötigt</span>
+              <span class="form-hint">Nur im <strong>Heizungsschalter-Modus</strong> nötig. IHC schaltet diesen EIN/AUS sobald Heizleistung benötigt wird.</span>
             </div>
             <div class="settings-item">
-              <label>Wettervorhersage</label>
+              <label>Wettervorhersage-Entität</label>
               <input type="text" class="form-input" id="weather-entity"
                 placeholder="weather.home (leer = aus)"
                 value="${a.weather_entity ?? ''}" data-ep-domains="weather" autocomplete="off">
-              <span class="form-hint">Für Kältewarnung &amp; Vorschau im Dashboard</span>
+              <span class="form-hint">Wetter-Entität aus HA (z.B. <code>weather.home</code>). Aktiviert Kältewarnung-Banners und 3-Tage-Vorschau im Dashboard.</span>
             </div>
             <div class="settings-item">
               <label>Kältewarnung ab (°C)</label>
               <input type="number" class="form-input" id="weather-cold-threshold"
                 step="0.5" value="${a.weather_cold_threshold ?? 0}">
-              <span class="form-hint">Tiefsttemperatur-Schwelle für Kältewarnung</span>
+              <span class="form-hint">Banner erscheint wenn die vorhergesagte Tiefsttemperatur diesen Wert unterschreitet (0 = deaktiviert).</span>
             </div>
             <div class="settings-item">
               <label>Kälteboost (°C)</label>
               <input type="number" class="form-input" id="weather-cold-boost"
                 step="0.5" min="0" max="5" value="${a.weather_cold_boost ?? 0}">
-              <span class="form-hint">°C-Anhebung aller Zimmer bei Kältewarnung (0 = aus)</span>
+              <span class="form-hint">Bei Kältewarnung werden alle Zimmer um diesen Wert zusätzlich aufgeheizt (0 = kein Boost).</span>
             </div>
             <div class="settings-item">
               <label>Kühlung aktivieren</label>
@@ -1824,12 +1885,14 @@ class IHCPanel extends HTMLElement {
                 <option value="false" ${!a.enable_cooling ? "selected" : ""}>Deaktiviert</option>
                 <option value="true" ${a.enable_cooling ? "selected" : ""}>Aktiviert</option>
               </select>
+              <span class="form-hint">Aktiviert Kühl-Modus im System. Erfordert einen separaten Kühlschalter (z.B. Klimaanlage).</span>
             </div>
             <div class="settings-item" id="cooling-switch-item" style="${a.enable_cooling ? "" : "opacity:0.5"}">
               <label>Kühlschalter</label>
               <input type="text" class="form-input" id="cooling-switch"
                 placeholder="switch.klimaanlage"
                 value="${a.cooling_switch ?? ''}" data-ep-domains="switch,input_boolean" autocomplete="off">
+              <span class="form-hint">Wird eingeschaltet wenn Kühlung aktiv ist.</span>
             </div>
           </div>
           <div class="btn-row">
@@ -1850,15 +1913,17 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Abwesend-Temperatur (°C)</label>
               <input type="number" class="form-input" id="away-temp" min="5" max="25" step="0.5" value="${a.away_temp ?? 16}">
+              <span class="form-hint">Globale Mindesttemperatur wenn niemand zuhause ist (Anwesenheitserkennung aktiv oder Systemmodus = Abwesend).</span>
             </div>
             <div class="settings-item">
               <label>Urlaubs-Temperatur (°C)</label>
               <input type="number" class="form-input" id="vacation-temp" min="5" max="20" step="0.5" value="${a.vacation_temp ?? 14}">
+              <span class="form-hint">Niedrige Grundtemperatur für den Urlaubs-Modus – spart Energie und verhindert trotzdem Frostschäden.</span>
             </div>
             <div class="settings-item">
               <label>Frostschutz-Temperatur (°C)</label>
               <input type="number" class="form-input" id="frost-temp" min="4" max="15" step="0.5" value="${a.frost_protection_temp ?? 7}">
-              <span class="form-hint">Niemals unter diesen Wert (auch bei OFF)</span>
+              <span class="form-hint">Absolute Untergrenze – die Heizung hält die Temperatur niemals darunter, egal welcher Modus aktiv ist (auch bei „Aus").</span>
             </div>
             <div class="settings-item">
               <label>Sommerautomatik</label>
@@ -1866,11 +1931,12 @@ class IHCPanel extends HTMLElement {
                 <option value="false" ${!a.summer_mode_enabled ? "selected" : ""}>Deaktiviert</option>
                 <option value="true" ${a.summer_mode_enabled ? "selected" : ""}>Aktiviert</option>
               </select>
+              <span class="form-hint">Sperrt die Heizung automatisch sobald es draußen warm genug ist – kein manuelles Abschalten nötig.</span>
             </div>
             <div class="settings-item">
               <label>Sommer-Schwelle (°C)</label>
               <input type="number" class="form-input" id="summer-threshold" min="10" max="30" step="0.5" value="${a.summer_threshold ?? 18}">
-              <span class="form-hint">Heizung gesperrt ab dieser Außentemp.</span>
+              <span class="form-hint">Ab dieser Außentemperatur wird die Heizung gesperrt (Sommerautomatik muss aktiviert sein).</span>
             </div>
           </div>
           <div class="btn-row">
@@ -1895,19 +1961,22 @@ class IHCPanel extends HTMLElement {
                 <option value="false" ${!a.night_setback_enabled ? "selected" : ""}>Deaktiviert</option>
                 <option value="true" ${a.night_setback_enabled ? "selected" : ""}>Aktiviert</option>
               </select>
+              <span class="form-hint">Senkt alle Zimmertemperaturen nachts automatisch ab um Energie zu sparen.</span>
             </div>
             <div class="settings-item">
-              <label>Absenkung (°C)</label>
+              <label>Absenkungsbetrag (°C)</label>
               <input type="number" class="form-input" id="night-setback-offset" min="0.5" max="6" step="0.5" value="${a.night_setback_offset ?? 2}">
+              <span class="form-hint">Um diesen Betrag werden alle Zieltemperaturen in der Nacht reduziert.</span>
             </div>
             <div class="settings-item">
               <label>Vorheiz-Vorlaufzeit (min)</label>
               <input type="number" class="form-input" id="preheat-minutes" min="0" max="120" step="5" value="${a.preheat_minutes ?? 0}">
-              <span class="form-hint">0 = deaktiviert</span>
+              <span class="form-hint">Heizung startet so viele Minuten <em>vor</em> dem Zeitplan-Beginn – damit das Zimmer schon warm ist wenn du aufstehst. 0 = deaktiviert.</span>
             </div>
             <div class="settings-item">
               <label>Sonnen-Entität</label>
               <input type="text" class="form-input" id="sun-entity" placeholder="sun.sun" value="${a.sun_entity ?? 'sun.sun'}">
+              <span class="form-hint">Wird für die Nacht-Erkennung genutzt. Standard <code>sun.sun</code> ist in HA immer vorhanden.</span>
             </div>
           </div>
           <div class="btn-row">
@@ -1921,34 +1990,35 @@ class IHCPanel extends HTMLElement {
         <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese</span></summary>
         <div class="ihc-card-body">
           <div class="info-box">
-            Die Heizung schaltet ein wenn die Gesamtanforderung die <strong>Einschaltschwelle</strong> überschreitet,
-            und aus wenn sie unter <strong>Schwelle – Hysterese</strong> fällt. Höhere Hysterese = weniger Taktung.
+            Die <strong>Anforderung</strong> ist ein Prozentwert der angibt wie dringend ein Zimmer Wärme braucht (0–100 %).
+            Alle Zimmer zusammen ergeben die <strong>Gesamtanforderung</strong>. Die Heizung schaltet ein wenn diese die Schwelle überschreitet
+            – und erst aus wenn sie wieder deutlich darunter fällt (Hysterese verhindert ständiges An/Aus).
           </div>
           <div class="settings-grid">
             <div class="settings-item">
               <label>Einschaltschwelle (%)</label>
               <input type="number" class="form-input" id="demand-threshold" min="1" max="100" step="1" value="${a.demand_threshold ?? 15}">
-              <span class="form-hint">Heizung startet wenn Anforderung ≥ diesem Wert</span>
+              <span class="form-hint">Heizung startet wenn die Gesamtanforderung diesen Wert erreicht. Typisch: 10–20 %.</span>
             </div>
             <div class="settings-item">
               <label>Hysterese (%)</label>
               <input type="number" class="form-input" id="demand-hysteresis" min="1" max="30" step="1" value="${a.demand_hysteresis ?? 5}">
-              <span class="form-hint">Heizung stoppt erst bei Schwelle − Hysterese (verhindert Taktung)</span>
+              <span class="form-hint">Heizung stoppt erst wenn Anforderung auf <em>Schwelle − Hysterese</em> fällt. Höherer Wert = weniger Taktung, aber etwas träger. Typisch: 3–8 %.</span>
             </div>
             <div class="settings-item">
-              <label>Min. Einschaltzeit (min)</label>
+              <label>Mindest-Einschaltzeit (min)</label>
               <input type="number" class="form-input" id="min-on-time" min="1" max="60" step="1" value="${a.min_on_time_minutes ?? 5}">
-              <span class="form-hint">Heizung läuft mindestens diese Zeit (schützt Brenner)</span>
+              <span class="form-hint">Sobald die Heizung startet, läuft sie mindestens so lange – schützt Brenner und Pumpe vor Kurztaktung.</span>
             </div>
             <div class="settings-item">
-              <label>Min. Ausschaltzeit (min)</label>
+              <label>Mindest-Ausschaltzeit (min)</label>
               <input type="number" class="form-input" id="min-off-time" min="1" max="60" step="1" value="${a.min_off_time_minutes ?? 5}">
-              <span class="form-hint">Pause zwischen Heizzyklen (schützt Brenner)</span>
+              <span class="form-hint">Pause zwischen zwei Heizzyklen – verhindert, dass der Brenner sofort wieder startet.</span>
             </div>
             <div class="settings-item">
-              <label>Min. Zimmer mit Anforderung</label>
+              <label>Min. Zimmer für Heizstart</label>
               <input type="number" class="form-input" id="min-rooms" min="1" max="20" step="1" value="${a.min_rooms_demand ?? 1}">
-              <span class="form-hint">Heizung startet nur wenn mindestens N Zimmer Bedarf haben</span>
+              <span class="form-hint">Die Heizung startet nur wenn mindestens so viele Zimmer gleichzeitig Bedarf anmelden. Verhindert Aufheizen wegen eines einzelnen Ausreißers.</span>
             </div>
           </div>
           <div class="btn-row">
@@ -1965,7 +2035,12 @@ class IHCPanel extends HTMLElement {
           </span>
         </summary>
         <div class="ihc-card-body">
-          <div class="info-box">Wenn niemand zuhause ist → automatisch auf <em>Abwesend</em>. Wähle <code>person.*</code> oder <code>device_tracker.*</code>.</div>
+          <div class="info-box">
+            Wähle die Personen oder Geräte aus die überwacht werden sollen. Wenn <strong>alle</strong> ausgewählten Personen abwesend sind,
+            schaltet IHC automatisch auf den <em>Abwesend-Modus</em> – die Heizung spart Energie.
+            Sobald jemand wieder <code>home</code> ist, schaltet IHC zurück auf Normal.
+            Tipp: Nutze <code>person.*</code>-Entitäten statt einzelner Geräte – zuverlässiger.
+          </div>
           <div id="presence-entity-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
             ${this._renderPresenceCheckboxes(a.presence_entities || [])}
           </div>
@@ -1984,11 +2059,16 @@ class IHCPanel extends HTMLElement {
           </span>
         </summary>
         <div class="ihc-card-body">
+          <div class="info-box">
+            Aktiviert einen temporären Komfort-Modus für Gäste: alle Zimmer werden auf volle Komfortheizung geschaltet –
+            unabhängig von Zeitplänen. Nach Ablauf der Dauer kehrt IHC automatisch zum normalen Betrieb zurück.
+          </div>
           ${g.guest_mode_active ? `<div class="info-box" style="background:#fce4ec;border-color:#880e4f;">🎉 Gäste-Modus ist <strong>aktiv</strong></div>` : ""}
           <div class="settings-grid">
             <div class="settings-item">
-              <label>Standarddauer (Stunden, 0 = unbegrenzt)</label>
+              <label>Standarddauer (Stunden)</label>
               <input type="number" class="form-input" id="guest-duration" min="0" max="168" step="1" value="${a.guest_duration_hours ?? 24}">
+              <span class="form-hint">Wie lange der Gäste-Modus aktiv bleibt. 0 = unbegrenzt (bis manuell beendet). Max 168 h (7 Tage).</span>
             </div>
           </div>
           <div class="btn-row">
@@ -2108,41 +2188,42 @@ class IHCPanel extends HTMLElement {
         <div class="ihc-card-body">
           <div class="settings-grid">
             <div class="settings-item">
-              <label>Laufzeit anzeigen</label>
+              <label>Laufzeit im Dashboard anzeigen</label>
               <select class="form-select" id="show-runtime-stats">
                 <option value="true"  ${localStorage.getItem("ihc_show_runtime") !== "false" ? "selected" : ""}>Aktiviert</option>
                 <option value="false" ${localStorage.getItem("ihc_show_runtime") === "false"  ? "selected" : ""}>Deaktiviert</option>
               </select>
-              <span class="form-hint">Heizlaufzeit (min) im Dashboard anzeigen</span>
+              <span class="form-hint">Zeigt in jedem Zimmer-Karte wie lange die Heizung heute schon gelaufen ist (in Minuten).</span>
             </div>
             <div class="settings-item">
-              <label>Kosten / kWh anzeigen</label>
+              <label>Kosten/kWh im Dashboard anzeigen</label>
               <select class="form-select" id="show-cost-stats">
                 <option value="true"  ${localStorage.getItem("ihc_show_costs") !== "false" ? "selected" : ""}>Aktiviert</option>
                 <option value="false" ${localStorage.getItem("ihc_show_costs") === "false"  ? "selected" : ""}>Deaktiviert</option>
               </select>
-              <span class="form-hint">Geschätzte kWh / Kosten im Dashboard anzeigen</span>
+              <span class="form-hint">Zeigt geschätzte Kilowattstunden und (wenn Preis konfiguriert) die Kosten des Tages.</span>
             </div>
             <div class="settings-item">
               <label>Kesselleistung (kW)</label>
               <input type="number" class="form-input" id="boiler-kw" min="1" max="100" step="1" value="${a.boiler_kw ?? 20}">
-              <span class="form-hint">Für kWh-Berechnung (Laufzeit × kW)</span>
+              <span class="form-hint">Nennleistung deines Kessels. IHC rechnet: <em>Laufzeit × kW = kWh</em>. Unbekannt? Nutze den Kalibrierungs-Assistenten darunter.</span>
             </div>
             <div class="settings-item">
-              <label>Statischer Energiepreis (€/kWh) <span style="font-size:10px;color:var(--secondary-text-color)">(optional)</span></label>
+              <label>Fester Energiepreis (€/kWh) <span style="font-size:10px;color:var(--secondary-text-color)">(optional)</span></label>
               <input type="number" class="form-input" id="static-energy-price" min="0.01" max="2" step="0.01" value="${a.static_energy_price ?? ''}" placeholder="z.B. 0.09 (leer = nur kWh)">
-              <span class="form-hint">Wenn kein Preis-Sensor: fester Preis für Kostenberechnung</span>
+              <span class="form-hint">Wenn kein dynamischer Preis-Sensor vorhanden: fester Preis für die Kostenanzeige (Gas ≈ 0,09 €/kWh, Fernwärme ≈ 0,11 €/kWh).</span>
             </div>
             <div class="settings-item">
               <label>Smart-Meter-Sensor (kWh)</label>
               <input type="text" class="form-input" id="smart-meter-entity"
                 placeholder="sensor.strom_zaehler (leer = deaktiviert)"
                 value="${a.smart_meter_entity ?? ''}" data-ep-domains="sensor" autocomplete="off">
-              <span class="form-hint">TOTAL_INCREASING → echter Verbrauch</span>
+              <span class="form-hint">Echter Zähler-Sensor (Typ <em>total_increasing</em>) für genaue Verbrauchsmessung – ersetzt die Schätzung über Laufzeit.</span>
             </div>
             <div class="settings-item">
               <label>Kühl-Zieltemperatur (°C)</label>
               <input type="number" class="form-input" id="cooling-target-temp" min="18" max="30" step="0.5" value="${a.cooling_target_temp ?? 24}">
+              <span class="form-hint">Zimmer werden auf diese Temperatur heruntergekühlt wenn Kühlung aktiv ist.</span>
             </div>
           </div>
           <div style="margin-top:8px">
@@ -2154,55 +2235,68 @@ class IHCPanel extends HTMLElement {
             <div id="flow-temp-section" style="display:${a.flow_temp_entity ? '' : 'none'};margin-top:4px">
               <div class="settings-grid">
                 <div class="settings-item">
-                  <label>Vorlauftemperatur-Entität (Setzen)</label>
+                  <label>Vorlauftemperatur-Entität (Stellgröße)</label>
                   <input type="text" class="form-input" id="flow-temp-entity"
                     placeholder="number.boiler_flow_temp"
                     value="${a.flow_temp_entity ?? ''}" data-ep-domains="number" autocomplete="off">
+                  <span class="form-hint">HA-Entität vom Typ <code>number</code> mit der IHC den Vorlauf-Sollwert am Kessel setzen kann.</span>
                 </div>
                 <div class="settings-item">
-                  <label>Vorlauftemperatur-Sensor (PID-Feedback)</label>
+                  <label>Vorlauftemperatur-Sensor (Ist-Messung)</label>
                   <input type="text" class="form-input" id="flow-temp-sensor"
                     placeholder="sensor.boiler_flow_temp (leer = kein PID)"
                     value="${a.flow_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
-                  <span class="form-hint">PID-Regler nutzt Ist-Vorlauftemperatur als Feedback</span>
+                  <span class="form-hint">Optional: Sensor der die tatsächliche Vorlauftemperatur misst. Aktiviert einen PID-Regler für präzisere Vorlaufsteuerung.</span>
                 </div>
               </div>
             </div>
           </div>
           <hr class="divider">
           <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Solarüberschuss-Heizung</div>
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
+            Wenn die Photovoltaik-Anlage mehr Strom produziert als verbraucht wird, heizt IHC etwas kräftiger – so nutzt du den Überschuss sinnvoll.
+          </p>
           <div class="settings-grid">
             <div class="settings-item">
-              <label>Solar-Sensor</label>
+              <label>Solar-Leistungssensor</label>
               <input type="text" class="form-input" id="solar-entity"
                 placeholder="sensor.solar_power (leer = aus)"
                 value="${a.solar_entity ?? ''}" data-ep-domains="sensor" autocomplete="off">
+              <span class="form-hint">Sensor der die aktuelle Erzeugungsleistung in Watt liefert.</span>
             </div>
             <div class="settings-item">
               <label>Überschuss-Schwelle (W)</label>
               <input type="number" class="form-input" id="solar-surplus-threshold" min="100" max="10000" step="100" value="${a.solar_surplus_threshold ?? 1000}">
+              <span class="form-hint">Erst ab diesem Überschuss wird der Heizboost aktiviert.</span>
             </div>
             <div class="settings-item">
-              <label>Temperatur-Boost (°C)</label>
+              <label>Heizboost bei Solar (°C)</label>
               <input type="number" class="form-input" id="solar-boost-temp" min="0.5" max="5" step="0.5" value="${a.solar_boost_temp ?? 1}">
+              <span class="form-hint">Alle Zieltemperaturen werden um diesen Wert angehoben wenn Solar-Überschuss vorhanden ist.</span>
             </div>
           </div>
           <hr class="divider">
-          <div class="card-title" style="font-size:13px;margin:8px 0">💶 Dynamischer Strompreis</div>
+          <div class="card-title" style="font-size:13px;margin:8px 0">💶 Dynamischer Strompreis (z.B. Tibber)</div>
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
+            Bei sehr hohen Strompreisen senkt IHC die Zieltemperaturen etwas ab – du heizt dann weniger in der teuren Zeit.
+          </p>
           <div class="settings-grid">
             <div class="settings-item">
               <label>Preis-Sensor</label>
               <input type="text" class="form-input" id="energy-price-entity"
                 placeholder="sensor.strompreis (leer = aus)"
                 value="${a.energy_price_entity ?? ''}" data-ep-domains="sensor" autocomplete="off">
+              <span class="form-hint">z.B. Tibber-Integration <code>sensor.tibber_current_price</code>.</span>
             </div>
             <div class="settings-item">
-              <label>Preis-Schwelle (€/kWh)</label>
+              <label>Teuer-Schwelle (€/kWh)</label>
               <input type="number" class="form-input" id="energy-price-threshold" min="0.05" max="2" step="0.01" value="${a.energy_price_threshold ?? 0.30}">
+              <span class="form-hint">Über diesem Preis gilt Strom als „teuer" und der Eco-Modus wird aktiv.</span>
             </div>
             <div class="settings-item">
-              <label>Eco-Absenkung (°C)</label>
+              <label>Eco-Absenkung bei hohem Preis (°C)</label>
               <input type="number" class="form-input" id="energy-price-eco-offset" min="0.5" max="6" step="0.5" value="${a.energy_price_eco_offset ?? 2}">
+              <span class="form-hint">Um diesen Betrag werden die Zieltemperaturen in der teuren Zeit reduziert.</span>
             </div>
           </div>
           <div class="btn-row">
@@ -2221,8 +2315,9 @@ class IHCPanel extends HTMLElement {
         </summary>
         <div class="ihc-card-body">
           <div class="info-box">
-            Optionaler Lüftungsberater: nutzt Innen-/Außentemperatur, Luftfeuchtigkeit und CO₂ (pro Zimmer).
-            Alle Sensoren sind optional – je mehr konfiguriert, desto präziser die Empfehlung.
+            IHC analysiert Luftfeuchtigkeit und CO₂-Werte und zeigt im Dashboard einen Lüftungshinweis an
+            (🪟 oder 🌬️) wenn Lüften empfohlen wird. Je mehr Sensoren konfiguriert sind desto präziser die Empfehlung –
+            aber alles optional.
           </div>
           <div class="settings-grid">
             <div class="settings-item">
@@ -2230,15 +2325,15 @@ class IHCPanel extends HTMLElement {
               <input type="text" class="form-input" id="outdoor-humidity-sensor"
                 placeholder="sensor.aussenfeuchte (leer = deaktiviert)"
                 value="${a.outdoor_humidity_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
-              <span class="form-hint">Verhindert Lüftungsempfehlung bei hoher Außenfeuchte</span>
+              <span class="form-hint">Wird genutzt um zu prüfen ob Lüften bei hoher Außenfeuchte (Nebel, Regen) sinnvoll ist. Verhindert unnötige Empfehlungen.</span>
             </div>
             <div class="settings-item">
-              <label>Lüftungsempfehlung</label>
+              <label>Lüftungsempfehlungen</label>
               <select class="form-select" id="ventilation-advice-enabled">
                 <option value="true"  ${a.ventilation_advice_enabled !== false ? "selected" : ""}>Aktiviert</option>
                 <option value="false" ${a.ventilation_advice_enabled === false  ? "selected" : ""}>Deaktiviert</option>
               </select>
-              <span class="form-hint">CO₂-Sensor pro Zimmer im Zimmer-Dialog konfigurieren</span>
+              <span class="form-hint">CO₂- und Feuchtigkeitssensoren pro Zimmer im Zimmer-Bearbeitungsdialog (🚪 Zimmer-Tab) konfigurieren.</span>
             </div>
           </div>
           <div class="btn-row">
@@ -2263,29 +2358,37 @@ class IHCPanel extends HTMLElement {
                 <option value="false" ${!(a.adaptive_curve_enabled ?? a.curve_adaptation_enabled) ? "selected" : ""}>Deaktiviert</option>
                 <option value="true"  ${(a.adaptive_curve_enabled ?? a.curve_adaptation_enabled) ? "selected" : ""}>Aktiviert (lernt automatisch)</option>
               </select>
-              <span class="form-hint">Passt Kurve ±0.5°C/Tag an (max. ±3°C)</span>
+              <span class="form-hint">
+                IHC beobachtet wie lang das Haus braucht um warm zu werden und verschiebt die Heizkurve automatisch um ±0,5°C pro Tag (max. ±3°C).<br>
+                Im Dashboard erscheint dann z.B. <em>„Kurve –0,5°"</em> wenn die Kurve nach unten korrigiert wurde, weil die Zimmer schnell warm wurden.
+              </span>
             </div>
             <div class="settings-item">
               <label>Adaptives Vorheizen</label>
               <select class="form-select" id="adaptive-preheat-enabled">
-                <option value="true"  ${a.adaptive_preheat_enabled !== false ? "selected" : ""}>Aktiviert (nutzt Aufheizhistorie)</option>
-                <option value="false" ${a.adaptive_preheat_enabled === false  ? "selected" : ""}>Deaktiviert (fixer Wert)</option>
+                <option value="true"  ${a.adaptive_preheat_enabled !== false ? "selected" : ""}>Aktiviert – lernt aus Aufheizzeiten</option>
+                <option value="false" ${a.adaptive_preheat_enabled === false  ? "selected" : ""}>Deaktiviert – fixer Vorlauf-Wert</option>
               </select>
+              <span class="form-hint">Merkt sich wie lange das Zimmer braucht um aufzuheizen und startet die Heizung früh genug – ganz automatisch.</span>
             </div>
             <div class="settings-item">
               <label>ETA-basiertes Vorheizen</label>
               <select class="form-select" id="eta-preheat-enabled">
                 <option value="false" ${!a.eta_preheat_enabled ? "selected" : ""}>Deaktiviert</option>
-                <option value="true"  ${a.eta_preheat_enabled  ? "selected" : ""}>Aktiviert (Google Maps ETA)</option>
+                <option value="true"  ${a.eta_preheat_enabled  ? "selected" : ""}>Aktiviert</option>
               </select>
-              <span class="form-hint">Heizt wenn person.* ETA-Attribut ≤90 min</span>
+              <span class="form-hint">
+                <strong>Benötigt:</strong> <em>Google Maps Travel Time</em> oder <em>Waze Travel Time</em> Integration in HA.<br>
+                Diese liest die geschätzte Ankunftszeit (<code>estimated_arrival_time</code>) aus <code>person.*</code>-Entitäten aus und heizt automatisch vor wenn die Ankunft ≤ 90 Minuten bevorsteht.<br>
+                Funktioniert <em>nicht</em> direkt mit der Companion App oder Google Maps – du brauchst die HA-Integration.
+              </span>
             </div>
             <div class="settings-item">
               <label>Urlaubs-Kalender</label>
               <input type="text" class="form-input" id="vacation-calendar"
                 placeholder="calendar.urlaub (leer = aus)"
                 value="${a.vacation_calendar ?? ''}" data-ep-domains="calendar" autocomplete="off">
-              <span class="form-hint">Events mit „urlaub" → Urlaubsmodus</span>
+              <span class="form-hint">Kalender-Entität aus HA. Termine die das Schlüsselwort „urlaub" im Namen enthalten schalten automatisch den Urlaubs-Modus ein.</span>
             </div>
           </div>
           <div class="btn-row">
