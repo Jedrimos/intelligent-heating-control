@@ -178,6 +178,38 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         require_admin=False,
     )
 
+    # Auto-register Lovelace custom cards as resources (storage mode only).
+    # In YAML Lovelace mode this is a no-op; users must add resources manually.
+    await _async_register_lovelace_cards(hass)
+
+
+async def _async_register_lovelace_cards(hass: HomeAssistant) -> None:
+    """Register IHC custom Lovelace cards as resources (storage Lovelace only)."""
+    card_urls = [
+        "/ihc_static/ihc-room-card.js",
+        "/ihc_static/ihc-dashboard-card.js",
+    ]
+    try:
+        lovelace = hass.data.get("lovelace")
+        if lovelace is None:
+            return
+        resources = getattr(lovelace, "resources", None)
+        if resources is None:
+            return
+        await resources.async_load()
+        existing = {r["url"] for r in resources.async_items()}
+        for url in card_urls:
+            if url not in existing:
+                await resources.async_create_item({"res_type": "module", "url": url})
+                _LOGGER.debug("IHC: registered Lovelace resource %s", url)
+    except Exception:  # noqa: BLE001
+        _LOGGER.info(
+            "IHC: Could not auto-register Lovelace card resources "
+            "(YAML Lovelace mode?). Add these URLs manually under "
+            "Settings → Dashboards → Resources: %s",
+            card_urls,
+        )
+
 
 def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
     """Register custom HA services."""
