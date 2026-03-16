@@ -319,7 +319,7 @@ set_system_mode:
   fields:
     mode:
       name: Modus
-      description: "auto, heat, cool, off, away, vacation"
+      description: "auto, heat, cool, off, away, vacation, guest"
       required: true
       selector:
         select:
@@ -330,6 +330,7 @@ set_system_mode:
             - "off"
             - "away"
             - "vacation"
+            - "guest"
 
 boost_room:
   name: Zimmer boosten

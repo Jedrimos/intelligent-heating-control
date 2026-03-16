@@ -74,6 +74,20 @@ from .const import (
     DEFAULT_SLEEP_MAX_TEMP,
     DEFAULT_AWAY_MAX_TEMP,
     DEFAULT_HA_SCHEDULE_OFF_MODE,
+    CONF_WINDOW_REACTION_TIME,
+    CONF_WINDOW_CLOSE_DELAY,
+    CONF_ROOM_QM,
+    CONF_ABSOLUTE_MIN_TEMP,
+    CONF_ROOM_PREHEAT_MINUTES,
+    CONF_ROOM_PRESENCE_ENTITIES,
+    CONF_BOOST_TEMP,
+    CONF_BOOST_DEFAULT_DURATION,
+    DEFAULT_WINDOW_REACTION_TIME,
+    DEFAULT_WINDOW_CLOSE_DELAY,
+    DEFAULT_ROOM_QM,
+    DEFAULT_ABSOLUTE_MIN_TEMP,
+    DEFAULT_ROOM_PREHEAT_MINUTES,
+    DEFAULT_BOOST_DEFAULT_DURATION,
 )
 from .coordinator import IHCCoordinator
 
@@ -157,7 +171,6 @@ async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def _async_register_panel(hass: HomeAssistant) -> None:
     """Register the custom frontend panel."""
-    import os
     from pathlib import Path
 
     panel_dir = Path(__file__).parent / "frontend"
@@ -258,6 +271,14 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_RADIATOR_KW: float(call.data.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW)),
             CONF_HKV_SENSOR: call.data.get(CONF_HKV_SENSOR, ""),
             CONF_HKV_FACTOR: float(call.data.get(CONF_HKV_FACTOR, DEFAULT_HKV_FACTOR)),
+            CONF_WINDOW_REACTION_TIME: int(call.data.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME)),
+            CONF_WINDOW_CLOSE_DELAY: int(call.data.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY)),
+            CONF_ROOM_QM: float(call.data.get(CONF_ROOM_QM, DEFAULT_ROOM_QM)),
+            CONF_ABSOLUTE_MIN_TEMP: float(call.data.get(CONF_ABSOLUTE_MIN_TEMP, DEFAULT_ABSOLUTE_MIN_TEMP)),
+            CONF_ROOM_PREHEAT_MINUTES: int(call.data.get(CONF_ROOM_PREHEAT_MINUTES, DEFAULT_ROOM_PREHEAT_MINUTES)),
+            CONF_ROOM_PRESENCE_ENTITIES: call.data.get(CONF_ROOM_PRESENCE_ENTITIES, []),
+            CONF_BOOST_TEMP: call.data.get(CONF_BOOST_TEMP),
+            CONF_BOOST_DEFAULT_DURATION: int(call.data.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION)),
         }
         await coordinator.async_add_room(room_config)
 

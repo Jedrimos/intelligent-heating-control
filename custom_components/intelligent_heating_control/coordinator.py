@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 import uuid
 from collections import deque
 from datetime import date, datetime, timedelta
@@ -1074,8 +1075,6 @@ class IHCCoordinator(DataUpdateCoordinator):
             score -= 2  # outdoor air is wet/bad
         if outdoor_humidity is not None and outdoor_humidity > 85:
             score -= 2
-            reasons_neg = f"Außenluftfeuchte {outdoor_humidity:.0f}%"
-            # only add as reason if score still positive (user should know why not)
             if score > 0:
                 reasons.append(f"⚠️ Außenluftfeuchte hoch ({outdoor_humidity:.0f}%)")
         if outdoor_temp is not None and outdoor_temp < -5:
@@ -1607,11 +1606,10 @@ class IHCCoordinator(DataUpdateCoordinator):
         - window_reaction_time: seconds a sensor must be ON before IHC reacts (default 30 s)
         - window_close_delay:   seconds after sensor goes OFF before IHC resumes heating (default 0 s)
         """
-        import time as _time
         room_id = room.get(CONF_ROOM_ID, "")
         reaction_time = float(room.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME))
         close_delay   = float(room.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY))
-        now           = _time.monotonic()
+        now           = time.monotonic()
 
         # Check raw sensor state
         sensor_open = False
@@ -1806,8 +1804,7 @@ class IHCCoordinator(DataUpdateCoordinator):
             static_preheat = room_preheat_cfg
         elif room_qm > 0 and global_preheat > 0:
             # Scale global preheat by room size relative to a 15 m² reference room
-            import math as _math
-            static_preheat = max(1, round(global_preheat * _math.sqrt(room_qm / 15.0)))
+            static_preheat = max(1, round(global_preheat * math.sqrt(room_qm / 15.0)))
         else:
             static_preheat = global_preheat
 
@@ -2168,8 +2165,7 @@ class IHCCoordinator(DataUpdateCoordinator):
             room_qm_val = float(room.get(CONF_ROOM_QM, DEFAULT_ROOM_QM))
             # If weight is at its default (1.0) and room_qm is set, derive weight from area
             if configured_weight == DEFAULT_WEIGHT and room_qm_val > 0:
-                import math as _math
-                weight = round(_math.sqrt(room_qm_val / 15.0), 2)  # 15 m² = weight 1.0
+                weight = round(math.sqrt(room_qm_val / 15.0), 2)  # 15 m² = weight 1.0
             else:
                 weight = configured_weight
 
@@ -2188,9 +2184,14 @@ class IHCCoordinator(DataUpdateCoordinator):
                 target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + solar_boost)
                 meta["solar_boost"] = solar_boost
 
-            # Apply energy price eco offset (Roadmap 1.3)
-            if price_eco_offset > 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
-                target_temp = max(float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)), target_temp - price_eco_offset)
+            # Apply energy price offset (Roadmap 1.3)
+            # price_eco_offset > 0 → cheap hour: raise setpoint to store heat
+            # price_eco_offset < 0 → expensive hour: lower setpoint to save energy
+            if price_eco_offset != 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
+                target_temp = min(
+                    float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
+                    max(float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)), target_temp + price_eco_offset),
+                )
                 meta["price_eco_offset"] = price_eco_offset
 
             # Mold protection boost (Roadmap 2.0) – raise target to reduce humidity risk

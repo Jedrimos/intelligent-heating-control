@@ -347,13 +347,13 @@ const STYLES = `
     background-repeat: no-repeat; background-position: right 8px center;
     padding-right: 22px;
   }
-  .mode-select.active-auto     { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 12%, transparent); }
-  .mode-select.active-comfort  { border-color: #fb8c00; background: #fff3e0; }
-  .mode-select.active-eco      { border-color: #43a047; background: #e8f5e9; }
-  .mode-select.active-sleep    { border-color: #5c6bc0; background: #e8eaf6; }
-  .mode-select.active-away     { border-color: #e65100; background: #fff3e0; }
-  .mode-select.active-off      { border-color: #9e9e9e; background: #f5f5f5; }
-  .mode-select.active-manual   { border-color: #8d6e63; background: #efebe9; }
+  .mode-select.active-auto     { border-color: var(--primary-color);  background: color-mix(in srgb, var(--primary-color) 12%, transparent); }
+  .mode-select.active-comfort  { border-color: #fb8c00; background: color-mix(in srgb, #fb8c00 15%, transparent); }
+  .mode-select.active-eco      { border-color: #43a047; background: color-mix(in srgb, #43a047 15%, transparent); }
+  .mode-select.active-sleep    { border-color: #5c6bc0; background: color-mix(in srgb, #5c6bc0 15%, transparent); }
+  .mode-select.active-away     { border-color: #e65100; background: color-mix(in srgb, #e65100 15%, transparent); }
+  .mode-select.active-off      { border-color: #9e9e9e; background: color-mix(in srgb, #9e9e9e 15%, transparent); }
+  .mode-select.active-manual   { border-color: #8d6e63; background: color-mix(in srgb, #8d6e63 15%, transparent); }
   .btn-boost {
     padding: 5px 10px; border-radius: 8px; border: 1.5px solid #fb8c00;
     background: transparent; color: #fb8c00; font-size: 12px; font-weight: 700;
@@ -733,8 +733,8 @@ class IHCPanel extends HTMLElement {
       guest_remaining_minutes:   a.guest_remaining_minutes != null ? a.guest_remaining_minutes : null,
       weather_forecast:          a.weather_forecast || null,
       cold_boost:                ea.cold_boost != null ? parseFloat(ea.cold_boost) : 0,
-      eta_preheat_minutes:       a.eta_preheat_minutes != null ? parseFloat(a.eta_preheat_minutes) : null,
-      adaptive_curve_delta:      a.adaptive_curve_delta != null ? parseFloat(a.adaptive_curve_delta) : 0,
+      eta_preheat_minutes:       ea.eta_preheat_minutes != null ? parseFloat(ea.eta_preheat_minutes) : null,
+      adaptive_curve_delta:      ea.adaptive_curve_delta != null ? parseFloat(ea.adaptive_curve_delta) : 0,
       outdoor_humidity:          a.outdoor_humidity != null ? parseFloat(a.outdoor_humidity) : null,
       static_energy_price:       a.static_energy_price != null ? parseFloat(a.static_energy_price) : null,
     };
@@ -1231,9 +1231,11 @@ class IHCPanel extends HTMLElement {
     const selId = room.entity_id;
     if (!this._editingSchedules[selId]) {
       const existing = room.schedules;
-      if (existing && existing.length > 0) {
+      if (Array.isArray(existing)) {
+        // Respect whatever is saved – empty array means user cleared all schedules
         this._editingSchedules[selId] = JSON.parse(JSON.stringify(existing));
       } else {
+        // Truly new room (schedules field absent) – add helpful defaults
         this._editingSchedules[selId] = [
           { days: ["mon","tue","wed","thu","fri"],
             periods: [{ start:"06:30", end:"08:00", temperature:22.0, offset:0.0 },
@@ -1359,6 +1361,8 @@ class IHCPanel extends HTMLElement {
         id: roomId,
         schedules: this._editingSchedules[selId],
       });
+      // Clear buffer so next open re-reads from saved HA state
+      delete this._editingSchedules[selId];
       this._toast(`✓ Zeitpläne für „${room.name}" gespeichert`);
     });
   }
@@ -1440,7 +1444,16 @@ class IHCPanel extends HTMLElement {
         }).join("")}
       </div>` : "";
 
-    const noHint = (room.schedules?.length || 0) === 0 && haGrids.length === 0
+    // Show hint if no HA schedule blocks loaded but ha_schedules are configured
+    const haSchedsConfigured = haSchedsCfg.length > 0;
+    const haBlocksEmpty = haGrids.length === 0;
+    const haNoBlocksHint = haSchedsConfigured && haBlocksEmpty
+      ? `<div style="font-size:11px;color:#e65100;margin-top:6px;padding:6px 8px;background:color-mix(in srgb,#e65100 10%,transparent);border-radius:6px">
+          ⚠️ HA-Zeitpläne konfiguriert, aber keine Blöcke lesbar.
+          Stelle sicher, dass die Entitäten existieren und als UI-Helfer (nicht YAML) angelegt wurden.
+         </div>` : "";
+
+    const noHint = (room.schedules?.length || 0) === 0 && haGrids.length === 0 && !haSchedsConfigured
       ? `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:8px">
           Kein Zeitplan — wechsle zum Tab <strong>📅 Zeitplan</strong> um einen zu erstellen.
          </div>` : "";
@@ -1458,6 +1471,7 @@ class IHCPanel extends HTMLElement {
           <span>Warm</span>
         </div>
         ${haLegend}
+        ${haNoBlocksHint}
         ${noHint}
       </div>`;
 
@@ -2120,26 +2134,30 @@ class IHCPanel extends HTMLElement {
               <input type="number" class="form-input" id="cooling-target-temp" min="18" max="30" step="0.5" value="${a.cooling_target_temp ?? 24}">
             </div>
           </div>
-          <details style="margin-top:8px" ${a.flow_temp_entity ? "open" : ""}>
-            <summary style="cursor:pointer;font-size:13px;font-weight:600;padding:6px 0;color:var(--primary-text-color)">
-              🌡️ Vorlauftemperatur-Regelung ${a.flow_temp_entity ? `<span class="ihc-card-badge info" style="font-size:10px">aktiv</span>` : `<span style="font-size:11px;color:var(--secondary-text-color);font-weight:normal">(nicht konfiguriert)</span>`}
-            </summary>
-            <div class="settings-grid" style="margin-top:8px">
-              <div class="settings-item">
-                <label>Vorlauftemperatur-Entität (Setzen)</label>
-                <input type="text" class="form-input" id="flow-temp-entity"
-                  placeholder="number.boiler_flow_temp (leer = aus)"
-                  value="${a.flow_temp_entity ?? ''}" data-ep-domains="number" autocomplete="off">
-              </div>
-              <div class="settings-item">
-                <label>Vorlauftemperatur-Sensor (PID)</label>
-                <input type="text" class="form-input" id="flow-temp-sensor"
-                  placeholder="sensor.boiler_flow_temp (leer = kein PID)"
-                  value="${a.flow_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
-                <span class="form-hint">PID-Regler nutzt Ist-Vorlauftemperatur</span>
+          <div style="margin-top:8px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;padding:6px 0;user-select:none">
+              <input type="checkbox" id="flow-temp-enabled" ${a.flow_temp_entity ? "checked" : ""}>
+              🌡️ Vorlauftemperatur-Regelung
+              ${a.flow_temp_entity ? `<span class="ihc-card-badge info" style="font-size:10px">aktiv</span>` : ""}
+            </label>
+            <div id="flow-temp-section" style="display:${a.flow_temp_entity ? '' : 'none'};margin-top:4px">
+              <div class="settings-grid">
+                <div class="settings-item">
+                  <label>Vorlauftemperatur-Entität (Setzen)</label>
+                  <input type="text" class="form-input" id="flow-temp-entity"
+                    placeholder="number.boiler_flow_temp"
+                    value="${a.flow_temp_entity ?? ''}" data-ep-domains="number" autocomplete="off">
+                </div>
+                <div class="settings-item">
+                  <label>Vorlauftemperatur-Sensor (PID-Feedback)</label>
+                  <input type="text" class="form-input" id="flow-temp-sensor"
+                    placeholder="sensor.boiler_flow_temp (leer = kein PID)"
+                    value="${a.flow_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
+                  <span class="form-hint">PID-Regler nutzt Ist-Vorlauftemperatur als Feedback</span>
+                </div>
               </div>
             </div>
-          </details>
+          </div>
           <hr class="divider">
           <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Solarüberschuss-Heizung</div>
           <div class="settings-grid">
@@ -2486,6 +2504,11 @@ class IHCPanel extends HTMLElement {
       });
     }
 
+    // Toggle flow-temp section visibility
+    content.querySelector("#flow-temp-enabled").addEventListener("change", e => {
+      content.querySelector("#flow-temp-section").style.display = e.target.checked ? "" : "none";
+    });
+
     // Runtime / costs visibility toggles – stored in localStorage (frontend-only)
     content.querySelector("#show-runtime-stats").addEventListener("change", e => {
       localStorage.setItem("ihc_show_runtime", e.target.value);
@@ -2504,10 +2527,11 @@ class IHCPanel extends HTMLElement {
       const priceEco     = parseFloat(content.querySelector("#energy-price-eco-offset").value);
       if ([boilerKw, solarSurplus, solarBoost, priceThresh, priceEco].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
       const staticPrice = parseFloat(content.querySelector("#static-energy-price").value);
+      const flowEnabled = content.querySelector("#flow-temp-enabled").checked;
       this._callService("update_global_settings", {
         boiler_kw:               boilerKw,
-        flow_temp_entity:        content.querySelector("#flow-temp-entity").value.trim(),
-        flow_temp_sensor:        content.querySelector("#flow-temp-sensor").value.trim(),
+        flow_temp_entity:        flowEnabled ? content.querySelector("#flow-temp-entity").value.trim() : "",
+        flow_temp_sensor:        flowEnabled ? content.querySelector("#flow-temp-sensor").value.trim() : "",
         solar_entity:            content.querySelector("#solar-entity").value.trim(),
         solar_surplus_threshold: solarSurplus,
         solar_boost_temp:        solarBoost,
