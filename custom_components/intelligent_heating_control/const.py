@@ -335,3 +335,14 @@ DEFAULT_CO2_THRESHOLD_GOOD: Final = 800    # ppm – below = good air quality
 DEFAULT_CO2_THRESHOLD_BAD: Final = 1200   # ppm – above = ventilation recommended
 CONF_VENTILATION_ADVICE_ENABLED: Final = "ventilation_advice_enabled"
 DEFAULT_VENTILATION_ADVICE_ENABLED: Final = True
+
+# TRV-Sensordaten (per room – all optional)
+# Temperatur-Blending: gewichteter Anteil der TRV-Eigentemperatur
+CONF_TRV_TEMP_WEIGHT: Final = "trv_temp_weight"   # 0.0 = deaktiviert
+DEFAULT_TRV_TEMP_WEIGHT: Final = 0.0
+# Offset der TRV-Temperatur vor dem Blending (TRV sitzt nah am Heizkörper → misst wärmer)
+CONF_TRV_TEMP_OFFSET: Final = "trv_temp_offset"   # °C – typisch negativ (z.B. -2.0)
+DEFAULT_TRV_TEMP_OFFSET: Final = -2.0
+# Ventilstellung für Anforderungskorrektur: TRV-Öffnung beeinflusst Demand
+CONF_TRV_VALVE_DEMAND: Final = "trv_valve_demand"  # bool
+DEFAULT_TRV_VALVE_DEMAND: Final = False

@@ -651,6 +651,14 @@ class IHCPanel extends HTMLElement {
         window_reaction_time: state.attributes.window_reaction_time ?? 30,
         window_close_delay: state.attributes.window_close_delay ?? 0,
         effective_weight: state.attributes.effective_weight ?? state.attributes.weight ?? 1.0,
+        // TRV sensor data integration
+        trv_temp_weight:  state.attributes.trv_temp_weight ?? 0,
+        trv_temp_offset:  state.attributes.trv_temp_offset ?? -2,
+        trv_valve_demand: state.attributes.trv_valve_demand === true,
+        trv_raw_temp:     state.attributes.trv_raw_temp ?? null,
+        trv_humidity:     state.attributes.trv_humidity ?? null,
+        trv_avg_valve:    state.attributes.trv_avg_valve ?? null,
+        trv_any_heating:  state.attributes.trv_any_heating === true,
       };
     });
     // Enrich from demand sensors
@@ -1200,6 +1208,9 @@ class IHCPanel extends HTMLElement {
           → ${room.target_temp != null ? room.target_temp + " °C" : "—"}
           · ${MODE_ICONS[room.room_mode] || ""} ${MODE_LABELS[room.room_mode] || room.room_mode}
         </span>
+        ${room.trv_raw_temp != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#fb8c00 15%,transparent);color:var(--primary-text-color)" title="TRV-Eigentemperatur (am Heizkörper gemessen, vor Korrektur)">🌡️ TRV ${room.trv_raw_temp} °C</span>` : ""}
+        ${room.trv_avg_valve != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#42a5f5 15%,transparent);color:var(--primary-text-color)" title="Durchschnittliche TRV-Ventilöffnung">🔧 Ventil ${room.trv_avg_valve} %</span>` : ""}
+        ${room.trv_any_heating ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 15%,transparent);color:var(--primary-text-color)" title="Mindestens ein TRV meldet aktives Heizen">🔥 TRV heizt</span>` : ""}
         <button class="btn btn-secondary" id="edit-room-btn" style="margin-left:auto">✏️ Einstellungen</button>
       </div>
       <div class="tabs" style="margin-bottom:16px">
@@ -3495,6 +3506,39 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
+      <details class="modal-collapsible" ${(room.trv_temp_weight > 0 || room.trv_valve_demand) ? "open" : ""}>
+        <summary>🌡️ TRV-Sensordaten nutzen (optional)</summary>
+        <div class="modal-collapsible-body">
+          <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
+            Thermostatventile (TRVs) haben eigene Temperatursensoren — diese messen jedoch näher am Heizkörper
+            und damit wärmer als die echte Raumtemperatur. Mit dem Offset wird das korrigiert.
+          </p>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>TRV-Temperaturanteil (0 = aus, 0.3 = 30 %)</label>
+              <input type="number" class="form-input" id="m-trv-temp-weight"
+                value="${room.trv_temp_weight ?? 0}" min="0" max="0.5" step="0.05"
+                placeholder="0 = deaktiviert">
+              <span class="form-hint">Wie stark die TRV-Eigentemperatur in den Messwert einfließt. 0 = gar nicht, 0.3 = 30 % TRV + 70 % Raumsensor. Als Fallback wenn kein Raumsensor vorhanden.</span>
+            </div>
+            <div class="settings-item">
+              <label>TRV-Temperaturkorrektur (°C)</label>
+              <input type="number" class="form-input" id="m-trv-temp-offset"
+                value="${room.trv_temp_offset ?? -2}" min="-10" max="5" step="0.5"
+                placeholder="-2.0">
+              <span class="form-hint">TRV sitzt am Heizkörper → misst wärmer. Typischer Wert: −2 bis −5 °C. Wird vor dem Mischen abgezogen.</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="m-trv-valve-demand" ${room.trv_valve_demand ? "checked" : ""}>
+                Ventilstellung für Anforderungsberechnung nutzen
+              </label>
+              <span class="form-hint">Wenn das TRV seinen Öffnungsgrad meldet (0–100 %), wird dieser zur Korrektur der Heizanforderung verwendet. Voll offen → min. 30 % Anforderung. Fast geschlossen → max. 30 %.</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <div class="btn-row">
         <button class="btn btn-primary" id="modal-confirm">💾 Speichern</button>
         <button class="btn btn-secondary modal-close-btn">Abbrechen</button>
@@ -3541,6 +3585,9 @@ class IHCPanel extends HTMLElement {
                                     .split(",").map(s => s.trim()).filter(Boolean),
         boost_temp:               parseFloat(modal.querySelector("#m-boost-temp")?.value) || null,
         boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value) || 60,
+        trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
+        trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
+        trv_valve_demand:         modal.querySelector("#m-trv-valve-demand")?.checked === true,
         ha_schedules,
       });
       this._closeModal();

@@ -210,6 +210,13 @@ from .const import (
     DEFAULT_ROOM_PREHEAT_MINUTES,
     DEFAULT_WINDOW_CLOSE_DELAY,
     DEFAULT_WINDOW_REACTION_TIME,
+    # TRV sensor data integration
+    CONF_TRV_TEMP_WEIGHT,
+    DEFAULT_TRV_TEMP_WEIGHT,
+    CONF_TRV_TEMP_OFFSET,
+    DEFAULT_TRV_TEMP_OFFSET,
+    CONF_TRV_VALVE_DEMAND,
+    DEFAULT_TRV_VALVE_DEMAND,
 )
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
@@ -931,23 +938,33 @@ class IHCCoordinator(DataUpdateCoordinator):
     # Roadmap 2.0 – Schimmelschutz (mold protection)
     # ------------------------------------------------------------------
 
-    def _check_mold_risk(self, room: dict, current_temp: Optional[float]) -> Optional[dict]:
+    def _check_mold_risk(
+        self,
+        room: dict,
+        current_temp: Optional[float],
+        trv_humidity: Optional[float] = None,
+    ) -> Optional[dict]:
         """
         Check mold risk for a room using humidity sensor.
         Calculates approximate dew point and flags risk when humidity is high.
-        Returns dict with humidity, dew_point, risk_level, or None if no sensor.
+        Falls back to TRV humidity attribute if no humidity_sensor is configured.
+        Returns dict with humidity, dew_point, risk_level, or None if no data.
         """
         if not room.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED):
             return None
         humidity_sensor = room.get(CONF_HUMIDITY_SENSOR)
-        if not humidity_sensor:
-            return None
-        state = self.hass.states.get(humidity_sensor)
-        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return None
-        try:
-            humidity = float(state.state)
-        except ValueError:
+        humidity: Optional[float] = None
+        if humidity_sensor:
+            state = self.hass.states.get(humidity_sensor)
+            if state and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                try:
+                    humidity = float(state.state)
+                except ValueError:
+                    pass
+        if humidity is None:
+            # Fall back to TRV humidity sensor (optional)
+            humidity = trv_humidity
+        if humidity is None:
             return None
 
         threshold = float(room.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD))
@@ -1599,6 +1616,126 @@ class IHCCoordinator(DataUpdateCoordinator):
         except ValueError:
             return None
 
+    def _get_trv_data(self, room: dict) -> dict:
+        """Collect live data from all valve_entities (TRVs) in a room.
+
+        Returns a dict with:
+          trv_temps         – list of current_temperature values (floats)
+          trv_avg_temp      – average or None if none available
+          trv_humidity      – average humidity attribute or None
+          trv_valve_positions – list of valve_position / position values (0-100)
+          trv_avg_valve     – average valve opening % or None
+          trv_any_heating   – True if any TRV hvac_action == "heating"
+          trv_hvac_actions  – list of hvac_action strings
+        """
+        entities: list[str] = list(room.get(CONF_VALVE_ENTITIES) or [])
+        single = room.get(CONF_VALVE_ENTITY, "")
+        if single and single not in entities:
+            entities.insert(0, single)
+
+        temps: list[float] = []
+        humidities: list[float] = []
+        valve_positions: list[float] = []
+        hvac_actions: list[str] = []
+
+        for eid in entities:
+            state = self.hass.states.get(eid)
+            if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                continue
+            attrs = state.attributes
+
+            t = attrs.get("current_temperature")
+            if t is not None:
+                try:
+                    temps.append(float(t))
+                except (ValueError, TypeError):
+                    pass
+
+            h = attrs.get("humidity") or attrs.get("current_humidity")
+            if h is not None:
+                try:
+                    humidities.append(float(h))
+                except (ValueError, TypeError):
+                    pass
+
+            # Valve position: different TRVs use different attribute names
+            vp = attrs.get("valve_position") or attrs.get("position") or attrs.get("pi_heating_demand")
+            if vp is not None:
+                try:
+                    valve_positions.append(float(vp))
+                except (ValueError, TypeError):
+                    pass
+
+            action = attrs.get("hvac_action", "")
+            if action:
+                hvac_actions.append(str(action))
+
+        return {
+            "trv_temps": temps,
+            "trv_avg_temp": round(sum(temps) / len(temps), 1) if temps else None,
+            "trv_humidity": round(sum(humidities) / len(humidities), 1) if humidities else None,
+            "trv_valve_positions": valve_positions,
+            "trv_avg_valve": round(sum(valve_positions) / len(valve_positions), 1) if valve_positions else None,
+            "trv_any_heating": any(a == "heating" for a in hvac_actions),
+            "trv_hvac_actions": hvac_actions,
+        }
+
+    def _blend_trv_temp(
+        self,
+        room: dict,
+        room_temp: Optional[float],
+        trv_data: dict,
+    ) -> tuple[Optional[float], Optional[float]]:
+        """Return (blended_temp, raw_trv_temp) for a room.
+
+        If trv_temp_weight == 0 or no TRV temp available: return room_temp unchanged.
+        If no room sensor but TRV temp available: use corrected TRV as fallback.
+        Otherwise: weighted average with TRV offset applied first.
+        """
+        trv_avg = trv_data.get("trv_avg_temp")
+        weight = float(room.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT))
+        offset = float(room.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET))
+
+        if trv_avg is None:
+            return room_temp, None  # no TRV data available
+
+        corrected_trv = trv_avg + offset  # compensate for proximity to radiator
+
+        if weight <= 0.0:
+            # Blending disabled – use TRV only as fallback when no room sensor
+            if room_temp is None:
+                return round(corrected_trv, 1), trv_avg
+            return room_temp, trv_avg
+
+        if room_temp is None:
+            # Only TRV available
+            return round(corrected_trv, 1), trv_avg
+
+        # Weighted blend
+        blended = room_temp * (1.0 - weight) + corrected_trv * weight
+        return round(blended, 1), trv_avg
+
+    def _apply_trv_valve_demand(self, demand: float, trv_data: dict) -> float:
+        """Optionally correct demand based on TRV valve position.
+
+        - Valve > 85 %: TRV is fully open → ensure minimum demand of 30
+        - Valve < 8 %: TRV nearly closed → cap demand at 30
+        - In between: blend temperature-based demand (70%) with valve-based (30%)
+        """
+        avg_valve = trv_data.get("trv_avg_valve")
+        if avg_valve is None:
+            return demand
+
+        valve_demand = avg_valve  # valve position maps directly to 0-100 demand
+
+        if avg_valve > 85:
+            return max(demand, 30.0)
+        if avg_valve < 8:
+            return min(demand, 30.0)
+        # Blend – temperature signal stays dominant
+        blended = demand * 0.70 + valve_demand * 0.30
+        return round(max(0.0, min(100.0, blended)), 1)
+
     def _is_window_open(self, room: dict, current_temp: Optional[float]) -> bool:
         """
         Detect window open state with per-room reaction time and close delay.
@@ -2157,7 +2294,12 @@ class IHCCoordinator(DataUpdateCoordinator):
 
             temp_sensor = room.get(CONF_TEMP_SENSOR, "")
             raw_temp = self._get_sensor_temp(temp_sensor)
-            current_temp = self._apply_room_calibration(room, raw_temp)  # Roadmap 1.4
+            calibrated_temp = self._apply_room_calibration(room, raw_temp)
+
+            # TRV sensor data integration (optional)
+            trv_data = self._get_trv_data(room)
+            current_temp, trv_raw_temp = self._blend_trv_temp(room, calibrated_temp, trv_data)
+
             window_open = self._is_window_open(room, current_temp)
             room_mode = self.get_room_mode(room_id)
             deadband = float(room.get(CONF_DEADBAND, DEFAULT_DEADBAND))
@@ -2223,21 +2365,26 @@ class IHCCoordinator(DataUpdateCoordinator):
 
             # Warmup tracking: update predictive pre-heat data (Roadmap 1.1)
             demand = controller_state["demand"]
+
+            # Optional: correct demand using TRV valve position
+            if room.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND):
+                demand = self._apply_trv_valve_demand(demand, trv_data)
+
             self._update_warmup_tracking(
                 room_id,
                 was_cold=demand > 0,
                 is_now_warm=demand == 0 and current_temp is not None,
             )
 
-            # Collect mold data for room info
-            mold_data = self._check_mold_risk(room, current_temp)
+            # Collect mold data – use TRV humidity as fallback if no room humidity sensor
+            mold_data = self._check_mold_risk(room, current_temp, trv_humidity=trv_data.get("trv_humidity"))
 
             room_data[room_id] = {
                 "ventilation": None,  # filled below after outdoor_humidity is known
                 "name": room.get(CONF_ROOM_NAME, room_id),
                 "current_temp": current_temp,
                 "target_temp": target_temp,
-                "demand": controller_state["demand"],
+                "demand": demand,
                 "window_open": window_open,
                 "room_mode": room_mode,
                 "manual_temp": self.get_room_manual_temp(room_id),
@@ -2248,6 +2395,11 @@ class IHCCoordinator(DataUpdateCoordinator):
                 "anomaly": self._detect_sensor_anomaly(room_id),    # Roadmap 1.1
                 "room_presence_active": room_presence_active,       # Roadmap 1.2
                 "mold": mold_data,                                  # Roadmap 2.0
+                # TRV sensor data (optional – all None when not available)
+                "trv_raw_temp": trv_raw_temp,
+                "trv_humidity": trv_data.get("trv_humidity"),
+                "trv_avg_valve": trv_data.get("trv_avg_valve"),
+                "trv_any_heating": trv_data.get("trv_any_heating", False),
                 # Outdoor-regulated effective preset temps (for display in frontend)
                 "comfort_temp_eff": comfort_eff,
                 "eco_temp_eff": eco_eff,
@@ -2434,50 +2586,83 @@ class IHCCoordinator(DataUpdateCoordinator):
     def _get_ha_schedule_blocks(self, entity_id: str) -> list[dict]:
         """Read weekly time blocks from a HA schedule.* helper entity config.
 
-        HA stores schedule blocks in the config_entry.data / options under day keys:
-          {"monday": [{"from": "07:00:00", "to": "09:00:00"}], "tuesday": [...], ...}
+        HA stores schedule blocks in config_entry.options (or .data) under full day keys:
+          {"monday": [{"from": "07:00:00", "to": "09:00:00"}], ...}
+        Some HA versions use short keys ("mon", "tue") or "start"/"end" instead of "from"/"to".
+        We try all variants.
 
         Returns IHC-compatible block list:
           [{"days": ["mon", "tue"], "periods": [{"start": "07:00", "end": "09:00"}]}]
         """
-        DAY_MAP = {
+        # Full day names (HA default since 2023.3)
+        DAY_MAP_FULL = {
             "monday": "mon", "tuesday": "tue", "wednesday": "wed",
             "thursday": "thu", "friday": "fri", "saturday": "sat", "sunday": "sun",
+        }
+        # Short day names (used in some HA versions / custom components)
+        DAY_MAP_SHORT = {
+            "mon": "mon", "tue": "tue", "wed": "wed",
+            "thu": "thu", "fri": "fri", "sat": "sat", "sun": "sun",
         }
         try:
             registry = er.async_get(self.hass)
             entry = registry.async_get(entity_id)
-            if not entry or not entry.config_entry_id:
+            if not entry:
+                _LOGGER.warning(
+                    "IHC: HA-Zeitplan '%s' nicht in Entity-Registry – existiert die Entität?", entity_id
+                )
+                return []
+            if not entry.config_entry_id:
+                _LOGGER.warning(
+                    "IHC: HA-Zeitplan '%s' hat keine config_entry_id – "
+                    "via YAML definiert? Nur UI-Helfer werden unterstützt.", entity_id
+                )
                 return []
             config_entry = self.hass.config_entries.async_get_entry(entry.config_entry_id)
             if not config_entry:
+                _LOGGER.warning(
+                    "IHC: Config Entry '%s' für '%s' nicht gefunden.", entry.config_entry_id, entity_id
+                )
                 return []
 
-            # Merge data + options (HA may store schedule blocks in either)
+            # Merge data + options (HA may store schedule blocks in either location)
             cfg: dict = {}
             cfg.update(config_entry.data or {})
             cfg.update(config_entry.options or {})
 
-            # Collect all periods grouped by start/end time (merge same-time different days)
-            # Structure: {(start, end): [day, ...]}
+            # Pick the day-map whose keys appear in cfg
+            has_full  = any(k in cfg for k in DAY_MAP_FULL)
+            has_short = any(k in cfg for k in DAY_MAP_SHORT)
+            day_map = DAY_MAP_FULL if (has_full or not has_short) else DAY_MAP_SHORT
+
+            # Collect periods, merging identical start/end times across days
             period_map: dict[tuple[str, str], list[str]] = {}
-            for ha_day, ihc_day in DAY_MAP.items():
+            for ha_day, ihc_day in day_map.items():
                 for period in cfg.get(ha_day, []):
-                    start = str(period.get("from", ""))[:5]  # "07:00:00" → "07:00"
-                    end   = str(period.get("to", ""))[:5]
+                    # Support both "from"/"to" (HA default) and "start"/"end" variants
+                    raw_start = period.get("from") or period.get("start") or ""
+                    raw_end   = period.get("to")   or period.get("end")   or ""
+                    start = str(raw_start)[:5]  # "07:00:00" → "07:00"
+                    end   = str(raw_end)[:5]
                     if not start or not end:
                         continue
-                    key = (start, end)
-                    period_map.setdefault(key, []).append(ihc_day)
+                    period_map.setdefault((start, end), []).append(ihc_day)
 
-            # Convert to IHC schedule block list
             blocks = [
                 {"days": days, "periods": [{"start": s, "end": e}]}
                 for (s, e), days in period_map.items()
             ]
+
+            if not blocks:
+                found_keys = [k for k in cfg if k in {**DAY_MAP_FULL, **DAY_MAP_SHORT}]
+                _LOGGER.warning(
+                    "IHC: Keine Blöcke für '%s' gefunden. "
+                    "Gefundene Tages-Keys: %s. Bitte im HA-Helfer Zeitblöcke definieren.",
+                    entity_id, found_keys or "(keine)"
+                )
             return blocks
         except Exception:  # noqa: BLE001
-            _LOGGER.debug("IHC: could not read HA schedule blocks for %s", entity_id)
+            _LOGGER.warning("IHC: Fehler beim Lesen der HA-Zeitplan-Blöcke für '%s':", entity_id, exc_info=True)
             return []
 
     def get_ha_schedule_blocks_for_room(self, room: dict) -> dict[str, list[dict]]:

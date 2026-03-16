@@ -53,6 +53,12 @@ from .const import (
     CONF_HKV_FACTOR,
     CONF_BOOST_TEMP,
     CONF_BOOST_DEFAULT_DURATION,
+    CONF_TRV_TEMP_WEIGHT,
+    DEFAULT_TRV_TEMP_WEIGHT,
+    CONF_TRV_TEMP_OFFSET,
+    DEFAULT_TRV_TEMP_OFFSET,
+    CONF_TRV_VALVE_DEMAND,
+    DEFAULT_TRV_VALVE_DEMAND,
     DEFAULT_ABSOLUTE_MIN_TEMP,
     DEFAULT_ROOM_QM,
     DEFAULT_ROOM_PREHEAT_MINUTES,
@@ -244,6 +250,14 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "co2_threshold_bad": room_cfg.get(CONF_CO2_THRESHOLD_BAD, DEFAULT_CO2_THRESHOLD_BAD),
             "co2_ppm": d.get("co2_ppm"),
             "ventilation": d.get("ventilation"),
+            # TRV sensor data integration (optional)
+            "trv_temp_weight": room_cfg.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT),
+            "trv_temp_offset": room_cfg.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET),
+            "trv_valve_demand": room_cfg.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND),
+            "trv_raw_temp": d.get("trv_raw_temp"),
+            "trv_humidity": d.get("trv_humidity"),
+            "trv_avg_valve": d.get("trv_avg_valve"),
+            "trv_any_heating": d.get("trv_any_heating", False),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
