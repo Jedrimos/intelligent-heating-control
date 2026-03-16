@@ -322,6 +322,71 @@ const STYLES = `
   /* Divider */
   hr.divider { border: none; border-top: 1px solid var(--divider-color, #e0e0e0); margin: 16px 0; }
 
+  /* Room mode row (replaces mode chips) */
+  .room-mode-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .mode-select {
+    flex: 1; padding: 5px 8px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: 1.5px solid var(--divider-color, #e0e0e0);
+    background: var(--secondary-background-color, #f5f5f5);
+    color: var(--primary-text-color); cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center;
+    padding-right: 22px;
+  }
+  .mode-select.active-auto     { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 12%, transparent); }
+  .mode-select.active-comfort  { border-color: #fb8c00; background: #fff3e0; }
+  .mode-select.active-eco      { border-color: #43a047; background: #e8f5e9; }
+  .mode-select.active-sleep    { border-color: #5c6bc0; background: #e8eaf6; }
+  .mode-select.active-away     { border-color: #e65100; background: #fff3e0; }
+  .mode-select.active-off      { border-color: #9e9e9e; background: #f5f5f5; }
+  .mode-select.active-manual   { border-color: #8d6e63; background: #efebe9; }
+  .btn-boost {
+    padding: 5px 10px; border-radius: 8px; border: 1.5px solid #fb8c00;
+    background: transparent; color: #fb8c00; font-size: 12px; font-weight: 700;
+    cursor: pointer; white-space: nowrap; transition: all 0.15s; flex-shrink: 0;
+  }
+  .btn-boost:hover { background: #fb8c00; color: white; }
+
+  /* Custom entity picker */
+  .ep-wrap { position: relative; }
+  .ep-dropdown {
+    position: fixed; z-index: 99999;
+    background: var(--card-background-color, #fff);
+    border: 1.5px solid var(--primary-color);
+    border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,.2);
+    max-height: 260px; overflow-y: auto;
+    min-width: 240px;
+  }
+  .ep-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer;
+    border-bottom: 1px solid var(--divider-color, #e0e0e0); transition: background 0.1s;
+  }
+  .ep-item:last-child { border-bottom: none; }
+  .ep-item:hover, .ep-item.ep-focused { background: var(--secondary-background-color, #f5f5f5); }
+  .ep-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px;
+    white-space: nowrap; text-transform: lowercase; flex-shrink: 0;
+  }
+  .ep-d-sensor        { background: #e3f2fd; color: #1565c0; }
+  .ep-d-climate       { background: #e0f2f1; color: #00695c; }
+  .ep-d-switch        { background: #fff3e0; color: #e65100; }
+  .ep-d-binary_sensor { background: #f3e5f5; color: #6a1b9a; }
+  .ep-d-weather       { background: #e8f5e9; color: #2e7d32; }
+  .ep-d-number        { background: #fce4ec; color: #880e4f; }
+  .ep-d-input_boolean { background: #fff8e1; color: #f57f17; }
+  .ep-d-person        { background: #e8eaf6; color: #283593; }
+  .ep-d-device_tracker{ background: #e8eaf6; color: #283593; }
+  .ep-d-other         { background: #f5f5f5; color: #616161; }
+  .ep-info { flex: 1; min-width: 0; }
+  .ep-name { font-size: 13px; font-weight: 600; color: var(--primary-text-color);
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ep-id   { font-size: 11px; color: var(--secondary-text-color);
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ep-state { font-size: 12px; font-weight: 600; color: var(--secondary-text-color);
+              flex-shrink: 0; white-space: nowrap; margin-left: auto; }
+  .ep-empty { padding: 12px; text-align: center; color: var(--secondary-text-color);
+              font-size: 13px; font-style: italic; }
+
   /* Responsive – mobile optimised (Roadmap 1.5) */
   @media (max-width: 600px) {
     .panel { padding: 10px; }
@@ -745,12 +810,9 @@ class IHCPanel extends HTMLElement {
            : `<span style="color:var(--success-color,#43a047);font-size:11px">≈</span>`)
         : "";
 
-      const modeChips = ["auto","comfort","eco","sleep","away","off"].map(m => {
-        const isActive = room.room_mode === m;
-        return `<span class="mode-chip ${isActive ? "active" : ""}"
-          data-room-id="${room.room_id}" data-mode="${m}"
-          title="${MODE_LABELS[m]}">${MODE_ICONS[m]} <span style="font-size:10px">${MODE_LABELS[m]}</span></span>`;
-      }).join("");
+      const modeOptions = ["auto","comfort","eco","sleep","away","off","manual"].map(m =>
+        `<option value="${m}" ${room.room_mode === m ? "selected" : ""}>${MODE_ICONS[m] || ""} ${MODE_LABELS[m]}</option>`
+      ).join("");
 
       const anomalyBanner = room.anomaly === "sensor_stuck"
         ? `<div style="font-size:10px;color:#c62828;background:#fce4ec;border-radius:6px;padding:3px 7px;margin-bottom:6px">⚠️ Sensor liefert konstanten Wert – bitte prüfen</div>`
@@ -801,13 +863,17 @@ class IHCPanel extends HTMLElement {
             <div class="demand-bar" style="width:${room.demand}%;background:${this._demandColor(room.demand)}"></div>
           </div>
           <div class="demand-label">${room.demand} % · ${src}${room.night_setback > 0 ? ` · 🌙-${room.night_setback}°` : ""}${room.room_presence_active === false ? ` · 🚶 niemand da` : ""}</div>
-          <div class="mode-chips">${modeChips}
-            <span class="mode-chip boost" data-room-id="${room.room_id}" data-action="boost"
-              title="60min Boost">⚡ <span style="font-size:10px">Boost</span></span>
+          <div class="room-mode-row">
+            <select class="mode-select active-${room.room_mode || 'auto'}" data-room-id="${room.room_id}">
+              ${modeOptions}
+            </select>
+            ${room.boost_remaining > 0
+              ? `<button class="btn-boost active" data-room-id="${room.room_id}" data-action="boost-cancel" title="Boost beenden" style="background:#fb8c00;color:white">⚡ ${room.boost_remaining}min ✕</button>`
+              : `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost" title="Boost starten">⚡ Boost</button>`}
           </div>
           ${room.next_period && !room.schedule_active ? `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:4px">📅 Nächster Zeitplan: ${room.next_period.start}–${room.next_period.end} · ${room.next_period.temperature}°C</div>` : ""}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
-            ${room.runtime_today_minutes > 0 ? `<span style="font-size:10px;color:var(--secondary-text-color)">⏱ ${room.runtime_today_minutes} min${room.energy_today_kwh > 0 ? ` · ~${room.energy_today_kwh} kWh` : ""}</span>` : "<span></span>"}
+            ${localStorage.getItem("ihc_show_energy") !== "false" && room.runtime_today_minutes > 0 ? `<span style="font-size:10px;color:var(--secondary-text-color)">⏱ ${room.runtime_today_minutes} min${room.energy_today_kwh > 0 ? ` · ~${room.energy_today_kwh} kWh` : ""}</span>` : "<span></span>"}
             ${room.avg_warmup_minutes ? `<span style="font-size:10px;color:var(--secondary-text-color)" title="Ø Aufheizzeit">🌡️ Ø ${room.avg_warmup_minutes} min</span>` : ""}
             ${this._sparkline(room.temp_history)}
           </div>
@@ -861,7 +927,7 @@ class IHCPanel extends HTMLElement {
         <div class="hero-card">
           <div class="hero-label">Gesamtanforderung</div>
           <div class="hero-value ${demandCls}">${demandNum}</div>
-          <div class="hero-sub">⏱ ${g.heating_runtime_today} min · ${g.energy_today_kwh} kWh</div>
+          ${localStorage.getItem("ihc_show_energy") !== "false" ? `<div class="hero-sub">⏱ ${g.heating_runtime_today} min · ${g.energy_today_kwh} kWh</div>` : ""}
         </div>
         <div class="hero-card" style="justify-content:space-between">
           <div class="hero-label">Systemmodus</div>
@@ -896,7 +962,7 @@ class IHCPanel extends HTMLElement {
           <div class="status-label">Effizienz</div>
           <div class="status-value ${g.efficiency_score >= 80 ? "ok" : g.efficiency_score >= 50 ? "warn" : "on"}">${g.efficiency_score} %</div>
         </div>` : ""}
-        ${g.heating_runtime_yesterday > 0 ? `<div class="status-item" title="Gestriger Verbrauch">
+        ${localStorage.getItem("ihc_show_energy") !== "false" && g.heating_runtime_yesterday > 0 ? `<div class="status-item" title="Gestriger Verbrauch">
           <div class="status-label">Gestern</div>
           <div class="status-value ${g.energy_today_kwh > g.energy_yesterday_kwh ? "on" : "ok"}" style="font-size:15px">${g.energy_yesterday_kwh} kWh</div>
         </div>` : ""}
@@ -940,23 +1006,50 @@ class IHCPanel extends HTMLElement {
     if (heroModeBtn) {
       heroModeBtn.addEventListener("click", () => {
         const mode = content.querySelector("#hero-system-mode").value;
-        this._callService("set_system_mode", { mode });
+        this._callService("set_system_mode", { mode }).then(() => {
+          setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
+        });
         this._toast(`✓ Systemmodus: ${SYSTEM_MODE_LABELS[mode] || mode}`);
       });
     }
 
-    // Mode chip clicks
-    content.querySelectorAll(".mode-chip[data-room-id]").forEach(chip => {
-      chip.addEventListener("click", () => {
-        const roomId = chip.dataset.roomId;
-        if (!roomId) { this._toast("Fehler: room_id nicht gefunden"); return; }
-        if (chip.dataset.action === "boost") {
-          this._callService("boost_room", { id: roomId, duration_minutes: 60 });
-          this._toast("⚡ Boost aktiviert (60 min)");
+    // Mode select changes
+    content.querySelectorAll(".mode-select[data-room-id]").forEach(sel => {
+      sel.addEventListener("change", () => {
+        const roomId = sel.dataset.roomId;
+        if (!roomId) return;
+        const m = sel.value;
+        // Optimistic UI: update class immediately
+        sel.className = `mode-select active-${m}`;
+        this._callService("set_room_mode", { id: roomId, mode: m }).then(() => {
+          setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
+        });
+        this._toast(`✓ Modus: ${MODE_LABELS[m] || m}`);
+      });
+    });
+
+    // Boost buttons
+    content.querySelectorAll(".btn-boost[data-room-id]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const roomId = btn.dataset.roomId;
+        if (!roomId) return;
+        const isCancel = btn.dataset.action === "boost-cancel";
+        if (isCancel) {
+          this._callService("boost_room", { id: roomId, cancel: true }).then(() => {
+            setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
+          });
+          this._toast("✓ Boost beendet");
         } else {
-          const m = chip.dataset.mode;
-          this._callService("set_room_mode", { id: roomId, mode: m });
-          this._toast(`✓ Modus: ${MODE_LABELS[m] || m}`);
+          const rooms = this._getRoomData();
+          const room  = Object.values(rooms).find(r => r.room_id === roomId);
+          const dur   = room?.boost_default_duration || 60;
+          const temp  = room?.boost_temp || null;
+          const data  = { id: roomId, duration_minutes: dur };
+          if (temp) data.temp = temp;
+          this._callService("boost_room", data).then(() => {
+            setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
+          });
+          this._toast(`⚡ Boost aktiviert (${dur} min${temp ? ` → ${temp}°C` : ""})`);
         }
       });
     });
@@ -1046,8 +1139,7 @@ class IHCPanel extends HTMLElement {
               <label>Außentemperatur-Sensor</label>
               <input type="text" class="form-input" id="outdoor-sensor"
                 placeholder="sensor.aussensensor"
-                value="${a.outdoor_temp_sensor ?? ''}" list="outdoor-sensor-list" autocomplete="off">
-              <datalist id="outdoor-sensor-list">${this._entityOptions(["sensor"])}</datalist>
+                value="${a.outdoor_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Wird für Heizkurve und Sommerautomatik benötigt</span>
             </div>
             <div class="settings-item">
@@ -1062,15 +1154,13 @@ class IHCPanel extends HTMLElement {
               <label>Heizungsschalter <em style="font-weight:400">(optional)</em></label>
               <input type="text" class="form-input" id="heating-switch"
                 placeholder="switch.heizung"
-                value="${a.heating_switch ?? ''}" list="heating-switch-list" autocomplete="off">
-              <datalist id="heating-switch-list">${this._entityOptions(["switch", "input_boolean"])}</datalist>
+                value="${a.heating_switch ?? ''}" data-ep-domains="switch,input_boolean" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>Wettervorhersage-Entität</label>
               <input type="text" class="form-input" id="weather-entity"
                 placeholder="weather.home (leer = deaktiviert)"
-                value="${a.weather_entity ?? ''}" list="weather-entity-list" autocomplete="off">
-              <datalist id="weather-entity-list">${this._entityOptions(["weather"])}</datalist>
+                value="${a.weather_entity ?? ''}" data-ep-domains="weather" autocomplete="off">
               <span class="form-hint">Zeigt Wettervorhersage und Kältewarnung</span>
             </div>
             <div class="settings-item">
@@ -1095,8 +1185,7 @@ class IHCPanel extends HTMLElement {
               <label>Kühlschalter <em style="font-weight:400">(optional)</em></label>
               <input type="text" class="form-input" id="cooling-switch"
                 placeholder="switch.klimaanlage"
-                value="${a.cooling_switch ?? ''}" list="cooling-switch-list" autocomplete="off">
-              <datalist id="cooling-switch-list">${this._entityOptions(["switch", "input_boolean"])}</datalist>
+                value="${a.cooling_switch ?? ''}" data-ep-domains="switch,input_boolean" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>Steuerungsmodus</label>
@@ -1303,6 +1392,14 @@ class IHCPanel extends HTMLElement {
         <div class="ihc-card-body">
           <div class="settings-grid">
             <div class="settings-item">
+              <label>Energie & Laufzeit anzeigen</label>
+              <select class="form-select" id="show-energy-stats">
+                <option value="true"  ${localStorage.getItem("ihc_show_energy") !== "false" ? "selected" : ""}>Aktiviert</option>
+                <option value="false" ${localStorage.getItem("ihc_show_energy") === "false"  ? "selected" : ""}>Deaktiviert</option>
+              </select>
+              <span class="form-hint">Heizlaufzeit &amp; kWh im Dashboard anzeigen</span>
+            </div>
+            <div class="settings-item">
               <label>Kesselleistung (kW)</label>
               <input type="number" class="form-input" id="boiler-kw" min="1" max="100" step="1" value="${a.boiler_kw ?? 20}">
               <span class="form-hint">Für kWh-Berechnung (Laufzeit × kW)</span>
@@ -1311,23 +1408,20 @@ class IHCPanel extends HTMLElement {
               <label>Smart-Meter-Sensor (kWh)</label>
               <input type="text" class="form-input" id="smart-meter-entity"
                 placeholder="sensor.strom_zaehler (leer = deaktiviert)"
-                value="${a.smart_meter_entity ?? ''}" list="meter-list">
-              <datalist id="meter-list">${this._entityOptions(["sensor"])}</datalist>
+                value="${a.smart_meter_entity ?? ''}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">TOTAL_INCREASING → echter Verbrauch</span>
             </div>
             <div class="settings-item">
               <label>Vorlauftemperatur-Entität (Setzen)</label>
               <input type="text" class="form-input" id="flow-temp-entity"
                 placeholder="number.boiler_flow_temp (leer = aus)"
-                value="${a.flow_temp_entity ?? ''}" list="flow-temp-list">
-              <datalist id="flow-temp-list">${this._entityOptions(["number"])}</datalist>
+                value="${a.flow_temp_entity ?? ''}" data-ep-domains="number" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>Vorlauftemperatur-Sensor (PID)</label>
               <input type="text" class="form-input" id="flow-temp-sensor"
                 placeholder="sensor.boiler_flow_temp (leer = kein PID)"
-                value="${a.flow_temp_sensor ?? ''}" list="flow-sensor-list">
-              <datalist id="flow-sensor-list">${this._entityOptions(["sensor"])}</datalist>
+                value="${a.flow_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">PID-Regler nutzt Ist-Vorlauftemperatur</span>
             </div>
             <div class="settings-item">
@@ -1342,8 +1436,7 @@ class IHCPanel extends HTMLElement {
               <label>Solar-Sensor</label>
               <input type="text" class="form-input" id="solar-entity"
                 placeholder="sensor.solar_power (leer = aus)"
-                value="${a.solar_entity ?? ''}" list="solar-entity-list">
-              <datalist id="solar-entity-list">${this._entityOptions(["sensor"])}</datalist>
+                value="${a.solar_entity ?? ''}" data-ep-domains="sensor" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>Überschuss-Schwelle (W)</label>
@@ -1361,8 +1454,7 @@ class IHCPanel extends HTMLElement {
               <label>Preis-Sensor</label>
               <input type="text" class="form-input" id="energy-price-entity"
                 placeholder="sensor.strompreis (leer = aus)"
-                value="${a.energy_price_entity ?? ''}" list="price-entity-list">
-              <datalist id="price-entity-list">${this._entityOptions(["sensor"])}</datalist>
+                value="${a.energy_price_entity ?? ''}" data-ep-domains="sensor" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>Preis-Schwelle (€/kWh)</label>
@@ -1411,8 +1503,7 @@ class IHCPanel extends HTMLElement {
               <label>Außenfeuchte-Sensor</label>
               <input type="text" class="form-input" id="outdoor-humidity-sensor"
                 placeholder="sensor.aussenfeuchte (leer = deaktiviert)"
-                value="${a.outdoor_humidity_sensor ?? ''}" list="humid-sensor-list" autocomplete="off">
-              <datalist id="humid-sensor-list">${this._entityOptions(["sensor"])}</datalist>
+                value="${a.outdoor_humidity_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Verhindert Lüftungsempfehlung bei hoher Außenfeuchte</span>
             </div>
             <div class="settings-item">
@@ -1443,8 +1534,8 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Adaptive Heizkurve</label>
               <select class="form-select" id="adaptive-curve-enabled">
-                <option value="false" ${!a.adaptive_curve_enabled ? "selected" : ""}>Deaktiviert</option>
-                <option value="true"  ${a.adaptive_curve_enabled  ? "selected" : ""}>Aktiviert (lernt automatisch)</option>
+                <option value="false" ${!(a.adaptive_curve_enabled ?? a.curve_adaptation_enabled) ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${(a.adaptive_curve_enabled ?? a.curve_adaptation_enabled) ? "selected" : ""}>Aktiviert (lernt automatisch)</option>
               </select>
               <span class="form-hint">Passt Kurve ±0.5°C/Tag an (max. ±3°C)</span>
             </div>
@@ -1467,8 +1558,7 @@ class IHCPanel extends HTMLElement {
               <label>Urlaubs-Kalender</label>
               <input type="text" class="form-input" id="vacation-calendar"
                 placeholder="calendar.urlaub (leer = aus)"
-                value="${a.vacation_calendar ?? ''}" list="calendar-list">
-              <datalist id="calendar-list">${this._entityOptions(["calendar"])}</datalist>
+                value="${a.vacation_calendar ?? ''}" data-ep-domains="calendar" autocomplete="off">
               <span class="form-hint">Events mit „urlaub" → Urlaubsmodus</span>
             </div>
           </div>
@@ -1621,6 +1711,12 @@ class IHCPanel extends HTMLElement {
       this._toast("✓ Anwesenheitserkennung gespeichert");
     });
 
+    // Energy stats visibility toggle – stored in localStorage (frontend-only)
+    content.querySelector("#show-energy-stats").addEventListener("change", e => {
+      localStorage.setItem("ihc_show_energy", e.target.value);
+      this._toast(e.target.value === "true" ? "✓ Energie-Stats aktiviert" : "✓ Energie-Stats deaktiviert");
+    });
+
     content.querySelector("#save-energy-settings").addEventListener("click", () => {
       const boilerKw     = parseFloat(content.querySelector("#boiler-kw").value);
       const solarSurplus = parseFloat(content.querySelector("#solar-surplus-threshold").value);
@@ -1708,6 +1804,9 @@ class IHCPanel extends HTMLElement {
       this._callService("update_global_settings", { guest_duration_hours: dur });
       this._toast("✓ Standarddauer gespeichert");
     });
+
+    // Attach HA-style entity pickers to all entity inputs
+    this._attachEntityPickers(content);
   }
 
   // ── Helper: Presence checkboxes from HA states ──────────────────────────────
@@ -1765,7 +1864,7 @@ class IHCPanel extends HTMLElement {
     return section("Personen", persons) + trackerBlock + section("Schalter (input_boolean)", booleans);
   }
 
-  // ── Helper: datalist options for entity pickers ─────────────────────────────
+  // ── Helper: legacy datalist options (kept for fallback) ─────────────────────
   _entityOptions(domains) {
     if (!this._hass) return "";
     return Object.keys(this._hass.states)
@@ -1774,11 +1873,126 @@ class IHCPanel extends HTMLElement {
       .map(id => {
         const state = this._hass.states[id];
         const name  = state?.attributes?.friendly_name;
-        // Show "Friendly Name – entity.id" so users can search by name OR id
         const label = name && name !== id ? `${name} – ${id}` : id;
         return `<option value="${id}" label="${label}">`;
       })
       .join("");
+  }
+
+  // ── HA-style entity picker (attaches to inputs with data-ep-domains) ─────────
+  _attachEntityPickers(root) {
+    if (!this._hass) return;
+    root.querySelectorAll("input[data-ep-domains]").forEach(input => {
+      // Wrap input in .ep-wrap if not already done
+      if (input.parentElement.classList.contains("ep-wrap")) return;
+      const domains = (input.dataset.epDomains || "").split(",").map(d => d.trim()).filter(Boolean);
+
+      const wrap = document.createElement("div");
+      wrap.className = "ep-wrap";
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+
+      // Append dropdown to shadow root so it isn't clipped by modal overflow
+      const dropdown = document.createElement("div");
+      dropdown.className = "ep-dropdown";
+      dropdown.style.display = "none";
+      this.shadowRoot.appendChild(dropdown);
+
+      // Tag dropdown with a unique key so it can be cleaned up when the section is re-rendered
+      const _cleanup = () => { dropdown.remove(); };
+      input._epCleanup = _cleanup;
+
+      let focusedIdx = -1;
+
+      const domainBadge = (id) => {
+        const d = id.split(".")[0];
+        const cls = ["sensor","climate","switch","binary_sensor","weather","number","input_boolean","person","device_tracker"].includes(d)
+          ? `ep-d-${d}` : "ep-d-other";
+        return `<span class="ep-badge ${cls}">${d}</span>`;
+      };
+
+      const stateLabel = (state) => {
+        const s = state.state;
+        if (!s || s === "unavailable" || s === "unknown") return "";
+        const u = state.attributes?.unit_of_measurement || "";
+        return `<span class="ep-state">${s}${u ? " " + u : ""}</span>`;
+      };
+
+      const positionDropdown = () => {
+        const rect = input.getBoundingClientRect();
+        dropdown.style.top  = (rect.bottom + 2) + "px";
+        dropdown.style.left = rect.left + "px";
+        dropdown.style.width = rect.width + "px";
+      };
+
+      const renderDropdown = () => {
+        const q = input.value.toLowerCase();
+        const entries = Object.entries(this._hass.states)
+          .filter(([id]) => !domains.length || domains.some(d => id.startsWith(d + ".")))
+          .filter(([id, s]) => {
+            if (!q) return true;
+            return id.toLowerCase().includes(q) || (s.attributes?.friendly_name || "").toLowerCase().includes(q);
+          })
+          .sort(([a], [b]) => a.localeCompare(b))
+          .slice(0, 60);
+
+        focusedIdx = -1;
+        if (!entries.length) {
+          dropdown.innerHTML = `<div class="ep-empty">Keine Entitäten gefunden</div>`;
+        } else {
+          dropdown.innerHTML = entries.map(([id, state]) => {
+            const name = state.attributes?.friendly_name;
+            return `<div class="ep-item" data-value="${id}">
+              ${domainBadge(id)}
+              <div class="ep-info">
+                <div class="ep-name">${name || id}</div>
+                <div class="ep-id">${id}</div>
+              </div>
+              ${stateLabel(state)}
+            </div>`;
+          }).join("");
+
+          dropdown.querySelectorAll(".ep-item").forEach(item => {
+            item.addEventListener("mousedown", e => {
+              e.preventDefault();
+              input.value = item.dataset.value;
+              dropdown.style.display = "none";
+              input.dispatchEvent(new Event("change", { bubbles: true }));
+            });
+          });
+        }
+        positionDropdown();
+        dropdown.style.display = "";
+      };
+
+      const hideDropdown = () => { dropdown.style.display = "none"; focusedIdx = -1; };
+
+      input.addEventListener("focus", renderDropdown);
+      input.addEventListener("blur",  () => setTimeout(hideDropdown, 200));
+      input.addEventListener("input", renderDropdown);
+
+      input.addEventListener("keydown", e => {
+        const items = dropdown.querySelectorAll(".ep-item");
+        if (!items.length) return;
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          focusedIdx = Math.min(focusedIdx + 1, items.length - 1);
+          items.forEach((it, i) => it.classList.toggle("ep-focused", i === focusedIdx));
+          items[focusedIdx]?.scrollIntoView({ block: "nearest" });
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          focusedIdx = Math.max(focusedIdx - 1, 0);
+          items.forEach((it, i) => it.classList.toggle("ep-focused", i === focusedIdx));
+        } else if (e.key === "Enter" && focusedIdx >= 0) {
+          e.preventDefault();
+          input.value = items[focusedIdx].dataset.value;
+          hideDropdown();
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        } else if (e.key === "Escape") {
+          hideDropdown();
+        }
+      });
+    });
   }
 
   // ── Zeitpläne Tab ──────────────────────────────────────────────────────────
@@ -2197,11 +2411,6 @@ class IHCPanel extends HTMLElement {
     this._showModal(`
       <div class="modal-title">+ Zimmer hinzufügen</div>
 
-      <!-- Shared datalists for entity autocomplete -->
-      <datalist id="m-sensor-list">${this._entityOptions(["sensor"])}</datalist>
-      <datalist id="m-climate-list">${this._entityOptions(["climate"])}</datalist>
-      <datalist id="m-binary-sensor-list">${this._entityOptions(["binary_sensor"])}</datalist>
-
       <div class="form-group">
         <label class="form-label">Zimmername *</label>
         <input type="text" class="form-input full" id="m-name" placeholder="z.B. Wohnzimmer">
@@ -2210,7 +2419,7 @@ class IHCPanel extends HTMLElement {
       <div class="form-group">
         <label class="form-label">Temperatursensor</label>
         <input type="text" class="form-input full" id="m-sensor"
-          placeholder="sensor.wohnzimmer_temp" list="m-sensor-list" autocomplete="off">
+          placeholder="sensor.wohnzimmer_temp" data-ep-domains="sensor" autocomplete="off">
         <span class="form-hint">Entity-ID des Temperatursensors</span>
       </div>
 
@@ -2219,8 +2428,8 @@ class IHCPanel extends HTMLElement {
         <div class="entity-list" id="valve-list">
           <div class="entity-row">
             <input type="text" class="form-input" placeholder="climate.wohnzimmer (optional)"
-              list="m-climate-list" autocomplete="off">
-            <button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-datalist="m-climate-list">+</button>
+              data-ep-domains="climate" autocomplete="off">
+            <button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-ep-domains="climate">+</button>
           </div>
         </div>
       </div>
@@ -2230,8 +2439,8 @@ class IHCPanel extends HTMLElement {
         <div class="entity-list" id="window-list">
           <div class="entity-row">
             <input type="text" class="form-input" placeholder="binary_sensor.fenster_wz (optional)"
-              list="m-binary-sensor-list" autocomplete="off">
-            <button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-datalist="m-binary-sensor-list">+</button>
+              data-ep-domains="binary_sensor" autocomplete="off">
+            <button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-ep-domains="binary_sensor">+</button>
           </div>
         </div>
       </div>
@@ -2239,7 +2448,7 @@ class IHCPanel extends HTMLElement {
       <div class="form-group">
         <label class="form-label">Luftfeuchtigkeitssensor (optional)</label>
         <input type="text" class="form-input full" id="m-humidity-sensor"
-          placeholder="sensor.wohnzimmer_humidity" list="m-sensor-list" autocomplete="off">
+          placeholder="sensor.wohnzimmer_humidity" data-ep-domains="sensor" autocomplete="off">
         <span class="form-hint">Für Schimmelschutz-Erkennung</span>
       </div>
 
@@ -2266,7 +2475,7 @@ class IHCPanel extends HTMLElement {
           <div class="settings-item">
             <label>HKV-Sensor (optional)</label>
             <input type="text" class="form-input" id="m-hkv-sensor"
-              placeholder="sensor.hkv_wohnzimmer" list="m-sensor-list" autocomplete="off">
+              placeholder="sensor.hkv_wohnzimmer" data-ep-domains="sensor" autocomplete="off">
             <span class="form-hint">Wireless M-Bus / Ista / Techem Einheitenzähler</span>
           </div>
           <div class="settings-item">
@@ -2356,8 +2565,7 @@ class IHCPanel extends HTMLElement {
             <option value="sleep">Schlaf-Temperatur</option>
           </select>
         </div>
-        <datalist id="m-schedule-list">${this._entityOptions(["schedule"])}</datalist>
-        <datalist id="m-cond-list">${this._entityOptions(["input_boolean","binary_sensor","person","device_tracker"])}</datalist>
+        <!-- schedule/condition rows use data-ep-domains via _createHaScheduleRow -->
         <div id="m-ha-sched-list"></div>
         <button class="btn btn-secondary" id="m-add-ha-sched" style="font-size:12px;margin-top:6px">+ Zeitplan hinzufügen</button>
       </div>
@@ -2406,6 +2614,7 @@ class IHCPanel extends HTMLElement {
     });
     this._bindEntityListAdders();
     this._bindHaSchedAdder([], "m-ha-sched-list", "m-add-ha-sched");
+    // Pickers are attached by _showModal already; schedule rows attached separately
   }
 
   _showEditRoomModal(entityId) {
@@ -2418,15 +2627,15 @@ class IHCPanel extends HTMLElement {
       ? room.valve_entities.map((e, i) => `
           <div class="entity-row">
             <input type="text" class="form-input" value="${e}"
-              list="m-climate-list" autocomplete="off" placeholder="climate.entity">
+              data-ep-domains="climate" autocomplete="off" placeholder="climate.entity">
             ${i === 0
-              ? `<button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-datalist="m-climate-list">+</button>`
+              ? `<button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-ep-domains="climate">+</button>`
               : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
           </div>`).join("")
       : `<div class="entity-row">
            <input type="text" class="form-input" placeholder="climate.entity (optional)"
-             list="m-climate-list" autocomplete="off">
-           <button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-datalist="m-climate-list">+</button>
+             data-ep-domains="climate" autocomplete="off">
+           <button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-ep-domains="climate">+</button>
          </div>`;
 
     // Pre-fill existing window sensors
@@ -2434,24 +2643,19 @@ class IHCPanel extends HTMLElement {
       ? room.window_sensors.map((e, i) => `
           <div class="entity-row">
             <input type="text" class="form-input" value="${e}"
-              list="m-binary-sensor-list" autocomplete="off" placeholder="binary_sensor.fenster">
+              data-ep-domains="binary_sensor" autocomplete="off" placeholder="binary_sensor.fenster">
             ${i === 0
-              ? `<button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-datalist="m-binary-sensor-list">+</button>`
+              ? `<button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-ep-domains="binary_sensor">+</button>`
               : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
           </div>`).join("")
       : `<div class="entity-row">
            <input type="text" class="form-input" placeholder="binary_sensor.fenster (optional)"
-             list="m-binary-sensor-list" autocomplete="off">
-           <button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-datalist="m-binary-sensor-list">+</button>
+             data-ep-domains="binary_sensor" autocomplete="off">
+           <button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-ep-domains="binary_sensor">+</button>
          </div>`;
 
     this._showModal(`
       <div class="modal-title">✏️ ${room.name} bearbeiten</div>
-
-      <!-- Shared datalists for entity autocomplete -->
-      <datalist id="m-climate-list">${this._entityOptions(["climate"])}</datalist>
-      <datalist id="m-binary-sensor-list">${this._entityOptions(["binary_sensor"])}</datalist>
-      <datalist id="m-sensor-list">${this._entityOptions(["sensor"])}</datalist>
 
       <div class="info-box" style="margin-bottom:12px">
         Ist: <strong>${room.current_temp ?? "—"} °C</strong>
@@ -2472,7 +2676,7 @@ class IHCPanel extends HTMLElement {
         <label class="form-label">Temperatursensor</label>
         <input type="text" class="form-input full" id="m-sensor"
           value="${room.temp_sensor}" placeholder="sensor.wohnzimmer_temp"
-          list="m-sensor-list" autocomplete="off">
+          data-ep-domains="sensor" autocomplete="off">
       </div>
 
       <div class="modal-section">
@@ -2561,8 +2765,7 @@ class IHCPanel extends HTMLElement {
           <input type="text" class="form-input" id="m-presence-entities"
             value="${(room.room_presence_entities || []).join(', ')}"
             placeholder="person.max, device_tracker.handy (leer = immer anwesend)"
-            list="m-presence-list" autocomplete="off">
-          <datalist id="m-presence-list">${this._entityOptions(["person","device_tracker","input_boolean","binary_sensor"])}</datalist>
+            data-ep-domains="person,device_tracker,input_boolean,binary_sensor" autocomplete="off">
         </div>
       </div>
 
@@ -2573,7 +2776,7 @@ class IHCPanel extends HTMLElement {
             <label>Feuchtigkeitssensor</label>
             <input type="text" class="form-input" id="m-humidity-sensor"
               value="${room.humidity_sensor || ''}" placeholder="sensor.feuchte (optional)"
-              list="m-sensor-list" autocomplete="off">
+              data-ep-domains="sensor" autocomplete="off">
             <span class="form-hint">Schimmelrisiko-Erkennung &amp; Lüftungsempfehlung</span>
           </div>
           <div class="settings-item">
@@ -2587,7 +2790,7 @@ class IHCPanel extends HTMLElement {
             <label>CO₂-Sensor <em style="font-weight:400">(optional)</em></label>
             <input type="text" class="form-input" id="m-co2-sensor"
               value="${room.co2_sensor || ''}" placeholder="sensor.co2_wohnzimmer (optional)"
-              list="m-sensor-list" autocomplete="off">
+              data-ep-domains="sensor" autocomplete="off">
             <span class="form-hint">ppm → Lüftungsempfehlung (800 ppm gut, >1200 ppm lüften)</span>
           </div>
         </div>
@@ -2610,7 +2813,7 @@ class IHCPanel extends HTMLElement {
             <label>HKV-Sensor (optional)</label>
             <input type="text" class="form-input" id="m-hkv-sensor"
               value="${room.hkv_sensor || ''}" placeholder="sensor.hkv_wohnzimmer"
-              list="m-sensor-list" autocomplete="off">
+              data-ep-domains="sensor" autocomplete="off">
             <span class="form-hint">Ista / Techem / Wireless M-Bus Einheitenzähler</span>
           </div>
           <div class="settings-item">
@@ -2636,17 +2839,29 @@ class IHCPanel extends HTMLElement {
             <option value="sleep" ${(typeof room !== 'undefined' ? room.ha_schedule_off_mode : 'eco') === 'sleep' ? 'selected' : ''}>Schlaf-Temperatur</option>
           </select>
         </div>
-        <datalist id="m-schedule-list">${this._entityOptions(["schedule"])}</datalist>
-        <datalist id="m-cond-list">${this._entityOptions(["input_boolean","binary_sensor","person","device_tracker"])}</datalist>
+        <!-- schedule/condition rows use data-ep-domains via _createHaScheduleRow -->
         <div id="m-ha-sched-list"></div>
         <button class="btn btn-secondary" id="m-add-ha-sched" style="font-size:12px;margin-top:6px">+ Zeitplan hinzufügen</button>
       </div>
 
       <div class="modal-section">
-        <div class="modal-section-title">Schnell-Boost</div>
-        <div class="form-row">
-          <input type="number" class="form-input" id="m-boost-dur" value="60" min="5" max="480" step="5"> min
+        <div class="modal-section-title">⚡ Boost</div>
+        <div class="settings-grid" style="margin-bottom:10px">
+          <div class="settings-item">
+            <label>Boost-Temperatur (°C)</label>
+            <input type="number" class="form-input" id="m-boost-temp"
+              value="${room.boost_temp ?? room.comfort_temp ?? 22}" min="15" max="35" step="0.5">
+            <span class="form-hint">Zieltemperatur während Boost (leer = Komfort)</span>
+          </div>
+          <div class="settings-item">
+            <label>Boost-Dauer (min)</label>
+            <input type="number" class="form-input" id="m-boost-dur"
+              value="${room.boost_default_duration ?? 60}" min="5" max="480" step="5">
+          </div>
+        </div>
+        <div class="form-row" style="gap:8px">
           <button class="btn btn-secondary" id="m-boost-btn">⚡ Boost starten</button>
+          ${room.boost_remaining > 0 ? `<button class="btn btn-danger" id="m-boost-cancel-btn">✕ Boost beenden (${room.boost_remaining} min übrig)</button>` : ""}
         </div>
       </div>
 
@@ -2689,20 +2904,34 @@ class IHCPanel extends HTMLElement {
         hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         room_presence_entities:   (modal.querySelector("#m-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
+        boost_temp:               parseFloat(modal.querySelector("#m-boost-temp")?.value) || null,
+        boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value) || 60,
         ha_schedules,
       });
       this._closeModal();
       this._toast(`✓ ${room.name} gespeichert`);
     });
 
-    // Boost button inside modal (doesn't close modal)
+    // Boost buttons inside modal
     setTimeout(() => {
-      const boostBtn = this.shadowRoot.querySelector("#m-boost-btn");
+      const modal = this.shadowRoot.querySelector("#modal-root .modal");
+      const boostBtn = modal?.querySelector("#m-boost-btn");
       if (boostBtn) {
         boostBtn.addEventListener("click", () => {
-          const dur = parseInt(this.shadowRoot.querySelector("#m-boost-dur").value) || 60;
-          this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
-          this._toast(`⚡ Boost ${dur} min für ${room.name}`);
+          const dur  = parseInt(modal.querySelector("#m-boost-dur")?.value) || 60;
+          const temp = parseFloat(modal.querySelector("#m-boost-temp")?.value) || null;
+          const data = { id: room.room_id, duration_minutes: dur };
+          if (temp && !isNaN(temp)) data.temp = temp;
+          this._callService("boost_room", data);
+          this._toast(`⚡ Boost ${dur} min ${temp ? `→ ${temp}°C ` : ""}für ${room.name}`);
+          this._closeModal();
+        });
+      }
+      const cancelBtn = modal?.querySelector("#m-boost-cancel-btn");
+      if (cancelBtn) {
+        cancelBtn.addEventListener("click", () => {
+          this._callService("boost_room", { id: room.room_id, cancel: true });
+          this._toast(`✓ Boost für ${room.name} beendet`);
           this._closeModal();
         });
       }
@@ -2743,12 +2972,23 @@ class IHCPanel extends HTMLElement {
     );
     const confirmBtn = root.querySelector("#modal-confirm");
     if (confirmBtn && onConfirm) confirmBtn.addEventListener("click", onConfirm);
+
+    // Attach HA-style entity pickers to all entity inputs in the modal
+    this._attachEntityPickers(root.querySelector(".modal"));
   }
 
   _closeModal() {
+    // Clean up entity picker dropdowns from closed modal inputs
     const root = this.shadowRoot.querySelector("#modal-root");
-    if (root) root.innerHTML = "";
+    if (root) {
+      root.querySelectorAll("input[data-ep-domains]").forEach(inp => inp._epCleanup?.());
+      root.innerHTML = "";
+    }
     this._modalOpen = false;
+  }
+
+  _cleanupEntityPickers(container) {
+    container?.querySelectorAll("input[data-ep-domains]").forEach(inp => inp._epCleanup?.());
   }
 
   /** Binds "+"-buttons that add entity rows to entity-list containers. */
@@ -2757,7 +2997,7 @@ class IHCPanel extends HTMLElement {
       this.shadowRoot.querySelectorAll(".add-entity").forEach(btn => {
         btn.addEventListener("click", () => {
           const listId    = btn.dataset.list;
-          const datalistId = btn.dataset.datalist || "";
+          const epDomains = btn.dataset.epDomains || "";
           const list      = this.shadowRoot.querySelector(`#${listId}`);
           if (!list) return;
           const placeholder = btn.closest(".entity-row").querySelector("input").placeholder;
@@ -2765,10 +3005,12 @@ class IHCPanel extends HTMLElement {
           row.className = "entity-row";
           row.innerHTML = `
             <input type="text" class="form-input" placeholder="${placeholder}"
-              ${datalistId ? `list="${datalistId}"` : ""} autocomplete="off">
+              ${epDomains ? `data-ep-domains="${epDomains}"` : ""} autocomplete="off">
             <button class="btn btn-danger btn-icon remove-entity">✕</button>`;
           list.appendChild(row);
           row.querySelector(".remove-entity").addEventListener("click", () => row.remove());
+          // Attach entity picker to the new input
+          if (epDomains) this._attachEntityPickers(row);
         });
       });
       // Also bind remove-entity buttons already in DOM (pre-filled rows)
@@ -2790,7 +3032,7 @@ class IHCPanel extends HTMLElement {
     row.style.cssText = "display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:6px;align-items:center;margin-bottom:6px";
     row.innerHTML = `
       <input type="text" class="form-input hs-entity" placeholder="schedule.zimmer"
-        list="m-schedule-list" autocomplete="off" value="${entry.entity || ''}">
+        data-ep-domains="schedule" autocomplete="off" value="${entry.entity || ''}">
       <select class="form-select hs-mode" style="min-width:90px">
         <option value="comfort" ${(entry.mode||'comfort')==='comfort'?'selected':''}>Komfort</option>
         <option value="eco"     ${entry.mode==='eco'    ?'selected':''}>Eco</option>
@@ -2798,11 +3040,13 @@ class IHCPanel extends HTMLElement {
         <option value="away"    ${entry.mode==='away'   ?'selected':''}>Abwesend</option>
       </select>
       <input type="text" class="form-input hs-cond" placeholder="Bedingung (optional)"
-        list="m-cond-list" autocomplete="off" value="${entry.condition_entity || ''}">
+        data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off" value="${entry.condition_entity || ''}">
       <input type="text" class="form-input hs-cond-state" placeholder="Zustand"
         style="width:70px" value="${entry.condition_state || 'on'}">
       <button class="btn btn-danger btn-icon hs-remove" title="Entfernen">✕</button>`;
     row.querySelector(".hs-remove").addEventListener("click", () => row.remove());
+    // Attach entity pickers after row is appended (caller must ensure DOM is ready)
+    setTimeout(() => this._attachEntityPickers(row), 0);
     return row;
   }
 

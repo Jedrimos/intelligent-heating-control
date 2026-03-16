@@ -432,10 +432,22 @@ class IHCCoordinator(DataUpdateCoordinator):
     def get_room_manual_temp(self, room_id: str) -> Optional[float]:
         return self._room_manual_temps.get(room_id)
 
-    def set_room_boost(self, room_id: str, duration_minutes: int = 60) -> None:
-        """Activate boost mode for a room for the given duration."""
+    def set_room_boost(self, room_id: str, duration_minutes: int = 60, temp: Optional[float] = None) -> None:
+        """Activate boost mode for a room for the given duration.
+
+        If `temp` is given the room switches to manual mode at that temperature.
+        Otherwise the room config's boost_temp is used; if absent, comfort mode is used.
+        """
         self._boost_until[room_id] = datetime.now() + timedelta(minutes=duration_minutes)
-        self._room_modes[room_id] = ROOM_MODE_COMFORT
+        boost_temp = temp
+        if boost_temp is None:
+            room_cfg = self.get_room_config(room_id)
+            boost_temp = room_cfg.get("boost_temp") if room_cfg else None
+        if boost_temp is not None:
+            self._room_modes[room_id] = ROOM_MODE_MANUAL
+            self._room_manual_temps[room_id] = float(boost_temp)
+        else:
+            self._room_modes[room_id] = ROOM_MODE_COMFORT
         self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 

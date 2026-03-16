@@ -287,11 +287,13 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         room_id = call.data.get(CONF_ROOM_ID)
         duration = int(call.data.get("duration_minutes", 60))
         cancel = bool(call.data.get("cancel", False))
+        temp_raw = call.data.get("temp")
+        temp = float(temp_raw) if temp_raw is not None else None
         if room_id:
             if cancel:
                 coordinator.cancel_room_boost(room_id)
             else:
-                coordinator.set_room_boost(room_id, duration)
+                coordinator.set_room_boost(room_id, duration, temp=temp)
 
     async def handle_reload(call: ServiceCall) -> None:
         await hass.config_entries.async_reload(entry.entry_id)

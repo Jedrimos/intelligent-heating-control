@@ -25,8 +25,17 @@ from .const import (
     CONF_PRESENCE_ENTITIES,
     CONF_BOILER_KW, CONF_SOLAR_ENTITY, CONF_SOLAR_SURPLUS_THRESHOLD, CONF_SOLAR_BOOST_TEMP,
     CONF_ENERGY_PRICE_ENTITY, CONF_ENERGY_PRICE_THRESHOLD, CONF_ENERGY_PRICE_ECO_OFFSET,
-    CONF_FLOW_TEMP_ENTITY,
+    CONF_FLOW_TEMP_ENTITY, CONF_FLOW_TEMP_SENSOR,
     CONF_VACATION_START, CONF_VACATION_END,
+    CONF_VACATION_CALENDAR,
+    # v1.3 Adaptive curve + pre-heat
+    CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED,
+    CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
+    # v1.4 ETA pre-heat
+    CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED,
+    # v1.5 Cooling target + smart meter
+    CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP,
+    CONF_SMART_METER_ENTITY,
     # Roadmap 2.0
     CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE,
     CONF_GUEST_DURATION_HOURS, DEFAULT_GUEST_DURATION_HOURS,
@@ -179,6 +188,14 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             # Ventilation advice
             "outdoor_humidity_sensor":     cfg.get(CONF_OUTDOOR_HUMIDITY_SENSOR, ""),
             "ventilation_advice_enabled":  cfg.get(CONF_VENTILATION_ADVICE_ENABLED, DEFAULT_VENTILATION_ADVICE_ENABLED),
+            # Intelligent control (adaptive curve, ETA pre-heat)
+            "adaptive_curve_enabled":      cfg.get(CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED),
+            "adaptive_preheat_enabled":    cfg.get(CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED),
+            "eta_preheat_enabled":         cfg.get(CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED),
+            "vacation_calendar":           cfg.get(CONF_VACATION_CALENDAR, ""),
+            "flow_temp_sensor":            cfg.get(CONF_FLOW_TEMP_SENSOR, ""),
+            "smart_meter_entity":          cfg.get(CONF_SMART_METER_ENTITY, ""),
+            "cooling_target_temp":         cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP),
         }
 
 
