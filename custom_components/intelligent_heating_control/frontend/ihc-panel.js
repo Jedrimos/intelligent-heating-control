@@ -3666,7 +3666,7 @@ class IHCPanel extends HTMLElement {
   _costStr(rawKwh, staticPrice) {
     const kwh = this._kwh(rawKwh);
     const parts = [`~${kwh} kWh`];
-    const price = staticPrice ?? parseFloat(localStorage.getItem("ihc_static_price") || "") || null;
+    const price = staticPrice ?? (parseFloat(localStorage.getItem("ihc_static_price") || "") || null);
     if (price && kwh > 0) parts.push(`≈ ${(kwh * price).toFixed(2)} €`);
     return parts.join(" · ");
   }
