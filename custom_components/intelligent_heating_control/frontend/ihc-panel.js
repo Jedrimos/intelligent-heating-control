@@ -642,6 +642,8 @@ class IHCPanel extends HTMLElement {
         // Boost config
         boost_temp: state.attributes.boost_temp ?? null,
         boost_default_duration: state.attributes.boost_default_duration ?? 60,
+        // HA schedule blocks (from schedule.* entity config entries)
+        ha_schedule_blocks: state.attributes.ha_schedule_blocks || {},
       };
     });
     // Enrich from demand sensors
@@ -2445,54 +2447,122 @@ class IHCPanel extends HTMLElement {
       return `rgb(${r},${g},${b})`;
     };
 
-    const roomHeatmaps = rooms.map(room => {
-      const schedules = room.schedules || [];
-      // Build 7×24 grid
-      const grid = DAY_KEYS.map(dayKey => {
-        return HOURS.map(hour => {
-          const timeMin = hour * 60;
-          let activeTemp = null;
-          for (const sched of schedules) {
-            if (!sched.days || !sched.days.includes(dayKey)) continue;
-            for (const period of (sched.periods || [])) {
-              const [sh, sm] = (period.start || "0:0").split(":").map(Number);
-              const [eh, em] = (period.end   || "0:0").split(":").map(Number);
-              const startMin = sh * 60 + sm;
-              const endMin   = eh * 60 + em;
-              const inPeriod = startMin <= endMin
-                ? (timeMin >= startMin && timeMin < endMin)
-                : (timeMin >= startMin || timeMin < endMin);
-              if (inPeriod) { activeTemp = period.temperature ?? null; break; }
-            }
-            if (activeTemp !== null) break;
+    // Helper: build a 7×24 "active/inactive" boolean grid from schedule blocks
+    // If blocks have a temperature, return it; otherwise return true for "active" HA schedule
+    const buildGrid = (schedules, defaultValue = null) => DAY_KEYS.map(dayKey =>
+      HOURS.map(hour => {
+        const timeMin = hour * 60;
+        for (const sched of schedules) {
+          if (!sched.days || !sched.days.includes(dayKey)) continue;
+          for (const period of (sched.periods || [])) {
+            const [sh, sm] = (period.start || "0:0").split(":").map(Number);
+            const [eh, em] = (period.end   || "0:0").split(":").map(Number);
+            const startMin = sh * 60 + sm, endMin = eh * 60 + em;
+            const inPeriod = startMin <= endMin
+              ? (timeMin >= startMin && timeMin < endMin)
+              : (timeMin >= startMin || timeMin < endMin);
+            if (inPeriod) return period.temperature ?? defaultValue;
           }
-          return activeTemp;
-        });
+        }
+        return null;
+      })
+    );
+
+    // Map HA schedule mode to display label + color hint
+    const HA_MODE_STYLE = {
+      comfort: { label: "Komfort", color: "rgba(255,152,0,0.35)" },
+      eco:     { label: "Eco",     color: "rgba(76,175,80,0.35)"  },
+      sleep:   { label: "Schlaf",  color: "rgba(33,150,243,0.35)" },
+      away:    { label: "Abwesend",color: "rgba(158,158,158,0.35)"},
+    };
+
+    const roomHeatmaps = rooms.map(room => {
+      const ihcSchedules = room.schedules || [];
+      const haBlocks     = room.ha_schedule_blocks || {};   // {entity_id: [{days,periods}]}
+      const haSchedsCfg  = room.ha_schedules || [];         // [{entity, mode, ...}]
+
+      // Build IHC native grid (with temperatures)
+      const ihcGrid = buildGrid(ihcSchedules);
+
+      // Build per-HA-entity grids (boolean active/inactive)
+      const haGrids = Object.entries(haBlocks).map(([entityId, blocks]) => {
+        const cfg = haSchedsCfg.find(s => s.entity === entityId) || {};
+        return { entityId, mode: cfg.mode || "comfort", grid: buildGrid(blocks, true) };
       });
+
+      const hasAnySchedule = ihcSchedules.length > 0 || haGrids.length > 0;
 
       const cols = HOURS.map((_, h) =>
         `<div style="font-size:9px;text-align:center;color:var(--secondary-text-color);width:${100/24}%;min-width:0">${h % 3 === 0 ? h + "h" : ""}</div>`
       ).join("");
 
       const rows = DAY_KEYS.map((dayKey, di) => {
-        const cells = grid[di].map(temp =>
-          `<div title="${temp != null ? temp + " °C" : "—"}" style="
-            flex:1;height:22px;background:${tempToColor(temp)};
-            border-radius:2px;margin:1px;
+        const cells = HOURS.map((_, h) => {
+          const ihcVal = ihcGrid[di][h];
+          // Overlay: find first active HA schedule for this cell
+          const haActive = haGrids.find(hg => hg.grid[di][h] != null);
+          let bg, label = "";
+          if (ihcVal != null) {
+            bg = tempToColor(ihcVal);
+            label = ihcVal;
+          } else if (haActive) {
+            const style = HA_MODE_STYLE[haActive.mode] || HA_MODE_STYLE.comfort;
+            bg = style.color;
+            label = style.label[0];  // single letter e.g. "K","E","S","A"
+          } else {
+            bg = "var(--secondary-background-color, #f5f5f5)";
+          }
+          const title = ihcVal != null
+            ? `${ihcVal} °C (IHC)`
+            : haActive
+              ? `HA: ${haActive.entityId} → ${haActive.mode}`
+              : "—";
+          return `<div title="${title}" style="flex:1;height:22px;background:${bg};border-radius:2px;margin:1px;
             display:flex;align-items:center;justify-content:center;
-            font-size:8px;color:rgba(255,255,255,0.8);font-weight:600">
-            ${temp != null ? temp : ""}
-          </div>`
-        ).join("");
+            font-size:8px;color:rgba(0,0,0,0.55);font-weight:600">${label}</div>`;
+        }).join("");
         return `<div style="display:flex;align-items:center;gap:0;margin-bottom:1px">
           <div style="width:24px;font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${DAYS[di]}</div>
           <div style="display:flex;flex:1;gap:0">${cells}</div>
         </div>`;
       }).join("");
 
+      // HA schedule legend + import buttons
+      const haLegend = haGrids.length > 0 ? `
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--divider-color)">
+          <div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--secondary-text-color)">
+            🏠 Verknüpfte HA-Zeitpläne
+          </div>
+          ${haGrids.map(hg => {
+            const style = HA_MODE_STYLE[hg.mode] || HA_MODE_STYLE.comfort;
+            const blocksCount = haBlocks[hg.entityId]?.length ?? 0;
+            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+              <div style="width:14px;height:14px;border-radius:3px;background:${style.color};border:1px solid rgba(0,0,0,0.15)"></div>
+              <span style="font-size:11px;font-weight:600">${hg.entityId}</span>
+              <span style="font-size:10px;color:var(--secondary-text-color)">${style.label} · ${blocksCount} Blöcke</span>
+              ${blocksCount > 0 ? `<button class="btn btn-secondary" style="font-size:10px;padding:2px 8px"
+                data-action="import-ha-sched" data-room-id="${room.room_id}"
+                data-entity="${hg.entityId}" data-blocks='${JSON.stringify(haBlocks[hg.entityId])}'>
+                📥 Als IHC-Zeitplan importieren
+              </button>` : `<span style="font-size:10px;color:#e53935">⚠️ Keine Blöcke gelesen</span>`}
+            </div>`;
+          }).join("")}
+        </div>` : "";
+
+      const noScheduleHint = !hasAnySchedule ? `
+        <div style="font-size:11px;color:var(--secondary-text-color);margin-top:8px">
+          Kein Zeitplan konfiguriert — Heizkurve ist immer aktiv.<br>
+          <a href="#" style="color:var(--primary-color)" data-action="goto-schedules">→ IHC-Zeitplan erstellen</a>
+          oder im Zimmer bearbeiten HA-Zeitplan verknüpfen.
+        </div>` : "";
+
       return `
-        <div class="card" style="padding:12px">
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px">🚪 ${room.name}</div>
+        <div class="card" style="padding:12px" data-room-id="${room.room_id}">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="font-size:13px;font-weight:700">🚪 ${room.name}</div>
+            ${ihcSchedules.length === 0 && haGrids.length > 0 ? `<span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:8px;font-weight:600">HA-Zeitplan aktiv</span>` : ""}
+            ${ihcSchedules.length > 0 ? `<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:8px;font-weight:600">IHC-Zeitplan</span>` : ""}
+          </div>
           <div style="display:flex;margin-left:24px;margin-bottom:2px">${cols}</div>
           ${rows}
           <div style="margin-top:6px;display:flex;gap:6px;align-items:center;font-size:10px;color:var(--secondary-text-color)">
@@ -2500,19 +2570,54 @@ class IHCPanel extends HTMLElement {
             <div style="flex:1;height:6px;border-radius:3px;background:linear-gradient(to right,rgb(30,100,200),rgb(200,80,20),rgb(230,40,20))"></div>
             <span>Warm</span>
           </div>
+          ${haLegend}
+          ${noScheduleHint}
         </div>`;
     }).join("");
 
     content.innerHTML = `
       <div class="card">
         <div class="card-title">🗓️ Wochenübersicht – Zeitpläne</div>
-        <div class="info-box">
-          Zeigt für jedes Zimmer welche Temperatur laut Zeitplan zu jeder Stunde aktiv ist.<br>
-          Graue Zellen = außerhalb Zeitplan (Heizkurve aktiv).
+        <div class="info-box" style="margin-bottom:0">
+          Zeigt IHC-Zeitpläne (farbig nach Temperatur) und verknüpfte HA-Zeitpläne (blass eingefärbt nach Modus).<br>
+          HA-Zeitpläne können als IHC-Zeitplan importiert werden — dann sind sie auch editierbar.
         </div>
       </div>
-      ${roomHeatmaps || '<div class="info-box">Keine Zeitpläne konfiguriert. Gehe zum Tab <strong>Zeitpläne</strong>.</div>'}
+      ${roomHeatmaps || '<div class="info-box">Keine Zimmer konfiguriert.</div>'}
     `;
+
+    // Import HA schedule → IHC native
+    content.querySelectorAll("[data-action='import-ha-sched']").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const roomId = btn.dataset.roomId;
+        const entityId = btn.dataset.entity;
+        let blocks;
+        try { blocks = JSON.parse(btn.dataset.blocks); } catch { return; }
+        if (!blocks.length) return;
+        // Ask for a temperature to use for all imported blocks (default: comfort curve-based)
+        const tempStr = prompt(
+          `Temperatur für importierte Blöcke aus „${entityId}" (°C)?\nLeer lassen = 21°C`,
+          "21"
+        );
+        const temperature = parseFloat(tempStr) || 21;
+        // Convert to IHC period format (add temperature)
+        const schedules = blocks.map(b => ({
+          days: b.days,
+          periods: (b.periods || []).map(p => ({ start: p.start, end: p.end, temperature, offset: 0 })),
+        }));
+        await this._callService("update_room", { id: roomId, schedules });
+        this._toast(`✓ ${blocks.length} Blöcke aus „${entityId}" importiert — bitte Zeitpläne-Tab prüfen`);
+        setTimeout(() => this._renderTabContent(), 1200);
+      });
+    });
+
+    content.querySelectorAll("[data-action='goto-schedules']").forEach(a => {
+      a.addEventListener("click", e => {
+        e.preventDefault();
+        this._activeTab = "schedules";
+        this._renderTabContent();
+      });
+    });
   }
 
   // ── Heizkurve Tab ──────────────────────────────────────────────────────────

@@ -2030,6 +2030,8 @@ class IHCCoordinator(DataUpdateCoordinator):
                 "away_temp_eff": away_eff,
                 # Ensure night_setback is always present (meta may omit it for mode overrides)
                 "night_setback": 0.0,
+                # HA schedule time blocks (read from schedule.* entity config entries)
+                "ha_schedule_blocks": self.get_ha_schedule_blocks_for_room(room),
                 **meta,
             }
 
@@ -2196,6 +2198,68 @@ class IHCCoordinator(DataUpdateCoordinator):
             "rooms": room_data,
             "debug": self._controller.get_debug_info(),
         }
+
+    # ------------------------------------------------------------------
+    # HA Schedule entity block reader
+    # ------------------------------------------------------------------
+
+    def _get_ha_schedule_blocks(self, entity_id: str) -> list[dict]:
+        """Read weekly time blocks from a HA schedule.* helper entity config.
+
+        HA stores schedule blocks in the config_entry.data / options under day keys:
+          {"monday": [{"from": "07:00:00", "to": "09:00:00"}], "tuesday": [...], ...}
+
+        Returns IHC-compatible block list:
+          [{"days": ["mon", "tue"], "periods": [{"start": "07:00", "end": "09:00"}]}]
+        """
+        DAY_MAP = {
+            "monday": "mon", "tuesday": "tue", "wednesday": "wed",
+            "thursday": "thu", "friday": "fri", "saturday": "sat", "sunday": "sun",
+        }
+        try:
+            registry = er.async_get(self.hass)
+            entry = registry.async_get(entity_id)
+            if not entry or not entry.config_entry_id:
+                return []
+            config_entry = self.hass.config_entries.async_get_entry(entry.config_entry_id)
+            if not config_entry:
+                return []
+
+            # Merge data + options (HA may store schedule blocks in either)
+            cfg: dict = {}
+            cfg.update(config_entry.data or {})
+            cfg.update(config_entry.options or {})
+
+            # Collect all periods grouped by start/end time (merge same-time different days)
+            # Structure: {(start, end): [day, ...]}
+            period_map: dict[tuple[str, str], list[str]] = {}
+            for ha_day, ihc_day in DAY_MAP.items():
+                for period in cfg.get(ha_day, []):
+                    start = str(period.get("from", ""))[:5]  # "07:00:00" → "07:00"
+                    end   = str(period.get("to", ""))[:5]
+                    if not start or not end:
+                        continue
+                    key = (start, end)
+                    period_map.setdefault(key, []).append(ihc_day)
+
+            # Convert to IHC schedule block list
+            blocks = [
+                {"days": days, "periods": [{"start": s, "end": e}]}
+                for (s, e), days in period_map.items()
+            ]
+            return blocks
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("IHC: could not read HA schedule blocks for %s", entity_id)
+            return []
+
+    def get_ha_schedule_blocks_for_room(self, room: dict) -> dict[str, list[dict]]:
+        """Return {entity_id: [blocks]} for all ha_schedules configured for a room."""
+        result: dict[str, list[dict]] = {}
+        for ha_sched in room.get("ha_schedules", []):
+            entity_id = ha_sched.get("entity", "")
+            if entity_id:
+                result[entity_id] = self._get_ha_schedule_blocks(entity_id)
+        return result
 
     # ------------------------------------------------------------------
     # Config management (add/remove/update rooms)

@@ -221,6 +221,11 @@ update_room:
       required: false
       selector:
         text:
+    schedules:
+      name: IHC-Zeitpläne
+      required: false
+      selector:
+        object:
     ha_schedules:
       name: HA-Zeitpläne
       required: false

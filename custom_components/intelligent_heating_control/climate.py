@@ -182,6 +182,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "weight": room_cfg.get("weight", 1.0),
             "schedules": room_cfg.get("schedules", []),
             "ha_schedules": room_cfg.get("ha_schedules", []),
+            "ha_schedule_blocks": d.get("ha_schedule_blocks", {}),
             "next_period": d.get("next_period"),
             "anomaly": d.get("anomaly"),
             # Per-room energy config
