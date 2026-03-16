@@ -182,6 +182,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "weight": room_cfg.get("weight", 1.0),
             "schedules": room_cfg.get("schedules", []),
             "ha_schedules": room_cfg.get("ha_schedules", []),
+            "ha_schedule_blocks": d.get("ha_schedule_blocks", {}),
             "next_period": d.get("next_period"),
             "anomaly": d.get("anomaly"),
             # Per-room energy config
@@ -193,7 +194,11 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "mold_protection_enabled": room_cfg.get("mold_protection_enabled", True),
             "mold": d.get("mold"),
             # Presence
+            "room_presence_entities": room_cfg.get("room_presence_entities", []),
             "room_presence_active": d.get("room_presence_active"),
+            # Boost config
+            "boost_temp": room_cfg.get("boost_temp"),
+            "boost_default_duration": room_cfg.get("boost_default_duration", 60),
             # Ventilation advice + CO2
             "co2_sensor": room_cfg.get("co2_sensor", ""),
             "co2_threshold_good": room_cfg.get("co2_threshold_good", 800),

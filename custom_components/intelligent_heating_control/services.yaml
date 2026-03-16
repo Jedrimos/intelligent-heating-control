@@ -111,6 +111,87 @@ update_room:
       required: true
       selector:
         text:
+    temp_sensor:
+      name: Temperatursensor
+      required: false
+      selector:
+        text:
+    valve_entity:
+      name: Thermostat/Ventil (primär)
+      required: false
+      selector:
+        text:
+    valve_entities:
+      name: Thermostate/Ventile (Liste)
+      required: false
+      selector:
+        object:
+    window_sensor:
+      name: Fenstersensor (primär)
+      required: false
+      selector:
+        text:
+    window_sensors:
+      name: Fenstersensoren (Liste)
+      required: false
+      selector:
+        object:
+    comfort_temp:
+      name: Komfort-Fallback (°C)
+      required: false
+      selector:
+        number:
+          min: 15
+          max: 30
+          step: 0.5
+    eco_offset:
+      name: Eco-Abzug (°C)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.5
+    eco_max_temp:
+      name: Eco-Maximum (°C)
+      required: false
+      selector:
+        number:
+          min: 10
+          max: 28
+          step: 0.5
+    sleep_offset:
+      name: Schlaf-Abzug (°C)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.5
+    sleep_max_temp:
+      name: Schlaf-Maximum (°C)
+      required: false
+      selector:
+        number:
+          min: 10
+          max: 25
+          step: 0.5
+    away_offset:
+      name: Abwesend-Abzug (°C)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 15
+          step: 0.5
+    away_max_temp:
+      name: Abwesend-Maximum (°C)
+      required: false
+      selector:
+        number:
+          min: 5
+          max: 22
+          step: 0.5
     room_offset:
       name: Zimmer-Offset (°C)
       required: false
@@ -119,22 +200,94 @@ update_room:
           min: -5
           max: 5
           step: 0.5
-    comfort_temp:
-      name: Komfort-Temperatur (°C)
+    deadband:
+      name: Totband (°C)
+      required: false
+      selector:
+        number:
+          min: 0.1
+          max: 2.0
+          step: 0.1
+    weight:
+      name: Gewichtung
+      required: false
+      selector:
+        number:
+          min: 0.1
+          max: 5.0
+          step: 0.1
+    ha_schedule_off_mode:
+      name: Zeitplan-Aus-Modus
+      required: false
+      selector:
+        text:
+    schedules:
+      name: IHC-Zeitpläne
+      required: false
+      selector:
+        object:
+    ha_schedules:
+      name: HA-Zeitpläne
+      required: false
+      selector:
+        object:
+    humidity_sensor:
+      name: Feuchtigkeitssensor
+      required: false
+      selector:
+        text:
+    mold_protection_enabled:
+      name: Schimmelschutz aktiviert
+      required: false
+      selector:
+        boolean:
+    co2_sensor:
+      name: CO₂-Sensor
+      required: false
+      selector:
+        text:
+    radiator_kw:
+      name: Heizleistung Zimmer (kW)
+      required: false
+      selector:
+        number:
+          min: 0.1
+          max: 5.0
+          step: 0.1
+    hkv_sensor:
+      name: HKV-Sensor
+      required: false
+      selector:
+        text:
+    hkv_factor:
+      name: HKV-Faktor (kWh/Einheit)
+      required: false
+      selector:
+        number:
+          min: 0.001
+          max: 1.0
+          step: 0.001
+    room_presence_entities:
+      name: Anwesenheits-Entitäten
+      required: false
+      selector:
+        object:
+    boost_temp:
+      name: Boost-Temperatur (°C)
       required: false
       selector:
         number:
           min: 15
-          max: 30
+          max: 35
           step: 0.5
-    eco_temp:
-      name: Eco-Temperatur (°C)
+    boost_default_duration:
+      name: Boost-Dauer (min)
       required: false
       selector:
         number:
-          min: 10
-          max: 25
-          step: 0.5
+          min: 5
+          max: 480
+          step: 5
 
 set_room_mode:
   name: Zimmermodus setzen

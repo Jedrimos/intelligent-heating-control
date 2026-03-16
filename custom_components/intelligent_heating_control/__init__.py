@@ -337,6 +337,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # Ventilation advice
             "outdoor_humidity_sensor",
             "ventilation_advice_enabled",
+            # Static energy price (fallback when no price sensor)
+            "static_energy_price",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:

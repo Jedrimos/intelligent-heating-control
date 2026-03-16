@@ -196,6 +196,7 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "flow_temp_sensor":            cfg.get(CONF_FLOW_TEMP_SENSOR, ""),
             "smart_meter_entity":          cfg.get(CONF_SMART_METER_ENTITY, ""),
             "cooling_target_temp":         cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP),
+            "static_energy_price":         cfg.get("static_energy_price"),
         }
 
 
