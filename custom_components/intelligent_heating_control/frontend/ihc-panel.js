@@ -438,6 +438,8 @@ class IHCPanel extends HTMLElement {
     this._userInteracting = false;   // true while pointer/touch is held down
     // Local schedule data for editing (not yet saved)
     this._editingSchedules = {};
+    this._selectedRoom = null;        // entity_id of room shown in detail view
+    this._selectedRoomTab = "schedule"; // "schedule" | "calendar"
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -519,9 +521,7 @@ class IHCPanel extends HTMLElement {
         <div class="tab" data-tab="rooms">🚪 Zimmer</div>
         <div class="tab" data-tab="diagnose">📊 Übersicht</div>
         <div class="tab" data-tab="settings">⚙️ Einstellungen</div>
-        <div class="tab" data-tab="schedules">📅 Zeitpläne</div>
         <div class="tab" data-tab="curve">📈 Heizkurve</div>
-        <div class="tab" data-tab="calendar">🗓️ Kalender</div>
       </div>
       <div id="tab-content"></div>
     `;
@@ -572,9 +572,7 @@ class IHCPanel extends HTMLElement {
       case "rooms":      this._renderRooms(content); break;
       case "diagnose":   this._renderDiagnose(content); break;
       case "settings":   this._renderSettings(content); break;
-      case "schedules":  this._renderSchedules(content); break;
       case "curve":      this._renderCurve(content); break;
-      case "calendar":   this._renderCalendar(content); break;
     }
   }
 
@@ -1110,11 +1108,29 @@ class IHCPanel extends HTMLElement {
 
   _renderRooms(content) {
     const rooms = this._getRoomData();
+    const roomList = Object.values(rooms);
 
-    const list = Object.values(rooms).map(room => `
+    // If a room is selected → show detail view
+    if (this._selectedRoom && rooms[this._selectedRoom]) {
+      this._renderRoomDetail(rooms[this._selectedRoom], content);
+      return;
+    }
+    this._selectedRoom = null;
+
+    const list = roomList.map(room => {
+      const schedCount = room.schedules?.length || 0;
+      const haSchedCount = room.ha_schedules?.length || 0;
+      const schedBadge = schedCount > 0
+        ? `<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-weight:600">IHC ${schedCount}</span>`
+        : haSchedCount > 0
+        ? `<span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:8px;font-weight:600">HA ${haSchedCount}</span>`
+        : "";
+      return `
       <div class="room-list-item">
         <div class="room-list-left">
-          <div class="room-list-name">${room.name}</div>
+          <div class="room-list-name" style="display:flex;align-items:center;gap:8px">
+            ${room.name} ${schedBadge}
+          </div>
           <div class="room-list-meta">
             ${MODE_ICONS[room.room_mode] || "⚙️"} ${MODE_LABELS[room.room_mode] || room.room_mode}
             · ${room.current_temp !== null ? room.current_temp + " °C" : "kein Sensor"}
@@ -1122,11 +1138,13 @@ class IHCPanel extends HTMLElement {
           </div>
         </div>
         <div class="room-list-actions">
-          <button class="btn btn-secondary" data-action="edit" data-id="${room.entity_id}">Bearbeiten</button>
+          <button class="btn btn-secondary" data-action="schedule" data-id="${room.entity_id}" title="Zeitplan & Kalender">📅 Zeitplan</button>
+          <button class="btn btn-secondary" data-action="edit" data-id="${room.entity_id}">✏️</button>
           <button class="btn btn-danger btn-icon" data-action="delete"
             data-id="${room.room_id}" data-name="${room.name}" title="Zimmer löschen">🗑</button>
         </div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
 
     content.innerHTML = `
       <div class="card">
@@ -1145,6 +1163,14 @@ class IHCPanel extends HTMLElement {
       btn.addEventListener("click", () => this._showEditRoomModal(btn.dataset.id));
     });
 
+    content.querySelectorAll("[data-action='schedule']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._selectedRoom = btn.dataset.id;
+        this._selectedRoomTab = "schedule";
+        this._renderRooms(content);
+      });
+    });
+
     content.querySelectorAll("[data-action='delete']").forEach(btn => {
       btn.addEventListener("click", () => {
         const name = btn.dataset.name;
@@ -1159,6 +1185,301 @@ class IHCPanel extends HTMLElement {
             this._toast(`✓ Zimmer „${name}" gelöscht`);
           }
         );
+      });
+    });
+  }
+
+  _renderRoomDetail(room, content) {
+    const tab = this._selectedRoomTab || "schedule";
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="btn btn-secondary" id="back-to-rooms" style="padding:6px 12px;font-size:12px">← Zurück</button>
+        <span style="font-size:18px;font-weight:700">${room.name}</span>
+        <span style="font-size:13px;color:var(--secondary-text-color)">
+          ${room.current_temp != null ? room.current_temp + " °C" : "—"}
+          → ${room.target_temp != null ? room.target_temp + " °C" : "—"}
+          · ${MODE_ICONS[room.room_mode] || ""} ${MODE_LABELS[room.room_mode] || room.room_mode}
+        </span>
+        <button class="btn btn-secondary" id="edit-room-btn" style="margin-left:auto">✏️ Einstellungen</button>
+      </div>
+      <div class="tabs" style="margin-bottom:16px">
+        <div class="tab ${tab === "schedule" ? "active" : ""}" data-subtab="schedule">📅 Zeitplan</div>
+        <div class="tab ${tab === "calendar" ? "active" : ""}" data-subtab="calendar">🗓️ Wochenansicht</div>
+      </div>
+      <div id="room-detail-content"></div>`;
+
+    content.querySelector("#back-to-rooms").addEventListener("click", () => {
+      this._selectedRoom = null;
+      this._renderRooms(content);
+    });
+    content.querySelector("#edit-room-btn").addEventListener("click", () => {
+      this._showEditRoomModal(room.entity_id);
+    });
+    content.querySelectorAll("[data-subtab]").forEach(t => {
+      t.addEventListener("click", () => {
+        this._selectedRoomTab = t.dataset.subtab;
+        this._renderRoomDetail(room, content);
+      });
+    });
+
+    const detailContent = content.querySelector("#room-detail-content");
+    if (tab === "schedule") this._renderRoomScheduleInline(room, detailContent);
+    else this._renderRoomCalendarInline(room, detailContent);
+  }
+
+  _renderRoomScheduleInline(room, container) {
+    const selId = room.entity_id;
+    if (!this._editingSchedules[selId]) {
+      const existing = room.schedules;
+      if (existing && existing.length > 0) {
+        this._editingSchedules[selId] = JSON.parse(JSON.stringify(existing));
+      } else {
+        this._editingSchedules[selId] = [
+          { days: ["mon","tue","wed","thu","fri"],
+            periods: [{ start:"06:30", end:"08:00", temperature:22.0, offset:0.0 },
+                      { start:"17:00", end:"22:00", temperature:21.5, offset:0.0 }] },
+          { days: ["sat","sun"],
+            periods: [{ start:"08:00", end:"23:00", temperature:21.0, offset:0.5 }] },
+        ];
+      }
+    }
+    const schedules = this._editingSchedules[selId];
+
+    const schedBlocks = schedules.map((sched, si) => {
+      const dayChips = DAY_KEYS.map((key, i) =>
+        `<span class="day-chip ${sched.days.includes(key) ? "selected" : ""}"
+              data-sched="${si}" data-day="${key}">${DAYS[i]}</span>`
+      ).join("");
+      const periodRows = sched.periods.map((p, pi) => `
+        <div class="period-row">
+          <input type="time" class="form-input" value="${p.start}"
+            data-sched="${si}" data-period="${pi}" data-field="start">
+          <input type="time" class="form-input" value="${p.end}"
+            data-sched="${si}" data-period="${pi}" data-field="end">
+          <input type="number" class="form-input" value="${p.temperature}"
+            step="0.5" min="10" max="30"
+            data-sched="${si}" data-period="${pi}" data-field="temperature" placeholder="°C">
+          <input type="number" class="form-input" value="${p.offset}"
+            step="0.5" min="-3" max="3"
+            data-sched="${si}" data-period="${pi}" data-field="offset" placeholder="±°C">
+          <button class="btn btn-danger btn-icon"
+            data-action="del-period" data-sched="${si}" data-period="${pi}">✕</button>
+        </div>`).join("");
+      return `
+        <div class="sched-block">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <strong style="font-size:14px">Gruppe ${si + 1}</strong>
+            <button class="btn btn-danger" style="font-size:12px;padding:4px 10px"
+              data-action="del-sched" data-sched="${si}">Gruppe löschen</button>
+          </div>
+          <div style="margin-bottom:12px">
+            <div class="form-label" style="margin-bottom:6px">Aktive Tage:</div>
+            <div class="day-chips">${dayChips}</div>
+          </div>
+          <div class="period-header">
+            <span>Von</span><span>Bis</span><span>Temp °C</span><span>Offset</span><span></span>
+          </div>
+          ${periodRows}
+          <button class="btn btn-secondary" style="font-size:12px;margin-top:6px"
+            data-action="add-period" data-sched="${si}">+ Zeitraum</button>
+        </div>`;
+    }).join("");
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="info-box">
+          Während eines aktiven Zeitplans gilt: <strong>Zeitplan-Temp + Zeitplan-Offset + Zimmer-Offset</strong><br>
+          Außerhalb: <strong>Heizkurven-Temp + Zimmer-Offset</strong>
+        </div>
+        <div id="sched-editor">${schedBlocks || '<div style="color:var(--secondary-text-color);padding:8px">Noch keine Gruppen. Unten auf + Gruppe klicken.</div>'}</div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="add-sched-btn">+ Gruppe hinzufügen</button>
+          <button class="btn btn-primary" id="save-sched-btn">💾 Zeitpläne speichern</button>
+        </div>
+      </div>`;
+
+    container.querySelectorAll(".day-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const si = parseInt(chip.dataset.sched);
+        const day = chip.dataset.day;
+        const sched = this._editingSchedules[selId][si];
+        if (sched.days.includes(day)) sched.days = sched.days.filter(d => d !== day);
+        else sched.days.push(day);
+        chip.classList.toggle("selected", sched.days.includes(day));
+      });
+    });
+
+    container.querySelectorAll("[data-field]").forEach(inp => {
+      inp.addEventListener("change", () => {
+        const si = parseInt(inp.dataset.sched);
+        const pi = parseInt(inp.dataset.period);
+        const field = inp.dataset.field;
+        const val = field === "start" || field === "end" ? inp.value : parseFloat(inp.value);
+        this._editingSchedules[selId][si].periods[pi][field] = val;
+      });
+    });
+
+    container.querySelectorAll("[data-action='del-period']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const si = parseInt(btn.dataset.sched);
+        const pi = parseInt(btn.dataset.period);
+        this._editingSchedules[selId][si].periods.splice(pi, 1);
+        this._renderRoomScheduleInline(room, container);
+      });
+    });
+
+    container.querySelectorAll("[data-action='del-sched']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._editingSchedules[selId].splice(parseInt(btn.dataset.sched), 1);
+        this._renderRoomScheduleInline(room, container);
+      });
+    });
+
+    container.querySelectorAll("[data-action='add-period']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const si = parseInt(btn.dataset.sched);
+        this._editingSchedules[selId][si].periods.push(
+          { start: "07:00", end: "09:00", temperature: 21.0, offset: 0.0 }
+        );
+        this._renderRoomScheduleInline(room, container);
+      });
+    });
+
+    container.querySelector("#add-sched-btn").addEventListener("click", () => {
+      this._editingSchedules[selId].push({ days: ["mon"], periods: [
+        { start: "07:00", end: "09:00", temperature: 21.0, offset: 0.0 }
+      ]});
+      this._renderRoomScheduleInline(room, container);
+    });
+
+    container.querySelector("#save-sched-btn").addEventListener("click", async () => {
+      const roomId = room.room_id;
+      if (!roomId) { this._toast("Fehler: room_id fehlt"); return; }
+      await this._callService("update_room", {
+        id: roomId,
+        schedules: this._editingSchedules[selId],
+      });
+      this._toast(`✓ Zeitpläne für „${room.name}" gespeichert`);
+    });
+  }
+
+  _renderRoomCalendarInline(room, container) {
+    const HOURS = Array.from({ length: 24 }, (_, h) => h);
+    const tempToColor = (temp) => {
+      if (temp === null) return "var(--secondary-background-color, #f5f5f5)";
+      const lo = 14, hi = 24;
+      const t = Math.max(0, Math.min(1, (temp - lo) / (hi - lo)));
+      return `rgb(${Math.round(30 + t * 200)},${Math.round(100 - t * 60)},${Math.round(200 - t * 180)})`;
+    };
+    const buildGrid = (scheds, def = null) => DAY_KEYS.map(dayKey =>
+      HOURS.map(hour => {
+        const timeMin = hour * 60;
+        for (const s of scheds) {
+          if (!s.days?.includes(dayKey)) continue;
+          for (const p of (s.periods || [])) {
+            const [sh, sm] = (p.start || "0:0").split(":").map(Number);
+            const [eh, em] = (p.end   || "0:0").split(":").map(Number);
+            const sMin = sh * 60 + sm, eMin = eh * 60 + em;
+            const in_ = sMin <= eMin ? (timeMin >= sMin && timeMin < eMin) : (timeMin >= sMin || timeMin < eMin);
+            if (in_) return p.temperature ?? def;
+          }
+        }
+        return null;
+      })
+    );
+    const HA_MODE_STYLE = {
+      comfort: { label: "Komfort", color: "rgba(255,152,0,0.35)" },
+      eco:     { label: "Eco",     color: "rgba(76,175,80,0.35)"  },
+      sleep:   { label: "Schlaf",  color: "rgba(33,150,243,0.35)" },
+      away:    { label: "Abwesend",color: "rgba(158,158,158,0.35)"},
+    };
+    const ihcGrid  = buildGrid(room.schedules || []);
+    const haBlocks = room.ha_schedule_blocks || {};
+    const haSchedsCfg = room.ha_schedules || [];
+    const haGrids = Object.entries(haBlocks).map(([eid, blocks]) => {
+      const cfg = haSchedsCfg.find(s => s.entity === eid) || {};
+      return { entityId: eid, mode: cfg.mode || "comfort", grid: buildGrid(blocks, true) };
+    });
+
+    const cols = HOURS.map((_, h) =>
+      `<div style="font-size:9px;text-align:center;color:var(--secondary-text-color);width:${100/24}%;min-width:0">${h % 3 === 0 ? h + "h" : ""}</div>`
+    ).join("");
+
+    const rows = DAY_KEYS.map((dayKey, di) => {
+      const cells = HOURS.map((_, h) => {
+        const ihcVal  = ihcGrid[di][h];
+        const haActive = haGrids.find(hg => hg.grid[di][h] != null);
+        let bg, label = "";
+        if (ihcVal != null) { bg = tempToColor(ihcVal); label = ihcVal; }
+        else if (haActive) { const s = HA_MODE_STYLE[haActive.mode] || HA_MODE_STYLE.comfort; bg = s.color; label = s.label[0]; }
+        else bg = "var(--secondary-background-color, #f5f5f5)";
+        const title = ihcVal != null ? `${ihcVal} °C (IHC)` : haActive ? `HA: ${haActive.entityId} → ${haActive.mode}` : "—";
+        return `<div title="${title}" style="flex:1;height:22px;background:${bg};border-radius:2px;margin:1px;display:flex;align-items:center;justify-content:center;font-size:8px;color:rgba(0,0,0,0.55);font-weight:600">${label}</div>`;
+      }).join("");
+      return `<div style="display:flex;align-items:center;gap:0;margin-bottom:1px">
+        <div style="width:24px;font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${DAYS[di]}</div>
+        <div style="display:flex;flex:1;gap:0">${cells}</div>
+      </div>`;
+    }).join("");
+
+    const haLegend = haGrids.length > 0 ? `
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--divider-color)">
+        <div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--secondary-text-color)">🏠 Verknüpfte HA-Zeitpläne</div>
+        ${haGrids.map(hg => {
+          const s = HA_MODE_STYLE[hg.mode] || HA_MODE_STYLE.comfort;
+          const cnt = haBlocks[hg.entityId]?.length ?? 0;
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+            <div style="width:14px;height:14px;border-radius:3px;background:${s.color};border:1px solid rgba(0,0,0,0.15)"></div>
+            <span style="font-size:11px;font-weight:600">${hg.entityId}</span>
+            <span style="font-size:10px;color:var(--secondary-text-color)">${s.label} · ${cnt} Blöcke</span>
+            ${cnt > 0 ? `<button class="btn btn-secondary" style="font-size:10px;padding:2px 8px"
+              data-action="import-ha-sched" data-room-id="${room.room_id}"
+              data-entity="${hg.entityId}" data-blocks='${JSON.stringify(haBlocks[hg.entityId])}'>📥 Als IHC-Zeitplan importieren</button>`
+              : `<span style="font-size:10px;color:#e53935">⚠️ Keine Blöcke gelesen</span>`}
+          </div>`;
+        }).join("")}
+      </div>` : "";
+
+    const noHint = (room.schedules?.length || 0) === 0 && haGrids.length === 0
+      ? `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:8px">
+          Kein Zeitplan — wechsle zum Tab <strong>📅 Zeitplan</strong> um einen zu erstellen.
+         </div>` : "";
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="info-box" style="margin-bottom:12px">
+          IHC-Zeitpläne farbig nach Temperatur (blau=kalt → rot=warm). HA-Zeitpläne blass nach Modus.
+        </div>
+        <div style="display:flex;margin-left:24px;margin-bottom:2px">${cols}</div>
+        ${rows}
+        <div style="margin-top:6px;display:flex;gap:6px;align-items:center;font-size:10px;color:var(--secondary-text-color)">
+          <span>Kalt</span>
+          <div style="flex:1;height:6px;border-radius:3px;background:linear-gradient(to right,rgb(30,100,200),rgb(200,80,20),rgb(230,40,20))"></div>
+          <span>Warm</span>
+        </div>
+        ${haLegend}
+        ${noHint}
+      </div>`;
+
+    container.querySelectorAll("[data-action='import-ha-sched']").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const roomId = btn.dataset.roomId;
+        let blocks;
+        try { blocks = JSON.parse(btn.dataset.blocks); } catch { return; }
+        if (!blocks.length) return;
+        const tempStr = prompt(`Temperatur für importierte Blöcke (°C)?\nLeer = 21°C`, "21");
+        const temperature = parseFloat(tempStr) || 21;
+        const schedules = blocks.map(b => ({
+          days: b.days,
+          periods: (b.periods || []).map(p => ({ start: p.start, end: p.end, temperature, offset: 0 })),
+        }));
+        await this._callService("update_room", { id: roomId, schedules });
+        this._toast(`✓ Importiert – prüfe Tab Zeitplan`);
+        delete this._editingSchedules[room.entity_id];
+        setTimeout(() => {
+          const tc = this.shadowRoot.querySelector("#tab-content");
+          if (tc) this._renderRoomDetail(room, tc);
+        }, 1200);
       });
     });
   }
@@ -1424,43 +1745,47 @@ class IHCPanel extends HTMLElement {
       <!-- ── System-Hardware ─────────────────────────────── -->
       <details class="ihc-card" open>
         <summary>
-          <span class="ihc-card-title">🔧 System-Hardware</span>
+          <span class="ihc-card-title">🔧 Hardware &amp; Steuerung</span>
         </summary>
         <div class="ihc-card-body">
-          <div class="info-box">Grundlegende Hardware. Alle Felder optional – leer lassen wenn nicht vorhanden.</div>
           <div class="settings-grid">
+            <div class="settings-item">
+              <label>Steuerungsmodus</label>
+              <select class="form-select" id="controller-mode">
+                <option value="switch" ${(a.controller_mode || "switch") === "switch" ? "selected" : ""}>🔌 Heizungsschalter (Kessel EIN/AUS)</option>
+                <option value="trv" ${(a.controller_mode || "switch") === "trv" ? "selected" : ""}>🌡️ TRV-Modus (Thermostate direkt steuern)</option>
+              </select>
+              <span class="form-hint">
+                <strong>Heizungsschalter:</strong> IHC schaltet einen zentralen Kessel-Schalter.<br>
+                <strong>TRV-Modus:</strong> IHC schließt Thermostat-Ventile wenn kein Bedarf – kein Kesselschalter nötig.
+              </span>
+            </div>
             <div class="settings-item">
               <label>Außentemperatur-Sensor</label>
               <input type="text" class="form-input" id="outdoor-sensor"
                 placeholder="sensor.aussensensor"
                 value="${a.outdoor_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
-              <span class="form-hint">Wird für Heizkurve und Sommerautomatik benötigt</span>
+              <span class="form-hint">Für Heizkurve und Sommerautomatik</span>
             </div>
             <div class="settings-item">
-              <label>Heizungsschalter aktivieren</label>
-              <select class="form-select" id="enable-heating-switch">
-                <option value="false" ${!a.heating_switch ? "selected" : ""}>Deaktiviert</option>
-                <option value="true" ${a.heating_switch ? "selected" : ""}>Aktiviert</option>
-              </select>
-              <span class="form-hint">Aktiviert Heizschalter-Steuerung (z.B. Kesselrelais)</span>
-            </div>
-            <div class="settings-item" id="heating-switch-item" style="${a.heating_switch ? "" : "opacity:0.5"}">
-              <label>Heizungsschalter <em style="font-weight:400">(optional)</em></label>
+              <label>Heizungsschalter</label>
               <input type="text" class="form-input" id="heating-switch"
-                placeholder="switch.heizung"
+                placeholder="switch.heizung (leer = deaktiviert)"
                 value="${a.heating_switch ?? ''}" data-ep-domains="switch,input_boolean" autocomplete="off">
+              <span class="form-hint">Nur im Heizungsschalter-Modus benötigt</span>
             </div>
             <div class="settings-item">
-              <label>Wettervorhersage-Entität</label>
+              <label>Wettervorhersage</label>
               <input type="text" class="form-input" id="weather-entity"
-                placeholder="weather.home (leer = deaktiviert)"
+                placeholder="weather.home (leer = aus)"
                 value="${a.weather_entity ?? ''}" data-ep-domains="weather" autocomplete="off">
-              <span class="form-hint">Zeigt Wettervorhersage und Kältewarnung</span>
+              <span class="form-hint">Für Kältewarnung &amp; Vorschau im Dashboard</span>
             </div>
             <div class="settings-item">
-              <label>Kälteschwelle (°C)</label>
+              <label>Kältewarnung ab (°C)</label>
               <input type="number" class="form-input" id="weather-cold-threshold"
                 step="0.5" value="${a.weather_cold_threshold ?? 0}">
+              <span class="form-hint">Tiefsttemperatur-Schwelle für Kältewarnung</span>
             </div>
             <div class="settings-item">
               <label>Kälteboost (°C)</label>
@@ -1476,17 +1801,10 @@ class IHCPanel extends HTMLElement {
               </select>
             </div>
             <div class="settings-item" id="cooling-switch-item" style="${a.enable_cooling ? "" : "opacity:0.5"}">
-              <label>Kühlschalter <em style="font-weight:400">(optional)</em></label>
+              <label>Kühlschalter</label>
               <input type="text" class="form-input" id="cooling-switch"
                 placeholder="switch.klimaanlage"
                 value="${a.cooling_switch ?? ''}" data-ep-domains="switch,input_boolean" autocomplete="off">
-            </div>
-            <div class="settings-item">
-              <label>Steuerungsmodus</label>
-              <select class="form-select" id="controller-mode">
-                <option value="switch" ${(a.controller_mode || "switch") === "switch" ? "selected" : ""}>🔌 Heizungsschalter</option>
-                <option value="trv" ${(a.controller_mode || "switch") === "trv" ? "selected" : ""}>🌡️ TRV-Modus</option>
-              </select>
             </div>
           </div>
           <div class="btn-row">
@@ -1573,35 +1891,43 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
-      <!-- ── Klimabaustein ──────────────────────────────── -->
-      <details class="ihc-card">
-        <summary><span class="ihc-card-title">⚙️ Klimabaustein (Schwellenwerte)</span></summary>
+      <!-- ── Regelung ──────────────────────────────────── -->
+      <details class="ihc-card" open>
+        <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese</span></summary>
         <div class="ihc-card-body">
-          <div class="info-box">Aggregiert alle Zimmeranforderungen und entscheidet zentral ob die Heizung läuft.</div>
+          <div class="info-box">
+            Die Heizung schaltet ein wenn die Gesamtanforderung die <strong>Einschaltschwelle</strong> überschreitet,
+            und aus wenn sie unter <strong>Schwelle – Hysterese</strong> fällt. Höhere Hysterese = weniger Taktung.
+          </div>
           <div class="settings-grid">
             <div class="settings-item">
               <label>Einschaltschwelle (%)</label>
               <input type="number" class="form-input" id="demand-threshold" min="1" max="100" step="1" value="${a.demand_threshold ?? 15}">
+              <span class="form-hint">Heizung startet wenn Anforderung ≥ diesem Wert</span>
             </div>
             <div class="settings-item">
               <label>Hysterese (%)</label>
               <input type="number" class="form-input" id="demand-hysteresis" min="1" max="30" step="1" value="${a.demand_hysteresis ?? 5}">
+              <span class="form-hint">Heizung stoppt erst bei Schwelle − Hysterese (verhindert Taktung)</span>
             </div>
             <div class="settings-item">
               <label>Min. Einschaltzeit (min)</label>
               <input type="number" class="form-input" id="min-on-time" min="1" max="60" step="1" value="${a.min_on_time_minutes ?? 5}">
+              <span class="form-hint">Heizung läuft mindestens diese Zeit (schützt Brenner)</span>
             </div>
             <div class="settings-item">
               <label>Min. Ausschaltzeit (min)</label>
               <input type="number" class="form-input" id="min-off-time" min="1" max="60" step="1" value="${a.min_off_time_minutes ?? 5}">
+              <span class="form-hint">Pause zwischen Heizzyklen (schützt Brenner)</span>
             </div>
             <div class="settings-item">
               <label>Min. Zimmer mit Anforderung</label>
               <input type="number" class="form-input" id="min-rooms" min="1" max="20" step="1" value="${a.min_rooms_demand ?? 1}">
+              <span class="form-hint">Heizung startet nur wenn mindestens N Zimmer Bedarf haben</span>
             </div>
           </div>
           <div class="btn-row">
-            <button class="btn btn-primary" id="save-global-settings">💾 Klimabaustein speichern</button>
+            <button class="btn btn-primary" id="save-global-settings">💾 Regelung speichern</button>
           </div>
         </div>
       </details>
@@ -1984,25 +2310,18 @@ class IHCPanel extends HTMLElement {
       </details>
     `;
 
-    // Toggle heating-switch opacity based on enable-heating-switch select
-    content.querySelector("#enable-heating-switch").addEventListener("change", e => {
-      const item = content.querySelector("#heating-switch-item");
-      if (item) item.style.opacity = e.target.value === "true" ? "1" : "0.5";
-    });
-
     // Toggle cooling-switch opacity based on enable-cooling select
-    content.querySelector("#enable-cooling").addEventListener("change", e => {
+    content.querySelector("#enable-cooling")?.addEventListener("change", e => {
       const item = content.querySelector("#cooling-switch-item");
       if (item) item.style.opacity = e.target.value === "true" ? "1" : "0.5";
     });
 
     content.querySelector("#save-hardware-settings").addEventListener("click", () => {
-      const heatingEnabled = content.querySelector("#enable-heating-switch").value === "true";
       this._callService("update_global_settings", {
-        outdoor_temp_sensor: content.querySelector("#outdoor-sensor").value.trim(),
-        heating_switch:      heatingEnabled ? content.querySelector("#heating-switch").value.trim() : "",
-        enable_cooling:      content.querySelector("#enable-cooling").value === "true",
-        cooling_switch:      content.querySelector("#cooling-switch").value.trim(),
+        outdoor_temp_sensor:      content.querySelector("#outdoor-sensor").value.trim(),
+        heating_switch:           content.querySelector("#heating-switch").value.trim(),
+        enable_cooling:           content.querySelector("#enable-cooling").value === "true",
+        cooling_switch:           content.querySelector("#cooling-switch").value.trim(),
         weather_entity:           content.querySelector("#weather-entity").value.trim(),
         weather_cold_threshold:   parseFloat(content.querySelector("#weather-cold-threshold").value) || 0,
         weather_cold_boost:       parseFloat(content.querySelector("#weather-cold-boost").value) || 0,
@@ -2457,382 +2776,6 @@ class IHCPanel extends HTMLElement {
     });
   }
 
-  // ── Zeitpläne Tab ──────────────────────────────────────────────────────────
-
-  _renderSchedules(content) {
-    const rooms = this._getRoomData();
-    if (!Object.keys(rooms).length) {
-      content.innerHTML = `<div class="info-box">Keine Zimmer. Füge zuerst Zimmer hinzu.</div>`;
-      return;
-    }
-
-    const roomList = Object.values(rooms);
-    // Clear stale reference if the previously selected room was deleted
-    if (this._scheduleRoom && !rooms[this._scheduleRoom]) this._scheduleRoom = null;
-    const selId  = this._scheduleRoom || roomList[0].entity_id;
-    const selRoom = rooms[selId] || roomList[0];
-
-    const roomTabs = roomList.map(r =>
-      `<div class="tab ${r.entity_id === selId ? "active" : ""}"
-            data-room="${r.entity_id}" style="font-size:13px">${r.name}</div>`
-    ).join("");
-
-    // Get or init schedule data for this room (load from room config if not yet editing)
-    if (!this._editingSchedules[selId]) {
-      const existing = selRoom.schedules;
-      if (existing && existing.length > 0) {
-        // Deep-copy so edits don't mutate the source
-        this._editingSchedules[selId] = JSON.parse(JSON.stringify(existing));
-      } else {
-        // Default template for new rooms without schedules
-        this._editingSchedules[selId] = [
-          { days: ["mon","tue","wed","thu","fri"],
-            periods: [{ start:"06:30", end:"08:00", temperature:22.0, offset:0.0 },
-                      { start:"17:00", end:"22:00", temperature:21.5, offset:0.0 }] },
-          { days: ["sat","sun"],
-            periods: [{ start:"08:00", end:"23:00", temperature:21.0, offset:0.5 }] },
-        ];
-      }
-    }
-    const schedules = this._editingSchedules[selId];
-
-    const schedBlocks = schedules.map((sched, si) => {
-      const dayChips = DAY_KEYS.map((key, i) =>
-        `<span class="day-chip ${sched.days.includes(key) ? "selected" : ""}"
-              data-sched="${si}" data-day="${key}">${DAYS[i]}</span>`
-      ).join("");
-
-      const periodRows = sched.periods.map((p, pi) => `
-        <div class="period-row">
-          <input type="time" class="form-input" value="${p.start}"
-            data-sched="${si}" data-period="${pi}" data-field="start">
-          <input type="time" class="form-input" value="${p.end}"
-            data-sched="${si}" data-period="${pi}" data-field="end">
-          <input type="number" class="form-input" value="${p.temperature}"
-            step="0.5" min="10" max="30"
-            data-sched="${si}" data-period="${pi}" data-field="temperature"
-            placeholder="°C">
-          <input type="number" class="form-input" value="${p.offset}"
-            step="0.5" min="-3" max="3"
-            data-sched="${si}" data-period="${pi}" data-field="offset"
-            placeholder="±°C">
-          <button class="btn btn-danger btn-icon"
-            data-action="del-period" data-sched="${si}" data-period="${pi}">✕</button>
-        </div>`).join("");
-
-      return `
-        <div class="sched-block">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <strong style="font-size:14px">Gruppe ${si + 1}</strong>
-            <button class="btn btn-danger" style="font-size:12px;padding:4px 10px"
-              data-action="del-sched" data-sched="${si}">Gruppe löschen</button>
-          </div>
-          <div style="margin-bottom:12px">
-            <div class="form-label" style="margin-bottom:6px">Aktive Tage:</div>
-            <div class="day-chips">${dayChips}</div>
-          </div>
-          <div class="period-header">
-            <span>Von</span><span>Bis</span><span>Temp °C</span><span>Offset</span><span></span>
-          </div>
-          ${periodRows}
-          <button class="btn btn-secondary" style="font-size:12px;margin-top:6px"
-            data-action="add-period" data-sched="${si}">+ Zeitraum</button>
-        </div>`;
-    }).join("");
-
-    content.innerHTML = `
-      <div class="card">
-        <div class="card-title">📅 Zeitpläne</div>
-        <div class="info-box">
-          Während eines aktiven Zeitplans gilt: <strong>Zeitplan-Temp + Zeitplan-Offset + Zimmer-Offset</strong><br>
-          Außerhalb: <strong>Heizkurven-Temp + Zimmer-Offset</strong>
-        </div>
-        <div class="tabs" style="margin-bottom:16px">${roomTabs}</div>
-        <div id="sched-editor">${schedBlocks}</div>
-        <div class="btn-row">
-          <button class="btn btn-secondary" id="add-sched-btn">+ Gruppe hinzufügen</button>
-          <button class="btn btn-primary" id="save-sched-btn">💾 Zeitpläne speichern</button>
-        </div>
-      </div>`;
-
-    // Room tab switching
-    content.querySelectorAll("[data-room]").forEach(tab => {
-      tab.addEventListener("click", () => {
-        this._scheduleRoom = tab.dataset.room;
-        this._renderSchedules(content);
-      });
-    });
-
-    // Day chip toggle
-    content.querySelectorAll(".day-chip").forEach(chip => {
-      chip.addEventListener("click", () => {
-        const si = parseInt(chip.dataset.sched);
-        const day = chip.dataset.day;
-        const sched = this._editingSchedules[selId][si];
-        if (sched.days.includes(day)) sched.days = sched.days.filter(d => d !== day);
-        else sched.days.push(day);
-        chip.classList.toggle("selected", sched.days.includes(day));
-      });
-    });
-
-    // Input changes
-    content.querySelectorAll("[data-field]").forEach(inp => {
-      inp.addEventListener("change", () => {
-        const si = parseInt(inp.dataset.sched);
-        const pi = parseInt(inp.dataset.period);
-        const field = inp.dataset.field;
-        const val = field === "start" || field === "end" ? inp.value : parseFloat(inp.value);
-        this._editingSchedules[selId][si].periods[pi][field] = val;
-      });
-    });
-
-    // Delete period
-    content.querySelectorAll("[data-action='del-period']").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const si = parseInt(btn.dataset.sched);
-        const pi = parseInt(btn.dataset.period);
-        this._editingSchedules[selId][si].periods.splice(pi, 1);
-        this._renderSchedules(content);
-      });
-    });
-
-    // Delete schedule
-    content.querySelectorAll("[data-action='del-sched']").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const si = parseInt(btn.dataset.sched);
-        this._editingSchedules[selId].splice(si, 1);
-        this._renderSchedules(content);
-      });
-    });
-
-    // Add period
-    content.querySelectorAll("[data-action='add-period']").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const si = parseInt(btn.dataset.sched);
-        this._editingSchedules[selId][si].periods.push(
-          { start: "07:00", end: "09:00", temperature: 21.0, offset: 0.0 }
-        );
-        this._renderSchedules(content);
-      });
-    });
-
-    // Add schedule group
-    content.querySelector("#add-sched-btn").addEventListener("click", () => {
-      this._editingSchedules[selId].push({ days: ["mon"], periods: [
-        { start: "07:00", end: "09:00", temperature: 21.0, offset: 0.0 }
-      ]});
-      this._renderSchedules(content);
-    });
-
-    // Save
-    content.querySelector("#save-sched-btn").addEventListener("click", async () => {
-      const roomId = selRoom.room_id;
-      if (!roomId) { this._toast("Fehler: room_id fehlt"); return; }
-      await this._callService("update_room", {
-        id: roomId,
-        schedules: this._editingSchedules[selId],
-      });
-      this._toast(`✓ Zeitpläne für „${selRoom.name}" gespeichert`);
-    });
-  }
-
-  // ── Kalender Tab (Wochenübersicht) ─────────────────────────────────────────
-
-  _renderCalendar(content) {
-    const rooms = Object.values(this._getRoomData());
-    if (!rooms.length) {
-      content.innerHTML = `<div class="info-box">Keine Zimmer konfiguriert. Füge zuerst Zimmer hinzu.</div>`;
-      return;
-    }
-
-    // Build a 7-day × 24-hour heatmap for each room
-    // For each room, for each day×hour cell, find what temperature would be active
-    const HOURS = Array.from({ length: 24 }, (_, h) => h);
-    const tempToColor = (temp) => {
-      if (temp === null) return "var(--secondary-background-color, #f5f5f5)";
-      // Range roughly 14–24°C → blue to red
-      const lo = 14, hi = 24;
-      const t = Math.max(0, Math.min(1, (temp - lo) / (hi - lo)));
-      // Blue (cold) → orange (warm) → red (hot)
-      const r = Math.round(30  + t * 200);
-      const g = Math.round(100 - t * 60);
-      const b = Math.round(200 - t * 180);
-      return `rgb(${r},${g},${b})`;
-    };
-
-    // Helper: build a 7×24 "active/inactive" boolean grid from schedule blocks
-    // If blocks have a temperature, return it; otherwise return true for "active" HA schedule
-    const buildGrid = (schedules, defaultValue = null) => DAY_KEYS.map(dayKey =>
-      HOURS.map(hour => {
-        const timeMin = hour * 60;
-        for (const sched of schedules) {
-          if (!sched.days || !sched.days.includes(dayKey)) continue;
-          for (const period of (sched.periods || [])) {
-            const [sh, sm] = (period.start || "0:0").split(":").map(Number);
-            const [eh, em] = (period.end   || "0:0").split(":").map(Number);
-            const startMin = sh * 60 + sm, endMin = eh * 60 + em;
-            const inPeriod = startMin <= endMin
-              ? (timeMin >= startMin && timeMin < endMin)
-              : (timeMin >= startMin || timeMin < endMin);
-            if (inPeriod) return period.temperature ?? defaultValue;
-          }
-        }
-        return null;
-      })
-    );
-
-    // Map HA schedule mode to display label + color hint
-    const HA_MODE_STYLE = {
-      comfort: { label: "Komfort", color: "rgba(255,152,0,0.35)" },
-      eco:     { label: "Eco",     color: "rgba(76,175,80,0.35)"  },
-      sleep:   { label: "Schlaf",  color: "rgba(33,150,243,0.35)" },
-      away:    { label: "Abwesend",color: "rgba(158,158,158,0.35)"},
-    };
-
-    const roomHeatmaps = rooms.map(room => {
-      const ihcSchedules = room.schedules || [];
-      const haBlocks     = room.ha_schedule_blocks || {};   // {entity_id: [{days,periods}]}
-      const haSchedsCfg  = room.ha_schedules || [];         // [{entity, mode, ...}]
-
-      // Build IHC native grid (with temperatures)
-      const ihcGrid = buildGrid(ihcSchedules);
-
-      // Build per-HA-entity grids (boolean active/inactive)
-      const haGrids = Object.entries(haBlocks).map(([entityId, blocks]) => {
-        const cfg = haSchedsCfg.find(s => s.entity === entityId) || {};
-        return { entityId, mode: cfg.mode || "comfort", grid: buildGrid(blocks, true) };
-      });
-
-      const hasAnySchedule = ihcSchedules.length > 0 || haGrids.length > 0;
-
-      const cols = HOURS.map((_, h) =>
-        `<div style="font-size:9px;text-align:center;color:var(--secondary-text-color);width:${100/24}%;min-width:0">${h % 3 === 0 ? h + "h" : ""}</div>`
-      ).join("");
-
-      const rows = DAY_KEYS.map((dayKey, di) => {
-        const cells = HOURS.map((_, h) => {
-          const ihcVal = ihcGrid[di][h];
-          // Overlay: find first active HA schedule for this cell
-          const haActive = haGrids.find(hg => hg.grid[di][h] != null);
-          let bg, label = "";
-          if (ihcVal != null) {
-            bg = tempToColor(ihcVal);
-            label = ihcVal;
-          } else if (haActive) {
-            const style = HA_MODE_STYLE[haActive.mode] || HA_MODE_STYLE.comfort;
-            bg = style.color;
-            label = style.label[0];  // single letter e.g. "K","E","S","A"
-          } else {
-            bg = "var(--secondary-background-color, #f5f5f5)";
-          }
-          const title = ihcVal != null
-            ? `${ihcVal} °C (IHC)`
-            : haActive
-              ? `HA: ${haActive.entityId} → ${haActive.mode}`
-              : "—";
-          return `<div title="${title}" style="flex:1;height:22px;background:${bg};border-radius:2px;margin:1px;
-            display:flex;align-items:center;justify-content:center;
-            font-size:8px;color:rgba(0,0,0,0.55);font-weight:600">${label}</div>`;
-        }).join("");
-        return `<div style="display:flex;align-items:center;gap:0;margin-bottom:1px">
-          <div style="width:24px;font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${DAYS[di]}</div>
-          <div style="display:flex;flex:1;gap:0">${cells}</div>
-        </div>`;
-      }).join("");
-
-      // HA schedule legend + import buttons
-      const haLegend = haGrids.length > 0 ? `
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--divider-color)">
-          <div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--secondary-text-color)">
-            🏠 Verknüpfte HA-Zeitpläne
-          </div>
-          ${haGrids.map(hg => {
-            const style = HA_MODE_STYLE[hg.mode] || HA_MODE_STYLE.comfort;
-            const blocksCount = haBlocks[hg.entityId]?.length ?? 0;
-            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-              <div style="width:14px;height:14px;border-radius:3px;background:${style.color};border:1px solid rgba(0,0,0,0.15)"></div>
-              <span style="font-size:11px;font-weight:600">${hg.entityId}</span>
-              <span style="font-size:10px;color:var(--secondary-text-color)">${style.label} · ${blocksCount} Blöcke</span>
-              ${blocksCount > 0 ? `<button class="btn btn-secondary" style="font-size:10px;padding:2px 8px"
-                data-action="import-ha-sched" data-room-id="${room.room_id}"
-                data-entity="${hg.entityId}" data-blocks='${JSON.stringify(haBlocks[hg.entityId])}'>
-                📥 Als IHC-Zeitplan importieren
-              </button>` : `<span style="font-size:10px;color:#e53935">⚠️ Keine Blöcke gelesen</span>`}
-            </div>`;
-          }).join("")}
-        </div>` : "";
-
-      const noScheduleHint = !hasAnySchedule ? `
-        <div style="font-size:11px;color:var(--secondary-text-color);margin-top:8px">
-          Kein Zeitplan konfiguriert — Heizkurve ist immer aktiv.<br>
-          <a href="#" style="color:var(--primary-color)" data-action="goto-schedules">→ IHC-Zeitplan erstellen</a>
-          oder im Zimmer bearbeiten HA-Zeitplan verknüpfen.
-        </div>` : "";
-
-      return `
-        <div class="card" style="padding:12px" data-room-id="${room.room_id}">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div style="font-size:13px;font-weight:700">🚪 ${room.name}</div>
-            ${ihcSchedules.length === 0 && haGrids.length > 0 ? `<span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:8px;font-weight:600">HA-Zeitplan aktiv</span>` : ""}
-            ${ihcSchedules.length > 0 ? `<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:8px;font-weight:600">IHC-Zeitplan</span>` : ""}
-          </div>
-          <div style="display:flex;margin-left:24px;margin-bottom:2px">${cols}</div>
-          ${rows}
-          <div style="margin-top:6px;display:flex;gap:6px;align-items:center;font-size:10px;color:var(--secondary-text-color)">
-            <span>Kalt</span>
-            <div style="flex:1;height:6px;border-radius:3px;background:linear-gradient(to right,rgb(30,100,200),rgb(200,80,20),rgb(230,40,20))"></div>
-            <span>Warm</span>
-          </div>
-          ${haLegend}
-          ${noScheduleHint}
-        </div>`;
-    }).join("");
-
-    content.innerHTML = `
-      <div class="card">
-        <div class="card-title">🗓️ Wochenübersicht – Zeitpläne</div>
-        <div class="info-box" style="margin-bottom:0">
-          Zeigt IHC-Zeitpläne (farbig nach Temperatur) und verknüpfte HA-Zeitpläne (blass eingefärbt nach Modus).<br>
-          HA-Zeitpläne können als IHC-Zeitplan importiert werden — dann sind sie auch editierbar.
-        </div>
-      </div>
-      ${roomHeatmaps || '<div class="info-box">Keine Zimmer konfiguriert.</div>'}
-    `;
-
-    // Import HA schedule → IHC native
-    content.querySelectorAll("[data-action='import-ha-sched']").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const roomId = btn.dataset.roomId;
-        const entityId = btn.dataset.entity;
-        let blocks;
-        try { blocks = JSON.parse(btn.dataset.blocks); } catch { return; }
-        if (!blocks.length) return;
-        // Ask for a temperature to use for all imported blocks (default: comfort curve-based)
-        const tempStr = prompt(
-          `Temperatur für importierte Blöcke aus „${entityId}" (°C)?\nLeer lassen = 21°C`,
-          "21"
-        );
-        const temperature = parseFloat(tempStr) || 21;
-        // Convert to IHC period format (add temperature)
-        const schedules = blocks.map(b => ({
-          days: b.days,
-          periods: (b.periods || []).map(p => ({ start: p.start, end: p.end, temperature, offset: 0 })),
-        }));
-        await this._callService("update_room", { id: roomId, schedules });
-        this._toast(`✓ ${blocks.length} Blöcke aus „${entityId}" importiert — bitte Zeitpläne-Tab prüfen`);
-        setTimeout(() => this._renderTabContent(), 1200);
-      });
-    });
-
-    content.querySelectorAll("[data-action='goto-schedules']").forEach(a => {
-      a.addEventListener("click", e => {
-        e.preventDefault();
-        this._activeTab = "schedules";
-        this._renderTabContent();
-      });
-    });
-  }
-
   // ── Heizkurve Tab ──────────────────────────────────────────────────────────
 
   _renderCurve(content) {
@@ -3019,10 +2962,25 @@ class IHCPanel extends HTMLElement {
 
       <div class="form-group">
         <label class="form-label">Schimmelschutz</label>
-        <select class="form-input full" id="m-mold-enabled">
+        <select class="form-select" id="m-mold-enabled">
           <option value="true">Aktiviert</option>
           <option value="false">Deaktiviert</option>
         </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">CO₂-Sensor (optional)</label>
+        <input type="text" class="form-input full" id="m-co2-sensor"
+          placeholder="sensor.co2_wohnzimmer" data-ep-domains="sensor" autocomplete="off">
+        <span class="form-hint">ppm → Lüftungsempfehlung (800 ppm gut · >1200 lüften)</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Anwesenheits-Entitäten (optional)</label>
+        <input type="text" class="form-input full" id="m-presence-entities"
+          placeholder="person.max, device_tracker.handy"
+          data-ep-domains="person,device_tracker,input_boolean,binary_sensor" autocomplete="off">
+        <span class="form-hint">Zimmer wechselt auf Abwesend-Temp wenn niemand da · leer = immer anwesend</span>
       </div>
 
       <div class="modal-section">
@@ -3206,6 +3164,8 @@ class IHCPanel extends HTMLElement {
         humidity_sensor:        modal.querySelector("#m-humidity-sensor").value.trim(),
         mold_protection_enabled: modal.querySelector("#m-mold-enabled").value === "true",
         co2_sensor:             modal.querySelector("#m-co2-sensor")?.value.trim() || "",
+        room_presence_entities: (modal.querySelector("#m-presence-entities")?.value || "")
+                                  .split(",").map(s => s.trim()).filter(Boolean),
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
