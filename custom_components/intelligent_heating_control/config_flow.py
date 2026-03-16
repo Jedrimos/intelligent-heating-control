@@ -67,7 +67,6 @@ from .const import (
     CONF_SLEEP_MAX_TEMP,
     CONF_AWAY_MAX_TEMP,
     CONF_WINDOW_SENSOR,
-    CONF_WINDOW_OPEN_TEMP,
     CONF_WINDOW_REACTION_TIME,
     CONF_WINDOW_CLOSE_DELAY,
     CONF_MIN_TEMP,
@@ -76,6 +75,19 @@ from .const import (
     CONF_ABSOLUTE_MIN_TEMP,
     CONF_ROOM_QM,
     CONF_ROOM_PREHEAT_MINUTES,
+    # Room-level features
+    CONF_HUMIDITY_SENSOR,
+    CONF_MOLD_PROTECTION_ENABLED,
+    CONF_MOLD_HUMIDITY_THRESHOLD,
+    CONF_CO2_SENSOR,
+    CONF_CO2_THRESHOLD_GOOD,
+    CONF_CO2_THRESHOLD_BAD,
+    CONF_RADIATOR_KW,
+    CONF_HKV_SENSOR,
+    CONF_HKV_FACTOR,
+    CONF_HA_SCHEDULE_OFF_MODE,
+    CONF_BOOST_TEMP,
+    CONF_BOOST_DEFAULT_DURATION,
     # Global advanced settings missing from original flow
     CONF_CONTROLLER_MODE,
     CONF_WEATHER_ENTITY,
@@ -105,12 +117,19 @@ from .const import (
     DEFAULT_MIN_TEMP,
     DEFAULT_MAX_TEMP,
     DEFAULT_HEATING_CURVE,
-    DEFAULT_WINDOW_OPEN_TEMP,
     DEFAULT_WINDOW_REACTION_TIME,
     DEFAULT_WINDOW_CLOSE_DELAY,
     DEFAULT_ABSOLUTE_MIN_TEMP,
     DEFAULT_ROOM_QM,
     DEFAULT_ROOM_PREHEAT_MINUTES,
+    DEFAULT_MOLD_HUMIDITY_THRESHOLD,
+    DEFAULT_MOLD_PROTECTION_ENABLED,
+    DEFAULT_CO2_THRESHOLD_GOOD,
+    DEFAULT_CO2_THRESHOLD_BAD,
+    DEFAULT_RADIATOR_KW,
+    DEFAULT_HKV_FACTOR,
+    DEFAULT_HA_SCHEDULE_OFF_MODE,
+    DEFAULT_BOOST_DEFAULT_DURATION,
     DEFAULT_SUMMER_THRESHOLD,
     DEFAULT_CONTROLLER_MODE,
     DEFAULT_WEATHER_COLD_THRESHOLD,
@@ -630,8 +649,20 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_ABSOLUTE_MIN_TEMP: float(user_input.get(CONF_ABSOLUTE_MIN_TEMP, DEFAULT_ABSOLUTE_MIN_TEMP)),
                 CONF_ROOM_QM: float(user_input.get(CONF_ROOM_QM, DEFAULT_ROOM_QM)),
                 CONF_ROOM_PREHEAT_MINUTES: int(user_input.get(CONF_ROOM_PREHEAT_MINUTES, DEFAULT_ROOM_PREHEAT_MINUTES)),
-                CONF_WINDOW_REACTION_TIME: float(user_input.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME)),
-                CONF_WINDOW_CLOSE_DELAY: float(user_input.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY)),
+                CONF_WINDOW_REACTION_TIME: int(user_input.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME)),
+                CONF_WINDOW_CLOSE_DELAY: int(user_input.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY)),
+                CONF_HA_SCHEDULE_OFF_MODE: user_input.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE),
+                CONF_HUMIDITY_SENSOR: user_input.get(CONF_HUMIDITY_SENSOR, ""),
+                CONF_MOLD_PROTECTION_ENABLED: bool(user_input.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED)),
+                CONF_MOLD_HUMIDITY_THRESHOLD: float(user_input.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD)),
+                CONF_CO2_SENSOR: user_input.get(CONF_CO2_SENSOR, ""),
+                CONF_CO2_THRESHOLD_GOOD: int(user_input.get(CONF_CO2_THRESHOLD_GOOD, DEFAULT_CO2_THRESHOLD_GOOD)),
+                CONF_CO2_THRESHOLD_BAD: int(user_input.get(CONF_CO2_THRESHOLD_BAD, DEFAULT_CO2_THRESHOLD_BAD)),
+                CONF_RADIATOR_KW: float(user_input.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW)),
+                CONF_HKV_SENSOR: user_input.get(CONF_HKV_SENSOR, ""),
+                CONF_HKV_FACTOR: float(user_input.get(CONF_HKV_FACTOR, DEFAULT_HKV_FACTOR)),
+                CONF_BOOST_TEMP: user_input.get(CONF_BOOST_TEMP),
+                CONF_BOOST_DEFAULT_DURATION: int(user_input.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION)),
                 CONF_SCHEDULES: [],
             }
             rooms = list(self._options.get(CONF_ROOMS, []))
@@ -685,6 +716,31 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_WINDOW_CLOSE_DELAY, default=DEFAULT_WINDOW_CLOSE_DELAY): selector.selector({
                 "number": {"min": 0, "max": 600, "step": 5, "unit_of_measurement": "s", "mode": "box"}
+            }),
+            vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=DEFAULT_HA_SCHEDULE_OFF_MODE): selector.selector({
+                "select": {"options": ["eco", "sleep", "away"]}
+            }),
+            vol.Optional(CONF_HUMIDITY_SENSOR, default=""): selector.selector({"text": {}}),
+            vol.Optional(CONF_MOLD_PROTECTION_ENABLED, default=DEFAULT_MOLD_PROTECTION_ENABLED): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_MOLD_HUMIDITY_THRESHOLD, default=DEFAULT_MOLD_HUMIDITY_THRESHOLD): selector.selector({
+                "number": {"min": 50, "max": 95, "step": 1, "unit_of_measurement": "%", "mode": "box"}
+            }),
+            vol.Optional(CONF_CO2_SENSOR, default=""): selector.selector({"text": {}}),
+            vol.Optional(CONF_CO2_THRESHOLD_GOOD, default=DEFAULT_CO2_THRESHOLD_GOOD): selector.selector({
+                "number": {"min": 400, "max": 1000, "step": 50, "unit_of_measurement": "ppm", "mode": "box"}
+            }),
+            vol.Optional(CONF_CO2_THRESHOLD_BAD, default=DEFAULT_CO2_THRESHOLD_BAD): selector.selector({
+                "number": {"min": 800, "max": 2000, "step": 50, "unit_of_measurement": "ppm", "mode": "box"}
+            }),
+            vol.Optional(CONF_RADIATOR_KW, default=DEFAULT_RADIATOR_KW): selector.selector({
+                "number": {"min": 0.1, "max": 10, "step": 0.1, "unit_of_measurement": "kW", "mode": "box"}
+            }),
+            vol.Optional(CONF_HKV_SENSOR, default=""): selector.selector({"text": {}}),
+            vol.Optional(CONF_HKV_FACTOR, default=DEFAULT_HKV_FACTOR): selector.selector({
+                "number": {"min": 0.01, "max": 1.0, "step": 0.001, "unit_of_measurement": "kWh/Einheit", "mode": "box"}
+            }),
+            vol.Optional(CONF_BOOST_DEFAULT_DURATION, default=DEFAULT_BOOST_DEFAULT_DURATION): selector.selector({
+                "number": {"min": 5, "max": 480, "step": 5, "unit_of_measurement": "min", "mode": "box"}
             }),
         })
         return self.async_show_form(
@@ -771,11 +827,36 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ROOM_PREHEAT_MINUTES, default=int(room.get(CONF_ROOM_PREHEAT_MINUTES, DEFAULT_ROOM_PREHEAT_MINUTES))): selector.selector({
                 "number": {"min": -1, "max": 120, "step": 1, "unit_of_measurement": "min", "mode": "box"}
             }),
-            vol.Optional(CONF_WINDOW_REACTION_TIME, default=float(room.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME))): selector.selector({
+            vol.Optional(CONF_WINDOW_REACTION_TIME, default=int(room.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME))): selector.selector({
                 "number": {"min": 0, "max": 300, "step": 5, "unit_of_measurement": "s", "mode": "box"}
             }),
-            vol.Optional(CONF_WINDOW_CLOSE_DELAY, default=float(room.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY))): selector.selector({
+            vol.Optional(CONF_WINDOW_CLOSE_DELAY, default=int(room.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY))): selector.selector({
                 "number": {"min": 0, "max": 600, "step": 5, "unit_of_measurement": "s", "mode": "box"}
+            }),
+            vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=room.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE)): selector.selector({
+                "select": {"options": ["eco", "sleep", "away"]}
+            }),
+            vol.Optional(CONF_HUMIDITY_SENSOR, default=room.get(CONF_HUMIDITY_SENSOR, "")): selector.selector({"text": {}}),
+            vol.Optional(CONF_MOLD_PROTECTION_ENABLED, default=bool(room.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED))): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_MOLD_HUMIDITY_THRESHOLD, default=float(room.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD))): selector.selector({
+                "number": {"min": 50, "max": 95, "step": 1, "unit_of_measurement": "%", "mode": "box"}
+            }),
+            vol.Optional(CONF_CO2_SENSOR, default=room.get(CONF_CO2_SENSOR, "")): selector.selector({"text": {}}),
+            vol.Optional(CONF_CO2_THRESHOLD_GOOD, default=int(room.get(CONF_CO2_THRESHOLD_GOOD, DEFAULT_CO2_THRESHOLD_GOOD))): selector.selector({
+                "number": {"min": 400, "max": 1000, "step": 50, "unit_of_measurement": "ppm", "mode": "box"}
+            }),
+            vol.Optional(CONF_CO2_THRESHOLD_BAD, default=int(room.get(CONF_CO2_THRESHOLD_BAD, DEFAULT_CO2_THRESHOLD_BAD))): selector.selector({
+                "number": {"min": 800, "max": 2000, "step": 50, "unit_of_measurement": "ppm", "mode": "box"}
+            }),
+            vol.Optional(CONF_RADIATOR_KW, default=float(room.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW))): selector.selector({
+                "number": {"min": 0.1, "max": 10, "step": 0.1, "unit_of_measurement": "kW", "mode": "box"}
+            }),
+            vol.Optional(CONF_HKV_SENSOR, default=room.get(CONF_HKV_SENSOR, "")): selector.selector({"text": {}}),
+            vol.Optional(CONF_HKV_FACTOR, default=float(room.get(CONF_HKV_FACTOR, DEFAULT_HKV_FACTOR))): selector.selector({
+                "number": {"min": 0.01, "max": 1.0, "step": 0.001, "unit_of_measurement": "kWh/Einheit", "mode": "box"}
+            }),
+            vol.Optional(CONF_BOOST_DEFAULT_DURATION, default=int(room.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION))): selector.selector({
+                "number": {"min": 5, "max": 480, "step": 5, "unit_of_measurement": "min", "mode": "box"}
             }),
         })
         return self.async_show_form(step_id="edit_room_details", data_schema=schema)

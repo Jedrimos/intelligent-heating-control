@@ -52,7 +52,6 @@ CONF_COMFORT_TEMP: Final = "comfort_temp"
 CONF_AWAY_TEMP_ROOM: Final = "away_temp_room"
 CONF_WINDOW_SENSOR: Final = "window_sensor"
 CONF_WINDOW_SENSORS: Final = "window_sensors"   # list – mehrere Fenstersensoren
-CONF_WINDOW_OPEN_TEMP: Final = "window_open_temp"
 CONF_WINDOW_REACTION_TIME: Final = "window_reaction_time"   # seconds open before reacting (per room)
 CONF_WINDOW_CLOSE_DELAY: Final = "window_close_delay"       # seconds after close before resuming (per room)
 CONF_VALVE_ENTITIES: Final = "valve_entities"   # list – mehrere Thermostate/TRVs
@@ -97,7 +96,6 @@ DEFAULT_AWAY_TEMP: Final = 16.0
 DEFAULT_VACATION_TEMP: Final = 14.0
 DEFAULT_MIN_TEMP: Final = 5.0
 DEFAULT_MAX_TEMP: Final = 30.0
-DEFAULT_WINDOW_OPEN_TEMP: Final = 5.0
 DEFAULT_WINDOW_REACTION_TIME: Final = 30   # seconds
 DEFAULT_WINDOW_CLOSE_DELAY: Final = 0      # seconds (0 = immediate resume)
 DEFAULT_ABSOLUTE_MIN_TEMP: Final = 15.0    # °C – absolute per-room floor
@@ -292,6 +290,11 @@ CONF_CONTROLLER_MODE: Final = "controller_mode"
 CONTROLLER_MODE_SWITCH: Final = "switch"   # control a boiler switch (default)
 CONTROLLER_MODE_TRV: Final = "trv"         # control TRVs directly (close them when no demand)
 DEFAULT_CONTROLLER_MODE: Final = CONTROLLER_MODE_SWITCH
+
+# Boost-Modus (per room)
+CONF_BOOST_TEMP: Final = "boost_temp"               # °C target during boost
+CONF_BOOST_DEFAULT_DURATION: Final = "boost_default_duration"  # minutes
+DEFAULT_BOOST_DEFAULT_DURATION: Final = 60
 
 # Gäste-Modus
 CONF_GUEST_DURATION_HOURS: Final = "guest_duration_hours"
