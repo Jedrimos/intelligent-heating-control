@@ -948,7 +948,7 @@ class IHCCoordinator(DataUpdateCoordinator):
 
     def _get_outdoor_humidity(self) -> Optional[float]:
         """Read outdoor humidity from optional sensor."""
-        cfg = self._get_config()
+        cfg = self.get_config()
         sensor = cfg.get(CONF_OUTDOOR_HUMIDITY_SENSOR)
         if not sensor:
             return None
@@ -994,7 +994,7 @@ class IHCCoordinator(DataUpdateCoordinator):
           room_humidity: float | None
         Returns None if ventilation advice is disabled or nothing to evaluate.
         """
-        cfg = self._get_config()
+        cfg = self.get_config()
         if not cfg.get(CONF_VENTILATION_ADVICE_ENABLED, DEFAULT_VENTILATION_ADVICE_ENABLED):
             return None
 
@@ -2114,24 +2114,29 @@ class IHCCoordinator(DataUpdateCoordinator):
         weather_forecast = self._get_weather_forecast()
 
         # Ventilation advice – compute per room now that outdoor_temp is known
-        outdoor_humidity = self._get_outdoor_humidity()
-        weather_condition = (weather_forecast[0]["condition"] if weather_forecast else None)
-        energy_price_high = price_eco_offset < 0  # negative offset = eco mode = high price
-        for room in self.get_rooms():
-            room_id = room.get(CONF_ROOM_ID, "")
-            if not room_id or room_id not in room_data:
-                continue
-            v_advice = self._calculate_ventilation_advice(
-                room=room,
-                current_temp=room_data[room_id].get("current_temp"),
-                outdoor_temp=outdoor_temp,
-                outdoor_humidity=outdoor_humidity,
-                weather_condition=weather_condition,
-                total_demand=total_demand,
-                energy_price_high=energy_price_high,
-            )
-            room_data[room_id]["ventilation"] = v_advice
-            room_data[room_id]["co2_ppm"] = v_advice["co2_ppm"] if v_advice else None
+        try:
+            outdoor_humidity = self._get_outdoor_humidity()
+            weather_condition = (weather_forecast[0]["condition"] if weather_forecast else None)
+            energy_price_high = price_eco_offset > 0  # positive offset = eco active = high price period
+            for room in self.get_rooms():
+                room_id = room.get(CONF_ROOM_ID, "")
+                if not room_id or room_id not in room_data:
+                    continue
+                v_advice = self._calculate_ventilation_advice(
+                    room=room,
+                    current_temp=room_data[room_id].get("current_temp"),
+                    outdoor_temp=outdoor_temp,
+                    outdoor_humidity=outdoor_humidity,
+                    weather_condition=weather_condition,
+                    total_demand=total_demand,
+                    energy_price_high=energy_price_high,
+                )
+                room_data[room_id]["ventilation"] = v_advice
+                room_data[room_id]["co2_ppm"] = v_advice["co2_ppm"] if v_advice else None
+            outdoor_humidity_out = outdoor_humidity
+        except Exception:
+            _LOGGER.debug("IHC: Ventilation advice calculation failed", exc_info=True)
+            outdoor_humidity_out = None
 
         # Guest mode info
         guest_remaining_minutes = None
@@ -2171,7 +2176,7 @@ class IHCCoordinator(DataUpdateCoordinator):
             "eta_preheat_minutes": eta_minutes,          # v1.4 – ETA-based pre-heat
             "adaptive_curve_delta": self._curve_adaptation_delta,  # v1.3 – debug info
             "curve_adaptation_enabled": cfg.get(CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED),
-            "outdoor_humidity": outdoor_humidity,
+            "outdoor_humidity": outdoor_humidity_out,
             "rooms": room_data,
             "debug": self._controller.get_debug_info(),
         }
