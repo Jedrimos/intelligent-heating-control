@@ -231,6 +231,8 @@ class IhcDashboardCard extends HTMLElement {
       if (da.window_open !== undefined) rooms[cid].window_open = da.window_open;
       if (da.room_presence_active !== undefined) rooms[cid].room_presence_active = da.room_presence_active;
       if (da.mold !== undefined) rooms[cid].mold = da.mold;
+      if (da.ventilation !== undefined) rooms[cid].ventilation = da.ventilation;
+      if (da.co2_ppm !== undefined) rooms[cid].co2_ppm = da.co2_ppm;
     });
 
     return Object.values(rooms).sort((a, b) => {
@@ -276,6 +278,7 @@ class IhcDashboardCard extends HTMLElement {
       energy_today_kwh:       egy ? parseFloat(egy.state) || 0 : 0,
       energy_yesterday_kwh:   ea.energy_yesterday_kwh || 0,
       flow_temp:              ea.flow_temp != null ? parseFloat(ea.flow_temp) : null,
+      outdoor_humidity:       a.outdoor_humidity != null ? parseFloat(a.outdoor_humidity) : null,
     };
   }
 
@@ -329,6 +332,7 @@ class IhcDashboardCard extends HTMLElement {
           <div class="stat-lbl">Zimmer</div>
         </div>
         ${g.flow_temp !== null ? `<div class="stat"><div class="stat-val">${g.flow_temp.toFixed(1)}°</div><div class="stat-lbl">Vorlauf</div></div>` : ""}
+        ${g.outdoor_humidity !== null ? `<div class="stat"><div class="stat-val">${g.outdoor_humidity.toFixed(0)}%</div><div class="stat-lbl">Außenfeuchte</div></div>` : ""}
       </div>
     `;
   }
@@ -384,10 +388,27 @@ class IhcDashboardCard extends HTMLElement {
   _tileIcons(room) {
     const parts = [];
     if (room.window_open)             parts.push("🪟");
-    if (room.mold)                    parts.push("💧");
+    if (room.mold && room.mold.risk)  parts.push("💧");
     if (room.boost_remaining > 0)     parts.push("⚡");
     if (room.room_presence_active === false) parts.push("🚶");
+    if (room.ventilation && room.ventilation.level === "urgent")      parts.push("🪟❗");
+    else if (room.ventilation && room.ventilation.level === "recommended") parts.push("🌬️");
+    if (room.co2_ppm != null) parts.push(`CO₂`);
     return parts.join(" ");
+  }
+
+  _ventilationSubline(room) {
+    const v = room.ventilation;
+    if (!v || v.level === "none") {
+      // Show CO2 only if sensor present but no advice needed
+      if (room.co2_ppm != null) return `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:3px">CO₂ ${room.co2_ppm} ppm ✓</div>`;
+      return "";
+    }
+    const colors = { urgent: "#b71c1c", recommended: "#e65100", possible: "#1565c0" };
+    const fg = colors[v.level] || "#555";
+    const co2 = room.co2_ppm != null ? ` · CO₂ ${room.co2_ppm} ppm` : "";
+    const reason = v.reasons && v.reasons.length ? v.reasons[0] : v.level;
+    return `<div style="font-size:10px;color:${fg};margin-top:3px">🌬️ ${reason}${co2}</div>`;
   }
 
   _renderRoomTile(room) {
@@ -399,7 +420,7 @@ class IhcDashboardCard extends HTMLElement {
 
     if (this._config.compact) {
       return `
-        <div class="room-tile compact-tile ${this._tileClass(room)}" >
+        <div class="room-tile compact-tile ${this._tileClass(room)}">
           <div class="compact-row">
             <div class="compact-name">${room.name}</div>
             <div class="compact-icons">${icons}</div>
@@ -432,6 +453,7 @@ class IhcDashboardCard extends HTMLElement {
         <div class="tile-demand-bg">
           <div class="tile-demand-bar" style="width:${bw}%;background:${bc}"></div>
         </div>
+        ${this._ventilationSubline(room)}
         <div class="tile-chips">${chips.join("")}${boostChip}</div>
       </div>
     `;
@@ -439,6 +461,8 @@ class IhcDashboardCard extends HTMLElement {
 
   _renderEnergy(g) {
     if (!this._config.show_energy) return "";
+    // Only show if there's actual data
+    if (!g.energy_today_kwh && !g.heating_runtime_today) return "";
     return `
       <div class="energy-row">
         <div class="energy-stat">⚡ Heute: <b>${g.energy_today_kwh.toFixed(2)} kWh</b></div>

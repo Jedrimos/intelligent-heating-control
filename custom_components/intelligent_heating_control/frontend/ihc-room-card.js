@@ -165,6 +165,8 @@ class IhcRoomCard extends HTMLElement {
           avg_warmup_minutes: da.avg_warmup_minutes ?? null,
           room_presence_active: da.room_presence_active ?? null,
           mold: da.mold ?? false,
+          ventilation: da.ventilation ?? null,
+          co2_ppm: da.co2_ppm ?? null,
           next_period: a.next_period || null,
           runtime_today_minutes: runtimeSensor ? (parseFloat(runtimeSensor.state) || 0) : 0,
           comfort_temp: a.comfort_temp ?? 21,
@@ -242,10 +244,21 @@ class IhcRoomCard extends HTMLElement {
     // Status badges
     const badgeParts = [];
     if (room.window_open) badgeParts.push(`<span class="badge badge-window">🪟 Offen</span>`);
-    if (room.mold) badgeParts.push(`<span class="badge badge-mold">💧 Schimmel</span>`);
+    if (room.mold && room.mold.risk) badgeParts.push(`<span class="badge badge-mold">💧 Schimmel ${room.mold.humidity}%</span>`);
     if (room.boost_remaining > 0) badgeParts.push(`<span class="badge badge-boost">⚡ Boost ${room.boost_remaining}min</span>`);
     if (room.night_setback > 0) badgeParts.push(`<span class="badge badge-eco">🌙 Absenkung</span>`);
     if (room.room_presence_active === false) badgeParts.push(`<span class="badge badge-away">🚶 Abwesend</span>`);
+    // Ventilation advice – only shown when sensor data is available
+    if (room.ventilation && room.ventilation.level !== "none") {
+      const vIcons = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };
+      const vCls   = { urgent: "badge-heat", recommended: "badge-boost", possible: "badge-eco" };
+      const co2str = room.co2_ppm != null ? ` · ${room.co2_ppm}ppm` : "";
+      badgeParts.push(`<span class="badge ${vCls[room.ventilation.level] || "badge-eco"}">${vIcons[room.ventilation.level] || "🌬️"} Lüften${co2str}</span>`);
+    }
+    if (room.co2_ppm != null && !(room.ventilation && room.ventilation.level !== "none")) {
+      // CO2 only badge when no full ventilation advice (sensor present but level=none)
+      badgeParts.push(`<span class="badge badge-ok">CO₂ ${room.co2_ppm} ppm</span>`);
+    }
     const heatingBadge = room.demand > 5
       ? `<span class="badge badge-heat">🔥 ${room.demand.toFixed(0)}%</span>`
       : `<span class="badge badge-ok">✓</span>`;

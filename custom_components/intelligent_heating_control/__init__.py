@@ -317,6 +317,9 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "controller_mode", "guest_duration_hours",
             "vacation_return_preheat_days",
             "weather_entity", "weather_cold_threshold", "weather_cold_boost",
+            # Ventilation advice
+            "outdoor_humidity_sensor",
+            "ventilation_advice_enabled",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:

@@ -34,6 +34,8 @@ from .const import (
     CONF_WEATHER_ENTITY, CONF_WEATHER_COLD_THRESHOLD, DEFAULT_WEATHER_COLD_THRESHOLD,
     CONF_WEATHER_COLD_BOOST, DEFAULT_WEATHER_COLD_BOOST,
     CONF_SUN_ENTITY,
+    CONF_OUTDOOR_HUMIDITY_SENSOR,
+    CONF_VENTILATION_ADVICE_ENABLED, DEFAULT_VENTILATION_ADVICE_ENABLED,
     DEFAULT_AWAY_TEMP, DEFAULT_VACATION_TEMP,
     DEFAULT_SUMMER_THRESHOLD, DEFAULT_FROST_PROTECTION_TEMP,
     DEFAULT_NIGHT_SETBACK_OFFSET, DEFAULT_PREHEAT_MINUTES,
@@ -126,6 +128,7 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "guest_mode_active":           d.get("guest_mode_active", False),
             "guest_remaining_minutes":     d.get("guest_remaining_minutes"),
             "weather_forecast":            d.get("weather_forecast"),
+            "outdoor_humidity":            d.get("outdoor_humidity"),
             # Controller settings (read by frontend panel)
             "demand_threshold":     debug.get("demand_threshold"),
             "demand_hysteresis":    debug.get("demand_hysteresis"),
@@ -173,6 +176,9 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "weather_cold_threshold":      cfg.get(CONF_WEATHER_COLD_THRESHOLD, DEFAULT_WEATHER_COLD_THRESHOLD),
             "weather_cold_boost":          cfg.get(CONF_WEATHER_COLD_BOOST, DEFAULT_WEATHER_COLD_BOOST),
             "sun_entity":                  cfg.get(CONF_SUN_ENTITY, "sun.sun"),
+            # Ventilation advice
+            "outdoor_humidity_sensor":     cfg.get(CONF_OUTDOOR_HUMIDITY_SENSOR, ""),
+            "ventilation_advice_enabled":  cfg.get(CONF_VENTILATION_ADVICE_ENABLED, DEFAULT_VENTILATION_ADVICE_ENABLED),
         }
 
 

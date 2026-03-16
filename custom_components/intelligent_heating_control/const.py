@@ -314,3 +314,13 @@ CONF_MOLD_PROTECTION_ENABLED: Final = "mold_protection_enabled"
 CONF_MOLD_HUMIDITY_THRESHOLD: Final = "mold_humidity_threshold"  # % above which risk is elevated
 DEFAULT_MOLD_HUMIDITY_THRESHOLD: Final = 70.0
 DEFAULT_MOLD_PROTECTION_ENABLED: Final = True
+
+# Lüftungsempfehlung (ventilation advice) – global + per room
+CONF_OUTDOOR_HUMIDITY_SENSOR: Final = "outdoor_humidity_sensor"
+CONF_CO2_SENSOR: Final = "co2_sensor"               # per room – optional
+CONF_CO2_THRESHOLD_GOOD: Final = "co2_threshold_good"
+CONF_CO2_THRESHOLD_BAD: Final = "co2_threshold_bad"
+DEFAULT_CO2_THRESHOLD_GOOD: Final = 800    # ppm – below = good air quality
+DEFAULT_CO2_THRESHOLD_BAD: Final = 1200   # ppm – above = ventilation recommended
+CONF_VENTILATION_ADVICE_ENABLED: Final = "ventilation_advice_enabled"
+DEFAULT_VENTILATION_ADVICE_ENABLED: Final = True

@@ -228,6 +228,29 @@ const STYLES = `
   .settings-item { display: flex; flex-direction: column; gap: 4px; }
   .settings-item label { font-size: 12px; color: var(--secondary-text-color); }
 
+  /* Collapsible settings cards */
+  details.ihc-card { background: var(--card-background-color,#fff); border-radius: 12px;
+                     margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.08); overflow: hidden; }
+  details.ihc-card > summary {
+    list-style: none; cursor: pointer; padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    user-select: none;
+  }
+  details.ihc-card > summary::-webkit-details-marker { display: none; }
+  details.ihc-card > summary::after {
+    content: "▶"; font-size: 11px; color: var(--secondary-text-color);
+    transition: transform 0.2s; flex-shrink: 0; margin-left: 8px;
+  }
+  details.ihc-card[open] > summary::after { transform: rotate(90deg); }
+  details.ihc-card > summary:hover { background: var(--secondary-background-color, #f5f5f5); }
+  .ihc-card-body { padding: 0 20px 20px; }
+  .ihc-card-title { font-size: 15px; font-weight: 700; color: var(--primary-text-color);
+                    display: flex; align-items: center; gap: 8px; flex: 1; }
+  .ihc-card-badge { font-size: 11px; padding: 2px 7px; border-radius: 8px; font-weight: 600;
+                    background: var(--success-color,#43a047); color: white; margin-left: 6px; }
+  .ihc-card-badge.warn { background: #fb8c00; }
+  .ihc-card-badge.info { background: var(--primary-color); }
+
   /* Schedule */
   .day-chips { display: flex; gap: 5px; flex-wrap: wrap; }
   .day-chip { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center;
@@ -612,6 +635,7 @@ class IHCPanel extends HTMLElement {
       cold_boost:                ea.cold_boost != null ? parseFloat(ea.cold_boost) : 0,
       eta_preheat_minutes:       a.eta_preheat_minutes != null ? parseFloat(a.eta_preheat_minutes) : null,
       adaptive_curve_delta:      a.adaptive_curve_delta != null ? parseFloat(a.adaptive_curve_delta) : 0,
+      outdoor_humidity:          a.outdoor_humidity != null ? parseFloat(a.outdoor_humidity) : null,
     };
   }
 
@@ -734,6 +758,18 @@ class IHCPanel extends HTMLElement {
         ? `<div style="font-size:10px;color:#1a237e;background:#e8eaf6;border-radius:6px;padding:3px 7px;margin-bottom:6px">💧 Schimmelrisiko – Feuchte ${room.mold.humidity}%${room.mold.dew_point != null ? `, Taupunkt ${room.mold.dew_point}°C` : ""}</div>`
         : "";
 
+      const v = room.ventilation;
+      const ventBanner = v && v.level !== "none"
+        ? (() => {
+            const colors = { urgent: ["#b71c1c","#ffebee"], recommended: ["#e65100","#fff3e0"], possible: ["#1565c0","#e3f2fd"] };
+            const icons  = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };
+            const [fg, bg] = colors[v.level] || ["#555","#f5f5f5"];
+            const tip = v.reasons && v.reasons.length ? v.reasons.join(" · ") : v.level;
+            const co2part = v.co2_ppm != null ? ` · CO₂ ${v.co2_ppm} ppm` : "";
+            return `<div style="font-size:10px;color:${fg};background:${bg};border-radius:6px;padding:3px 7px;margin-bottom:6px">${icons[v.level]} ${tip}${co2part}</div>`;
+          })()
+        : "";
+
       // Override banner: shown when system mode silently ignores the room mode
       const overrideBanner = systemOverrides
         ? `<div style="font-size:10px;color:#e65100;background:#fff3e0;border-radius:6px;padding:3px 8px;margin-bottom:6px;display:flex;align-items:center;gap:4px">${overrideLabel} <span style="opacity:.7">– Zimmermodus übersteuert</span></div>`
@@ -741,7 +777,7 @@ class IHCPanel extends HTMLElement {
 
       return `
         <div class="${cls}">
-          ${overrideBanner}${anomalyBanner}${moldBanner}
+          ${overrideBanner}${anomalyBanner}${moldBanner}${ventBanner}
           <div class="room-name">
             <span>${room.name}</span>
             ${statusBadge}
@@ -989,456 +1025,498 @@ class IHCPanel extends HTMLElement {
     const g   = this._getGlobal();
 
     // Note: settings tab is never auto-refreshed by set hass() so values won't reset while typing.
+    // Helpers: show badge in summary when a section has an active state
+    const activeBadge = (label, cls = "") => `<span class="ihc-card-badge ${cls}">${label}</span>`;
+    const hasEnergy = !!(a.solar_entity || a.energy_price_entity || a.flow_temp_entity || a.smart_meter_entity);
+
     content.innerHTML = `
-      <!-- System-Hardware -->
-      <div class="card">
-        <div class="card-title">🔧 System-Hardware</div>
-        <div class="info-box">
-          Grundlegende Hardware-Konfiguration. Alle Felder sind optional –
-          leer lassen wenn nicht vorhanden.
+      <!-- ── System-Hardware ─────────────────────────────── -->
+      <details class="ihc-card" open>
+        <summary>
+          <span class="ihc-card-title">🔧 System-Hardware</span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="info-box">Grundlegende Hardware. Alle Felder optional – leer lassen wenn nicht vorhanden.</div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Außentemperatur-Sensor</label>
+              <input type="text" class="form-input" id="outdoor-sensor"
+                placeholder="sensor.aussensensor"
+                value="${a.outdoor_temp_sensor ?? ''}" list="outdoor-sensor-list" autocomplete="off">
+              <datalist id="outdoor-sensor-list">${this._entityOptions(["sensor"])}</datalist>
+              <span class="form-hint">Wird für Heizkurve und Sommerautomatik benötigt</span>
+            </div>
+            <div class="settings-item">
+              <label>Heizungsschalter aktivieren</label>
+              <select class="form-select" id="enable-heating-switch">
+                <option value="false" ${!a.heating_switch ? "selected" : ""}>Deaktiviert</option>
+                <option value="true" ${a.heating_switch ? "selected" : ""}>Aktiviert</option>
+              </select>
+              <span class="form-hint">Aktiviert Heizschalter-Steuerung (z.B. Kesselrelais)</span>
+            </div>
+            <div class="settings-item" id="heating-switch-item" style="${a.heating_switch ? "" : "opacity:0.5"}">
+              <label>Heizungsschalter <em style="font-weight:400">(optional)</em></label>
+              <input type="text" class="form-input" id="heating-switch"
+                placeholder="switch.heizung"
+                value="${a.heating_switch ?? ''}" list="heating-switch-list" autocomplete="off">
+              <datalist id="heating-switch-list">${this._entityOptions(["switch", "input_boolean"])}</datalist>
+            </div>
+            <div class="settings-item">
+              <label>Wettervorhersage-Entität</label>
+              <input type="text" class="form-input" id="weather-entity"
+                placeholder="weather.home (leer = deaktiviert)"
+                value="${a.weather_entity ?? ''}" list="weather-entity-list" autocomplete="off">
+              <datalist id="weather-entity-list">${this._entityOptions(["weather"])}</datalist>
+              <span class="form-hint">Zeigt Wettervorhersage und Kältewarnung</span>
+            </div>
+            <div class="settings-item">
+              <label>Kälteschwelle (°C)</label>
+              <input type="number" class="form-input" id="weather-cold-threshold"
+                step="0.5" value="${a.weather_cold_threshold ?? 0}">
+            </div>
+            <div class="settings-item">
+              <label>Kälteboost (°C)</label>
+              <input type="number" class="form-input" id="weather-cold-boost"
+                step="0.5" min="0" max="5" value="${a.weather_cold_boost ?? 0}">
+              <span class="form-hint">°C-Anhebung aller Zimmer bei Kältewarnung (0 = aus)</span>
+            </div>
+            <div class="settings-item">
+              <label>Kühlung aktivieren</label>
+              <select class="form-select" id="enable-cooling">
+                <option value="false" ${!a.enable_cooling ? "selected" : ""}>Deaktiviert</option>
+                <option value="true" ${a.enable_cooling ? "selected" : ""}>Aktiviert</option>
+              </select>
+            </div>
+            <div class="settings-item" id="cooling-switch-item" style="${a.enable_cooling ? "" : "opacity:0.5"}">
+              <label>Kühlschalter <em style="font-weight:400">(optional)</em></label>
+              <input type="text" class="form-input" id="cooling-switch"
+                placeholder="switch.klimaanlage"
+                value="${a.cooling_switch ?? ''}" list="cooling-switch-list" autocomplete="off">
+              <datalist id="cooling-switch-list">${this._entityOptions(["switch", "input_boolean"])}</datalist>
+            </div>
+            <div class="settings-item">
+              <label>Steuerungsmodus</label>
+              <select class="form-select" id="controller-mode">
+                <option value="switch" ${(a.controller_mode || "switch") === "switch" ? "selected" : ""}>🔌 Heizungsschalter</option>
+                <option value="trv" ${(a.controller_mode || "switch") === "trv" ? "selected" : ""}>🌡️ TRV-Modus</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-hardware-settings">💾 Hardware speichern</button>
+          </div>
         </div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Außentemperatur-Sensor</label>
-            <input type="text" class="form-input" id="outdoor-sensor"
-              placeholder="sensor.aussensensor"
-              value="${a.outdoor_temp_sensor ?? ''}" list="outdoor-sensor-list" autocomplete="off">
-            <datalist id="outdoor-sensor-list">${this._entityOptions(["sensor"])}</datalist>
-            <span class="form-hint">Wird für Heizkurve und Sommerautomatik benötigt</span>
-          </div>
-          <div class="settings-item">
-            <label>Heizungsschalter aktivieren</label>
-            <select class="form-select" id="enable-heating-switch">
-              <option value="false" ${!a.heating_switch ? "selected" : ""}>Deaktiviert</option>
-              <option value="true" ${a.heating_switch ? "selected" : ""}>Aktiviert</option>
-            </select>
-            <span class="form-hint">Aktiviert Heizschalter-Steuerung (z.B. Kesselrelais)</span>
-          </div>
-          <div class="settings-item" id="heating-switch-item" style="${a.heating_switch ? "" : "opacity:0.5"}">
-            <label>Heizungsschalter <em style="font-weight:400">(optional)</em></label>
-            <input type="text" class="form-input" id="heating-switch"
-              placeholder="switch.heizung (nur bei Heizschalter aktiviert)"
-              value="${a.heating_switch ?? ''}" list="heating-switch-list" autocomplete="off">
-            <datalist id="heating-switch-list">${this._entityOptions(["switch", "input_boolean"])}</datalist>
-            <span class="form-hint">Schaltet physisch den Heizkessel ein/aus</span>
-          </div>
-          <div class="settings-item">
-            <label>Wettervorhersage-Entität</label>
-            <input type="text" class="form-input" id="weather-entity"
-              placeholder="weather.home (leer = deaktiviert)"
-              value="${a.weather_entity ?? ''}" list="weather-entity-list" autocomplete="off">
-            <datalist id="weather-entity-list">${this._entityOptions(["weather"])}</datalist>
-            <span class="form-hint">Zeigt Wettervorhersage und Kältewarnung</span>
-          </div>
-          <div class="settings-item">
-            <label>Kälteschwelle (°C)</label>
-            <input type="number" class="form-input" id="weather-cold-threshold"
-              step="0.5" value="${a.weather_cold_threshold ?? 0}">
-            <span class="form-hint">Kältewarnung ab dieser Tiefsttemperatur (Standard: 0°C)</span>
-          </div>
-          <div class="settings-item">
-            <label>Kälteboost (°C)</label>
-            <input type="number" class="form-input" id="weather-cold-boost"
-              step="0.5" min="0" max="5" value="${a.weather_cold_boost ?? 0}">
-            <span class="form-hint">Zieltemperatur aller Zimmer anheben wenn Kältewarnung aktiv (0 = aus)</span>
-          </div>
-          <div class="settings-item">
-            <label>Kühlung aktivieren</label>
-            <select class="form-select" id="enable-cooling">
-              <option value="false" ${!a.enable_cooling ? "selected" : ""}>Deaktiviert</option>
-              <option value="true" ${a.enable_cooling ? "selected" : ""}>Aktiviert</option>
-            </select>
-            <span class="form-hint">Aktiviert Kühlfunktion und Kühlschalter-Steuerung</span>
-          </div>
-          <div class="settings-item" id="cooling-switch-item" style="${a.enable_cooling ? "" : "opacity:0.5"}">
-            <label>Kühlschalter <em style="font-weight:400">(optional)</em></label>
-            <input type="text" class="form-input" id="cooling-switch"
-              placeholder="switch.klimaanlage (nur bei Kühlung aktiv)"
-              value="${a.cooling_switch ?? ''}" list="cooling-switch-list" autocomplete="off">
-            <datalist id="cooling-switch-list">${this._entityOptions(["switch", "input_boolean"])}</datalist>
-            <span class="form-hint">Schaltet Kühlaggregat/Klimaanlage</span>
-          </div>
-          <div class="settings-item">
-            <label>Steuerungsmodus</label>
-            <select class="form-select" id="controller-mode">
-              <option value="switch" ${(a.controller_mode || "switch") === "switch" ? "selected" : ""}>🔌 Heizungsschalter</option>
-              <option value="trv" ${(a.controller_mode || "switch") === "trv" ? "selected" : ""}>🌡️ TRV-Modus</option>
-            </select>
-            <span class="form-hint">TRV: bei zu wenig Anforderung werden alle Thermostate auf Frostschutz geschlossen</span>
-          </div>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="save-hardware-settings">💾 Hardware speichern</button>
-        </div>
-      </div>
+      </details>
 
-      <!-- System mode -->
-      <div class="card">
-        <div class="card-title">🏠 Betriebsmodus</div>
-        ${g.presence_away_active ? `<div class="info-box">🚶 Automatisch auf <strong>Abwesend</strong> gesetzt (niemand zuhause). Kehrt automatisch zurück wenn jemand heimkommt.</div>` : ""}
-        <div class="form-group">
-          <label class="form-label">System-Modus manuell setzen</label>
-          <div class="form-row">
-            <select class="form-select" id="system-mode-select">
-              ${Object.entries(SYSTEM_MODE_LABELS)
-                .filter(([k]) => k !== "cool" || a.enable_cooling)
-                .map(([k, v]) =>
-                  `<option value="${k}" ${curMode === k || curMode === v ? "selected" : ""}>${v}</option>`
-                ).join("")}
-            </select>
-            <button class="btn btn-primary" id="set-system-mode">Setzen</button>
+      <!-- ── Betriebsmodus ──────────────────────────────── -->
+      <details class="ihc-card" open>
+        <summary>
+          <span class="ihc-card-title">🏠 Betriebsmodus
+            ${g.presence_away_active ? activeBadge("🚶 Abwesend","warn") : ""}
+            ${g.guest_mode_active    ? activeBadge("🎉 Gäste","info") : ""}
+            ${g.vacation_auto_active ? activeBadge("✈️ Urlaub","info") : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          ${g.presence_away_active ? `<div class="info-box">🚶 Automatisch auf <strong>Abwesend</strong> gesetzt. Kehrt zurück wenn jemand heimkommt.</div>` : ""}
+          <div class="form-group">
+            <label class="form-label">System-Modus manuell setzen</label>
+            <div class="form-row">
+              <select class="form-select" id="system-mode-select">
+                ${Object.entries(SYSTEM_MODE_LABELS)
+                  .filter(([k]) => k !== "cool" || a.enable_cooling)
+                  .map(([k, v]) => `<option value="${k}" ${curMode === k || curMode === v ? "selected" : ""}>${v}</option>`)
+                  .join("")}
+              </select>
+              <button class="btn btn-primary" id="set-system-mode">Setzen</button>
+            </div>
           </div>
-          ${!a.enable_cooling ? `<span class="form-hint">„Kühlen"-Modus erst verfügbar wenn Kühlung unter System-Hardware aktiviert</span>` : ""}
         </div>
-      </div>
+      </details>
 
-      <!-- Temperaturen & Sommerautomatik -->
-      <div class="card">
-        <div class="card-title">🌡️ Temperaturen &amp; Sommerautomatik</div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Abwesend-Temperatur (°C)</label>
-            <input type="number" class="form-input" id="away-temp"
-              min="5" max="25" step="0.5" value="${a.away_temp ?? 16}">
-            <span class="form-hint">Alle Zimmer bei System „Abwesend"</span>
+      <!-- ── Temperaturen ───────────────────────────────── -->
+      <details class="ihc-card">
+        <summary>
+          <span class="ihc-card-title">🌡️ Temperaturen &amp; Sommerautomatik
+            ${g.summer_mode ? activeBadge("☀️ Sommer aktiv","warn") : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Abwesend-Temperatur (°C)</label>
+              <input type="number" class="form-input" id="away-temp" min="5" max="25" step="0.5" value="${a.away_temp ?? 16}">
+            </div>
+            <div class="settings-item">
+              <label>Urlaubs-Temperatur (°C)</label>
+              <input type="number" class="form-input" id="vacation-temp" min="5" max="20" step="0.5" value="${a.vacation_temp ?? 14}">
+            </div>
+            <div class="settings-item">
+              <label>Frostschutz-Temperatur (°C)</label>
+              <input type="number" class="form-input" id="frost-temp" min="4" max="15" step="0.5" value="${a.frost_protection_temp ?? 7}">
+              <span class="form-hint">Niemals unter diesen Wert (auch bei OFF)</span>
+            </div>
+            <div class="settings-item">
+              <label>Sommerautomatik</label>
+              <select class="form-select" id="summer-enabled">
+                <option value="false" ${!a.summer_mode_enabled ? "selected" : ""}>Deaktiviert</option>
+                <option value="true" ${a.summer_mode_enabled ? "selected" : ""}>Aktiviert</option>
+              </select>
+            </div>
+            <div class="settings-item">
+              <label>Sommer-Schwelle (°C)</label>
+              <input type="number" class="form-input" id="summer-threshold" min="10" max="30" step="0.5" value="${a.summer_threshold ?? 18}">
+              <span class="form-hint">Heizung gesperrt ab dieser Außentemp.</span>
+            </div>
           </div>
-          <div class="settings-item">
-            <label>Urlaubs-Temperatur (°C)</label>
-            <input type="number" class="form-input" id="vacation-temp"
-              min="5" max="20" step="0.5" value="${a.vacation_temp ?? 14}">
-            <span class="form-hint">Nur Frostschutz, alle Zimmer</span>
-          </div>
-          <div class="settings-item">
-            <label>Frostschutz-Temperatur (°C)</label>
-            <input type="number" class="form-input" id="frost-temp"
-              min="4" max="15" step="0.5" value="${a.frost_protection_temp ?? 7}">
-            <span class="form-hint">Niemals unter diesen Wert (auch bei OFF)</span>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-temp-settings">💾 Temperaturen speichern</button>
           </div>
         </div>
-        <div class="settings-grid" style="margin-top:12px">
-          <div class="settings-item">
-            <label>Sommerautomatik</label>
-            <select class="form-select" id="summer-enabled">
-              <option value="false" ${!a.summer_mode_enabled ? "selected" : ""}>Deaktiviert</option>
-              <option value="true" ${a.summer_mode_enabled ? "selected" : ""}>Aktiviert</option>
-            </select>
-          </div>
-          <div class="settings-item">
-            <label>Sommer-Schwelle (°C)</label>
-            <input type="number" class="form-input" id="summer-threshold"
-              min="10" max="30" step="0.5" value="${a.summer_threshold ?? 18}">
-            <span class="form-hint">Heizung gesperrt ab dieser Außentemp.</span>
-          </div>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="save-temp-settings">💾 Temperaturen speichern</button>
-        </div>
-      </div>
+      </details>
 
-      <!-- Nachtabsenkung & Vorheizen -->
-      <div class="card">
-        <div class="card-title">🌙 Nachtabsenkung &amp; Vorheizen</div>
-        ${g.night_setback_active ? `<div class="info-box" style="background:#e3f2fd;border-color:#1565c0;">🌙 Nachtabsenkung ist gerade <strong>aktiv</strong></div>` : ""}
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Nachtabsenkung</label>
-            <select class="form-select" id="night-setback-enabled">
-              <option value="false" ${!a.night_setback_enabled ? "selected" : ""}>Deaktiviert</option>
-              <option value="true" ${a.night_setback_enabled ? "selected" : ""}>Aktiviert</option>
-            </select>
-            <span class="form-hint">Temperaturen nachts automatisch absenken</span>
+      <!-- ── Nachtabsenkung & Vorheizen ─────────────────── -->
+      <details class="ihc-card" ${a.night_setback_enabled || a.preheat_minutes ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">🌙 Nachtabsenkung &amp; Vorheizen
+            ${g.night_setback_active ? activeBadge("🌙 Aktiv") : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          ${g.night_setback_active ? `<div class="info-box" style="background:#e3f2fd;border-color:#1565c0;">🌙 Nachtabsenkung ist gerade <strong>aktiv</strong></div>` : ""}
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Nachtabsenkung</label>
+              <select class="form-select" id="night-setback-enabled">
+                <option value="false" ${!a.night_setback_enabled ? "selected" : ""}>Deaktiviert</option>
+                <option value="true" ${a.night_setback_enabled ? "selected" : ""}>Aktiviert</option>
+              </select>
+            </div>
+            <div class="settings-item">
+              <label>Absenkung (°C)</label>
+              <input type="number" class="form-input" id="night-setback-offset" min="0.5" max="6" step="0.5" value="${a.night_setback_offset ?? 2}">
+            </div>
+            <div class="settings-item">
+              <label>Vorheiz-Vorlaufzeit (min)</label>
+              <input type="number" class="form-input" id="preheat-minutes" min="0" max="120" step="5" value="${a.preheat_minutes ?? 0}">
+              <span class="form-hint">0 = deaktiviert</span>
+            </div>
+            <div class="settings-item">
+              <label>Sonnen-Entität</label>
+              <input type="text" class="form-input" id="sun-entity" placeholder="sun.sun" value="${a.sun_entity ?? 'sun.sun'}">
+            </div>
           </div>
-          <div class="settings-item">
-            <label>Absenkung (°C)</label>
-            <input type="number" class="form-input" id="night-setback-offset"
-              min="0.5" max="6" step="0.5" value="${a.night_setback_offset ?? 2}">
-            <span class="form-hint">Um wieviel °C nachts abgesenkt wird</span>
-          </div>
-          <div class="settings-item">
-            <label>Vorheiz-Vorlaufzeit (min)</label>
-            <input type="number" class="form-input" id="preheat-minutes"
-              min="0" max="120" step="5" value="${a.preheat_minutes ?? 0}">
-            <span class="form-hint">Wie früh vor Zeitplan-Start wird vorgeheizt (0 = aus)</span>
-          </div>
-          <div class="settings-item">
-            <label>Sonnen-Entität</label>
-            <input type="text" class="form-input" id="sun-entity"
-              placeholder="sun.sun" value="${a.sun_entity ?? 'sun.sun'}">
-            <span class="form-hint">Entität zur Tag/Nacht-Erkennung (Standard: sun.sun)</span>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-night-settings">💾 Nacht/Vorheizen speichern</button>
           </div>
         </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="save-night-settings">💾 Nacht/Vorheizen speichern</button>
-        </div>
-      </div>
+      </details>
 
-      <!-- Klimabaustein -->
-      <div class="card">
-        <div class="card-title">⚙️ Klimabaustein</div>
-        <div class="info-box">
-          Aggregiert alle Zimmeranforderungen (gewichteter Durchschnitt) und
-          entscheidet zentral ob die Heizung läuft.
-        </div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Einschaltschwelle (%)</label>
-            <input type="number" class="form-input" id="demand-threshold"
-              min="1" max="100" step="1" value="${a.demand_threshold ?? 15}">
-            <span class="form-hint">Heizung EIN wenn Anforderung ≥ Schwelle</span>
+      <!-- ── Klimabaustein ──────────────────────────────── -->
+      <details class="ihc-card">
+        <summary><span class="ihc-card-title">⚙️ Klimabaustein (Schwellenwerte)</span></summary>
+        <div class="ihc-card-body">
+          <div class="info-box">Aggregiert alle Zimmeranforderungen und entscheidet zentral ob die Heizung läuft.</div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Einschaltschwelle (%)</label>
+              <input type="number" class="form-input" id="demand-threshold" min="1" max="100" step="1" value="${a.demand_threshold ?? 15}">
+            </div>
+            <div class="settings-item">
+              <label>Hysterese (%)</label>
+              <input type="number" class="form-input" id="demand-hysteresis" min="1" max="30" step="1" value="${a.demand_hysteresis ?? 5}">
+            </div>
+            <div class="settings-item">
+              <label>Min. Einschaltzeit (min)</label>
+              <input type="number" class="form-input" id="min-on-time" min="1" max="60" step="1" value="${a.min_on_time_minutes ?? 5}">
+            </div>
+            <div class="settings-item">
+              <label>Min. Ausschaltzeit (min)</label>
+              <input type="number" class="form-input" id="min-off-time" min="1" max="60" step="1" value="${a.min_off_time_minutes ?? 5}">
+            </div>
+            <div class="settings-item">
+              <label>Min. Zimmer mit Anforderung</label>
+              <input type="number" class="form-input" id="min-rooms" min="1" max="20" step="1" value="${a.min_rooms_demand ?? 1}">
+            </div>
           </div>
-          <div class="settings-item">
-            <label>Hysterese (%)</label>
-            <input type="number" class="form-input" id="demand-hysteresis"
-              min="1" max="30" step="1" value="${a.demand_hysteresis ?? 5}">
-            <span class="form-hint">Heizung AUS bei Schwelle − Hysterese</span>
-          </div>
-          <div class="settings-item">
-            <label>Min. Einschaltzeit (min)</label>
-            <input type="number" class="form-input" id="min-on-time"
-              min="1" max="60" step="1" value="${a.min_on_time_minutes ?? 5}">
-          </div>
-          <div class="settings-item">
-            <label>Min. Ausschaltzeit (min)</label>
-            <input type="number" class="form-input" id="min-off-time"
-              min="1" max="60" step="1" value="${a.min_off_time_minutes ?? 5}">
-          </div>
-          <div class="settings-item">
-            <label>Min. Zimmer mit Anforderung</label>
-            <input type="number" class="form-input" id="min-rooms"
-              min="1" max="20" step="1" value="${a.min_rooms_demand ?? 1}">
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-global-settings">💾 Klimabaustein speichern</button>
           </div>
         </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="save-global-settings">💾 Klimabaustein speichern</button>
-        </div>
-      </div>
+      </details>
 
-      <!-- Gäste-Modus -->
-      <div class="card">
-        <div class="card-title">🎉 Gäste-Modus</div>
-        ${g.guest_mode_active ? `<div class="info-box" style="background:#fce4ec;border-color:#880e4f;">🎉 Gäste-Modus ist <strong>aktiv</strong>${g.guest_remaining_minutes != null ? ` – noch ${g.guest_remaining_minutes} min` : ""}</div>` : ""}
-        <div class="info-box">Im Gäste-Modus heizen alle Zimmer auf Komfort-Temperatur. Optional wird nach einer bestimmten Zeit automatisch zurückgeschaltet.</div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Dauer (Stunden, 0 = unbegrenzt)</label>
-            <input type="number" class="form-input" id="guest-duration"
-              min="0" max="168" step="1" value="${a.guest_duration_hours ?? 24}">
-            <span class="form-hint">Nach dieser Zeit wird automatisch auf Auto zurückgeschaltet</span>
-          </div>
-        </div>
-        <div class="btn-row">
-          ${g.guest_mode_active
-            ? `<button class="btn btn-secondary" id="deactivate-guest-mode">✕ Gäste-Modus beenden</button>`
-            : `<button class="btn btn-primary" id="activate-guest-mode">🎉 Gäste-Modus aktivieren</button>`}
-          <button class="btn btn-secondary" id="save-guest-duration">💾 Standarddauer speichern</button>
-        </div>
-      </div>
-
-      <!-- Anwesenheitserkennung -->
-      <div class="card">
-        <div class="card-title">🚶 Anwesenheitserkennung</div>
-        <div class="info-box">
-          Wenn <strong>niemand</strong> der konfigurierten Personen zuhause ist, schaltet das System automatisch auf <em>Abwesend</em>.<br>
-          Wähle eine oder mehrere <code>person.*</code> oder <code>device_tracker.*</code> Entitäten.
-        </div>
-        <div class="form-group">
-          <label class="form-label">Anwesenheits-Entitäten</label>
+      <!-- ── Anwesenheit ────────────────────────────────── -->
+      <details class="ihc-card" ${(a.presence_entities || []).length ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">🚶 Anwesenheitserkennung
+            ${g.presence_away_active ? activeBadge("Abwesend","warn") : (a.presence_entities || []).length ? activeBadge("Aktiv") : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="info-box">Wenn niemand zuhause ist → automatisch auf <em>Abwesend</em>. Wähle <code>person.*</code> oder <code>device_tracker.*</code>.</div>
           <div id="presence-entity-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
             ${this._renderPresenceCheckboxes(a.presence_entities || [])}
           </div>
           <span class="form-hint">Aktuell ${g.presence_away_active ? "🚶 niemand zuhause" : "✓ jemand zuhause"}</span>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-presence-settings">💾 Anwesenheit speichern</button>
+          </div>
         </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="save-presence-settings">💾 Anwesenheit speichern</button>
-        </div>
-      </div>
+      </details>
 
-      <!-- Energie & Solar -->
-      <div class="card">
-        <div class="card-title">⚡ Energie &amp; Solar</div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Kesselleistung (kW)</label>
-            <input type="number" class="form-input" id="boiler-kw"
-              min="1" max="100" step="1" value="${a.boiler_kw ?? 20}">
-            <span class="form-hint">Für Energieberechnung (kWh = Laufzeit × kW)</span>
+      <!-- ── Gäste-Modus ────────────────────────────────── -->
+      <details class="ihc-card" ${g.guest_mode_active ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">🎉 Gäste-Modus
+            ${g.guest_mode_active ? activeBadge(`Aktiv${g.guest_remaining_minutes != null ? " · " + g.guest_remaining_minutes + "min" : ""}`, "warn") : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          ${g.guest_mode_active ? `<div class="info-box" style="background:#fce4ec;border-color:#880e4f;">🎉 Gäste-Modus ist <strong>aktiv</strong></div>` : ""}
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Standarddauer (Stunden, 0 = unbegrenzt)</label>
+              <input type="number" class="form-input" id="guest-duration" min="0" max="168" step="1" value="${a.guest_duration_hours ?? 24}">
+            </div>
           </div>
-          <div class="settings-item">
-            <label>Vorlauftemperatur-Entität (Setzen)</label>
-            <input type="text" class="form-input" id="flow-temp-entity"
-              placeholder="number.boiler_flow_temp (leer = deaktiviert)"
-              value="${a.flow_temp_entity ?? ''}" list="flow-temp-list">
-            <datalist id="flow-temp-list">${this._entityOptions(["number"])}</datalist>
-            <span class="form-hint">Setzt die Vorlauftemperatur automatisch</span>
-          </div>
-          <div class="settings-item">
-            <label>Vorlauftemperatur-Sensor (PID-Rückmessung)</label>
-            <input type="text" class="form-input" id="flow-temp-sensor"
-              placeholder="sensor.boiler_flow_temp (leer = kein PID)"
-              value="${a.flow_temp_sensor ?? ''}" list="flow-sensor-list">
-            <datalist id="flow-sensor-list">${this._entityOptions(["sensor"])}</datalist>
-            <span class="form-hint">Wenn gesetzt: PID-Regler nutzt Ist-Vorlauftemperatur</span>
-          </div>
-          <div class="settings-item">
-            <label>Smart-Meter-Sensor (kWh)</label>
-            <input type="text" class="form-input" id="smart-meter-entity"
-              placeholder="sensor.strom_zaehler (leer = deaktiviert)"
-              value="${a.smart_meter_entity ?? ''}" list="meter-list">
-            <datalist id="meter-list">${this._entityOptions(["sensor"])}</datalist>
-            <span class="form-hint">TOTAL_INCREASING kWh-Sensor für echten Verbrauch</span>
-          </div>
-          <div class="settings-item">
-            <label>Kühl-Zieltemperatur (°C)</label>
-            <input type="number" class="form-input" id="cooling-target-temp"
-              min="18" max="30" step="0.5" value="${a.cooling_target_temp ?? 24}">
-            <span class="form-hint">Zieltemperatur im Kühlmodus</span>
+          <div class="btn-row">
+            ${g.guest_mode_active
+              ? `<button class="btn btn-secondary" id="deactivate-guest-mode">✕ Gäste-Modus beenden</button>`
+              : `<button class="btn btn-primary" id="activate-guest-mode">🎉 Gäste-Modus aktivieren</button>`}
+            <button class="btn btn-secondary" id="save-guest-duration">💾 Standarddauer speichern</button>
           </div>
         </div>
-        <hr class="divider">
-        <div class="card-title" style="font-size:13px;margin-top:0">🧠 Intelligente Regelung</div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Adaptive Heizkurve</label>
-            <select class="form-select" id="adaptive-curve-enabled">
-              <option value="false" ${!a.adaptive_curve_enabled ? "selected" : ""}>Deaktiviert</option>
-              <option value="true" ${a.adaptive_curve_enabled ? "selected" : ""}>Aktiviert (lernt automatisch)</option>
-            </select>
-            <span class="form-hint">Passt Heizkurve ±0.5°C/Tag an (max. ±3°C)</span>
-          </div>
-          <div class="settings-item">
-            <label>Adaptives Vorheizen</label>
-            <select class="form-select" id="adaptive-preheat-enabled">
-              <option value="true" ${a.adaptive_preheat_enabled !== false ? "selected" : ""}>Aktiviert (nutzt Aufheizhistorie)</option>
-              <option value="false" ${a.adaptive_preheat_enabled === false ? "selected" : ""}>Deaktiviert (fixer Wert)</option>
-            </select>
-            <span class="form-hint">Berechnet Vorheizdauer aus Vergangenheitsdaten</span>
-          </div>
-          <div class="settings-item">
-            <label>ETA-basiertes Vorheizen</label>
-            <select class="form-select" id="eta-preheat-enabled">
-              <option value="false" ${!a.eta_preheat_enabled ? "selected" : ""}>Deaktiviert</option>
-              <option value="true" ${a.eta_preheat_enabled ? "selected" : ""}>Aktiviert (Google Maps ETA)</option>
-            </select>
-            <span class="form-hint">Heizt wenn person.* ETA-Attribut ≤90 min</span>
-          </div>
-          <div class="settings-item">
-            <label>Urlaubs-Kalender</label>
-            <input type="text" class="form-input" id="vacation-calendar"
-              placeholder="calendar.urlaub (leer = deaktiviert)"
-              value="${a.vacation_calendar ?? ''}" list="calendar-list">
-            <datalist id="calendar-list">${this._entityOptions(["calendar"])}</datalist>
-            <span class="form-hint">Events mit „urlaub" im Titel aktivieren Urlaubs-Modus automatisch</span>
-          </div>
-        </div>
-        <hr class="divider">
-        <div class="card-title" style="font-size:13px;margin-top:0">☀️ Solarüberschuss-Heizung</div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Solar-Sensor</label>
-            <input type="text" class="form-input" id="solar-entity"
-              placeholder="sensor.solar_power (leer = deaktiviert)"
-              value="${a.solar_entity ?? ''}" list="solar-entity-list">
-            <datalist id="solar-entity-list">${this._entityOptions(["sensor"])}</datalist>
-          </div>
-          <div class="settings-item">
-            <label>Überschuss-Schwelle (W)</label>
-            <input type="number" class="form-input" id="solar-surplus-threshold"
-              min="100" max="10000" step="100" value="${a.solar_surplus_threshold ?? 1000}">
-            <span class="form-hint">Überschuss ab dem Boost aktiv wird</span>
-          </div>
-          <div class="settings-item">
-            <label>Temperatur-Boost (°C)</label>
-            <input type="number" class="form-input" id="solar-boost-temp"
-              min="0.5" max="5" step="0.5" value="${a.solar_boost_temp ?? 1}">
-            <span class="form-hint">Um wieviel °C Zieltemp. angehoben wird</span>
-          </div>
-        </div>
-        <hr class="divider">
-        <div class="card-title" style="font-size:13px;margin-top:0">💶 Dynamischer Strompreis</div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Preis-Sensor</label>
-            <input type="text" class="form-input" id="energy-price-entity"
-              placeholder="sensor.strompreis (leer = deaktiviert)"
-              value="${a.energy_price_entity ?? ''}" list="price-entity-list">
-            <datalist id="price-entity-list">${this._entityOptions(["sensor"])}</datalist>
-          </div>
-          <div class="settings-item">
-            <label>Preis-Schwelle (€/kWh)</label>
-            <input type="number" class="form-input" id="energy-price-threshold"
-              min="0.05" max="2" step="0.01" value="${a.energy_price_threshold ?? 0.30}">
-            <span class="form-hint">Über diesem Preis wird Eco-Modus aktiviert</span>
-          </div>
-          <div class="settings-item">
-            <label>Eco-Absenkung (°C)</label>
-            <input type="number" class="form-input" id="energy-price-eco-offset"
-              min="0.5" max="6" step="0.5" value="${a.energy_price_eco_offset ?? 2}">
-            <span class="form-hint">Absenkung bei hohem Preis</span>
-          </div>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="save-energy-settings">💾 Energie / Solar speichern</button>
-        </div>
-      </div>
+      </details>
 
-      <!-- Energie-Statistik heute -->
-      <div class="card">
-        <div class="card-title">📊 Energie-Statistik heute</div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Heizlaufzeit</label>
-            <div style="font-size:24px;font-weight:700;color:var(--primary-color)">${g.heating_runtime_today} min</div>
+      <!-- ── Energie & Solar ────────────────────────────── -->
+      <details class="ihc-card" ${hasEnergy ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">⚡ Energie, Solar &amp; Vorlauftemperatur
+            ${g.solar_boost > 0 ? activeBadge("☀️ Solar-Boost") : ""}
+            ${g.energy_price_eco_active ? activeBadge("💶 Eco","warn") : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Kesselleistung (kW)</label>
+              <input type="number" class="form-input" id="boiler-kw" min="1" max="100" step="1" value="${a.boiler_kw ?? 20}">
+              <span class="form-hint">Für kWh-Berechnung (Laufzeit × kW)</span>
+            </div>
+            <div class="settings-item">
+              <label>Smart-Meter-Sensor (kWh)</label>
+              <input type="text" class="form-input" id="smart-meter-entity"
+                placeholder="sensor.strom_zaehler (leer = deaktiviert)"
+                value="${a.smart_meter_entity ?? ''}" list="meter-list">
+              <datalist id="meter-list">${this._entityOptions(["sensor"])}</datalist>
+              <span class="form-hint">TOTAL_INCREASING → echter Verbrauch</span>
+            </div>
+            <div class="settings-item">
+              <label>Vorlauftemperatur-Entität (Setzen)</label>
+              <input type="text" class="form-input" id="flow-temp-entity"
+                placeholder="number.boiler_flow_temp (leer = aus)"
+                value="${a.flow_temp_entity ?? ''}" list="flow-temp-list">
+              <datalist id="flow-temp-list">${this._entityOptions(["number"])}</datalist>
+            </div>
+            <div class="settings-item">
+              <label>Vorlauftemperatur-Sensor (PID)</label>
+              <input type="text" class="form-input" id="flow-temp-sensor"
+                placeholder="sensor.boiler_flow_temp (leer = kein PID)"
+                value="${a.flow_temp_sensor ?? ''}" list="flow-sensor-list">
+              <datalist id="flow-sensor-list">${this._entityOptions(["sensor"])}</datalist>
+              <span class="form-hint">PID-Regler nutzt Ist-Vorlauftemperatur</span>
+            </div>
+            <div class="settings-item">
+              <label>Kühl-Zieltemperatur (°C)</label>
+              <input type="number" class="form-input" id="cooling-target-temp" min="18" max="30" step="0.5" value="${a.cooling_target_temp ?? 24}">
+            </div>
           </div>
-          <div class="settings-item">
-            <label>Geschätzter Verbrauch</label>
-            <div style="font-size:24px;font-weight:700;color:var(--primary-color)">${g.energy_today_kwh} kWh</div>
+          <hr class="divider">
+          <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Solarüberschuss-Heizung</div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Solar-Sensor</label>
+              <input type="text" class="form-input" id="solar-entity"
+                placeholder="sensor.solar_power (leer = aus)"
+                value="${a.solar_entity ?? ''}" list="solar-entity-list">
+              <datalist id="solar-entity-list">${this._entityOptions(["sensor"])}</datalist>
+            </div>
+            <div class="settings-item">
+              <label>Überschuss-Schwelle (W)</label>
+              <input type="number" class="form-input" id="solar-surplus-threshold" min="100" max="10000" step="100" value="${a.solar_surplus_threshold ?? 1000}">
+            </div>
+            <div class="settings-item">
+              <label>Temperatur-Boost (°C)</label>
+              <input type="number" class="form-input" id="solar-boost-temp" min="0.5" max="5" step="0.5" value="${a.solar_boost_temp ?? 1}">
+            </div>
           </div>
-          ${g.solar_power != null ? `<div class="settings-item">
-            <label>Solar aktuell</label>
-            <div style="font-size:20px;font-weight:700;color:#f9a825">${g.solar_power} W</div>
-          </div>` : ""}
-          ${g.energy_price != null ? `<div class="settings-item">
-            <label>Strompreis aktuell</label>
-            <div style="font-size:20px;font-weight:700;color:${g.energy_price_eco_active ? "#c62828" : "#43a047"}">${g.energy_price.toFixed(3)} €/kWh</div>
+          <hr class="divider">
+          <div class="card-title" style="font-size:13px;margin:8px 0">💶 Dynamischer Strompreis</div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Preis-Sensor</label>
+              <input type="text" class="form-input" id="energy-price-entity"
+                placeholder="sensor.strompreis (leer = aus)"
+                value="${a.energy_price_entity ?? ''}" list="price-entity-list">
+              <datalist id="price-entity-list">${this._entityOptions(["sensor"])}</datalist>
+            </div>
+            <div class="settings-item">
+              <label>Preis-Schwelle (€/kWh)</label>
+              <input type="number" class="form-input" id="energy-price-threshold" min="0.05" max="2" step="0.01" value="${a.energy_price_threshold ?? 0.30}">
+            </div>
+            <div class="settings-item">
+              <label>Eco-Absenkung (°C)</label>
+              <input type="number" class="form-input" id="energy-price-eco-offset" min="0.5" max="6" step="0.5" value="${a.energy_price_eco_offset ?? 2}">
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-energy-settings">💾 Energie / Solar speichern</button>
+          </div>
+          ${g.heating_runtime_today || g.energy_today_kwh ? `
+          <hr class="divider">
+          <div class="card-title" style="font-size:13px;margin:8px 0">📊 Heute</div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Heizlaufzeit</label>
+              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${g.heating_runtime_today} min</div>
+            </div>
+            <div class="settings-item">
+              <label>Verbrauch</label>
+              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${g.energy_today_kwh} kWh</div>
+            </div>
+            ${g.solar_power != null ? `<div class="settings-item"><label>Solar</label><div style="font-size:20px;font-weight:700;color:#f9a825">${g.solar_power} W</div></div>` : ""}
+            ${g.energy_price != null ? `<div class="settings-item"><label>Strompreis</label><div style="font-size:20px;font-weight:700;color:${g.energy_price_eco_active ? "#c62828" : "#43a047"}">${g.energy_price.toFixed(3)} €/kWh</div></div>` : ""}
           </div>` : ""}
         </div>
-      </div>
+      </details>
 
-      <!-- Urlaubs-Assistent -->
-      <div class="card">
-        <div class="card-title">✈️ Urlaubs-Assistent</div>
-        <div class="info-box">Schaltet automatisch auf den Modus „Urlaub" wenn das heutige Datum im angegebenen Zeitraum liegt. Urlaubs-Temperatur wird unter <em>Temperaturen</em> oben eingestellt.</div>
-        ${g.vacation_auto_active ? `<div class="info-box" style="background:#e3f2fd;border-color:#1565c0;">✈️ Automatischer Urlaubs-Modus ist <strong>aktiv</strong></div>` : ""}
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Urlaub von</label>
-            <input type="date" class="form-input" id="vacation-start" value="${a.vacation_start || ""}">
+      <!-- ── Lüftungsempfehlung ──────────────────────────── -->
+      <details class="ihc-card" ${a.outdoor_humidity_sensor ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">🌬️ Lüftungsempfehlung
+            ${g.outdoor_humidity != null ? activeBadge(`${g.outdoor_humidity.toFixed(0)}% Außenfeuchte`) : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="info-box">
+            Optionaler Lüftungsberater: nutzt Innen-/Außentemperatur, Luftfeuchtigkeit und CO₂ (pro Zimmer).
+            Alle Sensoren sind optional – je mehr konfiguriert, desto präziser die Empfehlung.
           </div>
-          <div class="settings-item">
-            <label>Urlaub bis (inkl.)</label>
-            <input type="date" class="form-input" id="vacation-end" value="${a.vacation_end || ""}">
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Außenfeuchte-Sensor</label>
+              <input type="text" class="form-input" id="outdoor-humidity-sensor"
+                placeholder="sensor.aussenfeuchte (leer = deaktiviert)"
+                value="${a.outdoor_humidity_sensor ?? ''}" list="humid-sensor-list" autocomplete="off">
+              <datalist id="humid-sensor-list">${this._entityOptions(["sensor"])}</datalist>
+              <span class="form-hint">Verhindert Lüftungsempfehlung bei hoher Außenfeuchte</span>
+            </div>
+            <div class="settings-item">
+              <label>Lüftungsempfehlung</label>
+              <select class="form-select" id="ventilation-advice-enabled">
+                <option value="true"  ${a.ventilation_advice_enabled !== false ? "selected" : ""}>Aktiviert</option>
+                <option value="false" ${a.ventilation_advice_enabled === false  ? "selected" : ""}>Deaktiviert</option>
+              </select>
+              <span class="form-hint">CO₂-Sensor pro Zimmer im Zimmer-Dialog konfigurieren</span>
+            </div>
           </div>
-          <div class="settings-item">
-            <label>Rückkehr-Vorheizung (Tage)</label>
-            <input type="number" class="form-input" id="vacation-return-preheat"
-              min="0" max="14" step="1" value="${a.vacation_return_preheat_days ?? 0}">
-            <span class="form-hint">N Tage vor Urlaubsende wird auf Auto geschaltet (0 = aus)</span>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-ventilation-settings">💾 Lüftung speichern</button>
           </div>
         </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="save-vacation-range">💾 Urlaub speichern</button>
-          <button class="btn btn-secondary" id="clear-vacation-range">✕ Urlaub löschen</button>
-        </div>
-      </div>
+      </details>
 
-      <!-- Backup -->
-      <div class="card">
-        <div class="card-title">💾 Backup &amp; Restore</div>
-        <div class="info-box">Exportiert die gesamte Konfiguration als HA-Benachrichtigung (JSON). Diese kann gespeichert und zum Wiederherstellen verwendet werden.</div>
-        <div class="btn-row">
-          <button class="btn btn-secondary" id="export-config-btn">📤 Konfiguration exportieren</button>
+      <!-- ── Intelligente Regelung ──────────────────────── -->
+      <details class="ihc-card" ${a.adaptive_curve_enabled || a.eta_preheat_enabled || a.vacation_calendar ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">🧠 Intelligente Regelung
+            ${g.adaptive_curve_delta && Math.abs(g.adaptive_curve_delta) >= 0.1 ? activeBadge(`Kurve ${g.adaptive_curve_delta > 0 ? "+" : ""}${g.adaptive_curve_delta.toFixed(1)}°`) : ""}
+            ${g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90 ? activeBadge(`ETA ${Math.round(g.eta_preheat_minutes)}min`, "info") : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Adaptive Heizkurve</label>
+              <select class="form-select" id="adaptive-curve-enabled">
+                <option value="false" ${!a.adaptive_curve_enabled ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${a.adaptive_curve_enabled  ? "selected" : ""}>Aktiviert (lernt automatisch)</option>
+              </select>
+              <span class="form-hint">Passt Kurve ±0.5°C/Tag an (max. ±3°C)</span>
+            </div>
+            <div class="settings-item">
+              <label>Adaptives Vorheizen</label>
+              <select class="form-select" id="adaptive-preheat-enabled">
+                <option value="true"  ${a.adaptive_preheat_enabled !== false ? "selected" : ""}>Aktiviert (nutzt Aufheizhistorie)</option>
+                <option value="false" ${a.adaptive_preheat_enabled === false  ? "selected" : ""}>Deaktiviert (fixer Wert)</option>
+              </select>
+            </div>
+            <div class="settings-item">
+              <label>ETA-basiertes Vorheizen</label>
+              <select class="form-select" id="eta-preheat-enabled">
+                <option value="false" ${!a.eta_preheat_enabled ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${a.eta_preheat_enabled  ? "selected" : ""}>Aktiviert (Google Maps ETA)</option>
+              </select>
+              <span class="form-hint">Heizt wenn person.* ETA-Attribut ≤90 min</span>
+            </div>
+            <div class="settings-item">
+              <label>Urlaubs-Kalender</label>
+              <input type="text" class="form-input" id="vacation-calendar"
+                placeholder="calendar.urlaub (leer = aus)"
+                value="${a.vacation_calendar ?? ''}" list="calendar-list">
+              <datalist id="calendar-list">${this._entityOptions(["calendar"])}</datalist>
+              <span class="form-hint">Events mit „urlaub" → Urlaubsmodus</span>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-intelligent-settings">💾 Intelligente Regelung speichern</button>
+          </div>
         </div>
-      </div>
+      </details>
+
+      <!-- ── Urlaubs-Assistent ───────────────────────────── -->
+      <details class="ihc-card" ${g.vacation_auto_active || a.vacation_start ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">✈️ Urlaubs-Assistent
+            ${g.vacation_auto_active ? activeBadge("Aktiv","info") : ""}
+            ${g.return_preheat_active ? activeBadge("Vorheizen","info") : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="info-box">Schaltet auf Urlaub wenn heutiges Datum im eingegebenen Zeitraum liegt.</div>
+          ${g.vacation_auto_active ? `<div class="info-box" style="background:#e3f2fd;border-color:#1565c0;">✈️ Automatischer Urlaubs-Modus ist <strong>aktiv</strong></div>` : ""}
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Urlaub von</label>
+              <input type="date" class="form-input" id="vacation-start" value="${a.vacation_start || ""}">
+            </div>
+            <div class="settings-item">
+              <label>Urlaub bis (inkl.)</label>
+              <input type="date" class="form-input" id="vacation-end" value="${a.vacation_end || ""}">
+            </div>
+            <div class="settings-item">
+              <label>Rückkehr-Vorheizung (Tage)</label>
+              <input type="number" class="form-input" id="vacation-return-preheat" min="0" max="14" step="1" value="${a.vacation_return_preheat_days ?? 0}">
+              <span class="form-hint">N Tage vor Ende auf Auto schalten (0 = aus)</span>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-vacation-range">💾 Urlaub speichern</button>
+            <button class="btn btn-secondary" id="clear-vacation-range">✕ Urlaub löschen</button>
+          </div>
+        </div>
+      </details>
+
+      <!-- ── Backup ─────────────────────────────────────── -->
+      <details class="ihc-card">
+        <summary><span class="ihc-card-title">💾 Backup &amp; Restore</span></summary>
+        <div class="ihc-card-body">
+          <div class="info-box">Exportiert die gesamte Konfiguration als HA-Benachrichtigung (JSON).</div>
+          <div class="btn-row">
+            <button class="btn btn-secondary" id="export-config-btn">📤 Konfiguration exportieren</button>
+          </div>
+        </div>
+      </details>
     `;
 
     // Toggle heating-switch opacity based on enable-heating-switch select
@@ -1547,23 +1625,37 @@ class IHCPanel extends HTMLElement {
       const priceEco     = parseFloat(content.querySelector("#energy-price-eco-offset").value);
       if ([boilerKw, solarSurplus, solarBoost, priceThresh, priceEco].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
       this._callService("update_global_settings", {
-        boiler_kw:                  boilerKw,
-        flow_temp_entity:           content.querySelector("#flow-temp-entity").value.trim(),
-        flow_temp_sensor:           content.querySelector("#flow-temp-sensor").value.trim(),
-        solar_entity:               content.querySelector("#solar-entity").value.trim(),
-        solar_surplus_threshold:    solarSurplus,
-        solar_boost_temp:           solarBoost,
-        energy_price_entity:        content.querySelector("#energy-price-entity").value.trim(),
-        energy_price_threshold:     priceThresh,
-        energy_price_eco_offset:    priceEco,
-        smart_meter_entity:         content.querySelector("#smart-meter-entity").value.trim(),
-        cooling_target_temp:        parseFloat(content.querySelector("#cooling-target-temp").value) || 24,
-        adaptive_curve_enabled:     content.querySelector("#adaptive-curve-enabled").value === "true",
-        adaptive_preheat_enabled:   content.querySelector("#adaptive-preheat-enabled").value === "true",
-        eta_preheat_enabled:        content.querySelector("#eta-preheat-enabled").value === "true",
-        vacation_calendar:          content.querySelector("#vacation-calendar").value.trim(),
+        boiler_kw:               boilerKw,
+        flow_temp_entity:        content.querySelector("#flow-temp-entity").value.trim(),
+        flow_temp_sensor:        content.querySelector("#flow-temp-sensor").value.trim(),
+        solar_entity:            content.querySelector("#solar-entity").value.trim(),
+        solar_surplus_threshold: solarSurplus,
+        solar_boost_temp:        solarBoost,
+        energy_price_entity:     content.querySelector("#energy-price-entity").value.trim(),
+        energy_price_threshold:  priceThresh,
+        energy_price_eco_offset: priceEco,
+        smart_meter_entity:      content.querySelector("#smart-meter-entity").value.trim(),
+        cooling_target_temp:     parseFloat(content.querySelector("#cooling-target-temp").value) || 24,
       });
       this._toast("✓ Energie/Solar-Einstellungen gespeichert");
+    });
+
+    content.querySelector("#save-ventilation-settings").addEventListener("click", () => {
+      this._callService("update_global_settings", {
+        outdoor_humidity_sensor:    content.querySelector("#outdoor-humidity-sensor").value.trim(),
+        ventilation_advice_enabled: content.querySelector("#ventilation-advice-enabled").value === "true",
+      });
+      this._toast("✓ Lüftungseinstellungen gespeichert");
+    });
+
+    content.querySelector("#save-intelligent-settings").addEventListener("click", () => {
+      this._callService("update_global_settings", {
+        adaptive_curve_enabled:   content.querySelector("#adaptive-curve-enabled").value === "true",
+        adaptive_preheat_enabled: content.querySelector("#adaptive-preheat-enabled").value === "true",
+        eta_preheat_enabled:      content.querySelector("#eta-preheat-enabled").value === "true",
+        vacation_calendar:        content.querySelector("#vacation-calendar").value.trim(),
+      });
+      this._toast("✓ Intelligente Regelung gespeichert");
     });
 
     content.querySelector("#export-config-btn").addEventListener("click", () => {
@@ -2299,6 +2391,7 @@ class IHCPanel extends HTMLElement {
         weight:                 parseFloat(modal.querySelector("#m-weight").value),
         humidity_sensor:        modal.querySelector("#m-humidity-sensor").value.trim(),
         mold_protection_enabled: modal.querySelector("#m-mold-enabled").value === "true",
+        co2_sensor:             modal.querySelector("#m-co2-sensor")?.value.trim() || "",
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
@@ -2470,14 +2563,14 @@ class IHCPanel extends HTMLElement {
       </div>
 
       <div class="modal-section">
-        <div class="modal-section-title">Schimmelschutz</div>
+        <div class="modal-section-title">🌬️ Lüftung &amp; Schimmelschutz</div>
         <div class="settings-grid">
           <div class="settings-item">
             <label>Feuchtigkeitssensor</label>
             <input type="text" class="form-input" id="m-humidity-sensor"
               value="${room.humidity_sensor || ''}" placeholder="sensor.feuchte (optional)"
               list="m-sensor-list" autocomplete="off">
-            <span class="form-hint">Schimmelrisiko-Erkennung</span>
+            <span class="form-hint">Schimmelrisiko-Erkennung &amp; Lüftungsempfehlung</span>
           </div>
           <div class="settings-item">
             <label>Schimmelschutz</label>
@@ -2485,6 +2578,13 @@ class IHCPanel extends HTMLElement {
               <option value="true" ${room.mold_protection_enabled !== false ? "selected" : ""}>Aktiviert</option>
               <option value="false" ${room.mold_protection_enabled === false ? "selected" : ""}>Deaktiviert</option>
             </select>
+          </div>
+          <div class="settings-item">
+            <label>CO₂-Sensor <em style="font-weight:400">(optional)</em></label>
+            <input type="text" class="form-input" id="m-co2-sensor"
+              value="${room.co2_sensor || ''}" placeholder="sensor.co2_wohnzimmer (optional)"
+              list="m-sensor-list" autocomplete="off">
+            <span class="form-hint">ppm → Lüftungsempfehlung (800 ppm gut, >1200 ppm lüften)</span>
           </div>
         </div>
       </div>
@@ -2579,6 +2679,7 @@ class IHCPanel extends HTMLElement {
         weight:         parseFloat(modal.querySelector("#m-weight").value),
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
+        co2_sensor:               modal.querySelector("#m-co2-sensor")?.value.trim() || "",
         radiator_kw:              parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:               modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
