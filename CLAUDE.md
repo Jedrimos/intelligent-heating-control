@@ -480,6 +480,11 @@ Add-Room und Edit-Room Modal müssen **immer synchron** bleiben:
 - CONF_BOOST_TEMP in config_flow Add-Room Schema + Add-Room Modal ergänzt
 - SERVICE_UPDATE_GLOBAL_SETTINGS als Konstante in const.py + __init__.py (kein Magic String mehr)
 - TRV-Setpoint-Quantisierung auf 0.5°C-Schritte (Akkusparmodus, TRV_SETPOINT_STEP)
+- Startup-Gnadenfrist für Zigbee/Z-Wave-Sensoren (CONF_STARTUP_GRACE_SECONDS, Standard 60s)
+- Event-getriebene Fenstererkennung via async_track_state_change_event (kein 60s Delay mehr)
+- Sofortige Fenstererkennung bei Modus-Wechsel (OFF→AUTO) via _prefill_window_states()
+- Code-Audit: 7 Bugs behoben (hardcoded Strings, timezone-Import, Window-Listener-Unsub-Bug,
+  fehlende Felder im config_flow-Schema, trv_valve_demand Typ-Inkonsistenz, CONF_BOOST_TEMP float())
 
 ### Geplant / Roadmap
 - 1.1: Temperaturverlauf 7 Tage (168h Snapshots)
@@ -488,6 +493,85 @@ Add-Room und Edit-Room Modal müssen **immer synchron** bleiben:
 - 1.4: ETA-basierte Vorheizung
 - 1.5: PID Vorlauftemperaturregelung, Smart-Meter, Tibber-Forecast
 - 2.0: Wettervorhersage-Integration, Gäste-Modus erweitert
+- 2.1: Passive Solar Heating / Rollosteuerung (siehe Notizen unten)
+
+---
+
+### Notizen: 2.1 – Passive Solar Heating via Rollosteuerung
+
+**Idee (analog zu Loxone "Passive Cooling/Heating via Blinds"):**
+Bevor die Heizung morgens anläuft → Rolladen hochfahren damit Sonnenwärme den Raum vorwärmt.
+Im Sommer umgekehrt: Rolladen runterfahren um Aufheizung durch Sonne zu verhindern.
+Sehr energieeffizient, weil kostenlose Solarenergie genutzt wird bevor der Kessel anspringt.
+
+**Benötigte Daten (alle schon in HA vorhanden oder einfach konfigurierbar):**
+- `cover.*` Entitäten – die Rolladen/Jalousien des Zimmers (neu: `CONF_COVER_ENTITIES` pro Zimmer)
+- `sun.sun` – Sonnenazimut + Elevation (schon als `CONF_SUN_ENTITY` vorhanden)
+- Fensterausrichtung pro Zimmer – z.B. `CONF_WINDOW_ORIENTATION`: `"S"` / `"SW"` / `"W"` etc.
+  → Damit IHC weiß ob die Sonne gerade auf dieses Fenster scheint
+- Außentemperatur – schon vorhanden (`CONF_OUTDOOR_TEMP_SENSOR`)
+- Optional: Wolkenbedeckungsgrad aus `CONF_WEATHER_ENTITY` (weather.state)
+
+**Logik (Entwurf):**
+
+```
+Passive Heizen (Winter/Herbst):
+  WENN Raum hat Heizanforderung
+  UND sun.elevation > CONF_SOLAR_MIN_ELEVATION (z.B. 10°)
+  UND Sonne trifft auf Fensterausrichtung (Azimut-Check ±60°)
+  UND Außentemp > CONF_SOLAR_HEAT_MIN_OUTDOOR (z.B. 5°C) – lohnt sich nicht bei <5°C
+  UND Wetter nicht stark bewölkt (optional)
+  DANN: Rolladen öffnen BEVOR Heizung einschaltet
+        → Heizung erst zuschalten wenn Raumtemp trotzdem nicht steigt (nach X min)
+
+Passive Kühlen (Sommer):
+  WENN Systemmodus = cool ODER Sommerautomatik aktiv
+  UND sun.elevation > CONF_SOLAR_MIN_ELEVATION
+  UND Sonne trifft auf Fensterausrichtung
+  UND Raumtemp > comfort_temp - CONF_SOLAR_SHADE_OFFSET (z.B. 1°C darunter vorsorglich)
+  DANN: Rolladen schließen (Position z.B. 20% = Lichteinfall aber kein direktes Sonnenlicht)
+
+Nachts / keine Sonne:
+  → Normale IHC-Heizlogik, Rolladen nicht von IHC gesteuert
+```
+
+**Neue Konstanten (pro Zimmer):**
+| Konstante | Typ | Default | Beschreibung |
+|-----------|-----|---------|--------------|
+| `CONF_COVER_ENTITIES` | list | [] | Rolladen-Entitäten des Zimmers |
+| `CONF_WINDOW_ORIENTATION` | str | "" | Fensterausrichtung: N/NE/E/SE/S/SW/W/NW |
+| `CONF_SOLAR_PASSIVE_HEAT` | bool | False | Passive Solarheizung aktiviert |
+| `CONF_SOLAR_PASSIVE_COOL` | bool | False | Passive Solarkühlung aktiviert |
+| `CONF_SOLAR_MIN_ELEVATION` | float | 10.0 | Min. Sonnenhöhe für Aktivierung (°) |
+| `CONF_SOLAR_SHADE_POSITION` | int | 20 | Rolladen-Position bei Beschattung (%) |
+| `CONF_SOLAR_HEAT_MIN_OUTDOOR` | float | 5.0 | Min. Außentemp für passives Heizen (°C) |
+| `CONF_SOLAR_HEAT_DELAY_MIN` | int | 15 | Minuten warten bevor Heizung als Fallback |
+
+**Azimut-Check (Fensterausrichtung → Sonnenstand):**
+```python
+ORIENTATION_AZIMUTHS = {
+    "N": 0, "NE": 45, "E": 90, "SE": 135,
+    "S": 180, "SW": 225, "W": 270, "NW": 315
+}
+sun_azimuth = hass.states.get("sun.sun").attributes["azimuth"]
+window_azimuth = ORIENTATION_AZIMUTHS[orientation]
+delta = abs((sun_azimuth - window_azimuth + 180) % 360 - 180)
+sun_hits_window = delta <= 60  # ±60° Toleranz
+```
+
+**HA Service für Rolladen:**
+```python
+await hass.services.async_call("cover", "set_cover_position",
+    {"entity_id": cover_entity, "position": position})
+```
+
+**Wichtige Implementierungshinweise:**
+- Rolladen-Steuerung NUR wenn `CONF_SOLAR_PASSIVE_HEAT/COOL` aktiv → opt-in
+- Zustand merken: `_cover_managed_by_ihc: Dict[str, bool]` → nur IHC-gesteuerte zurücksetzen
+- Bei Fenster öffnen (Fenstersensor ON) → Rolladen NICHT steuern (würde herausfall erzeugen)
+- Beim Deaktivieren des Features oder HA-Neustart: Rolladen NICHT automatisch bewegen
+- Frontend: neuer Sub-Tab "Rolladen" im Zimmer-Detail oder in Einstellungen
+- Priorität: Fensteroffenerkennung > Rollosteuerung > Heizanforderung
 
 ---
 
