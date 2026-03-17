@@ -27,6 +27,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.const import STATE_ON, STATE_OFF, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.util import dt as dt_util
 
 from .const import (
     DOMAIN,
@@ -258,6 +259,9 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._system_mode: str = SYSTEM_MODE_AUTO
         self._room_modes: Dict[str, str] = {}
         self._room_manual_temps: Dict[str, float] = {}
+        # Manual-override tracking: reset to AUTO on schedule transition
+        self._room_manual_since: Dict[str, datetime] = {}       # room_id → when manual was set
+        self._room_manual_period_key: Dict[str, str] = {}       # room_id → "start|end" snapshot
         self._window_open_counters: Dict[str, int] = {}  # room_id → consecutive drops
         self._boost_until: Dict[str, datetime] = {}  # room_id → boost expiry time
 
@@ -483,6 +487,14 @@ class IHCCoordinator(DataUpdateCoordinator):
         return self._system_mode
 
     def set_room_mode(self, room_id: str, mode: str) -> None:
+        if mode == ROOM_MODE_MANUAL:
+            # Track when manual mode was entered (for auto-reset on schedule transition)
+            self._room_manual_since[room_id] = dt_util.utcnow()
+            self._room_manual_period_key.pop(room_id, None)
+        else:
+            # Clear manual tracking when leaving manual mode
+            self._room_manual_since.pop(room_id, None)
+            self._room_manual_period_key.pop(room_id, None)
         self._room_modes[room_id] = mode
         # Same fix: re-check open windows so mode changes react immediately
         self._prefill_window_states()
@@ -494,9 +506,8 @@ class IHCCoordinator(DataUpdateCoordinator):
 
     def set_room_manual_temp(self, room_id: str, temp: float) -> None:
         self._room_manual_temps[room_id] = temp
-        self._room_modes[room_id] = ROOM_MODE_MANUAL
-        self.hass.async_create_task(self._async_save_runtime_state())
-        self.hass.async_create_task(self.async_request_refresh())
+        # Use set_room_mode so _room_manual_since tracking is correctly recorded
+        self.set_room_mode(room_id, ROOM_MODE_MANUAL)
 
     def get_room_manual_temp(self, room_id: str) -> Optional[float]:
         return self._room_manual_temps.get(room_id)
@@ -1358,12 +1369,10 @@ class IHCCoordinator(DataUpdateCoordinator):
         _LOGGER.info("IHC: Runtime and energy stats reset by user.")
 
     def reset_curve_adaptation(self) -> None:
-        """Reset all learned/adaptive values: curve offset, warmup history, pre-heat learning."""
+        """Reset only the adaptive heating curve offset back to 0.0 °C."""
         self._curve_adaptation_delta = 0.0
         self._curve_last_adapted = None
-        self._warmup_history.clear()
-        self._warmup_start.clear()
-        _LOGGER.info("IHC: All adaptive/learned values reset by user (curve delta, warmup history).")
+        _LOGGER.info("IHC: Adaptive curve offset reset to 0 by user.")
 
     def _calculate_room_energy_today(self, room: dict, room_id: str) -> float:
         """
@@ -2046,6 +2055,8 @@ class IHCCoordinator(DataUpdateCoordinator):
             # No stored manual temp (e.g. after restart without persisted value) –
             # fall back to auto so the room continues heating normally.
             self._room_modes[room_id] = ROOM_MODE_AUTO
+            self._room_manual_since.pop(room_id, None)
+            self._room_manual_period_key.pop(room_id, None)
             room_mode = ROOM_MODE_AUTO
 
         # Determine night setback modifier (applied to schedule and curve temps)
@@ -2573,8 +2584,9 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Rückkehr-Vorheizung: pre-heat before returning from vacation (Roadmap 2.0)
         self._update_vacation_return_preheat()
 
-        # v1.3 – Adaptive heating curve (once per day)
-        self._adapt_heating_curve()
+        # v1.3 – Adaptive heating curve (once per day, skip in TRV mode – curve unused there)
+        if self.get_config().get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE) != CONTROLLER_MODE_TRV:
+            self._adapt_heating_curve()
 
         # Persist temperature history once per hour (survives HA restarts)
         now = datetime.now()
@@ -2627,6 +2639,36 @@ class IHCCoordinator(DataUpdateCoordinator):
             window_open = self._is_window_open(room, current_temp)
             room_mode = self.get_room_mode(room_id)
             deadband = float(room.get(CONF_DEADBAND, DEFAULT_DEADBAND))
+
+            # ── Manual mode auto-reset on schedule transition ─────────────────
+            if room_mode == ROOM_MODE_MANUAL:
+                manual_since = self._room_manual_since.get(room_id)
+                if manual_since is not None:
+                    reset_to_auto = False
+                    # 1. HA schedule: reset if any bound schedule entity changed state after manual was set
+                    for ha_sched in room.get(CONF_HA_SCHEDULES, []):
+                        eid = ha_sched.get("entity", "")
+                        st = self.hass.states.get(eid)
+                        if st is not None and st.last_changed > manual_since:
+                            reset_to_auto = True
+                            break
+                    # 2. IHC schedule: reset if the active period has changed since manual was set
+                    if not reset_to_auto:
+                        mgr = self._schedule_managers.get(room_id)
+                        if mgr:
+                            active = mgr.get_active_period()
+                            current_key = f"{active.get('start')}|{active.get('end')}" if active else "none"
+                            stored_key = self._room_manual_period_key.get(room_id)
+                            if stored_key is None:
+                                # First cycle after entering manual – snapshot current period
+                                self._room_manual_period_key[room_id] = current_key
+                            elif current_key != stored_key:
+                                reset_to_auto = True
+                    if reset_to_auto:
+                        _LOGGER.info("IHC: Room %s auto-reset from MANUAL to AUTO (schedule transitioned)", room_id)
+                        self.set_room_mode(room_id, ROOM_MODE_AUTO)
+                        room_mode = ROOM_MODE_AUTO
+            # ─────────────────────────────────────────────────────────────────
             configured_weight = float(room.get(CONF_WEIGHT, DEFAULT_WEIGHT))
             room_qm_val = float(room.get(CONF_ROOM_QM, DEFAULT_ROOM_QM))
             # If weight is at its default (1.0) and room_qm is set, derive weight from area
@@ -2713,6 +2755,12 @@ class IHCCoordinator(DataUpdateCoordinator):
             if _loop_trv_mode or room.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND):
                 demand = self._apply_trv_valve_demand(demand, trv_data, trv_mode=_loop_trv_mode)
 
+            # Safety gate: if room sensor shows temp already above target + deadband,
+            # the room is warm enough → force demand to 0 regardless of TRV valve position.
+            # This prevents valve-position blending from showing demand in already-warm rooms.
+            if current_temp is not None and current_temp >= target_temp + deadband:
+                demand = 0.0
+
             self._update_warmup_tracking(
                 room_id,
                 was_cold=demand > 0,
@@ -2722,11 +2770,17 @@ class IHCCoordinator(DataUpdateCoordinator):
             # Collect mold data – use TRV humidity as fallback if no room humidity sensor
             mold_data = self._check_mold_risk(room, current_temp, trv_humidity=trv_data.get("trv_humidity"))
 
+            # In TRV mode: quantise displayed target to 0.5 °C steps to stay consistent
+            # with the actual setpoint sent to TRVs (avoids "21.1°C SOLL, but TRV gets 21.0°C")
+            display_target = target_temp
+            if _loop_trv_mode:
+                display_target = round(target_temp / TRV_SETPOINT_STEP) * TRV_SETPOINT_STEP
+
             room_data[room_id] = {
                 "ventilation": None,  # filled below after outdoor_humidity is known
                 "name": room.get(CONF_ROOM_NAME, room_id),
                 "current_temp": current_temp,
-                "target_temp": target_temp,
+                "target_temp": display_target,
                 "demand": demand,
                 "window_open": window_open,
                 "room_mode": room_mode,
@@ -2798,7 +2852,17 @@ class IHCCoordinator(DataUpdateCoordinator):
                 else:
                     # Always send the desired target – TRV decides whether to heat
                     self._set_valve_entities(room, rdata["target_temp"])
-            # TRV mode does NOT use a heating switch (no central boiler switch)
+            # TRV mode: if a heating_switch is configured, use it to fire the central boiler
+            # when any room demands heat. This supports setups with TRVs + central boiler:
+            # the boiler must run to supply hot water, while TRVs distribute it per-room.
+            if cfg.get(CONF_HEATING_SWITCH) and not summer_mode:
+                trv_heat_needed = any(
+                    rd.get("demand", 0) > 0
+                    and not rd.get("window_open", False)
+                    and rd.get("room_mode") != ROOM_MODE_OFF
+                    for rd in room_data.values()
+                )
+                self._set_heating_switch(trv_heat_needed and not system_is_off)
         else:
             # Switch mode: propagate setpoints to TRVs, control central heating switch
             for room in self.get_rooms():

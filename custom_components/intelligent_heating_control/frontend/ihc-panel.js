@@ -686,7 +686,9 @@ class IHCPanel extends HTMLElement {
     }
     this._refreshTimer = setInterval(() => {
       if (!this._hass || this._modalOpen || this._userInteracting) return;
-      if (this._activeTab === "overview" || this._activeTab === "diagnose") this._renderTabContent();
+      if (this._activeTab === "overview" || this._activeTab === "diagnose") {
+        try { this._renderTabContent(); } catch(e) { console.error("IHC refresh error:", e); }
+      }
     }, 5000);
   }
 
@@ -1088,7 +1090,12 @@ class IHCPanel extends HTMLElement {
       if (showRuntime && room.runtime_today_minutes > 0) footerParts.push(`⏱ ${room.runtime_today_minutes} min`);
       if (showCosts && room.energy_today_kwh > 0) footerParts.push(this._costStr(room.energy_today_kwh, g.static_energy_price));
       if (room.avg_warmup_minutes) footerParts.push(`Ø Aufheiz: ${room.avg_warmup_minutes} min`);
-      if (room.next_period && !room.schedule_active) footerParts.push(`📅 ${room.next_period.start} · ${room.next_period.temperature}°C`);
+      if (room.next_period && !room.schedule_active) {
+        const np = room.next_period;
+        const npMode = np.mode && np.mode !== "manual" ? np.mode : null;
+        const npTemp = npMode ? `(${npMode})` : (np.temperature != null ? `${np.temperature}°C` : "");
+        footerParts.push(`📅 ${np.start}${npTemp ? " · " + npTemp : ""}`);
+      }
 
       return `
         <div class="room-card${cardStatusCls}">
@@ -2676,8 +2683,7 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
-      <!-- ── Intelligente Regelung (nur Switch-Modus) ──── -->
-      ${g.controller_mode !== "trv" ? `
+      <!-- ── Intelligente Regelung ──────────────────────── -->
       <details class="ihc-card" ${a.adaptive_curve_enabled || a.eta_preheat_enabled || a.vacation_calendar ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">🧠 Intelligente Regelung
@@ -2687,6 +2693,7 @@ class IHCPanel extends HTMLElement {
         </summary>
         <div class="ihc-card-body">
           <div class="settings-grid">
+            ${g.controller_mode !== "trv" ? `
             <div class="settings-item">
               <label>Adaptive Heizkurve</label>
               <select class="form-select" id="adaptive-curve-enabled">
@@ -2701,6 +2708,7 @@ class IHCPanel extends HTMLElement {
                   : ""}
               </span>
             </div>
+            ` : ""}
             <div class="settings-item">
               <label>Adaptives Vorheizen</label>
               <select class="form-select" id="adaptive-preheat-enabled">
@@ -2731,14 +2739,12 @@ class IHCPanel extends HTMLElement {
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-intelligent-settings">💾 Intelligente Regelung speichern</button>
-            <button class="btn btn-secondary" id="reset-curve-btn"
-              title="Kurvenkorrektur + Aufheizzeiten-Historie zurücksetzen"
-              ${!g.adaptive_curve_delta || Math.abs(g.adaptive_curve_delta) < 0.1 ? "" : ""}>
-              🔄 Gelernte Werte zurücksetzen</button>
+            ${g.controller_mode !== "trv" && g.adaptive_curve_delta && Math.abs(g.adaptive_curve_delta) >= 0.1
+              ? `<button class="btn btn-secondary" id="reset-curve-btn" title="Kurvenkorrektur auf 0 zurücksetzen">🔄 Kurvenkorrektur zurücksetzen</button>`
+              : ""}
           </div>
         </div>
       </details>
-      ` : ""}
 
       <!-- ── Urlaubs-Assistent ───────────────────────────── -->
       <details class="ihc-card" ${g.vacation_auto_active || a.vacation_start ? "open" : ""}>
@@ -2777,24 +2783,26 @@ class IHCPanel extends HTMLElement {
       <details class="ihc-card">
         <summary><span class="ihc-card-title">💾 Backup &amp; Restore</span></summary>
         <div class="ihc-card-body">
-          <div class="settings-grid">
-            <div class="settings-item">
-              <label>Export</label>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div>
+              <div style="font-weight:600;margin-bottom:4px">📤 Export</div>
               <span class="form-hint">Speichert die gesamte Konfiguration (Einstellungen + alle Zimmer) als JSON-Datei direkt im Browser.</span>
               <div class="btn-row" style="margin-top:8px">
                 <button class="btn btn-secondary" id="export-config-btn">📤 Konfiguration herunterladen</button>
               </div>
             </div>
-            <div class="settings-item">
-              <label>Reset</label>
-              <span class="form-hint">Setzt alle von IHC gelernten und berechneten Werte zurück auf den Ausgangszustand.</span>
+            <hr style="border:none;border-top:1px solid var(--divider-color);margin:0">
+            <div>
+              <div style="font-weight:600;margin-bottom:4px">🔄 Zurücksetzen</div>
+              <span class="form-hint">Setzt gelernte oder berechnete Werte zurück auf den Ausgangszustand.</span>
               <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
-                <button class="btn btn-secondary" id="reset-learned-btn">🔄 Gelernte Werte zurücksetzen<br><small style="font-weight:400;opacity:0.8">Kurvenkorrektur + Aufheizzeiten-Historie</small></button>
+                <button class="btn btn-secondary" id="reset-learned-btn">🔄 Kurvenkorrektur zurücksetzen<br><small style="font-weight:400;opacity:0.8">Adaptive Heizkurven-Offset zurück auf 0</small></button>
                 <button class="btn btn-secondary" id="reset-stats-btn">📊 Statistiken zurücksetzen<br><small style="font-weight:400;opacity:0.8">Laufzeiten + Energiedaten heute</small></button>
               </div>
             </div>
-            <div class="settings-item">
-              <label>Import</label>
+            <hr style="border:none;border-top:1px solid var(--divider-color);margin:0">
+            <div>
+              <div style="font-weight:600;margin-bottom:4px">📥 Import</div>
               <span class="form-hint">JSON-Backup einspielen. <strong>Achtung:</strong> Bestehende Zimmer werden ersetzt.</span>
               <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 <input type="file" id="import-config-file" accept=".json,application/json"
@@ -3036,29 +3044,30 @@ class IHCPanel extends HTMLElement {
     });
 
     content.querySelector("#save-intelligent-settings")?.addEventListener("click", () => {
+      const curveSel = content.querySelector("#adaptive-curve-enabled");
       this._callService("update_global_settings", {
-        adaptive_curve_enabled:   content.querySelector("#adaptive-curve-enabled").value === "true",
-        adaptive_preheat_enabled: content.querySelector("#adaptive-preheat-enabled").value === "true",
-        eta_preheat_enabled:      content.querySelector("#eta-preheat-enabled").value === "true",
-        vacation_calendar:        content.querySelector("#vacation-calendar").value.trim(),
+        ...(curveSel ? { adaptive_curve_enabled: curveSel.value === "true" } : {}),
+        adaptive_preheat_enabled: content.querySelector("#adaptive-preheat-enabled")?.value === "true",
+        eta_preheat_enabled:      content.querySelector("#eta-preheat-enabled")?.value === "true",
+        vacation_calendar:        content.querySelector("#vacation-calendar")?.value.trim() ?? "",
       });
       this._toast("✓ Intelligente Regelung gespeichert");
     });
 
     content.querySelector("#reset-curve-btn")?.addEventListener("click", () => {
-      if (!confirm("Alle gelernten Werte zurücksetzen?\n\n• Kurvenkorrektur → 0 °C\n• Aufheizzeiten-Historie (adaptives Vorheizen) → gelöscht\n\nDie Integration lernt danach neu.")) return;
+      if (!confirm("Kurvenkorrektur zurücksetzen?\n\n• Adaptive Heizkurven-Offset → 0 °C\n\nDie Vorheizzeiten-Historie bleibt erhalten.")) return;
       this._callService("reset_stats", { reset_curve: true }).then(() => {
         setTimeout(() => { if (this._activeTab === "settings") this._renderTabContent(); }, 400);
       });
-      this._toast("🔄 Gelernte Werte zurückgesetzt");
+      this._toast("🔄 Kurvenkorrektur zurückgesetzt");
     });
 
     content.querySelector("#reset-learned-btn")?.addEventListener("click", () => {
-      if (!confirm("Alle gelernten Werte zurücksetzen?\n\n• Kurvenkorrektur → 0 °C\n• Aufheizzeiten-Historie → gelöscht\n\nDie Integration lernt danach neu.")) return;
+      if (!confirm("Kurvenkorrektur zurücksetzen?\n\n• Adaptive Heizkurven-Offset → 0 °C\n\nDie Vorheizzeiten-Historie bleibt erhalten.")) return;
       this._callService("reset_stats", { reset_curve: true }).then(() => {
         setTimeout(() => { if (this._activeTab === "settings") this._renderTabContent(); }, 400);
       });
-      this._toast("🔄 Gelernte Werte zurückgesetzt");
+      this._toast("🔄 Kurvenkorrektur zurückgesetzt");
     });
 
     content.querySelector("#reset-stats-btn")?.addEventListener("click", () => {
