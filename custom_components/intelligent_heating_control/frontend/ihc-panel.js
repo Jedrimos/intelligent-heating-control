@@ -3197,6 +3197,45 @@ class IHCPanel extends HTMLElement {
         </div>
       </div>
 
+      <details class="modal-collapsible">
+        <summary class="modal-section-title">🚀 Boost &amp; TRV-Sensor</summary>
+        <div class="settings-grid" style="margin-top:8px">
+          <div class="settings-item">
+            <label>Boost-Zieltemperatur (°C)</label>
+            <input type="number" class="form-input" id="m-boost-temp" value="24" step="0.5" min="15" max="35">
+            <span class="form-hint">Temperatur während aktivem Boost-Modus</span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0">
+          TRV-Sensor-Integration: TRV-Temperatur als Korrekturquelle nutzen (0 = deaktiviert)
+        </div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>TRV-Temp Gewichtung (0–0.5)</label>
+            <input type="number" class="form-input" id="m-trv-temp-weight" value="0" step="0.05" min="0" max="0.5">
+            <span class="form-hint">0 = deaktiviert · 0.3 = 30% TRV-Temp einfließen lassen</span>
+          </div>
+          <div class="settings-item">
+            <label>TRV-Temp Offset (°C)</label>
+            <input type="number" class="form-input" id="m-trv-temp-offset" value="-2" step="0.5" min="-10" max="5">
+            <span class="form-hint">Korrektur für Nähe zum Heizkörper (meist negativ)</span>
+          </div>
+          <div class="settings-item">
+            <label>Ventil-Position als Demand</label>
+            <select class="form-select" id="m-trv-valve-demand">
+              <option value="false" selected>Deaktiviert</option>
+              <option value="true">Aktiviert</option>
+            </select>
+            <span class="form-hint">TRV-Ventilöffnung in Heizbedarf-Berechnung einbeziehen</span>
+          </div>
+          <div class="settings-item">
+            <label>Min. Sendeintervall (s)</label>
+            <input type="number" class="form-input" id="m-trv-min-send-interval" value="0" step="60" min="0" max="1800">
+            <span class="form-hint">0 = nur Temperatur-Hysterese · z.B. 300 = max alle 5 min</span>
+          </div>
+        </div>
+      </details>
+
       <div class="modal-section">
         <div class="modal-section-title">Erweitert</div>
         <div class="settings-grid">
@@ -3310,6 +3349,11 @@ class IHCPanel extends HTMLElement {
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
+        boost_temp:             parseFloat(modal.querySelector("#m-boost-temp")?.value) || null,
+        trv_temp_weight:        parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
+        trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
+        trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.value === "true",
+        trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         ha_schedules,
       });
       this._closeModal();
