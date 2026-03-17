@@ -1459,10 +1459,10 @@ class IHCPanel extends HTMLElement {
         // Truly new room (schedules field absent) – add helpful defaults
         this._editingSchedules[selId] = [
           { days: ["mon","tue","wed","thu","fri"],
-            periods: [{ start:"06:30", end:"08:00", temperature:22.0, offset:0.0 },
-                      { start:"17:00", end:"22:00", temperature:21.5, offset:0.0 }] },
+            periods: [{ start:"06:30", end:"08:00", mode:"comfort", temperature:22.0, offset:0.0 },
+                      { start:"17:00", end:"22:00", mode:"comfort", temperature:22.0, offset:0.0 }] },
           { days: ["sat","sun"],
-            periods: [{ start:"08:00", end:"23:00", temperature:21.0, offset:0.5 }] },
+            periods: [{ start:"08:00", end:"23:00", mode:"comfort", temperature:22.0, offset:0.0 }] },
         ];
       }
     }
@@ -1476,21 +1476,39 @@ class IHCPanel extends HTMLElement {
         `<span class="day-chip ${sched.days.includes(key) ? "selected" : ""}"
               data-sched="${si}" data-day="${key}">${DAYS[i]}</span>`
       ).join("");
-      const periodRows = sched.periods.map((p, pi) => `
-        <div class="period-row">
+      const PERIOD_MODES = [
+        { value: "comfort", label: "☀️ Komfort" },
+        { value: "eco",     label: "🌿 Eco" },
+        { value: "sleep",   label: "🌙 Schlaf" },
+        { value: "away",    label: "🚶 Abwesend" },
+        { value: "manual",  label: "✏️ Manuell" },
+      ];
+      const periodRows = sched.periods.map((p, pi) => {
+        const pMode = p.mode || "manual";
+        const isManual = pMode === "manual";
+        const modeOpts = PERIOD_MODES.map(m =>
+          `<option value="${m.value}" ${pMode === m.value ? "selected" : ""}>${m.label}</option>`
+        ).join("");
+        return `
+        <div class="period-row" style="grid-template-columns:80px 80px 1fr auto auto 30px">
           <input type="time" class="form-input" value="${p.start}"
             data-sched="${si}" data-period="${pi}" data-field="start">
           <input type="time" class="form-input" value="${p.end}"
             data-sched="${si}" data-period="${pi}" data-field="end">
-          <input type="number" class="form-input" value="${p.temperature}"
-            step="0.5" min="10" max="30"
-            data-sched="${si}" data-period="${pi}" data-field="temperature" placeholder="°C">
-          <input type="number" class="form-input" value="${p.offset}"
+          <div style="display:flex;gap:4px;align-items:center">
+            <select class="form-select" style="flex:1"
+              data-sched="${si}" data-period="${pi}" data-field="mode">${modeOpts}</select>
+            <input type="number" class="form-input period-temp-input" value="${p.temperature ?? 21}"
+              step="0.5" min="10" max="30" placeholder="°C" style="width:60px;display:${isManual ? "block" : "none"}"
+              data-sched="${si}" data-period="${pi}" data-field="temperature">
+          </div>
+          <input type="number" class="form-input" value="${p.offset ?? 0}"
             step="0.5" min="-3" max="3"
-            data-sched="${si}" data-period="${pi}" data-field="offset" placeholder="±°C">
+            data-sched="${si}" data-period="${pi}" data-field="offset" placeholder="±°C" style="width:55px">
           <button class="btn btn-danger btn-icon"
             data-action="del-period" data-sched="${si}" data-period="${pi}">✕</button>
-        </div>`).join("");
+        </div>`;
+      }).join("");
       return `
         <div class="sched-block">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -1521,8 +1539,8 @@ class IHCPanel extends HTMLElement {
             <div class="form-label" style="margin-bottom:6px">Aktive Tage:</div>
             <div class="day-chips">${dayChips}</div>
           </div>
-          <div class="period-header">
-            <span>Von</span><span>Bis</span><span>Temp °C</span><span>Offset</span><span></span>
+          <div class="period-header" style="grid-template-columns:80px 80px 1fr auto auto 30px">
+            <span>Von</span><span>Bis</span><span>Modus / Temp</span><span>Offset</span><span></span>
           </div>
           ${periodRows}
           <button class="btn btn-secondary" style="font-size:12px;margin-top:6px"
@@ -1533,8 +1551,9 @@ class IHCPanel extends HTMLElement {
     container.innerHTML = `
       <div class="card">
         <div class="info-box">
-          Während eines aktiven Zeitplans gilt: <strong>Zeitplan-Temp + Zeitplan-Offset + Zimmer-Offset</strong><br>
-          Außerhalb: <strong>Heizkurven-Temp + Zimmer-Offset</strong>
+          Modus wählt die Zimmer-Preset-Temperatur (Komfort / Eco / Schlaf / Abwesend).<br>
+          <strong>Manuell</strong> = eigene Temperatur eingeben.<br>
+          Außerhalb des Zeitplans: <strong>Heizkurven-Temp + Zimmer-Offset</strong>
         </div>
         <div id="sched-editor">${schedBlocks || '<div style="color:var(--secondary-text-color);padding:8px">Noch keine Gruppen. Unten auf + Gruppe klicken.</div>'}</div>
         <div class="btn-row">
@@ -1559,8 +1578,20 @@ class IHCPanel extends HTMLElement {
         const si = parseInt(inp.dataset.sched);
         const pi = parseInt(inp.dataset.period);
         const field = inp.dataset.field;
-        const val = field === "start" || field === "end" ? inp.value : parseFloat(inp.value);
+        let val;
+        if (field === "start" || field === "end" || field === "mode") {
+          val = inp.value;
+        } else {
+          val = parseFloat(inp.value);
+        }
         this._editingSchedules[selId][si].periods[pi][field] = val;
+
+        // When mode changes: show/hide the manual temperature input
+        if (field === "mode") {
+          const row = inp.closest(".period-row");
+          const tempInp = row?.querySelector(".period-temp-input");
+          if (tempInp) tempInp.style.display = val === "manual" ? "block" : "none";
+        }
       });
     });
 
@@ -1597,7 +1628,7 @@ class IHCPanel extends HTMLElement {
       btn.addEventListener("click", () => {
         const si = parseInt(btn.dataset.sched);
         this._editingSchedules[selId][si].periods.push(
-          { start: "07:00", end: "09:00", temperature: 21.0, offset: 0.0 }
+          { start: "07:00", end: "09:00", mode: "comfort", temperature: 21.0, offset: 0.0 }
         );
         this._renderRoomScheduleInline(room, container);
       });
@@ -1605,7 +1636,7 @@ class IHCPanel extends HTMLElement {
 
     container.querySelector("#add-sched-btn").addEventListener("click", () => {
       this._editingSchedules[selId].push({ days: ["mon"], periods: [
-        { start: "07:00", end: "09:00", temperature: 21.0, offset: 0.0 }
+        { start: "07:00", end: "09:00", mode: "comfort", temperature: 21.0, offset: 0.0 }
       ]});
       this._renderRoomScheduleInline(room, container);
     });

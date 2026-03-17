@@ -2089,7 +2089,19 @@ class IHCCoordinator(DataUpdateCoordinator):
                 source_tag = "schedule"
 
             if active_period:
-                sched_temp = float(active_period["temperature"])
+                # Resolve period mode to temperature:
+                # comfort/eco/sleep/away → room preset; manual or legacy → stored temperature
+                period_mode = active_period.get("mode", "manual")
+                mode_to_temp = {
+                    ROOM_MODE_COMFORT: comfort_base,
+                    ROOM_MODE_ECO:     eco_base,
+                    ROOM_MODE_SLEEP:   sleep_base,
+                    ROOM_MODE_AWAY:    away_base,
+                }
+                if period_mode in mode_to_temp:
+                    sched_temp = mode_to_temp[period_mode]
+                else:
+                    sched_temp = float(active_period.get("temperature", comfort_base))
                 sched_offset = float(active_period.get("offset", 0.0))
                 # Schedule temp + per-period offset + room offset - night setback
                 target = sched_temp + sched_offset + room_offset - night_setback
@@ -2099,6 +2111,7 @@ class IHCCoordinator(DataUpdateCoordinator):
                     "schedule_active": True,
                     "period_start": active_period["start"],
                     "period_end": active_period["end"],
+                    "schedule_mode": period_mode,
                     "schedule_base": sched_temp,
                     "schedule_offset": sched_offset,
                     "night_setback": night_setback,
