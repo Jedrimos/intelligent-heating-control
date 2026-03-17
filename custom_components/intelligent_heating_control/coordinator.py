@@ -1347,6 +1347,14 @@ class IHCCoordinator(DataUpdateCoordinator):
             self._room_demand_started[room_id] = datetime.now()
         _LOGGER.info("IHC: Runtime and energy stats reset by user.")
 
+    def reset_curve_adaptation(self) -> None:
+        """Reset all learned/adaptive values: curve offset, warmup history, pre-heat learning."""
+        self._curve_adaptation_delta = 0.0
+        self._curve_last_adapted = None
+        self._warmup_history.clear()
+        self._warmup_start.clear()
+        _LOGGER.info("IHC: All adaptive/learned values reset by user (curve delta, warmup history).")
+
     def _calculate_room_energy_today(self, room: dict, room_id: str) -> float:
         """
         Calculate today's energy estimate for one room.

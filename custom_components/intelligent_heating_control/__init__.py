@@ -401,6 +401,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     async def handle_reset_stats(call: ServiceCall) -> None:
         """Reset energy and runtime statistics to zero."""
         coordinator.reset_runtime_stats()
+        if call.data.get("reset_curve", False):
+            coordinator.reset_curve_adaptation()
         await coordinator.async_request_refresh()
 
     hass.services.async_register(DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
