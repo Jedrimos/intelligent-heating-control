@@ -1739,20 +1739,23 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         Two temperatures with distinct roles:
 
-        display_temp  – the "Ist-Temperatur" shown in the UI, used for frost-
-                        protection checks, mold detection, window logic etc.
+        display_temp  – "Ist-Temperatur" for UI, frost-protection, mold, window logic.
                         → Always the room sensor if available; TRV temp only as
                           last-resort fallback when no room sensor is configured.
 
-        demand_temp   – the temperature fed into the demand calculation.
-                        → In TRV mode: TRV temp directly (corrected by offset).
-                          The TRV sensor sits at the radiator and reacts much
-                          faster than a wall-mounted sensor, giving more accurate
-                          and responsive demand values.
-                        → Explicit trv_temp_weight > 0: weighted blend (user override).
-                        → Otherwise (switch mode, weight == 0): same as display_temp.
+        demand_temp   – temperature fed into the demand calculation.
+                        → TRV temp available (any mode, no explicit weight):
+                            Use TRV temp directly. The TRV sensor at the radiator
+                            reacts immediately. If TRV reports 21°C while target is
+                            19°C the demand is correctly 0 % — even if the wall
+                            sensor still shows 18°C. Prevents phantom demand.
+                        → Explicit trv_temp_weight > 0: user-configured blend.
+                        → No TRV data: same as display_temp (room sensor fallback).
 
         raw_trv_temp  – unmodified average TRV temperature for diagnostics.
+
+        The trv_mode parameter is kept for potential future differentiation but
+        demand_temp now uses TRV temp whenever available, regardless of mode.
         """
         trv_avg = trv_data.get("trv_avg_temp")
         weight = float(room.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT))
@@ -1763,24 +1766,21 @@ class IHCCoordinator(DataUpdateCoordinator):
         # --- display_temp: room sensor first, TRV only when no room sensor ----
         display_temp = room_temp if room_temp is not None else corrected_trv
 
-        # --- demand_temp: source depends on mode and config --------------------
+        # --- demand_temp: TRV temp whenever available (any controller mode) ---
         if trv_avg is None:
-            # No TRV data at all → demand same as display
+            # No TRV temperature data → demand same as display
             demand_temp = display_temp
         elif weight > 0.0:
-            # Explicit user-configured blend (any mode)
+            # Explicit user-configured blend overrides the auto behaviour
             if room_temp is not None:
                 demand_temp = round(room_temp * (1.0 - weight) + corrected_trv * weight, 1)
             else:
                 demand_temp = corrected_trv
-        elif trv_mode:
-            # TRV mode, no explicit weight: use TRV temp directly for demand.
-            # Room sensor still used for display (comfort) — demand gets the fast signal.
-            # Falls back to room_temp if corrected_trv is somehow None.
-            demand_temp = corrected_trv if corrected_trv is not None else room_temp
         else:
-            # Switch mode, weight == 0: demand same as display (room sensor)
-            demand_temp = display_temp
+            # TRV temp available, no explicit blend → use TRV directly.
+            # This catches the "TRV already at target, room sensor still cold" case
+            # and prevents the system from reporting phantom 100 % demand.
+            demand_temp = corrected_trv
 
         return display_temp, demand_temp, trv_avg
 
