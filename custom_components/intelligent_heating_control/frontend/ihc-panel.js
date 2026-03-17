@@ -1899,6 +1899,17 @@ class IHCPanel extends HTMLElement {
               <span class="form-hint">Wird eingeschaltet wenn Kühlung aktiv ist.</span>
             </div>
           </div>
+            <div class="settings-item">
+              <label>Startup-Wartezeit Zigbee/Z-Wave (s)</label>
+              <input type="number" class="form-input" id="startup-grace-seconds"
+                min="0" max="300" step="10" value="${a.startup_grace_seconds ?? 60}">
+              <span class="form-hint">
+                Nach einem HA-Neustart warten viele Zigbee/Z-Wave Sensoren kurz bevor sie ihren Zustand melden.
+                In dieser Zeit werden Fenstersensoren mit Status <em>unbekannt</em> sicherheitshalber als <strong>offen</strong> behandelt
+                – so wird nicht versehentlich geheizt. 0 = deaktiviert.
+              </span>
+            </div>
+          </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-hardware-settings">💾 Hardware speichern</button>
           </div>
@@ -2473,6 +2484,7 @@ class IHCPanel extends HTMLElement {
         weather_cold_threshold:   parseFloat(content.querySelector("#weather-cold-threshold").value) || 0,
         weather_cold_boost:       parseFloat(content.querySelector("#weather-cold-boost").value) || 0,
         controller_mode:          content.querySelector("#controller-mode").value,
+        startup_grace_seconds:    parseInt(content.querySelector("#startup-grace-seconds").value, 10) || 0,
       });
       this._toast("✓ Hardware-Einstellungen gespeichert");
     });

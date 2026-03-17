@@ -144,6 +144,8 @@ from .const import (
     DEFAULT_CONTROLLER_MODE,
     DEFAULT_WEATHER_COLD_THRESHOLD,
     DEFAULT_WEATHER_COLD_BOOST,
+    CONF_STARTUP_GRACE_SECONDS,
+    DEFAULT_STARTUP_GRACE_SECONDS,
     DEFAULT_COOLING_TARGET_TEMP,
     DEFAULT_ADAPTIVE_CURVE_ENABLED,
     DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
@@ -566,6 +568,13 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_VACATION_CALENDAR_KEYWORD,
                 default=cfg.get(CONF_VACATION_CALENDAR_KEYWORD, DEFAULT_VACATION_CALENDAR_KEYWORD)
             ): selector.selector({"text": {}}),
+            # --- Startup grace period (Zigbee/Z-Wave sensor warmup) ---
+            vol.Optional(
+                CONF_STARTUP_GRACE_SECONDS,
+                default=int(cfg.get(CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS))
+            ): selector.selector({
+                "number": {"min": 0, "max": 300, "step": 10, "unit_of_measurement": "s", "mode": "slider"}
+            }),
         })
         return self.async_show_form(step_id="global_settings", data_schema=vol.Schema(schema_dict), errors=errors)
 
