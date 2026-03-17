@@ -389,7 +389,7 @@ class IHCEnergyTodaySensor(_IHCBase, SensorEntity):
             "cold_boost":               d.get("cold_boost", 0.0),
             "solar_power":              d.get("solar_power"),
             "energy_price":             d.get("energy_price"),
-            "energy_price_eco_active":  (d.get("energy_price_eco_offset") or 0.0) > 0,
+            "energy_price_eco_active":  (d.get("energy_price_eco_offset") or 0.0) < 0,
             "flow_temp":                d.get("flow_temp"),
             "energy_yesterday_kwh":     d.get("energy_yesterday_kwh", 0.0),
             "eta_preheat_minutes":      d.get("eta_preheat_minutes"),

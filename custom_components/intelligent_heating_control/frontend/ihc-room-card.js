@@ -332,17 +332,17 @@ class IhcRoomCard extends HTMLElement {
       btn.addEventListener("click", () => {
         const roomId = btn.dataset.roomId;
         const mode = btn.dataset.mode;
-        this._hass.callService(_IHC_ROOM_DOMAIN, "set_room_mode", { room_id: roomId, mode });
+        this._hass.callService(_IHC_ROOM_DOMAIN, "set_room_mode", { id: roomId, mode });
       });
     });
     card.querySelectorAll("[data-action='boost']").forEach(btn => {
       btn.addEventListener("click", () => {
-        this._hass.callService(_IHC_ROOM_DOMAIN, "boost_room", { room_id: btn.dataset.roomId, minutes: 30 });
+        this._hass.callService(_IHC_ROOM_DOMAIN, "boost_room", { id: btn.dataset.roomId, duration_minutes: 30 });
       });
     });
     card.querySelectorAll("[data-action='boost-cancel']").forEach(btn => {
       btn.addEventListener("click", () => {
-        this._hass.callService(_IHC_ROOM_DOMAIN, "set_room_mode", { room_id: btn.dataset.roomId, mode: "auto" });
+        this._hass.callService(_IHC_ROOM_DOMAIN, "set_room_mode", { id: btn.dataset.roomId, mode: "auto" });
       });
     });
   }

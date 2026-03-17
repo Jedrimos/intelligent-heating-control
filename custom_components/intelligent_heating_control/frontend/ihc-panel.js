@@ -567,6 +567,8 @@ class IHCPanel extends HTMLElement {
   _renderTabContent() {
     const content = this.shadowRoot.querySelector("#tab-content");
     if (!content) return;
+    // Clean up any entity picker dropdowns from the previous render before replacing content
+    this._cleanupEntityPickers(content);
     switch (this._activeTab) {
       case "overview":   this._renderOverview(content); break;
       case "rooms":      this._renderRooms(content); break;
@@ -745,6 +747,7 @@ class IHCPanel extends HTMLElement {
       adaptive_curve_delta:      ea.adaptive_curve_delta != null ? parseFloat(ea.adaptive_curve_delta) : 0,
       outdoor_humidity:          a.outdoor_humidity != null ? parseFloat(a.outdoor_humidity) : null,
       static_energy_price:       a.static_energy_price != null ? parseFloat(a.static_energy_price) : null,
+      boiler_kw:                 a.boiler_kw != null ? parseFloat(a.boiler_kw) : null,
     };
   }
 
@@ -3609,12 +3612,11 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
-      <details class="modal-collapsible" ${(room.trv_temp_weight > 0 || room.trv_valve_demand) ? "open" : ""}>
-        <summary>🌡️ TRV-Sensordaten nutzen (optional)</summary>
+      <details class="modal-collapsible" ${(room.trv_temp_weight > 0 || room.trv_valve_demand || room.trv_min_send_interval > 0) ? "open" : ""}>
+        <summary>🌡️ TRV-Sensordaten &amp; Batterieschutz (optional)</summary>
         <div class="modal-collapsible-body">
           <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
-            Thermostatventile (TRVs) haben eigene Temperatursensoren — diese messen jedoch näher am Heizkörper
-            und damit wärmer als die echte Raumtemperatur. Mit dem Offset wird das korrigiert.
+            Thermostatventile (TRVs) haben eigene Sensoren. Alle Optionen sind optional und standardmäßig deaktiviert.
           </p>
           <div class="settings-grid">
             <div class="settings-item">
@@ -3637,6 +3639,19 @@ class IHCPanel extends HTMLElement {
                 Ventilstellung für Anforderungsberechnung nutzen
               </label>
               <span class="form-hint">Wenn das TRV seinen Öffnungsgrad meldet (0–100 %), wird dieser zur Korrektur der Heizanforderung verwendet. Voll offen → min. 30 % Anforderung. Fast geschlossen → max. 30 %.</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>🔋 Batterieschutz: Mindestabstand zwischen Funkbefehlen (Sekunden)</label>
+              <input type="number" class="form-input" id="m-trv-min-send-interval"
+                value="${room.trv_min_send_interval ?? 0}" min="0" max="1800" step="60"
+                placeholder="0 = deaktiviert">
+              <span class="form-hint">
+                IHC sendet normalerweise bei jeder Temperaturänderung ≥ 0,3 °C einen neuen Sollwert.
+                Bei Funk-TRVs (Zigbee, Z-Wave) verbraucht jeder Funk-Befehl Batterie.
+                Mit diesem Wert begrenzt du die Sendehäufigkeit: z.B. <strong>300 = maximal alle 5 Minuten</strong>.
+                Große Änderungen (Modus-Wechsel, &gt;1 °C) werden trotzdem sofort gesendet.
+                Empfehlung: 300–600 s. 0 = deaktiviert (immer senden wenn Schwelle überschritten).
+              </span>
             </div>
           </div>
         </div>

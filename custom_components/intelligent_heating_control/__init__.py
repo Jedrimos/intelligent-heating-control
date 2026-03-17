@@ -371,9 +371,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         cfg = coordinator.get_config()
         # Remove large runtime data, keep only config
         safe = {k: v for k, v in cfg.items() if k not in ("rooms",)}
-        safe["rooms"] = [
-            {k: v for k, v in r.items() if k not in ("schedules",)} for r in coordinator.get_rooms()
-        ]
+        safe["rooms"] = coordinator.get_rooms()
         payload = json.dumps(safe, indent=2, default=str)
         await hass.services.async_call(
             "persistent_notification",

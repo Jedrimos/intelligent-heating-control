@@ -217,6 +217,8 @@ from .const import (
     DEFAULT_TRV_TEMP_OFFSET,
     CONF_TRV_VALVE_DEMAND,
     DEFAULT_TRV_VALVE_DEMAND,
+    CONF_TRV_MIN_SEND_INTERVAL,
+    DEFAULT_TRV_MIN_SEND_INTERVAL,
 )
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
@@ -226,7 +228,8 @@ from .flow_temp_pid import FlowTempPID
 _LOGGER = logging.getLogger(__name__)
 
 # TRV battery-save: minimum temperature change before sending a new setpoint to TRV
-TRV_TEMP_HYSTERESIS = 0.3  # °C – only send update if setpoint changes by at least this much
+TRV_TEMP_HYSTERESIS = 0.3       # °C – only send update if setpoint changes by at least this much
+TRV_LARGE_CHANGE_THRESHOLD = 1.0  # °C – above this, always send immediately (mode change etc.)
 
 
 class IHCCoordinator(DataUpdateCoordinator):
@@ -303,6 +306,18 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         # TRV battery save: track last sent temperature per entity to avoid unnecessary updates
         self._last_sent_temps: Dict[str, float] = {}  # entity_id → last sent temperature
+        # TRV battery save: track timestamp of last actual send per entity (for time throttle)
+        self._last_sent_times: Dict[str, float] = {}  # entity_id → monotonic time of last send
+        # Manual override detection: grace period after IHC sends a command.
+        # Prevents false "manually set" alerts while TRV has not yet reported the new setpoint back.
+        # Key = entity_id, value = monotonic time of last command send.
+        self._trv_command_sent_at: Dict[str, float] = {}
+        # TRV_COMMAND_GRACE = how long (seconds) after sending to suppress override detection
+        # Must be longer than the slowest TRV radio update cycle (~2-5 min for Z-Wave/Zigbee)
+        self._trv_command_grace: int = 180  # 3 minutes
+        # On startup skip one cycle so _last_sent_temps can be pre-populated from TRV states
+        # before the manual-override detector runs (prevents false "manual override" alerts)
+        self._startup_cycles_remaining: int = 1
 
         # Manual TRV override detection: track last IHC-set temperature per room
         self._last_ihc_set_temps: Dict[str, float] = {}  # room_id → last temp IHC intentionally set
@@ -2071,11 +2086,20 @@ class IHCCoordinator(DataUpdateCoordinator):
             )
         )
 
-    def _set_valve_entity(self, valve_entity: str, target_temp: float, force: bool = False) -> None:
+    def _set_valve_entity(
+        self,
+        valve_entity: str,
+        target_temp: float,
+        force: bool = False,
+        min_send_interval: int = 0,
+    ) -> None:
         """Set setpoint on a single TRV / climate entity.
 
-        Battery-save: only sends a new setpoint when the temperature differs
-        by more than TRV_TEMP_HYSTERESIS °C from the last sent value (unless force=True).
+        Battery-save strategy (applies when force=False):
+          1. Temperature hysteresis: skip if change < TRV_TEMP_HYSTERESIS (0.3 °C).
+          2. Time throttle: if min_send_interval > 0, skip medium changes (< TRV_LARGE_CHANGE_THRESHOLD)
+             that arrive faster than the configured interval.
+             Large changes (>= TRV_LARGE_CHANGE_THRESHOLD, e.g. mode switch) always send immediately.
         """
         if not valve_entity:
             return
@@ -2083,11 +2107,26 @@ class IHCCoordinator(DataUpdateCoordinator):
         if state is None:
             return
         if valve_entity.split(".")[0] == "climate":
-            # Battery-save hysteresis: skip if change is below threshold
             last = self._last_sent_temps.get(valve_entity)
-            if not force and last is not None and abs(target_temp - last) < TRV_TEMP_HYSTERESIS:
-                return
+            now  = time.monotonic()
+
+            if not force and last is not None:
+                delta = abs(target_temp - last)
+
+                # 1. Hysteresis: change too small → skip always
+                if delta < TRV_TEMP_HYSTERESIS:
+                    return
+
+                # 2. Time throttle: medium change → skip if too soon
+                if min_send_interval > 0 and delta < TRV_LARGE_CHANGE_THRESHOLD:
+                    last_time = self._last_sent_times.get(valve_entity)
+                    if last_time is not None and (now - last_time) < min_send_interval:
+                        return  # throttled – battery save
+
             self._last_sent_temps[valve_entity] = target_temp
+            self._last_sent_times[valve_entity] = now
+            # Record command timestamp so manual-override detector skips grace period
+            self._trv_command_sent_at[valve_entity] = now
             self.hass.async_create_task(
                 self.hass.services.async_call(
                     "climate",
@@ -2108,6 +2147,7 @@ class IHCCoordinator(DataUpdateCoordinator):
             # Prefer setting hvac_mode to off (saves battery, no hunting)
             if "off" in hvac_modes:
                 self._last_sent_temps.pop(valve_entity, None)  # force update when turning back on
+                self._trv_command_sent_at[valve_entity] = time.monotonic()
                 self.hass.async_create_task(
                     self.hass.services.async_call(
                         "climate",
@@ -2143,17 +2183,18 @@ class IHCCoordinator(DataUpdateCoordinator):
 
     def _set_valve_entities(self, room: dict, target_temp: float, force: bool = False) -> None:
         """Set setpoint on all TRV / climate entities configured for a room."""
+        min_interval = int(room.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL))
         # New: list of valve entities
         for entity in room.get(CONF_VALVE_ENTITIES, []):
             if entity:
                 # Ensure TRV is in heat mode before setting temperature
                 self._turn_on_valve_entity(entity)
-                self._set_valve_entity(entity, target_temp, force=force)
+                self._set_valve_entity(entity, target_temp, force=force, min_send_interval=min_interval)
         # Legacy: single valve entity
         single = room.get(CONF_VALVE_ENTITY)
         if single and single not in room.get(CONF_VALVE_ENTITIES, []):
             self._turn_on_valve_entity(single)
-            self._set_valve_entity(single, target_temp, force=force)
+            self._set_valve_entity(single, target_temp, force=force, min_send_interval=min_interval)
 
     def _turn_off_valve_entities(self, room: dict) -> None:
         """Turn off all TRV entities for a room (window open / room off)."""
@@ -2163,6 +2204,34 @@ class IHCCoordinator(DataUpdateCoordinator):
         single = room.get(CONF_VALVE_ENTITY)
         if single and single not in room.get(CONF_VALVE_ENTITIES, []):
             self._turn_off_valve_entity(single)
+
+    def _prefill_last_sent_temps(self) -> None:
+        """Pre-populate _last_sent_temps with TRVs' current target temperatures.
+
+        Called once on startup before the first update cycle so the manual-override
+        detector has a valid baseline and does not fire false positives immediately
+        after HA restarts (the TRVs still hold their last setpoint, not necessarily
+        what IHC would calculate now).
+        """
+        for room in self.get_rooms():
+            valve_entities = list(room.get(CONF_VALVE_ENTITIES, []))
+            single = room.get(CONF_VALVE_ENTITY)
+            if single and single not in valve_entities:
+                valve_entities.append(single)
+            for entity_id in valve_entities:
+                if not entity_id:
+                    continue
+                if entity_id in self._last_sent_temps:
+                    continue  # already known (e.g. from previous cycle)
+                state = self.hass.states.get(entity_id)
+                if state is None:
+                    continue
+                trv_target = state.attributes.get("temperature")
+                if trv_target is not None:
+                    self._last_sent_temps[entity_id] = float(trv_target)
+                    _LOGGER.debug(
+                        "IHC: Startup – pre-filled baseline for %s = %.1f °C", entity_id, float(trv_target)
+                    )
 
     def _detect_manual_trv_override(self, room: dict, room_id: str, room_mode: str) -> None:
         """Detect if a TRV was manually adjusted and switch room to manual mode.
@@ -2178,6 +2247,7 @@ class IHCCoordinator(DataUpdateCoordinator):
         if not valve_entities:
             return
 
+        now = time.monotonic()
         for entity_id in valve_entities:
             if not entity_id:
                 continue
@@ -2192,6 +2262,11 @@ class IHCCoordinator(DataUpdateCoordinator):
             if last_ihc is None:
                 # First cycle – record current TRV temp as baseline
                 self._last_ihc_set_temps[room_id] = trv_target
+                continue
+            # Grace period: IHC just sent a command – TRV may not have reported new state yet.
+            # Skip detection until TRV has had time to update its reported setpoint.
+            sent_at = self._trv_command_sent_at.get(entity_id)
+            if sent_at is not None and (now - sent_at) < self._trv_command_grace:
                 continue
             # If TRV temperature differs significantly from what IHC last sent, user adjusted it
             if abs(trv_target - last_ihc) >= 0.5:
@@ -2243,6 +2318,13 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         Returns the full data dict that entities read from.
         """
+        # Startup grace period: pre-populate _last_sent_temps from TRV states so the
+        # manual-override detector has a valid baseline on the very first run.
+        # This prevents false "manuell bedient" notifications right after HA restart.
+        if self._startup_cycles_remaining > 0:
+            self._startup_cycles_remaining -= 1
+            self._prefill_last_sent_temps()
+
         # Expire any boost timers
         self._check_boost_expiry()
 
@@ -2515,7 +2597,7 @@ class IHCCoordinator(DataUpdateCoordinator):
         try:
             outdoor_humidity = self._get_outdoor_humidity()
             weather_condition = (weather_forecast["condition"] if weather_forecast else None)
-            energy_price_high = price_eco_offset > 0  # positive offset = eco active = high price period
+            energy_price_high = price_eco_offset < 0  # negative offset = expensive hour (reduces setpoint to save energy)
             for room in self.get_rooms():
                 room_id = room.get(CONF_ROOM_ID, "")
                 if not room_id or room_id not in room_data:
@@ -2613,19 +2695,33 @@ class IHCCoordinator(DataUpdateCoordinator):
                 )
                 return []
             if not entry.config_entry_id:
-                _LOGGER.warning(
-                    "IHC: HA-Zeitplan '%s' hat keine config_entry_id – "
-                    "via YAML definiert? Nur UI-Helfer werden unterstützt.", entity_id
-                )
-                # Return a sentinel so the frontend can show an informative message
-                # instead of just "no blocks". Heating logic still works (entity state on/off).
-                return [{"_yaml_defined": True}]
-            config_entry = self.hass.config_entries.async_get_entry(entry.config_entry_id)
-            if not config_entry:
-                _LOGGER.warning(
-                    "IHC: Config Entry '%s' für '%s' nicht gefunden.", entry.config_entry_id, entity_id
-                )
-                return []
+                # Fallback: some HA versions/setups don't populate config_entry_id in the
+                # entity registry even for UI-created schedule helpers.
+                # Search all schedule config entries and match by associated entity_id.
+                config_entry = None
+                for ce in self.hass.config_entries.async_entries("schedule"):
+                    associated = er.async_entries_for_config_entry(registry, ce.entry_id)
+                    if any(ae.entity_id == entity_id for ae in associated):
+                        config_entry = ce
+                        _LOGGER.debug(
+                            "IHC: Fallback – '%s' config entry gefunden via Schedule-Suche: %s",
+                            entity_id, ce.entry_id,
+                        )
+                        break
+                if config_entry is None:
+                    _LOGGER.warning(
+                        "IHC: HA-Zeitplan '%s' hat keine config_entry_id und konnte auch "
+                        "nicht via Schedule-Suche gefunden werden. "
+                        "Via YAML definiert? Nur UI-Helfer werden unterstützt.", entity_id
+                    )
+                    return [{"_yaml_defined": True}]
+            else:
+                config_entry = self.hass.config_entries.async_get_entry(entry.config_entry_id)
+                if not config_entry:
+                    _LOGGER.warning(
+                        "IHC: Config Entry '%s' für '%s' nicht gefunden.", entry.config_entry_id, entity_id
+                    )
+                    return []
 
             # Merge data + options (HA may store schedule blocks in either location)
             cfg: dict = {}
