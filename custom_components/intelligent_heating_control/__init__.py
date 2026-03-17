@@ -19,6 +19,7 @@ from .const import (
     SERVICE_ADD_ROOM,
     SERVICE_REMOVE_ROOM,
     SERVICE_UPDATE_ROOM,
+    SERVICE_UPDATE_GLOBAL_SETTINGS,
     SERVICE_SET_ROOM_MODE,
     SERVICE_SET_SYSTEM_MODE,
     SERVICE_BOOST_ROOM,
@@ -371,9 +372,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         cfg = coordinator.get_config()
         # Remove large runtime data, keep only config
         safe = {k: v for k, v in cfg.items() if k not in ("rooms",)}
-        safe["rooms"] = [
-            {k: v for k, v in r.items() if k not in ("schedules",)} for r in coordinator.get_rooms()
-        ]
+        safe["rooms"] = coordinator.get_rooms()
         payload = json.dumps(safe, indent=2, default=str)
         await hass.services.async_call(
             "persistent_notification",
@@ -405,7 +404,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     hass.services.async_register(DOMAIN, SERVICE_BOOST_ROOM, handle_boost_room)
     hass.services.async_register(DOMAIN, "reload", handle_reload)
     hass.services.async_register(DOMAIN, "export_config", handle_export_config)
-    hass.services.async_register(DOMAIN, "update_global_settings", handle_update_global_settings)
+    hass.services.async_register(DOMAIN, SERVICE_UPDATE_GLOBAL_SETTINGS, handle_update_global_settings)
     hass.services.async_register(DOMAIN, "activate_guest_mode", handle_activate_guest_mode)
     hass.services.async_register(DOMAIN, "deactivate_guest_mode", handle_deactivate_guest_mode)
     hass.services.async_register(DOMAIN, "reset_stats", handle_reset_stats)

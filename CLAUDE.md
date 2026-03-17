@@ -363,6 +363,10 @@ aber die abhängige Stelle B wurde vergessen.
 | Add-Room fehlte CO₂ + Presence-Feld | Felder im Edit-Modal ergänzt, Add-Modal nie synchronisiert |
 | `<select>` hatte Klasse `form-input` | Aus `<input>`-Template kopiert ohne Klasse anzupassen |
 | Float statt Int für Reaktionszeiten | Frontend: `parseFloat()`, Backend: `int()` – nie abgeglichen |
+| TRV-Sensor-Felder nie konfigurierbar | In const.py+coordinator.py implementiert, config_flow+Frontend vergessen |
+| `CONF_ROOM_PRESENCE_ENTITIES` nur halb | In __init__.py handle_add_room, aber nicht in config_flow-Schema |
+| `CONF_BOOST_TEMP` im Add-Modal fehlend | Im Edit-Modal ergänzt, Add-Modal nie synchronisiert (klassischer Sync-Bug) |
+| `"update_global_settings"` Magic String | Service-Name als Hardstring statt Konstante in const.py |
 
 ---
 
@@ -387,6 +391,39 @@ Alle gefundenen Stellen müssen **im gleichen Commit** bereinigt werden:
 - [ ] `config_flow.py` – Import, im Formular anzeigen, im save-handler `int()`/`float()`/`str()` speichern
 - [ ] `climate.py` – Import, in `extra_state_attributes` zurückgeben mit korrektem Fallback-Typ
 - [ ] `coordinator.py` – Import, in der Logik verwenden
+
+### Wenn eine neue Zimmer-Konstante hinzugefügt wird (KRITISCH: 5+2 Stellen!)
+
+Zimmer-Felder existieren in **sieben** Stellen – alle müssen synchron sein:
+
+```
+const.py → coordinator.py → climate.py → __init__.py (handle_add_room)
+                                        → config_flow.py (Add-Schema + Edit-Schema)
+                                        → ihc-panel.js (_showAddRoomModal HTML + saveHandler)
+                                        → ihc-panel.js (_showEditRoomModal HTML + saveHandler)
+```
+
+Checkliste:
+- [ ] `const.py` – `CONF_*` + `DEFAULT_*` Definition
+- [ ] `coordinator.py` – Import + Verwendung in Logik
+- [ ] `climate.py` – Import + in `extra_state_attributes` mit korrektem Fallback
+- [ ] `__init__.py` – in `handle_add_room()` aus `call.data.get(...)` mit Typ-Konvertierung
+- [ ] `config_flow.py` Add-Room schema – Feld mit `vol.Optional()` + `selector.selector()`
+- [ ] `config_flow.py` Add-Room save-handler – Feld in `new_room` dict mit Typ-Konvertierung
+- [ ] `config_flow.py` Edit-Room schema – Feld mit `vol.Optional(default=room.get(...))` + selector
+- [ ] `ihc-panel.js` `_showAddRoomModal()` – HTML-Eingabefeld mit id `m-*`
+- [ ] `ihc-panel.js` `_showAddRoomModal()` save-handler – Feld im `_callService()` Aufruf
+- [ ] `ihc-panel.js` `_showEditRoomModal()` – HTML-Eingabefeld mit Vorbelegung aus `room.*`
+- [ ] `ihc-panel.js` `_showEditRoomModal()` save-handler – Feld im `_callService()` Aufruf
+
+> **Hinweis:** Edit-Room in config_flow braucht keinen eigenen save-handler – `{**room, **user_input}` merged automatisch. Aber das Schema muss das Feld enthalten, sonst wird es nie geändert.
+
+### Wenn ein neuer Service hinzugefügt wird
+
+Magic Strings sind Bug-Quellen. Immer:
+- [ ] `const.py` – `SERVICE_XYZ: Final = "xyz_service_name"` definieren
+- [ ] `__init__.py` – `SERVICE_XYZ` importieren und bei `hass.services.async_register()` verwenden
+- [ ] Kein Hardstring `"xyz_service_name"` irgendwo im Code
 
 ### Wenn ein HTML-Element im Frontend entfernt oder umbenannt wird
 
@@ -438,12 +475,17 @@ Add-Room und Edit-Room Modal müssen **immer synchron** bleiben:
 - HA-Startup-Crash (CONF_WINDOW_OPEN_TEMP) behoben
 - icon.png generiert (256×256 Heizkörper-Icon, orange)
 - CLAUDE.md als vollständiges Onboarding-Dokument
+- TRV-Sensor-Felder (trv_temp_weight, trv_temp_offset, trv_valve_demand, trv_min_send_interval) in config_flow + Add-Room Modal ergänzt
+- CONF_ROOM_PRESENCE_ENTITIES in config_flow Add/Edit-Room Schema ergänzt
+- CONF_BOOST_TEMP in config_flow Add-Room Schema + Add-Room Modal ergänzt
+- SERVICE_UPDATE_GLOBAL_SETTINGS als Konstante in const.py + __init__.py (kein Magic String mehr)
+- TRV-Setpoint-Quantisierung auf 0.5°C-Schritte (Akkusparmodus, TRV_SETPOINT_STEP)
 
 ### Geplant / Roadmap
 - 1.1: Temperaturverlauf 7 Tage (168h Snapshots)
 - 1.2: Urlaubs-Assistent (Datumsbereich, Kalender-Keyword)
 - 1.3: Adaptive Heizkurve, Solarüberschuss-Integration, Energiepreisoptimierung
-- 1.4: ETA-basierte Vorheizung, Room-Presence per Zimmer
+- 1.4: ETA-basierte Vorheizung
 - 1.5: PID Vorlauftemperaturregelung, Smart-Meter, Tibber-Forecast
 - 2.0: Wettervorhersage-Integration, Gäste-Modus erweitert
 

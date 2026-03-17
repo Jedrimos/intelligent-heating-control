@@ -171,6 +171,7 @@ SIGNAL_UPDATE_ENTITY: Final = f"{DOMAIN}_update_{{entry_id}}"
 SERVICE_ADD_ROOM: Final = "add_room"
 SERVICE_REMOVE_ROOM: Final = "remove_room"
 SERVICE_UPDATE_ROOM: Final = "update_room"
+SERVICE_UPDATE_GLOBAL_SETTINGS: Final = "update_global_settings"
 SERVICE_SET_ROOM_MODE: Final = "set_room_mode"
 SERVICE_SET_SYSTEM_MODE: Final = "set_system_mode"
 SERVICE_BOOST_ROOM: Final = "boost_room"
@@ -346,3 +347,7 @@ DEFAULT_TRV_TEMP_OFFSET: Final = -2.0
 # Ventilstellung für Anforderungskorrektur: TRV-Öffnung beeinflusst Demand
 CONF_TRV_VALVE_DEMAND: Final = "trv_valve_demand"  # bool
 DEFAULT_TRV_VALVE_DEMAND: Final = False
+# Minimaler Abstand zwischen zwei Funk-Befehlen an denselben TRV (Batterieschutz)
+# 0 = deaktiviert (immer senden wenn Schwelle überschritten), Empfehlung: 300 s (5 min)
+CONF_TRV_MIN_SEND_INTERVAL: Final = "trv_min_send_interval"  # Sekunden
+DEFAULT_TRV_MIN_SEND_INTERVAL: Final = 0  # 0 = nur Temperatur-Hysterese aktiv (compat)

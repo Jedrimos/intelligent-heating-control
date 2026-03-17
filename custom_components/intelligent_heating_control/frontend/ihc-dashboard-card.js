@@ -516,21 +516,21 @@ class IhcDashboardCard extends HTMLElement {
     card.querySelectorAll("[data-mode]").forEach(btn => {
       btn.addEventListener("click", () => {
         this._hass.callService(_IHC_DB_DOMAIN, "set_room_mode", {
-          room_id: btn.dataset.roomId, mode: btn.dataset.mode,
+          id: btn.dataset.roomId, mode: btn.dataset.mode,
         });
       });
     });
     card.querySelectorAll("[data-action='boost']").forEach(btn => {
       btn.addEventListener("click", () => {
         this._hass.callService(_IHC_DB_DOMAIN, "boost_room", {
-          room_id: btn.dataset.roomId, minutes: 30,
+          id: btn.dataset.roomId, duration_minutes: 30,
         });
       });
     });
     card.querySelectorAll("[data-action='boost-cancel']").forEach(btn => {
       btn.addEventListener("click", () => {
         this._hass.callService(_IHC_DB_DOMAIN, "set_room_mode", {
-          room_id: btn.dataset.roomId, mode: "auto",
+          id: btn.dataset.roomId, mode: "auto",
         });
       });
     });

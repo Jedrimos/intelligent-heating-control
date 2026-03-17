@@ -567,6 +567,8 @@ class IHCPanel extends HTMLElement {
   _renderTabContent() {
     const content = this.shadowRoot.querySelector("#tab-content");
     if (!content) return;
+    // Clean up any entity picker dropdowns from the previous render before replacing content
+    this._cleanupEntityPickers(content);
     switch (this._activeTab) {
       case "overview":   this._renderOverview(content); break;
       case "rooms":      this._renderRooms(content); break;
@@ -745,6 +747,7 @@ class IHCPanel extends HTMLElement {
       adaptive_curve_delta:      ea.adaptive_curve_delta != null ? parseFloat(ea.adaptive_curve_delta) : 0,
       outdoor_humidity:          a.outdoor_humidity != null ? parseFloat(a.outdoor_humidity) : null,
       static_energy_price:       a.static_energy_price != null ? parseFloat(a.static_energy_price) : null,
+      boiler_kw:                 a.boiler_kw != null ? parseFloat(a.boiler_kw) : null,
     };
   }
 
@@ -3100,7 +3103,7 @@ class IHCPanel extends HTMLElement {
 
       <div class="form-group">
         <label class="form-label">Schimmelschutz</label>
-        <select class="form-select" id="m-mold-enabled">
+        <select class="form-select" id="m-mold-protection">
           <option value="true">Aktiviert</option>
           <option value="false">Deaktiviert</option>
         </select>
@@ -3194,6 +3197,45 @@ class IHCPanel extends HTMLElement {
         </div>
       </div>
 
+      <details class="modal-collapsible">
+        <summary class="modal-section-title">🚀 Boost &amp; TRV-Sensor</summary>
+        <div class="settings-grid" style="margin-top:8px">
+          <div class="settings-item">
+            <label>Boost-Zieltemperatur (°C)</label>
+            <input type="number" class="form-input" id="m-boost-temp" value="24" step="0.5" min="15" max="35">
+            <span class="form-hint">Temperatur während aktivem Boost-Modus</span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0">
+          TRV-Sensor-Integration: TRV-Temperatur als Korrekturquelle nutzen (0 = deaktiviert)
+        </div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>TRV-Temp Gewichtung (0–0.5)</label>
+            <input type="number" class="form-input" id="m-trv-temp-weight" value="0" step="0.05" min="0" max="0.5">
+            <span class="form-hint">0 = deaktiviert · 0.3 = 30% TRV-Temp einfließen lassen</span>
+          </div>
+          <div class="settings-item">
+            <label>TRV-Temp Offset (°C)</label>
+            <input type="number" class="form-input" id="m-trv-temp-offset" value="-2" step="0.5" min="-10" max="5">
+            <span class="form-hint">Korrektur für Nähe zum Heizkörper (meist negativ)</span>
+          </div>
+          <div class="settings-item">
+            <label>Ventil-Position als Demand</label>
+            <select class="form-select" id="m-trv-valve-demand">
+              <option value="false" selected>Deaktiviert</option>
+              <option value="true">Aktiviert</option>
+            </select>
+            <span class="form-hint">TRV-Ventilöffnung in Heizbedarf-Berechnung einbeziehen</span>
+          </div>
+          <div class="settings-item">
+            <label>Min. Sendeintervall (s)</label>
+            <input type="number" class="form-input" id="m-trv-min-send-interval" value="0" step="60" min="0" max="1800">
+            <span class="form-hint">0 = nur Temperatur-Hysterese · z.B. 300 = max alle 5 min</span>
+          </div>
+        </div>
+      </details>
+
       <div class="modal-section">
         <div class="modal-section-title">Erweitert</div>
         <div class="settings-grid">
@@ -3278,35 +3320,40 @@ class IHCPanel extends HTMLElement {
 
       await this._callService("add_room", {
         name,
-        temp_sensor:            modal.querySelector("#m-sensor").value.trim(),
+        temp_sensor:            modal.querySelector("#m-sensor")?.value.trim() || "",
         valve_entity:           valves[0] || "",
         valve_entities:         valves,
         window_sensor:          windows[0] || "",
         window_sensors:         windows,
-        room_offset:            parseFloat(modal.querySelector("#m-offset").value),
-        comfort_temp:           parseFloat(modal.querySelector("#m-comfort").value),
-        eco_offset:             parseFloat(modal.querySelector("#m-eco-offset").value),
-        eco_max_temp:           parseFloat(modal.querySelector("#m-eco-max").value),
-        sleep_offset:           parseFloat(modal.querySelector("#m-sleep-offset").value),
-        sleep_max_temp:         parseFloat(modal.querySelector("#m-sleep-max").value),
-        away_offset:            parseFloat(modal.querySelector("#m-away-offset").value),
-        away_max_temp:          parseFloat(modal.querySelector("#m-away-max").value),
+        room_offset:            parseFloat(modal.querySelector("#m-offset")?.value) || 0,
+        comfort_temp:           parseFloat(modal.querySelector("#m-comfort")?.value) || 21.0,
+        eco_offset:             parseFloat(modal.querySelector("#m-eco-offset")?.value) || 3.0,
+        eco_max_temp:           parseFloat(modal.querySelector("#m-eco-max")?.value) || 21.0,
+        sleep_offset:           parseFloat(modal.querySelector("#m-sleep-offset")?.value) || 4.0,
+        sleep_max_temp:         parseFloat(modal.querySelector("#m-sleep-max")?.value) || 19.0,
+        away_offset:            parseFloat(modal.querySelector("#m-away-offset")?.value) || 6.0,
+        away_max_temp:          parseFloat(modal.querySelector("#m-away-max")?.value) || 18.0,
         ha_schedule_off_mode:   modal.querySelector("#m-sched-off-mode")?.value || "eco",
-        deadband:               parseFloat(modal.querySelector("#m-deadband").value),
-        weight:                 parseFloat(modal.querySelector("#m-weight").value),
-        absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp").value),
-        room_qm:                parseFloat(modal.querySelector("#m-room-qm").value) || 0,
-        room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat").value, 10),
-        window_reaction_time:   parseFloat(modal.querySelector("#m-window-reaction-time").value),
-        window_close_delay:     parseFloat(modal.querySelector("#m-window-close-delay").value),
-        humidity_sensor:        modal.querySelector("#m-humidity-sensor").value.trim(),
-        mold_protection_enabled: modal.querySelector("#m-mold-enabled").value === "true",
+        deadband:               parseFloat(modal.querySelector("#m-deadband")?.value) || 0.5,
+        weight:                 parseFloat(modal.querySelector("#m-weight")?.value) || 1.0,
+        absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15.0,
+        room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
+        room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
+        window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
+        window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
+        humidity_sensor:        modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
+        mold_protection_enabled: modal.querySelector("#m-mold-protection")?.value === "true",
         co2_sensor:             modal.querySelector("#m-co2-sensor")?.value.trim() || "",
         room_presence_entities: (modal.querySelector("#m-presence-entities")?.value || "")
                                   .split(",").map(s => s.trim()).filter(Boolean),
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
+        boost_temp:             parseFloat(modal.querySelector("#m-boost-temp")?.value) || null,
+        trv_temp_weight:        parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
+        trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
+        trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.value === "true",
+        trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         ha_schedules,
       });
       this._closeModal();
@@ -3609,12 +3656,11 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
-      <details class="modal-collapsible" ${(room.trv_temp_weight > 0 || room.trv_valve_demand) ? "open" : ""}>
-        <summary>🌡️ TRV-Sensordaten nutzen (optional)</summary>
+      <details class="modal-collapsible" ${(room.trv_temp_weight > 0 || room.trv_valve_demand || room.trv_min_send_interval > 0) ? "open" : ""}>
+        <summary>🌡️ TRV-Sensordaten &amp; Batterieschutz (optional)</summary>
         <div class="modal-collapsible-body">
           <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
-            Thermostatventile (TRVs) haben eigene Temperatursensoren — diese messen jedoch näher am Heizkörper
-            und damit wärmer als die echte Raumtemperatur. Mit dem Offset wird das korrigiert.
+            Thermostatventile (TRVs) haben eigene Sensoren. Alle Optionen sind optional und standardmäßig deaktiviert.
           </p>
           <div class="settings-grid">
             <div class="settings-item">
@@ -3637,6 +3683,19 @@ class IHCPanel extends HTMLElement {
                 Ventilstellung für Anforderungsberechnung nutzen
               </label>
               <span class="form-hint">Wenn das TRV seinen Öffnungsgrad meldet (0–100 %), wird dieser zur Korrektur der Heizanforderung verwendet. Voll offen → min. 30 % Anforderung. Fast geschlossen → max. 30 %.</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>🔋 Batterieschutz: Mindestabstand zwischen Funkbefehlen (Sekunden)</label>
+              <input type="number" class="form-input" id="m-trv-min-send-interval"
+                value="${room.trv_min_send_interval ?? 0}" min="0" max="1800" step="60"
+                placeholder="0 = deaktiviert">
+              <span class="form-hint">
+                IHC sendet normalerweise bei jeder Temperaturänderung ≥ 0,3 °C einen neuen Sollwert.
+                Bei Funk-TRVs (Zigbee, Z-Wave) verbraucht jeder Funk-Befehl Batterie.
+                Mit diesem Wert begrenzt du die Sendehäufigkeit: z.B. <strong>300 = maximal alle 5 Minuten</strong>.
+                Große Änderungen (Modus-Wechsel, &gt;1 °C) werden trotzdem sofort gesendet.
+                Empfehlung: 300–600 s. 0 = deaktiviert (immer senden wenn Schwelle überschritten).
+              </span>
             </div>
           </div>
         </div>
@@ -3691,6 +3750,7 @@ class IHCPanel extends HTMLElement {
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:         modal.querySelector("#m-trv-valve-demand")?.checked === true,
+        trv_min_send_interval:    parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         ha_schedules,
       });
       this._closeModal();
