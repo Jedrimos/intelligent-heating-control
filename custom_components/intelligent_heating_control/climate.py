@@ -177,10 +177,19 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             return HVACAction.OFF
         demand = d.get("demand", 0)
         data = self.coordinator.data
-        if data and demand > 0 and data.get("heating_active"):
-            return HVACAction.HEATING
-        if data and data.get("cooling_active"):
-            return HVACAction.COOLING
+        controller_mode = (data or {}).get("controller_mode", "switch")
+        if controller_mode == "trv":
+            # In TRV mode there is no central heating switch – each TRV heats independently.
+            # Show HEATING whenever the room has active demand (> 0) or a TRV reports heating.
+            # heating_active (Klimabaustein) is NOT a valid signal here because the Klimabaustein
+            # is bypassed in TRV mode – using it would always return IDLE, even when rooms heat.
+            if demand > 0 or d.get("trv_any_heating", False):
+                return HVACAction.HEATING
+        else:
+            if data and demand > 0 and data.get("heating_active"):
+                return HVACAction.HEATING
+            if data and data.get("cooling_active"):
+                return HVACAction.COOLING
         return HVACAction.IDLE
 
     @property

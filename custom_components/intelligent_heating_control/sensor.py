@@ -404,7 +404,7 @@ class IHCEnergyTodaySensor(_IHCBase, SensorEntity):
 class IHCEnergyYesterdaySensor(_IHCBase, SensorEntity):
     """Energy consumed yesterday in kWh – useful for daily comparison statistics."""
 
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_state_class = SensorStateClass.TOTAL  # energy device_class requires total or total_increasing
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_native_unit_of_measurement = "kWh"
     _attr_icon = "mdi:lightning-bolt-outline"
