@@ -1272,8 +1272,11 @@ class IHCPanel extends HTMLElement {
     content.querySelectorAll(".sysmode-pill[data-sysmode]").forEach(btn => {
       btn.addEventListener("click", () => {
         const mode = btn.dataset.sysmode;
+        // Optimistic UI: immediately highlight selected pill
+        content.querySelectorAll(".sysmode-pill").forEach(b => { b.className = "sysmode-pill"; });
+        btn.className = `sysmode-pill active-${mode}`;
         this._callService("set_system_mode", { mode }).then(() => {
-          setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
+          setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 400);
         });
         this._toast(`✓ Systemmodus: ${SYSTEM_MODE_LABELS[mode] || mode}`);
       });
