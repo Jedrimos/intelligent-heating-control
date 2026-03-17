@@ -1,4 +1,4 @@
-# 🌡️ Intelligent Heating Control v1.2.0
+# 🌡️ Intelligent Heating Control v1.2.0b1
 
 > **Breaking Change**: Temperatur-Presets (Eco / Schlaf / Abwesend) sind nicht mehr als feste °C-Werte konfigurierbar — sie folgen jetzt der Außentemperatur-Heizkurve.
 
@@ -82,6 +82,93 @@ Neuer Systemmodus `guest` für temporären Komfortbetrieb aller Zimmer:
 
 ---
 
+### 🔧 TRV-Intelligenz — Komplett überarbeitet
+
+Thermostatic Radiator Valves werden jetzt deutlich präziser angesteuert:
+
+**Ventilposition als primäres Anforderungssignal:**
+
+```
+TRV-Modus:     demand = temp_demand × 0.40 + valve_position × 0.60
+Switch-Modus:  demand = temp_demand × 0.70 + valve_position × 0.30
+```
+
+Der TRV-interne Regler entscheidet bereits ob und wie weit das Ventil öffnet — diese Information wird jetzt direkt genutzt statt zu ignorieren. Kompatibel mit allen gängigen TRV-Typen:
+
+| Hersteller | Attribut |
+|------------|----------|
+| Zigbee2MQTT TRVs | `valve_position` |
+| Z-Wave TRVs | `position` |
+| Eurotronic / Spirit | `pi_heating_demand` |
+
+**TRV-Temperatur für Anforderung, Raumsensor für Komfort:**
+- Die TRV-Temperatur (direkt am Heizkörper) reagiert schneller als Raumluft → wird für die Anforderungsberechnung genutzt
+- Der Raumsensor bleibt Referenz für Ist-Temperatur-Anzeige, Fenster- und Schimmelerkennung
+
+**Phantom-Anforderung verhindert:**
+Wenn die TRV-Temperatur bereits über dem Sollwert liegt, wird `demand = 0` gesetzt — auch wenn der Temperaturdelta noch positiv erscheint. Verhindert unnötiges Heizen nach Schaltzeiten.
+
+**Setpoint-Quantisierung auf 0,5 °C-Schritte:**
+TRV-Sollwerte werden auf 0,5 °C gerundet — reduziert unnötige Funk-Übertragungen und schont TRV-Akkus erheblich.
+
+**Laufzeitmessung:**
+Ventilposition > 8% gilt als "Zimmer heizt aktiv" — direktes Signal, keine Berechnung nötig.
+
+---
+
+### ⚡ Event-getriebene Fenstererkennung
+
+Fenstersensoren lösen jetzt **sofort** via `async_track_state_change_event` aus — vorher gab es einen fixen 60-Sekunden-Polling-Delay. Die konfigurierten Reaktions- und Schließverzögerungen bleiben erhalten.
+
+**Sofortige Erkennung bei Modus-Wechsel:** Beim Wechsel von `off` → `auto` werden alle Fensterzustände sofort eingelesen (`_prefill_window_states`) — kein Warten auf den nächsten Poll.
+
+---
+
+### ⏱️ Startup-Gnadenfrist für Zigbee / Z-Wave
+
+Sensoren brauchen nach einem HA-Neustart Zeit bis sie ihren Zustand melden. Neue Einstellung `startup_grace_seconds` (Standard: 60 s) — während dieser Zeit werden `unavailable`-Zustände von Temperatursensoren nicht als Fehler gewertet.
+
+---
+
+### 🎨 UX / UI Overhaul v4
+
+Komplett überarbeitetes Design-System:
+- Modernes Card-Layout mit klarer Hierarchie
+- Zimmer-Zeitpläne und Kalenderansicht als **Sub-Tabs direkt im Zimmer-Detail** (statt eigene globale Tabs)
+- Verbesserte Responsivität
+- Konsistente Farbgebung nach Heizstatus
+
+---
+
+### 📋 Config-Flow vollständig synchronisiert
+
+Alle Felder die im Edit-Modal verfügbar sind, sind jetzt auch im Add-Modal vorhanden:
+- CO₂-Sensor + Schwellwert
+- Raum-Anwesenheitsliste (`room_presence_entities`)
+- Boost-Temperatur (`boost_temp`) + Standard-Dauer
+- TRV-Felder: `trv_temp_weight`, `trv_temp_offset`, `trv_min_send_interval`
+
+---
+
+### 🛠️ Neue Services
+
+Vier weitere Services sind jetzt vollständig registriert und in `services.yaml` dokumentiert:
+
+| Service | Beschreibung |
+|---------|-------------|
+| `export_config` | Aktuelle Konfiguration als JSON-Event ausgeben |
+| `activate_guest_mode` | Gäste-Modus mit optionaler Dauer aktivieren |
+| `deactivate_guest_mode` | Gäste-Modus sofort beenden |
+| `reset_stats` | Laufzeit- und Energiestatistiken zurücksetzen |
+
+---
+
+### 🔕 Modus „Aus" wirklich aus
+
+Im Modus `off` werden alle Thermostate jetzt auf `hvac_mode: off` gesetzt statt auf Frostschutztemperatur. Notfall-Frostschutz bleibt aktiv: bei Minusgraden außen greift trotzdem der absolute Frostschutz — das Zimmer friert nicht ein.
+
+---
+
 ## ⚠️ Breaking Changes
 
 | Was geändert | Alt | Neu |
@@ -97,8 +184,27 @@ Neuer Systemmodus `guest` für temporären Komfortbetrieb aller Zimmer:
 
 ## 🐛 Bug Fixes
 
-- **Frontend ReferenceError**: Override-Banner hat nie angezeigt (`systemOverrides` / `overrideLabel` wurden nach dem `.map()`-Callback definiert, in dem sie schon verwendet wurden)
-- **Stale srcMap-Eintrag**: `room_presence_away` hatte keine Zuordnung → roher String statt Label angezeigt
+### Heizlogik
+- **Phantom-Anforderung**: TRV-Temp > Sollwert → demand wird korrekt auf 0 gesetzt
+- **Frostschutz im Aus-Modus**: Dashboard zeigte 7 °C statt „Aus"; Notfall-Frostschutz nur bei echten Minusgraden
+- **Modus „Aus"**: Climate-Entitäten zeigen jetzt `HVACMode.OFF` statt Komforttemperatur
+
+### Frontend
+- **Override-Banner**: ReferenceError behoben (`systemOverrides`/`overrideLabel` wurden vor ihrer Definition verwendet)
+- **Systemmodus-Buttons im Dashboard**: `querySelector` → `querySelectorAll + data-sysmode` (Elemente existierten nach UI-Refactor nicht mehr)
+- **Stale srcMap-Eintrag**: `room_presence_away` hatte keine Label-Zuordnung → roher String wurde angezeigt
+
+### Konfiguration & Services
+- **HA-Startup-Crash**: `CONF_WINDOW_OPEN_TEMP` wurde in `coordinator.py` importiert, aber in `const.py` gelöscht
+- **4 Services fehlten in `services.yaml`**: `export_config`, `activate_guest_mode`, `deactivate_guest_mode`, `reset_stats`
+- **Magic Strings**: `"update_global_settings"` als Hardstring → jetzt `SERVICE_UPDATE_GLOBAL_SETTINGS`-Konstante
+- **Typfehler Edit-Modal**: Reaktionszeiten wurden als `float` gesendet, Backend erwartet `int`
+- **Mold-Protect-ID-Fehler**: Falsche Entitäts-ID in `sensor.py` generiert
+
+### HACS & HA-Kompatibilität
+- **icon.png**: War 359×354 px → skaliert auf exakt 256×256 px (HACS-Pflicht)
+- **strings.json**: Fehlte komplett → erstellt (HA lädt ConfigFlow-Übersetzungen daraus, Pflichtdatei)
+- **Fenster-Listener-Unsub-Bug**: Listener wurde beim Reload nicht korrekt abgemeldet → Memory Leak behoben
 
 ---
 
