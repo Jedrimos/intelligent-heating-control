@@ -2327,8 +2327,25 @@ class IHCPanel extends HTMLElement {
       </details>
 
       <!-- ── Regelung ──────────────────────────────────── -->
-      <details class="ihc-card" open>
-        <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese</span></summary>
+      ${g.controller_mode === "trv" && !a.heating_switch ? `
+      <details class="ihc-card">
+        <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese <span style="opacity:0.5;font-weight:400;font-size:11px">– nicht aktiv im TRV-Modus</span></span></summary>
+        <div class="ihc-card-body">
+          <div class="info-box" style="background:#fff3cd;border-color:#ffc107">
+            Im <strong>TRV-Modus ohne zentralen Heizungsschalter</strong> ist die Heizungsregelung (Schwelle, Hysterese, Min-Zeiten) nicht aktiv –
+            jedes Thermostatventil entscheidet selbst wann es öffnet und schließt.<br>
+            <br>
+            Wenn du einen <strong>zentralen Kessel</strong> hast der eingeschaltet werden muss (z.B. Gas-Brenner + TRVs an jedem Heizkörper),
+            trage den Kessel-Schalter unter <em>Hardware &amp; Steuerung → Heizungsschalter</em> ein –
+            dann wird diese Sektion automatisch aktiv.
+          </div>
+        </div>
+      </details>
+      ` : `
+      <details class="ihc-card" ${g.controller_mode !== "trv" ? "open" : ""}>
+        <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese
+          ${g.controller_mode === "trv" ? `<span style="opacity:0.6;font-weight:400;font-size:11px"> – Kessel-Schutz</span>` : ""}
+        </span></summary>
         <div class="ihc-card-body">
           <div class="info-box">
             Die <strong>Anforderung</strong> ist ein Prozentwert der angibt wie dringend ein Zimmer Wärme braucht (0–100 %).
@@ -2391,6 +2408,7 @@ class IHCPanel extends HTMLElement {
           </div>
         </div>
       </details>
+      `}
 
       <!-- ── Gäste-Modus ────────────────────────────────── -->
       <details class="ihc-card" ${g.guest_mode_active ? "open" : ""}>
@@ -2544,11 +2562,13 @@ class IHCPanel extends HTMLElement {
               </select>
               <span class="form-hint">Zeigt geschätzte Kilowattstunden und (wenn Preis konfiguriert) die Kosten des Tages.</span>
             </div>
+            ${g.controller_mode !== "trv" ? `
             <div class="settings-item">
               <label>Kesselleistung (kW)</label>
               <input type="number" class="form-input" id="boiler-kw" min="1" max="100" step="1" value="${a.boiler_kw ?? 20}">
               <span class="form-hint">Nennleistung deines Kessels. IHC rechnet: <em>Laufzeit × kW = kWh</em>. Unbekannt? Nutze den Kalibrierungs-Assistenten darunter.</span>
             </div>
+            ` : ""}
             <div class="settings-item">
               <label>Fester Energiepreis (€/kWh) <span style="font-size:10px;color:var(--secondary-text-color)">(optional)</span></label>
               <input type="number" class="form-input" id="static-energy-price" min="0.01" max="2" step="0.01" value="${a.static_energy_price ?? ''}" placeholder="z.B. 0.09 (leer = nur kWh)">
@@ -2567,7 +2587,7 @@ class IHCPanel extends HTMLElement {
               <span class="form-hint">Zimmer werden auf diese Temperatur heruntergekühlt wenn Kühlung aktiv ist.</span>
             </div>
           </div>
-          <div style="margin-top:8px">
+          ${g.controller_mode !== "trv" ? `<div style="margin-top:8px">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;padding:6px 0;user-select:none">
               <input type="checkbox" id="flow-temp-enabled" ${a.flow_temp_entity ? "checked" : ""}>
               🌡️ Vorlauftemperatur-Regelung
@@ -2591,7 +2611,7 @@ class IHCPanel extends HTMLElement {
                 </div>
               </div>
             </div>
-          </div>
+          </div>` : ""}`}
           <hr class="divider">
           <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Solarüberschuss-Heizung</div>
           <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
@@ -2867,8 +2887,10 @@ class IHCPanel extends HTMLElement {
       this._toast("✓ Nachtabsenkung/Vorheizen gespeichert");
     });
 
-    content.querySelector("#save-global-settings").addEventListener("click", () => {
-      const thresh  = parseFloat(content.querySelector("#demand-threshold").value);
+    content.querySelector("#save-global-settings")?.addEventListener("click", () => {
+      const threshEl = content.querySelector("#demand-threshold");
+      if (!threshEl) return; // not rendered in TRV mode without heating_switch
+      const thresh  = parseFloat(threshEl.value);
       const hyst    = parseFloat(content.querySelector("#demand-hysteresis").value);
       const minOn   = parseInt(content.querySelector("#min-on-time").value);
       const minOff  = parseInt(content.querySelector("#min-off-time").value);
@@ -2881,7 +2903,7 @@ class IHCPanel extends HTMLElement {
         min_off_time:       minOff,
         min_rooms_demand:   minRooms,
       });
-      this._toast("✓ Klimabaustein-Einstellungen gespeichert");
+      this._toast("✓ Heizungsregelung gespeichert");
     });
 
     // Presence tracker overflow toggle
@@ -2994,8 +3016,8 @@ class IHCPanel extends HTMLElement {
       });
     }
 
-    // Toggle flow-temp section visibility
-    content.querySelector("#flow-temp-enabled").addEventListener("change", e => {
+    // Toggle flow-temp section visibility (only in switch mode)
+    content.querySelector("#flow-temp-enabled")?.addEventListener("change", e => {
       content.querySelector("#flow-temp-section").style.display = e.target.checked ? "" : "none";
     });
 
@@ -3010,18 +3032,22 @@ class IHCPanel extends HTMLElement {
     });
 
     content.querySelector("#save-energy-settings").addEventListener("click", () => {
-      const boilerKw     = parseFloat(content.querySelector("#boiler-kw").value);
+      const boilerKwEl   = content.querySelector("#boiler-kw");
+      const boilerKw     = boilerKwEl ? parseFloat(boilerKwEl.value) : null;
       const solarSurplus = parseFloat(content.querySelector("#solar-surplus-threshold").value);
       const solarBoost   = parseFloat(content.querySelector("#solar-boost-temp").value);
       const priceThresh  = parseFloat(content.querySelector("#energy-price-threshold").value);
       const priceEco     = parseFloat(content.querySelector("#energy-price-eco-offset").value);
-      if ([boilerKw, solarSurplus, solarBoost, priceThresh, priceEco].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
+      const chk = [solarSurplus, solarBoost, priceThresh, priceEco];
+      if (boilerKw !== null) chk.push(boilerKw);
+      if (chk.some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
       const staticPrice = parseFloat(content.querySelector("#static-energy-price").value);
-      const flowEnabled = content.querySelector("#flow-temp-enabled").checked;
+      const flowEnabledEl = content.querySelector("#flow-temp-enabled");
+      const flowEnabled = flowEnabledEl ? flowEnabledEl.checked : false;
       this._callService("update_global_settings", {
-        boiler_kw:               boilerKw,
-        flow_temp_entity:        flowEnabled ? content.querySelector("#flow-temp-entity").value.trim() : "",
-        flow_temp_sensor:        flowEnabled ? content.querySelector("#flow-temp-sensor").value.trim() : "",
+        ...(boilerKw !== null ? { boiler_kw: boilerKw } : {}),
+        flow_temp_entity:        flowEnabled ? content.querySelector("#flow-temp-entity")?.value.trim() : "",
+        flow_temp_sensor:        flowEnabled ? content.querySelector("#flow-temp-sensor")?.value.trim() : "",
         solar_entity:            content.querySelector("#solar-entity").value.trim(),
         solar_surplus_threshold: solarSurplus,
         solar_boost_temp:        solarBoost,

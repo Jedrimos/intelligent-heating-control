@@ -2838,7 +2838,7 @@ class IHCCoordinator(DataUpdateCoordinator):
             # We do NOT suppress setpoints based on should_heat because:
             #   - There is no central boiler in TRV mode
             #   - TRVs decide themselves whether to heat
-            # Exception: room OFF, window open, or system OFF (without frost-protect option) → turn off TRV.
+            # Exception: room OFF, window open, system OFF, or summer mode → close TRV.
             for room in self.get_rooms():
                 room_id = room.get(CONF_ROOM_ID, "")
                 if not room_id or room_id not in room_data:
@@ -2849,6 +2849,11 @@ class IHCCoordinator(DataUpdateCoordinator):
                 if window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn TRV off (or frost-protect if off mode not supported by the device)
                     self._turn_off_valve_entities(room)
+                elif summer_mode:
+                    # Sommerautomatik: send frost protection temp to close TRV valves.
+                    # (The TRV's internal thermostat would otherwise try to heat if room cools at night)
+                    frost_temp = self._get_frost_protection_temp()
+                    self._set_valve_entities(room, frost_temp)
                 else:
                     # Always send the desired target – TRV decides whether to heat
                     self._set_valve_entities(room, rdata["target_temp"])
