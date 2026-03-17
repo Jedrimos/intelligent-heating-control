@@ -150,8 +150,8 @@ const STYLES = `
 
   /* ── Status strip ────────────────────────────────────────────────────────────── */
   .status-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 8px; margin-bottom: 24px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px; margin-bottom: 16px;
   }
   .status-item {
     background: var(--card-background-color, #fff); border-radius: 10px; padding: 10px 12px;
@@ -1272,8 +1272,11 @@ class IHCPanel extends HTMLElement {
     content.querySelectorAll(".sysmode-pill[data-sysmode]").forEach(btn => {
       btn.addEventListener("click", () => {
         const mode = btn.dataset.sysmode;
+        // Optimistic UI: immediately highlight selected pill
+        content.querySelectorAll(".sysmode-pill").forEach(b => { b.className = "sysmode-pill"; });
+        btn.className = `sysmode-pill active-${mode}`;
         this._callService("set_system_mode", { mode }).then(() => {
-          setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
+          setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 400);
         });
         this._toast(`✓ Systemmodus: ${SYSTEM_MODE_LABELS[mode] || mode}`);
       });
@@ -2673,7 +2676,8 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
-      <!-- ── Intelligente Regelung ──────────────────────── -->
+      <!-- ── Intelligente Regelung (nur Switch-Modus) ──── -->
+      ${g.controller_mode !== "trv" ? `
       <details class="ihc-card" ${a.adaptive_curve_enabled || a.eta_preheat_enabled || a.vacation_calendar ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">🧠 Intelligente Regelung
@@ -2692,6 +2696,9 @@ class IHCPanel extends HTMLElement {
               <span class="form-hint">
                 IHC beobachtet wie lang das Haus braucht um warm zu werden und verschiebt die Heizkurve automatisch um ±0,5°C pro Tag (max. ±3°C).<br>
                 Im Dashboard erscheint dann z.B. <em>„Kurve –0,5°"</em> wenn die Kurve nach unten korrigiert wurde, weil die Zimmer schnell warm wurden.
+                ${g.adaptive_curve_delta && Math.abs(g.adaptive_curve_delta) >= 0.1
+                  ? `<br><strong>Aktueller Offset: ${g.adaptive_curve_delta > 0 ? "+" : ""}${g.adaptive_curve_delta.toFixed(1)} °C</strong>`
+                  : ""}
               </span>
             </div>
             <div class="settings-item">
@@ -2724,9 +2731,14 @@ class IHCPanel extends HTMLElement {
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-intelligent-settings">💾 Intelligente Regelung speichern</button>
+            <button class="btn btn-secondary" id="reset-curve-btn"
+              title="Kurvenkorrektur + Aufheizzeiten-Historie zurücksetzen"
+              ${!g.adaptive_curve_delta || Math.abs(g.adaptive_curve_delta) < 0.1 ? "" : ""}>
+              🔄 Gelernte Werte zurücksetzen</button>
           </div>
         </div>
       </details>
+      ` : ""}
 
       <!-- ── Urlaubs-Assistent ───────────────────────────── -->
       <details class="ihc-card" ${g.vacation_auto_active || a.vacation_start ? "open" : ""}>
@@ -2765,9 +2777,32 @@ class IHCPanel extends HTMLElement {
       <details class="ihc-card">
         <summary><span class="ihc-card-title">💾 Backup &amp; Restore</span></summary>
         <div class="ihc-card-body">
-          <div class="info-box">Exportiert die gesamte Konfiguration als HA-Benachrichtigung (JSON).</div>
-          <div class="btn-row">
-            <button class="btn btn-secondary" id="export-config-btn">📤 Konfiguration exportieren</button>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Export</label>
+              <span class="form-hint">Speichert die gesamte Konfiguration (Einstellungen + alle Zimmer) als JSON-Datei direkt im Browser.</span>
+              <div class="btn-row" style="margin-top:8px">
+                <button class="btn btn-secondary" id="export-config-btn">📤 Konfiguration herunterladen</button>
+              </div>
+            </div>
+            <div class="settings-item">
+              <label>Reset</label>
+              <span class="form-hint">Setzt alle von IHC gelernten und berechneten Werte zurück auf den Ausgangszustand.</span>
+              <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+                <button class="btn btn-secondary" id="reset-learned-btn">🔄 Gelernte Werte zurücksetzen<br><small style="font-weight:400;opacity:0.8">Kurvenkorrektur + Aufheizzeiten-Historie</small></button>
+                <button class="btn btn-secondary" id="reset-stats-btn">📊 Statistiken zurücksetzen<br><small style="font-weight:400;opacity:0.8">Laufzeiten + Energiedaten heute</small></button>
+              </div>
+            </div>
+            <div class="settings-item">
+              <label>Import</label>
+              <span class="form-hint">JSON-Backup einspielen. <strong>Achtung:</strong> Bestehende Zimmer werden ersetzt.</span>
+              <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <input type="file" id="import-config-file" accept=".json,application/json"
+                  style="font-size:12px;color:var(--primary-text-color)">
+                <button class="btn btn-secondary" id="import-config-btn">📥 Importieren</button>
+              </div>
+              <div id="import-status" style="margin-top:6px;font-size:12px;color:var(--secondary-text-color)"></div>
+            </div>
           </div>
         </div>
       </details>
@@ -3000,7 +3035,7 @@ class IHCPanel extends HTMLElement {
       this._toast("✓ Lüftungseinstellungen gespeichert");
     });
 
-    content.querySelector("#save-intelligent-settings").addEventListener("click", () => {
+    content.querySelector("#save-intelligent-settings")?.addEventListener("click", () => {
       this._callService("update_global_settings", {
         adaptive_curve_enabled:   content.querySelector("#adaptive-curve-enabled").value === "true",
         adaptive_preheat_enabled: content.querySelector("#adaptive-preheat-enabled").value === "true",
@@ -3010,9 +3045,89 @@ class IHCPanel extends HTMLElement {
       this._toast("✓ Intelligente Regelung gespeichert");
     });
 
-    content.querySelector("#export-config-btn").addEventListener("click", () => {
-      this._callService("export_config", {});
-      this._toast("✓ Konfiguration wird als Benachrichtigung erstellt...");
+    content.querySelector("#reset-curve-btn")?.addEventListener("click", () => {
+      if (!confirm("Alle gelernten Werte zurücksetzen?\n\n• Kurvenkorrektur → 0 °C\n• Aufheizzeiten-Historie (adaptives Vorheizen) → gelöscht\n\nDie Integration lernt danach neu.")) return;
+      this._callService("reset_stats", { reset_curve: true }).then(() => {
+        setTimeout(() => { if (this._activeTab === "settings") this._renderTabContent(); }, 400);
+      });
+      this._toast("🔄 Gelernte Werte zurückgesetzt");
+    });
+
+    content.querySelector("#reset-learned-btn")?.addEventListener("click", () => {
+      if (!confirm("Alle gelernten Werte zurücksetzen?\n\n• Kurvenkorrektur → 0 °C\n• Aufheizzeiten-Historie → gelöscht\n\nDie Integration lernt danach neu.")) return;
+      this._callService("reset_stats", { reset_curve: true }).then(() => {
+        setTimeout(() => { if (this._activeTab === "settings") this._renderTabContent(); }, 400);
+      });
+      this._toast("🔄 Gelernte Werte zurückgesetzt");
+    });
+
+    content.querySelector("#reset-stats-btn")?.addEventListener("click", () => {
+      if (!confirm("Laufzeit- und Energiestatistiken für heute zurücksetzen?")) return;
+      this._callService("reset_stats", {}).then(() => {
+        setTimeout(() => { if (this._activeTab === "settings") this._renderTabContent(); }, 400);
+      });
+      this._toast("📊 Statistiken zurückgesetzt");
+    });
+
+    content.querySelector("#export-config-btn").addEventListener("click", async () => {
+      // Fetch full config from backend via service, then offer as browser download
+      try {
+        // Build export from current state attributes (available in frontend)
+        const exportData = {
+          version: "1.2.0",
+          exported_at: new Date().toISOString(),
+          global_settings: { ...a },
+          rooms: Object.values(this.coordinator?.data?.rooms || {}).map(r => ({ ...r })),
+        };
+        // Also trigger HA notification for completeness
+        this._callService("export_config", {});
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `ihc_backup_${new Date().toISOString().slice(0,10)}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        this._toast("✓ Konfiguration heruntergeladen");
+      } catch (e) {
+        this._toast("❌ Export fehlgeschlagen: " + (e.message || e));
+      }
+    });
+
+    content.querySelector("#import-config-btn").addEventListener("click", async () => {
+      const fileInput = content.querySelector("#import-config-file");
+      const statusEl  = content.querySelector("#import-status");
+      if (!fileInput.files.length) { statusEl.textContent = "⚠ Bitte zuerst eine JSON-Datei auswählen."; return; }
+      let cfg;
+      try {
+        const text = await fileInput.files[0].text();
+        cfg = JSON.parse(text);
+      } catch {
+        statusEl.textContent = "❌ Ungültige JSON-Datei."; return;
+      }
+      if (!cfg.global_settings && !cfg.rooms) {
+        statusEl.textContent = "❌ Kein gültiges IHC-Backup (fehlende Felder)."; return;
+      }
+      if (!confirm(`IHC-Backup vom ${cfg.exported_at?.slice(0,10) || "??"} einspielen?\nBestehende Zimmer werden ersetzt.`)) return;
+      statusEl.textContent = "⏳ Importiere…";
+      try {
+        // 1. Apply global settings
+        if (cfg.global_settings) await this._callService("update_global_settings", cfg.global_settings);
+        // 2. Remove existing rooms
+        const existingRooms = Object.values(this._hass?.states || {})
+          .filter(s => s.entity_id.startsWith("climate.ihc_") && s.entity_id !== "climate.intelligent_heating_control")
+          .map(s => s.attributes?.room_id).filter(Boolean);
+        for (const id of existingRooms) await this._callService("remove_room", { id });
+        // 3. Add rooms from backup
+        if (Array.isArray(cfg.rooms)) {
+          for (const room of cfg.rooms) await this._callService("add_room", room);
+        }
+        await this._callService("reload", {});
+        statusEl.textContent = `✅ Import abgeschlossen (${cfg.rooms?.length ?? 0} Zimmer)`;
+        this._toast("✓ Konfiguration importiert");
+      } catch (e) {
+        statusEl.textContent = "❌ Import fehlgeschlagen: " + (e.message || e);
+      }
     });
 
     content.querySelector("#save-vacation-range").addEventListener("click", () => {

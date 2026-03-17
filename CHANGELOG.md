@@ -10,14 +10,41 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### Geplant
-- Adaptive Heizkurve (Auto-Learning)
 - ETA-basiertes Vorheizen bei Heimkehr
 - Anforderungs-Heatmap im Dashboard
 - Temperaturverlauf-Graph (24h Ist/Soll/Außen)
+- Passive Solar Heating via Rollosteuerung (v2.1)
 
 ---
 
-## [1.2.0] - 2026-03-15
+## [1.2.0b2] - 2026-03-17
+
+### Hinzugefügt (seit b1)
+
+#### Gelernte Werte zurücksetzen
+- Neuer **Reset-Button** in Einstellungen → Intelligente Regelung: setzt Kurvenkorrektur + Aufheizzeiten-Historie gemeinsam zurück
+- `reset_stats`-Service nimmt optionalen Parameter `reset_curve: true` für gezielten Lernwerte-Reset
+- Methode `reset_curve_adaptation()` im Coordinator: löscht `_curve_adaptation_delta`, `_warmup_history` und `_warmup_start`
+- Zusätzliche Reset-Buttons in Backup & Restore: getrennt für „Gelernte Werte" und „Statistiken (Laufzeiten/Energie)"
+
+#### Backup & Restore – Import
+- Konfiguration jetzt **direkt als JSON-Datei im Browser herunterladen** (statt nur als HA-Benachrichtigung)
+- Neuer **Import-Bereich**: JSON-Backup hochladen → Bestätigen → IHC spielt globale Einstellungen + alle Zimmer automatisch via Services ein
+- Import-Statusanzeige mit Fortschrittstext
+
+#### UX: Intelligente Regelung nur im Switch-Modus
+- Der Bereich „🧠 Intelligente Regelung" (adaptive Heizkurve, adaptives Vorheizen) wird im **TRV-Modus ausgeblendet** — TRVs haben eigene interne Regelung, eine Host-seitige adaptive Kurve ergibt dort keinen Sinn
+- Aktueller Kurvenoffset wird direkt im Hint-Text angezeigt (z.B. „Aktueller Offset: −0,5 °C")
+
+### Behoben (seit b1)
+
+- **HA 2024.2+ Pflicht**: `ClimateEntityFeature.TURN_OFF` und `TURN_ON` ergänzt (HA wirft sonst Deprecation-Warnung)
+- **Dashboard Systemmodus-Pill**: Optimistisches UI-Update — Pill-Farbe wechselt sofort beim Klick ohne 1,2-s-Delay
+- **Status-Grid**: Abstände zwischen Karten vergrößert (`gap: 12px`, `minmax: 120px`) für bessere Lesbarkeit
+
+---
+
+## [1.2.0b1] - 2026-03-15
 
 ### Hinzugefügt
 

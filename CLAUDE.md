@@ -11,10 +11,10 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `1.0.1a1`
+- **Version:** `1.2.0b1`
 - **Repository:** https://github.com/Jedrimos/intelligent-heatingcontroll
-- **Branch für Claude-Entwicklung:** `claude/hacs-heating-control-plugin-NXmK3`
-- **Dateipfad:** `/home/user/intelligent-heatingcontroll/`
+- **Aktiver Entwicklungs-Branch:** `claude/review-homeassistant-repo-PL7tn`
+- **Dateipfad:** `/home/user/intelligent-heatingcontrol/`
 - **Integration-Pfad:** `custom_components/intelligent_heating_control/`
 
 ### Was kann es?
@@ -308,28 +308,35 @@ Integration neu laden (keine Parameter).
 
 ## 7. Git-Workflow
 
+Der aktive Branch heißt `claude/review-homeassistant-repo-PL7tn`.
+Branches beginnen immer mit `claude/` + Session-ID. Push scheitert mit HTTP 403 wenn Branchname falsch.
+
 ```bash
-# Branch
-git checkout claude/hacs-heating-control-plugin-NXmK3
+# Auf korrekten Branch wechseln / erstellen
+git checkout claude/review-homeassistant-repo-PL7tn
 # oder erstellen falls nötig:
-git checkout -b claude/hacs-heating-control-plugin-NXmK3
+git checkout -b claude/review-homeassistant-repo-PL7tn
 
 # Commiten
 git add custom_components/intelligent_heating_control/DATEI.py
 git commit -m "fix: beschreibung der änderung"
 
-# Pushen (IMMER so)
-git push -u origin claude/hacs-heating-control-plugin-NXmK3
+# Pushen (IMMER so, nie abkürzen)
+git push -u origin claude/review-homeassistant-repo-PL7tn
 ```
 
 **Niemals auf `main` pushen.**
+
+### Korrekte Pfade
+- Arbeitsverzeichnis: `/home/user/intelligent-heatingcontrol/` (KEIN doppeltes `l` am Ende!)
+- Integration: `custom_components/intelligent_heating_control/`
 
 ---
 
 ## 8. Pflicht-Checks vor jedem Commit
 
 ```bash
-cd /home/user/intelligent-heatingcontroll
+cd /home/user/intelligent-heatingcontrol
 
 # 1. Python-Syntax prüfen
 python3 -m py_compile custom_components/intelligent_heating_control/const.py && echo OK
@@ -367,6 +374,10 @@ aber die abhängige Stelle B wurde vergessen.
 | `CONF_ROOM_PRESENCE_ENTITIES` nur halb | In __init__.py handle_add_room, aber nicht in config_flow-Schema |
 | `CONF_BOOST_TEMP` im Add-Modal fehlend | Im Edit-Modal ergänzt, Add-Modal nie synchronisiert (klassischer Sync-Bug) |
 | `"update_global_settings"` Magic String | Service-Name als Hardstring statt Konstante in const.py |
+| sysmode-Buttons Dashboard kein Handler | `#hero-set-mode`/`#hero-system-mode` Elemente existierten nicht mehr; querySelectorAll + data-sysmode nötig |
+| 4 Services fehlten in services.yaml | Im __init__.py registriert, aber nie in services.yaml dokumentiert → unsichtbar in HA |
+| strings.json fehlte | HA lädt ConfigFlow-Übersetzungen aus strings.json (Pflicht), Datei = Kopie von translations/en.json |
+| icon.png falsche Größe (359×354) | HACS erwartet exakt 256×256px; Pillow-Resize nötig |
 
 ---
 
@@ -473,7 +484,7 @@ Add-Room und Edit-Room Modal müssen **immer synchron** bleiben:
 - Add-Room Modal: CO₂-Sensor und Presence-Entitäten Felder ergänzt
 - Schimmelschutz-Select: CSS-Klasse auf `form-select` korrigiert
 - HA-Startup-Crash (CONF_WINDOW_OPEN_TEMP) behoben
-- icon.png generiert (256×256 Heizkörper-Icon, orange)
+- icon.png auf 256×256px skaliert (HACS-Pflicht), strings.json erstellt (HA-Pflichtdatei)
 - CLAUDE.md als vollständiges Onboarding-Dokument
 - TRV-Sensor-Felder (trv_temp_weight, trv_temp_offset, trv_valve_demand, trv_min_send_interval) in config_flow + Add-Room Modal ergänzt
 - CONF_ROOM_PRESENCE_ENTITIES in config_flow Add/Edit-Room Schema ergänzt
@@ -485,6 +496,69 @@ Add-Room und Edit-Room Modal müssen **immer synchron** bleiben:
 - Sofortige Fenstererkennung bei Modus-Wechsel (OFF→AUTO) via _prefill_window_states()
 - Code-Audit: 7 Bugs behoben (hardcoded Strings, timezone-Import, Window-Listener-Unsub-Bug,
   fehlende Felder im config_flow-Schema, trv_valve_demand Typ-Inkonsistenz, CONF_BOOST_TEMP float())
+- services.yaml: 4 fehlende Services ergänzt (export_config, activate_guest_mode, deactivate_guest_mode, reset_stats)
+- sysmode-pill Buttons im Dashboard repariert (querySelector → querySelectorAll + data-sysmode)
+- TRV-first Berechnung: Im TRV-Modus wird die Ventilposition als primäres Anforderungssignal
+  verwendet (60% Ventil + 40% Temperaturdelta), auto-aktiviert ohne CONF_TRV_VALVE_DEMAND Flag.
+  Laufzeitmessung nutzt ebenfalls Ventilposition > 8% statt berechnete Anforderung → reaktionsschneller
+
+---
+
+## 13. TRV-Architektur (Wichtig für alle zukünftigen Sessions)
+
+### Warum Ventilposition statt Raumsensor?
+
+| Signal | Reaktionszeit | Genauigkeit für Anforderung | Verfügbarkeit |
+|--------|--------------|----------------------------|---------------|
+| Raumsensor (Luft) | 15–30 min | gut für Komfort, träge für Regelung | optional |
+| TRV current_temperature | 5–15 min | am Heizkörper = leicht wärmer als Raum | wenn TRV vorhanden |
+| TRV Ventilposition | sofort | direktes Signal: TRV-eigener Controller hat entschieden | wenn TRV unterstützt |
+
+**Fazit:** Die Ventilposition ist das beste Anforderungssignal in TRV-Modus, weil der TRV-interne Controller bereits eine eigene Regelung macht und das Ergebnis (Ventil auf/zu) direkt ausgibt.
+
+### Attribut-Namen für Ventilposition (verschiedene TRVs)
+```python
+vp = attrs.get("valve_position") or attrs.get("position") or attrs.get("pi_heating_demand")
+```
+- Zigbee2MQTT TRVs: `valve_position` (0–100)
+- Z-Wave TRVs: `position` (0–100)
+- Eurotronic/Spirit: `pi_heating_demand` (0–100)
+
+### Blending-Logik (coordinator.py `_apply_trv_valve_demand`)
+```
+TRV-Modus (auto):    demand = temp_demand * 0.40 + valve_position * 0.60
+Switch-Modus (opt):  demand = temp_demand * 0.70 + valve_position * 0.30
+                     + Klammerung: valve>85% → min 30, valve<8% → max 30
+```
+
+### Temperatur-Blending (`_blend_trv_temp`)
+```
+trv_temp_weight = 0 (default):  Raumsensor primär, TRV-Temp nur Fallback wenn kein Raumsensor
+trv_temp_weight > 0:             Blended = room * (1-w) + (trv_avg + offset) * w
+trv_temp_offset (default 0):     Kalibrierung: TRV sitzt am Heizkörper → oft leicht wärmer
+                                  Negativer Offset (z.B. -2.0) kompensiert Nahwärme
+```
+
+### Laufzeitmessung in TRV-Modus (coordinator.py `_update_runtime_tracking`)
+```python
+# TRV-Modus: Ventilposition > 8% = Zimmer heizt (direktes Signal)
+avg_valve = rdata.get("trv_avg_valve")
+if avg_valve is not None:
+    room_heating = avg_valve > 8
+else:
+    room_heating = demand > 0  # Fallback
+```
+
+### Wo TRV-Daten im room_data dict landen
+Nach `_async_update_data()` enthält jedes room_data-Entry:
+```python
+"trv_raw_temp":    float | None   # Rohtemperatur vom TRV (ohne Offset)
+"trv_humidity":    float | None   # Luftfeuchtigkeit aus TRV-Attributen
+"trv_avg_valve":   float | None   # Ventilöffnung 0-100%
+"trv_any_heating": bool           # True wenn hvac_action == "heating" bei irgendeinem TRV
+```
+
+---
 
 ### Geplant / Roadmap
 - 1.1: Temperaturverlauf 7 Tage (168h Snapshots)
