@@ -1759,8 +1759,8 @@ class IHCCoordinator(DataUpdateCoordinator):
         - window_close_delay:   seconds after sensor goes OFF before IHC resumes heating (default 0 s)
         """
         room_id = room.get(CONF_ROOM_ID, "")
-        reaction_time = float(room.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME))
-        close_delay   = float(room.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY))
+        reaction_time = int(room.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME))
+        close_delay   = int(room.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY))
         now           = time.monotonic()
 
         # Check raw sensor state

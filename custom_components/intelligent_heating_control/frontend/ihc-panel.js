@@ -3103,7 +3103,7 @@ class IHCPanel extends HTMLElement {
 
       <div class="form-group">
         <label class="form-label">Schimmelschutz</label>
-        <select class="form-select" id="m-mold-enabled">
+        <select class="form-select" id="m-mold-protection">
           <option value="true">Aktiviert</option>
           <option value="false">Deaktiviert</option>
         </select>
@@ -3281,29 +3281,29 @@ class IHCPanel extends HTMLElement {
 
       await this._callService("add_room", {
         name,
-        temp_sensor:            modal.querySelector("#m-sensor").value.trim(),
+        temp_sensor:            modal.querySelector("#m-sensor")?.value.trim() || "",
         valve_entity:           valves[0] || "",
         valve_entities:         valves,
         window_sensor:          windows[0] || "",
         window_sensors:         windows,
-        room_offset:            parseFloat(modal.querySelector("#m-offset").value),
-        comfort_temp:           parseFloat(modal.querySelector("#m-comfort").value),
-        eco_offset:             parseFloat(modal.querySelector("#m-eco-offset").value),
-        eco_max_temp:           parseFloat(modal.querySelector("#m-eco-max").value),
-        sleep_offset:           parseFloat(modal.querySelector("#m-sleep-offset").value),
-        sleep_max_temp:         parseFloat(modal.querySelector("#m-sleep-max").value),
-        away_offset:            parseFloat(modal.querySelector("#m-away-offset").value),
-        away_max_temp:          parseFloat(modal.querySelector("#m-away-max").value),
+        room_offset:            parseFloat(modal.querySelector("#m-offset")?.value) || 0,
+        comfort_temp:           parseFloat(modal.querySelector("#m-comfort")?.value) || 21.0,
+        eco_offset:             parseFloat(modal.querySelector("#m-eco-offset")?.value) || 3.0,
+        eco_max_temp:           parseFloat(modal.querySelector("#m-eco-max")?.value) || 21.0,
+        sleep_offset:           parseFloat(modal.querySelector("#m-sleep-offset")?.value) || 4.0,
+        sleep_max_temp:         parseFloat(modal.querySelector("#m-sleep-max")?.value) || 19.0,
+        away_offset:            parseFloat(modal.querySelector("#m-away-offset")?.value) || 6.0,
+        away_max_temp:          parseFloat(modal.querySelector("#m-away-max")?.value) || 18.0,
         ha_schedule_off_mode:   modal.querySelector("#m-sched-off-mode")?.value || "eco",
-        deadband:               parseFloat(modal.querySelector("#m-deadband").value),
-        weight:                 parseFloat(modal.querySelector("#m-weight").value),
-        absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp").value),
-        room_qm:                parseFloat(modal.querySelector("#m-room-qm").value) || 0,
-        room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat").value, 10),
-        window_reaction_time:   parseFloat(modal.querySelector("#m-window-reaction-time").value),
-        window_close_delay:     parseFloat(modal.querySelector("#m-window-close-delay").value),
-        humidity_sensor:        modal.querySelector("#m-humidity-sensor").value.trim(),
-        mold_protection_enabled: modal.querySelector("#m-mold-enabled").value === "true",
+        deadband:               parseFloat(modal.querySelector("#m-deadband")?.value) || 0.5,
+        weight:                 parseFloat(modal.querySelector("#m-weight")?.value) || 1.0,
+        absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15.0,
+        room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
+        room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
+        window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
+        window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
+        humidity_sensor:        modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
+        mold_protection_enabled: modal.querySelector("#m-mold-protection")?.value === "true",
         co2_sensor:             modal.querySelector("#m-co2-sensor")?.value.trim() || "",
         room_presence_entities: (modal.querySelector("#m-presence-entities")?.value || "")
                                   .split(",").map(s => s.trim()).filter(Boolean),
@@ -3706,6 +3706,7 @@ class IHCPanel extends HTMLElement {
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:         modal.querySelector("#m-trv-valve-demand")?.checked === true,
+        trv_min_send_interval:    parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         ha_schedules,
       });
       this._closeModal();
