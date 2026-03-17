@@ -655,10 +655,10 @@ Falls du diesen Chat frisch öffnest ohne Verlauf, tue folgendes:
 
 ```bash
 # 1. Ins Projekt wechseln
-cd /home/user/intelligent-heatingcontroll
+cd /home/user/intelligent-heatingcontrol
 
 # 2. Auf richtigen Branch wechseln
-git checkout claude/hacs-heating-control-plugin-NXmK3
+git checkout claude/review-homeassistant-repo-PL7tn
 
 # 3. Aktuellen Status sehen
 git status
@@ -674,3 +674,348 @@ done
 ```
 
 **Dann diese CLAUDE.md lesen und Aufgaben aus dem letzten Chat-Kontext übernehmen.**
+
+---
+
+## 14. Architektur-Vision: Zwei Haupt-Betriebsmodi
+
+> **Status (2026-03-17):** TRV-Modus ist implementiert und wird weiter verfeinert.
+> Wärmeerzeuger-Modus ist auf der Roadmap (3.0). Beide Modi sollen sich fundamental unterscheiden.
+
+### Überblick der Betriebsmodi
+
+```
+CONTROLLER_MODE_TRV    = "trv"    → Jetzt implementiert
+CONTROLLER_MODE_SWITCH = "switch" → Jetzt implementiert (Heizungsschalter-Modus)
+CONTROLLER_MODE_HG     = "hg"     → Roadmap 3.0: Wärmeerzeuger-Modus (Heat Generator)
+```
+
+### Modus-Vergleich: Was ist wo aktiv?
+
+| Feature | TRV-Modus | Switch-Modus | Wärmeerzeuger-Modus (3.0) |
+|---------|:---------:|:------------:|:------------------------:|
+| Raumtemperatur-Sollwert | ✅ | ✅ | ✅ |
+| Zeitpläne (IHC + HA) | ✅ | ✅ | ✅ |
+| Manuell-Override mit Auto-Reset | ✅ | ✅ | ✅ |
+| Fenstererkennung | ✅ | ✅ | ✅ |
+| Schimmelschutz / CO₂ | ✅ | ✅ | ✅ |
+| Anwesenheit / Urlaub / Gäste | ✅ | ✅ | ✅ |
+| Boost-Modus | ✅ | ✅ | ✅ |
+| Nachtabsenkung | ✅ | ✅ | ✅ |
+| Adaptives Vorheizen (lernt Aufheizzeit) | ✅ | ✅ | ✅ |
+| TRV-Ventilposition als Demand-Signal | ✅ | optional | — |
+| TRV-Sensor-Blending | ✅ | optional | — |
+| Heizungsschalter (EIN/AUS) | optional¹ | ✅ | — |
+| Klimabaustein (Hysterese, Min-Zeiten) | optional¹ | ✅ | — |
+| Adaptive Heizkurve | ❌ | ✅ | ✅ |
+| Sommerautomatik (schließt TRVs) | ✅² | ✅ | ✅ |
+| Vorlauftemperatur-Regelung (PID) | ❌ | ✅ | ✅ |
+| Solarüberschuss-Nutzung | optional | ✅ | ✅ |
+| Dynamischer Energiepreis | optional | ✅ | ✅ |
+| Heizkreis-Pumpensteuerung | ❌ | ❌ | ✅ |
+| Mehrkreis-Heizung (HK1/HK2/FBH) | ❌ | ❌ | ✅ |
+| Mischventil-Regelung | ❌ | ❌ | ✅ |
+| KNX-Thermostat-Integration | ❌ | ❌ | ✅ |
+| Pufferspeicher-Management | ❌ | ❌ | ✅ |
+| Warmwasser-Priorisierung (TWW) | ❌ | ❌ | ✅ |
+| Wärmepumpe-Optimierung (COP) | ❌ | ❌ | ✅ |
+| Hydraulischer Abgleich | ❌ | ❌ | ✅ |
+
+¹ Wenn `CONF_HEATING_SWITCH` konfiguriert → Kessel mit TRVs (Hybrid-Setup)
+² Sendet Frost-Schutz-Temperatur statt Zieltemperatur → TRV schließt
+
+---
+
+## 15. Roadmap 3.0 – Wärmeerzeuger-Modus (Heat Generator Mode)
+
+> **Ziel:** Einen vollständigen dritten Betriebsmodus für professionelle Zentralheizungsanlagen
+> mit mehren Heizkreisen, Wärmepumpen, KNX-Integration und hydraulischem Abgleich.
+
+### 15.1 Anwendungsfälle (Wer braucht den Wärmeerzeuger-Modus?)
+
+```
+Typische Setups:
+  A) Einfamilienhaus mit Gas/Öl-Kessel + Fußbodenheizung (mehrere Kreise)
+  B) Haus mit Wärmepumpe + Niedertemperatur-Heizkörper oder FBH
+  C) KNX-Haus mit Raumtemperaturreglern (KNX-Thermostate, Präsenzmelder)
+  D) Gebäude mit mehreren Heizkreisen (z.B. HK1 = Heizkörper 60°C, HK2 = FBH 35°C)
+  E) Solar-thermisch + Pufferspeicher + Gas-Kessel (Hybrid-Heizung)
+  F) Pellet-/Holzheizung mit Pufferspeicher und mehreren Entnahmepunkten
+```
+
+### 15.2 Neue Konzepte im Wärmeerzeuger-Modus
+
+#### Heizkreis (CONF_HEATING_CIRCUIT)
+Ein Heizkreis ist eine Gruppe von Räumen die über eine gemeinsame Pumpe/Mischventil versorgt werden.
+
+```python
+# Neues Konzept: Heizkreis-Konfiguration
+CONF_CIRCUITS = "circuits"        # Liste aller Heizkreise
+CONF_CIRCUIT_ID = "circuit_id"
+CONF_CIRCUIT_NAME = "circuit_name"
+CONF_CIRCUIT_PUMP = "circuit_pump"           # switch.heizkreis_pumpe
+CONF_CIRCUIT_MIXER_ENTITY = "circuit_mixer"  # number.mischventil_position
+CONF_CIRCUIT_FLOW_SENSOR = "circuit_flow"    # sensor.vorlauf_HK1
+CONF_CIRCUIT_RETURN_SENSOR = "circuit_return" # sensor.rücklauf_HK1
+CONF_CIRCUIT_TYPE = "circuit_type"           # "radiator" | "underfloor" | "mixed"
+CONF_CIRCUIT_MAX_FLOW = "circuit_max_flow"   # max. Vorlauftemperatur °C
+CONF_CIRCUIT_ROOMS = "circuit_rooms"         # Zimmer-IDs die zu diesem HK gehören
+CONF_CIRCUIT_DESIGN_TEMP = "circuit_design"  # Auslegungstemperatur (Norm-AT)
+
+# Vorlauftemperatur je Heizkreis (eigene Heizkurve pro Kreis)
+circuit_comfort_base = heating_curve_hk.get_target_temp(outdoor_temp)
+# FBH-Kreis läuft z.B. bei 35°C, Heizkörper-Kreis bei 60°C
+```
+
+#### Mischventil-Regelung
+```python
+# Mischventil: Vorlauftemperatur des Kreises regulieren
+# Regelungsart: PID oder Zwei-Punkt mit Hysterese
+# Aktuatoren: number.* entity für Ventil-Position (0-100%)
+
+CONF_MIXER_KP = "mixer_kp"           # PID Proportional
+CONF_MIXER_KI = "mixer_ki"           # PID Integral
+CONF_MIXER_KD = "mixer_kd"           # PID Differential
+CONF_MIXER_RUN_TIME = "mixer_runtime" # Motorlaufzeit Sekunden (typisch 60-120s)
+```
+
+#### Hydraulischer Abgleich (automatisch)
+```python
+# IHC lernt aus Rücklauftemperatur-Differenzen:
+# Wenn Rücklauf >> Vorlauf − Delta_soll → Ventil öffnet zu schnell → Drosseln
+# Speichert optimale kV-Werte pro Zimmer/Heizkreis
+
+CONF_HYDRAULIC_BALANCE_ENABLED = "hydraulic_balance"  # bool
+CONF_HYDRAULIC_DELTA_SOLL = "hydraulic_delta"         # °C Soll-Spreizung (typisch 10-15°C)
+```
+
+#### Wärmepumpe-Optimierung
+```python
+# WP läuft am effizientesten bei niedrigen Vorlauftemperaturen (besserer COP)
+# IHC minimiert Vorlauftemperatur → WP-Effizienz steigt
+
+CONF_HEATPUMP_ENTITY = "heatpump_entity"          # climate.wärmepumpe
+CONF_HEATPUMP_COP_SENSOR = "heatpump_cop"         # sensor.wp_cop
+CONF_HEATPUMP_MODE = "heatpump_mode"              # "flow_opt" | "room_prio"
+CONF_HEATPUMP_MIN_FLOW = "heatpump_min_flow"      # min. Vorlauftemp. WP (z.B. 25°C)
+CONF_HEATPUMP_BIVALENZ_TEMP = "bivalenz_temp"     # AT unter der Zusatz-Heizung startet
+CONF_HEATPUMP_BIVALENZ_ENTITY = "bivalenz_entity" # switch.elektro_heizstab
+
+# COP-geführte Optimierung:
+# Wenn COP < threshold → WP nicht für Spitzenlast nutzen → Heizstab besser
+```
+
+#### Pufferspeicher-Management
+```python
+CONF_BUFFER_TEMP_TOP = "buffer_temp_top"     # sensor.puffer_oben
+CONF_BUFFER_TEMP_MID = "buffer_temp_mid"     # sensor.puffer_mitte (optional)
+CONF_BUFFER_TEMP_BOT = "buffer_temp_bot"     # sensor.puffer_unten
+CONF_BUFFER_TARGET = "buffer_target"         # gewünschte Mindest-Puffertemperatur
+CONF_BUFFER_HYSTERESIS = "buffer_hysteresis" # Puffer-Hysterese
+
+# Logik:
+# Wenn Puffer oben < buffer_target - hysteresis → Erzeuger einschalten
+# Wenn Puffer oben > buffer_target + hysteresis → Erzeuger ausschalten
+# Heizkreis-Pumpen laufen solange Puffer warm genug (oben > HK-Vorlauf-Soll)
+```
+
+#### Warmwasser-Priorisierung (TWW = Trinkwarmwasser)
+```python
+CONF_TWW_ENABLED = "tww_enabled"
+CONF_TWW_SENSOR = "tww_sensor"               # sensor.boiler_temp
+CONF_TWW_TARGET = "tww_target"               # Ziel-Warmwassertemperatur
+CONF_TWW_HYSTERESIS = "tww_hysteresis"       # typisch 5°C
+CONF_TWW_PRIORITY_ENTITY = "tww_priority"    # switch.tww_umschaltventil
+CONF_TWW_SCHEDULE = "tww_schedule"           # Zeitpläne für TWW-Aufheizung
+
+# Logik:
+# Wenn TWW-Sensor < target - hysteresis → TWW-Priorisierung EIN
+# Heizkreise werden für TWW-Dauer gestoppt (Pumpen aus)
+# TWW-Umschaltventil auf "TWW" schalten
+# Wenn TWW-Sensor > target → zurückschalten auf Heizkreis
+```
+
+#### KNX-Integration
+```python
+# KNX-Thermostate liefern Raum-Sollwert und Ist-Temperatur via KNX-Integration in HA
+# IHC liest KNX-Thermostate als normale climate.*-Entitäten
+# IHC überschreibt KNX-Thermostate NICHT (sie haben ihre eigene Logik)
+# Stattdessen: KNX-Thermostat-Anforderung (Heizanforderung) als Input für IHC
+
+CONF_KNX_ROOM_DEMAND_ENTITY = "knx_demand"   # binary_sensor.* oder number.* (0-100%)
+# Wenn KNX-Thermostat Anforderung gibt → IHC öffnet Stellantrieb + regelt Kreis-Pumpe
+
+# Stellantriebe (KNX-Ventile für FBH):
+CONF_KNX_ACTUATOR_ENTITY = "knx_actuator"    # switch.* oder number.* (0-100%)
+# IHC berechnet Ventilposition aus PID-Regelung und schreibt auf KNX-Gruppe
+```
+
+### 15.3 Neue Architektur-Dateien für 3.0
+
+```
+custom_components/intelligent_heating_control/
+├── coordinator.py        → erweitert: Heizkreis-Logik, Puffer, TWW, WP
+├── circuit_manager.py    → NEU: Heizkreis-Verwaltung + Mischventil-PID
+├── buffer_manager.py     → NEU: Pufferspeicher-Logik
+├── heatpump_optimizer.py → NEU: WP-COP-Optimierung + Bivalenz
+├── tww_manager.py        → NEU: Trinkwarmwasser-Priorisierung
+├── hydraulic_balance.py  → NEU: Automatischer hydraulischer Abgleich
+└── frontend/
+    └── ihc-panel.js      → erweitert: Heizkreis-Tab, Puffer-Dashboard, KNX-Konfig
+```
+
+### 15.4 Frontend-Erweiterungen für 3.0
+
+Neue Tabs/Sektionen:
+```
+🔥 Wärmeerzeugung      → Erzeuger-Status, Pufferspeicher-Visualisierung, TWW
+🔄 Heizkreise          → Übersicht aller HKs, Vorlauf/Rücklauf, Pumpen-Status
+⚙️ Einstellungen       → neuer Bereich "Wärmeerzeuger" mit Heizkreis-Konfigurator
+```
+
+### 15.5 Neue Konstanten (3.0)
+
+```python
+# Betriebsmodus
+CONTROLLER_MODE_HG = "hg"  # Heat Generator Mode
+
+# System-Level
+CONF_CIRCUITS = "circuits"
+CONF_TWW_ENABLED = "tww_enabled"
+CONF_TWW_SENSOR = "tww_sensor"
+CONF_TWW_TARGET = "tww_target"
+CONF_TWW_HYSTERESIS = "tww_hysteresis"
+CONF_TWW_PRIORITY_ENTITY = "tww_priority_entity"
+CONF_BUFFER_TEMP_TOP = "buffer_temp_top"
+CONF_BUFFER_TEMP_MID = "buffer_temp_mid"
+CONF_BUFFER_TEMP_BOT = "buffer_temp_bot"
+CONF_BUFFER_TARGET = "buffer_target"
+CONF_BUFFER_HYSTERESIS = "buffer_hysteresis"
+CONF_HEATPUMP_ENTITY = "heatpump_entity"
+CONF_HEATPUMP_COP_SENSOR = "heatpump_cop_sensor"
+CONF_HEATPUMP_BIVALENZ_TEMP = "heatpump_bivalenz_temp"
+CONF_HEATPUMP_BIVALENZ_ENTITY = "heatpump_bivalenz_entity"
+CONF_HYDRAULIC_BALANCE_ENABLED = "hydraulic_balance_enabled"
+CONF_HYDRAULIC_DELTA_SOLL = "hydraulic_delta_soll"
+
+# Pro Heizkreis
+CONF_CIRCUIT_ID = "circuit_id"
+CONF_CIRCUIT_NAME = "circuit_name"
+CONF_CIRCUIT_TYPE = "circuit_type"  # "radiator" | "underfloor" | "mixed"
+CONF_CIRCUIT_PUMP = "circuit_pump"
+CONF_CIRCUIT_MIXER_ENTITY = "circuit_mixer_entity"
+CONF_CIRCUIT_FLOW_SENSOR = "circuit_flow_sensor"
+CONF_CIRCUIT_RETURN_SENSOR = "circuit_return_sensor"
+CONF_CIRCUIT_MAX_FLOW_TEMP = "circuit_max_flow_temp"
+CONF_CIRCUIT_DESIGN_TEMP = "circuit_design_temp"
+CONF_CIRCUIT_ROOMS = "circuit_rooms"
+CONF_MIXER_KP = "mixer_kp"
+CONF_MIXER_KI = "mixer_ki"
+CONF_MIXER_KD = "mixer_kd"
+CONF_MIXER_RUNTIME_SECONDS = "mixer_runtime_seconds"
+```
+
+### 15.6 Implementierungs-Prioritäten (3.0)
+
+Reihenfolge für die Implementierung:
+
+```
+Phase 3.1 – Grundstruktur:
+  [ ] CONTROLLER_MODE_HG in const.py + config_flow
+  [ ] Heizkreis-Konfigurator (circuit_manager.py)
+  [ ] Heizkreis-Pumpensteuerung (analog zu heating_switch)
+  [ ] Pro-Heizkreis Vorlauftemperatur-Berechnung (Heizkurve pro Kreis)
+  [ ] Frontend: Heizkreis-Tab im Einstellungen
+
+Phase 3.2 – Mischventil & Flow:
+  [ ] Mischventil-PID-Regelung (circuit_manager.py)
+  [ ] Vorlauftemperatur-Messung + Regelkreis
+  [ ] Rücklauftemperatur-Überwachung
+  [ ] Frontend: Heizkreis-Dashboard mit Vorlauf/Rücklauf-Anzeige
+
+Phase 3.3 – Pufferspeicher:
+  [ ] buffer_manager.py
+  [ ] Dreischicht-Temperaturüberwachung
+  [ ] Erzeuger-Anforderung aus Puffer-Logik
+  [ ] Frontend: Puffer-Visualisierung (Schichtung + Temperaturen)
+
+Phase 3.4 – Warmwasser (TWW):
+  [ ] tww_manager.py
+  [ ] TWW-Priorisierung (Heizkreise stoppen)
+  [ ] Zeitplan-geführte TWW-Aufheizung
+  [ ] Frontend: TWW-Status + Zeitplan
+
+Phase 3.5 – Wärmepumpe:
+  [ ] heatpump_optimizer.py
+  [ ] COP-Berechnung + -Überwachung
+  [ ] Bivalenz-Punkt-Logik
+  [ ] Vorlauftemperatur-Minimierung für WP-Effizienz
+  [ ] Frontend: WP-Status + COP-Kurve
+
+Phase 3.6 – Hydraulischer Abgleich:
+  [ ] hydraulic_balance.py
+  [ ] Rücklauftemperatur-basiertes Lernen
+  [ ] Automatische kV-Wert-Optimierung
+  [ ] Frontend: Abgleich-Assistent
+
+Phase 3.7 – KNX-Integration:
+  [ ] KNX-Thermostat-Anforderungslesung
+  [ ] KNX-Stellantrieb-Steuerung
+  [ ] Frontend: KNX-Konfigurations-Sektion
+```
+
+### 15.7 Wichtige Designentscheidungen für 3.0
+
+**1. Rückwärtskompatibilität:**
+- Bestehende Switch-Modus und TRV-Modus Konfigurationen dürfen NICHT brechen
+- Wärmeerzeuger-Modus ist ein vollständig neuer Modus-Typ, keine Erweiterung von Switch
+- Upgrade-Pfad: Switch-Modus → Wärmeerzeuger-Modus via Config-Flow-Migration
+
+**2. Heizkreis-Hierarchie:**
+```
+Wärmeerzeuger (Kessel/WP/Pellet)
+    └── Pufferspeicher (optional)
+         ├── Heizkreis 1: Heizkörper (60°C, Mischventil)
+         │    ├── Raum A (Stellantrieb / TRV)
+         │    └── Raum B (Stellantrieb / TRV)
+         ├── Heizkreis 2: Fußbodenheizung (35°C, Mischventil)
+         │    ├── Raum C (Stellantrieb)
+         │    └── Raum D (Stellantrieb)
+         └── TWW-Kreis (Warmwasser, Priorität)
+```
+
+**3. Dual-Mode Räume:**
+Ein Raum kann sowohl TRVs (Ventilsteuerung) als auch in einem Heizkreis sein (Pumpe/Mischventil).
+In diesem Fall: IHC steuert BEIDE (TRV-Stellantrieb UND Heizkreis-Pumpe).
+
+**4. Energiebilanz:**
+Im Wärmeerzeuger-Modus: Erzeuger-Energie = gemessene kWh (Smart-Meter) oder COP × el. Energie.
+Pro Heizkreis: Energie-Anteil = (Spreizung × Durchfluss × Laufzeit) / Gesamt.
+
+---
+
+## 11. Bekannte offene Punkte / Roadmap (aktualisiert)
+
+### Implementiert (✅)
+- Zeitpläne und Kalender als Zimmer-Sub-Tabs
+- TRV-Modus vollständig implementiert mit:
+  - Ventilposition als primäres Anforderungssignal (60% Ventil + 40% Temperaturdelta)
+  - Manuell-Override-Erkennung mit Auto-Reset bei Schedule-Wechsel
+  - Heizungsschalter-Unterstützung für Hybrid-Setups (Kessel + TRVs)
+  - Sommerautomatik schließt TRVs (sendet Frost-Temp statt Ziel-Temp)
+  - Adaptive Heizkurve deaktiviert (irrelevant im TRV-Modus)
+  - Demand-Korrektur: 0 wenn Raum-IST >= Soll + Totband
+  - Display-Quantisierung auf 0.5°C (konsistent mit TRV-Sollwert)
+- Switch-only Einstellungen (Hysterese, Vorlauf-PID) in TRV-Modus ausgeblendet
+- Backup & Restore Layout repariert
+- Services.yaml: alle Services vollständig dokumentiert
+- strings.json + icon.png für HACS-Kompatibilität
+- Vollständiges CLAUDE.md als Onboarding-Dokument
+
+### Geplant
+- **3.0:** Wärmeerzeuger-Modus (Heizkreise, Puffer, WP, TWW, KNX) → siehe Kapitel 15
+- **2.1:** Passive Solar Heating via Rollosteuerung → siehe Kapitel 13
+- **1.1:** Temperaturverlauf 7 Tage (168h Snapshots)
+- **1.3:** Adaptive Heizkurve, Solarüberschuss, Energiepreisoptimierung
+- **1.4:** ETA-basierte Vorheizung
+- **1.5:** PID Vorlauftemperaturregelung, Smart-Meter, Tibber-Forecast

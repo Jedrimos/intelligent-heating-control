@@ -264,6 +264,7 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._room_manual_period_key: Dict[str, str] = {}       # room_id → "start|end" snapshot
         self._window_open_counters: Dict[str, int] = {}  # room_id → consecutive drops
         self._boost_until: Dict[str, datetime] = {}  # room_id → boost expiry time
+        self._room_pre_boost_mode: Dict[str, str] = {}  # room_id → mode before boost
 
         # Presence-based auto-away
         self._presence_away_active: bool = False  # True when auto-away triggered by presence
@@ -394,6 +395,12 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._system_mode = data.get("system_mode", SYSTEM_MODE_AUTO)
         self._room_modes = data.get("room_modes", {})
         self._room_manual_temps = data.get("room_manual_temps", {})
+        # Populate manual tracking for rooms that were in MANUAL mode before restart.
+        # Without a timestamp, the auto-reset logic would never fire after restart.
+        # Setting utcnow() means: any schedule change AFTER restart will trigger auto-reset.
+        for room_id, mode in self._room_modes.items():
+            if mode == ROOM_MODE_MANUAL and room_id not in self._room_manual_since:
+                self._room_manual_since[room_id] = dt_util.utcnow()
         self._vacation_auto_active = data.get("vacation_auto_active", False)
         self._heating_runtime_today = data.get("heating_runtime_today", 0.0)
         self._heating_runtime_yesterday = data.get("heating_runtime_yesterday", 0.0)
@@ -480,6 +487,10 @@ class IHCCoordinator(DataUpdateCoordinator):
         # Without this, the reaction_time delay causes a false "no window open" on
         # the first cycle because _window_open_since is None for that room.
         self._prefill_window_states()
+        # Immediately notify all coordinator listeners (climate entities) so they
+        # write their new hvac_mode to HA without waiting for the next 60s cycle.
+        # hvac_mode reads from get_system_mode() which already reflects the new value.
+        self.async_update_listeners()
         self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
@@ -498,6 +509,10 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._room_modes[room_id] = mode
         # Same fix: re-check open windows so mode changes react immediately
         self._prefill_window_states()
+        # Immediately notify all coordinator listeners so climate entities write their
+        # new preset_mode/hvac_mode without waiting for the next full 60s cycle.
+        # preset_mode reads from get_room_mode() which already reflects the new value.
+        self.async_update_listeners()
         self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
@@ -518,6 +533,9 @@ class IHCCoordinator(DataUpdateCoordinator):
         If `temp` is given the room switches to manual mode at that temperature.
         Otherwise the room config's boost_temp is used; if absent, comfort mode is used.
         """
+        # Remember current mode so we can restore it after boost ends
+        if room_id not in self._boost_until:  # Only save if not already in boost
+            self._room_pre_boost_mode[room_id] = self._room_modes.get(room_id, ROOM_MODE_AUTO)
         self._boost_until[room_id] = datetime.now() + timedelta(minutes=duration_minutes)
         boost_temp = temp
         if boost_temp is None:
@@ -528,14 +546,16 @@ class IHCCoordinator(DataUpdateCoordinator):
             self._room_manual_temps[room_id] = float(boost_temp)
         else:
             self._room_modes[room_id] = ROOM_MODE_COMFORT
+        self.async_update_listeners()
         self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
     def cancel_room_boost(self, room_id: str) -> None:
-        """Cancel boost mode for a room."""
+        """Cancel boost mode for a room, restoring the mode that was active before boost."""
         self._boost_until.pop(room_id, None)
-        if self._room_modes.get(room_id) == ROOM_MODE_COMFORT:
-            self._room_modes[room_id] = ROOM_MODE_AUTO
+        prev_mode = self._room_pre_boost_mode.pop(room_id, ROOM_MODE_AUTO)
+        self._room_modes[room_id] = prev_mode
+        self.async_update_listeners()
         self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
@@ -548,13 +568,13 @@ class IHCCoordinator(DataUpdateCoordinator):
         return max(0, int(remaining))
 
     def _check_boost_expiry(self) -> None:
-        """Expire boost modes that have timed out."""
+        """Expire boost modes that have timed out, restoring pre-boost mode."""
         now = datetime.now()
         expired = [rid for rid, expiry in self._boost_until.items() if now >= expiry]
         for rid in expired:
             del self._boost_until[rid]
-            if self._room_modes.get(rid) == ROOM_MODE_COMFORT:
-                self._room_modes[rid] = ROOM_MODE_AUTO
+            prev_mode = self._room_pre_boost_mode.pop(rid, ROOM_MODE_AUTO)
+            self._room_modes[rid] = prev_mode
 
     def _is_summer_mode_active(self) -> bool:
         """Return True if Sommerautomatik should block heating."""
@@ -2755,10 +2775,12 @@ class IHCCoordinator(DataUpdateCoordinator):
             if _loop_trv_mode or room.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND):
                 demand = self._apply_trv_valve_demand(demand, trv_data, trv_mode=_loop_trv_mode)
 
-            # Safety gate: if room sensor shows temp already above target + deadband,
-            # the room is warm enough → force demand to 0 regardless of TRV valve position.
-            # This prevents valve-position blending from showing demand in already-warm rooms.
-            if current_temp is not None and current_temp >= target_temp + deadband:
+            # Safety gate: if room sensor shows temp at or above target, the room is
+            # warm enough → force demand to 0 regardless of TRV valve position.
+            # Note: deadband applies on the LOWER side (don't reheat until temp drops
+            # to target - deadband), but the UPPER gate is simply target_temp itself.
+            # This prevents valve-position blending from showing demand when IST >= SOLL.
+            if current_temp is not None and current_temp >= target_temp:
                 demand = 0.0
 
             self._update_warmup_tracking(
@@ -2838,7 +2860,7 @@ class IHCCoordinator(DataUpdateCoordinator):
             # We do NOT suppress setpoints based on should_heat because:
             #   - There is no central boiler in TRV mode
             #   - TRVs decide themselves whether to heat
-            # Exception: room OFF, window open, or system OFF (without frost-protect option) → turn off TRV.
+            # Exception: room OFF, window open, system OFF, or summer mode → close TRV.
             for room in self.get_rooms():
                 room_id = room.get(CONF_ROOM_ID, "")
                 if not room_id or room_id not in room_data:
@@ -2849,6 +2871,11 @@ class IHCCoordinator(DataUpdateCoordinator):
                 if window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn TRV off (or frost-protect if off mode not supported by the device)
                     self._turn_off_valve_entities(room)
+                elif summer_mode:
+                    # Sommerautomatik: send frost protection temp to close TRV valves.
+                    # (The TRV's internal thermostat would otherwise try to heat if room cools at night)
+                    frost_temp = self._get_frost_protection_temp()
+                    self._set_valve_entities(room, frost_temp)
                 else:
                     # Always send the desired target – TRV decides whether to heat
                     self._set_valve_entities(room, rdata["target_temp"])
