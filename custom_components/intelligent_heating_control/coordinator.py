@@ -66,6 +66,7 @@ from .const import (
     CONF_SUMMER_THRESHOLD,
     CONF_PRESENCE_ENTITIES,
     CONF_FROST_PROTECTION_TEMP,
+    CONF_OFF_USE_FROST_PROTECTION,
     CONF_NIGHT_SETBACK_ENABLED,
     CONF_NIGHT_SETBACK_OFFSET,
     CONF_SUN_ENTITY,
@@ -86,6 +87,7 @@ from .const import (
     CONF_TEMP_HISTORY_SIZE,
     DEFAULT_SUMMER_THRESHOLD,
     DEFAULT_FROST_PROTECTION_TEMP,
+    DEFAULT_OFF_USE_FROST_PROTECTION,
     DEFAULT_NIGHT_SETBACK_OFFSET,
     DEFAULT_PREHEAT_MINUTES,
     DEFAULT_BOILER_KW,
@@ -1872,8 +1874,13 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         # --- 1. System mode overrides ---
         if system_mode == SYSTEM_MODE_OFF:
-            # Frost protection: even in OFF we keep a minimum
-            return frost_temp, {"source": "frost_protection", "schedule_active": False}
+            off_use_frost = bool(cfg.get(CONF_OFF_USE_FROST_PROTECTION, DEFAULT_OFF_USE_FROST_PROTECTION))
+            if off_use_frost:
+                # Legacy behaviour: keep valves at frost-protection temp
+                return frost_temp, {"source": "frost_protection", "schedule_active": False}
+            else:
+                # Default: valves are turned off completely (handled in update loop)
+                return frost_temp, {"source": "system_off", "schedule_active": False}
 
         if system_mode == SYSTEM_MODE_COOL:
             # Cooling mode: target is the configured cooling temperature (room wants to stay BELOW this)
@@ -2516,6 +2523,10 @@ class IHCCoordinator(DataUpdateCoordinator):
         for room_id in room_data:
             room_data[room_id]["runtime_today_minutes"] = self.get_room_runtime_today_minutes(room_id)
 
+        # Determine if system OFF should turn valves off completely or frost-protect
+        off_use_frost = bool(cfg.get(CONF_OFF_USE_FROST_PROTECTION, DEFAULT_OFF_USE_FROST_PROTECTION))
+        system_is_off = (self._system_mode == SYSTEM_MODE_OFF)
+
         # Apply TRV setpoints and/or control heating switch
         if controller_mode == CONTROLLER_MODE_TRV:
             # TRV mode: each TRV self-regulates — always send the desired target temp.
@@ -2523,7 +2534,7 @@ class IHCCoordinator(DataUpdateCoordinator):
             # We do NOT suppress setpoints based on should_heat because:
             #   - There is no central boiler in TRV mode
             #   - TRVs decide themselves whether to heat
-            # Exception: room OFF or window open → turn off TRV (or frost-protect as fallback).
+            # Exception: room OFF, window open, or system OFF (without frost-protect option) → turn off TRV.
             for room in self.get_rooms():
                 room_id = room.get(CONF_ROOM_ID, "")
                 if not room_id or room_id not in room_data:
@@ -2531,8 +2542,8 @@ class IHCCoordinator(DataUpdateCoordinator):
                 rdata = room_data[room_id]
                 room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
                 window_open = rdata.get("window_open", False)
-                if window_open or room_mode == ROOM_MODE_OFF:
-                    # Turn TRV off (or frost-protect if off mode not supported)
+                if window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
+                    # Turn TRV off (or frost-protect if off mode not supported by the device)
                     self._turn_off_valve_entities(room)
                 else:
                     # Always send the desired target – TRV decides whether to heat
@@ -2547,8 +2558,8 @@ class IHCCoordinator(DataUpdateCoordinator):
                 rdata = room_data[room_id]
                 room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
                 window_open = rdata.get("window_open", False)
-                if window_open or room_mode == ROOM_MODE_OFF:
-                    # Switch mode: turn off TRVs when window open or room off
+                if window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
+                    # Turn off TRVs when window open, room off, or system off (without frost-protect)
                     self._turn_off_valve_entities(room)
                 else:
                     self._set_valve_entities(room, rdata["target_temp"])

@@ -29,6 +29,7 @@ from .const import (
     CONF_SHOW_PANEL,
     CONF_PRESENCE_ENTITIES,
     CONF_FROST_PROTECTION_TEMP,
+    CONF_OFF_USE_FROST_PROTECTION,
     CONF_NIGHT_SETBACK_ENABLED,
     CONF_NIGHT_SETBACK_OFFSET,
     CONF_SUN_ENTITY,
@@ -150,6 +151,7 @@ from .const import (
     DEFAULT_VACATION_CALENDAR_KEYWORD,
     DEFAULT_VENTILATION_ADVICE_ENABLED,
     DEFAULT_FROST_PROTECTION_TEMP,
+    DEFAULT_OFF_USE_FROST_PROTECTION,
     DEFAULT_NIGHT_SETBACK_OFFSET,
     DEFAULT_PREHEAT_MINUTES,
     DEFAULT_ECO_OFFSET,
@@ -424,6 +426,10 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "number": {"min": 4, "max": 15, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
+            vol.Optional(
+                CONF_OFF_USE_FROST_PROTECTION,
+                default=bool(cfg.get(CONF_OFF_USE_FROST_PROTECTION, DEFAULT_OFF_USE_FROST_PROTECTION))
+            ): selector.selector({"boolean": {}}),
             # --- Night setback ---
             vol.Optional(
                 CONF_NIGHT_SETBACK_ENABLED,

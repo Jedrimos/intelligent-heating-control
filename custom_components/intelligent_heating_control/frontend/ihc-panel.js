@@ -1926,7 +1926,18 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Frostschutz-Temperatur (°C)</label>
               <input type="number" class="form-input" id="frost-temp" min="4" max="15" step="0.5" value="${a.frost_protection_temp ?? 7}">
-              <span class="form-hint">Absolute Untergrenze – die Heizung hält die Temperatur niemals darunter, egal welcher Modus aktiv ist (auch bei „Aus").</span>
+              <span class="form-hint">Absolute Untergrenze für Abwesend- und Urlaubsmodus. Im Modus „Aus" wird dieser Wert nur genutzt wenn die Option unten aktiviert ist.</span>
+            </div>
+            <div class="settings-item">
+              <label>Verhalten bei Modus „Aus"</label>
+              <select class="form-select" id="off-use-frost">
+                <option value="false" ${!a.off_use_frost_protection ? "selected" : ""}>🔴 Thermostate wirklich ausschalten</option>
+                <option value="true" ${a.off_use_frost_protection ? "selected" : ""}>❄️ Frostschutz-Temperatur halten</option>
+              </select>
+              <span class="form-hint">
+                <strong>🔴 Ausschalten (Standard):</strong> IHC setzt die Thermostate auf „Aus" (hvac_mode=off). Empfohlen für die meisten Geräte.<br>
+                <strong>❄️ Frostschutz:</strong> Thermostate bleiben an und halten die Frostschutz-Temperatur. Für Geräte die keinen Off-Modus unterstützen.
+              </span>
             </div>
             <div class="settings-item">
               <label>Sommerautomatik</label>
@@ -2472,11 +2483,12 @@ class IHCPanel extends HTMLElement {
       const sumT   = parseFloat(content.querySelector("#summer-threshold").value);
       if ([awayT, vacT, frostT, sumT].some(isNaN)) { this._toast("⚠️ Ungültiger Temperaturwert"); return; }
       this._callService("update_global_settings", {
-        away_temp:              awayT,
-        vacation_temp:          vacT,
-        frost_protection_temp:  frostT,
-        summer_mode_enabled:    content.querySelector("#summer-enabled").value === "true",
-        summer_threshold:       sumT,
+        away_temp:                awayT,
+        vacation_temp:            vacT,
+        frost_protection_temp:    frostT,
+        summer_mode_enabled:      content.querySelector("#summer-enabled").value === "true",
+        summer_threshold:         sumT,
+        off_use_frost_protection: content.querySelector("#off-use-frost").value === "true",
       });
       this._toast("✓ Temperatur-Einstellungen gespeichert");
     });
@@ -3735,8 +3747,8 @@ class IHCPanel extends HTMLElement {
         absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
-        window_reaction_time:   parseFloat(modal.querySelector("#m-window-reaction-time")?.value) || 30,
-        window_close_delay:     parseFloat(modal.querySelector("#m-window-close-delay")?.value) || 0,
+        window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
+        window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         co2_sensor:               modal.querySelector("#m-co2-sensor")?.value.trim() || "",

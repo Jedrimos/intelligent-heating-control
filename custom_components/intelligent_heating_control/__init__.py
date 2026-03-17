@@ -23,6 +23,11 @@ from .const import (
     SERVICE_SET_ROOM_MODE,
     SERVICE_SET_SYSTEM_MODE,
     SERVICE_BOOST_ROOM,
+    SERVICE_RELOAD,
+    SERVICE_EXPORT_CONFIG,
+    SERVICE_ACTIVATE_GUEST_MODE,
+    SERVICE_DEACTIVATE_GUEST_MODE,
+    SERVICE_RESET_STATS,
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
     CONF_TEMP_SENSOR,
@@ -142,8 +147,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for service in [
         SERVICE_ADD_ROOM, SERVICE_REMOVE_ROOM, SERVICE_UPDATE_ROOM,
         SERVICE_SET_ROOM_MODE, SERVICE_SET_SYSTEM_MODE, SERVICE_BOOST_ROOM,
-        "reload", "export_config", "update_global_settings",
-        "activate_guest_mode", "deactivate_guest_mode", "reset_stats",
+        SERVICE_RELOAD, SERVICE_EXPORT_CONFIG, SERVICE_UPDATE_GLOBAL_SETTINGS,
+        SERVICE_ACTIVATE_GUEST_MODE, SERVICE_DEACTIVATE_GUEST_MODE, SERVICE_RESET_STATS,
     ]:
         hass.services.async_remove(DOMAIN, service)
 
@@ -326,7 +331,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "demand_threshold", "demand_hysteresis", "min_on_time", "min_off_time",
             "min_rooms_demand", "away_temp", "vacation_temp",
             "summer_mode_enabled", "summer_threshold",
-            "frost_protection_temp",
+            "frost_protection_temp", "off_use_frost_protection",
             "night_setback_enabled", "night_setback_offset", "sun_entity",
             "preheat_minutes",
             "presence_entities",
@@ -402,9 +407,9 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     hass.services.async_register(DOMAIN, SERVICE_SET_ROOM_MODE, handle_set_room_mode)
     hass.services.async_register(DOMAIN, SERVICE_SET_SYSTEM_MODE, handle_set_system_mode)
     hass.services.async_register(DOMAIN, SERVICE_BOOST_ROOM, handle_boost_room)
-    hass.services.async_register(DOMAIN, "reload", handle_reload)
-    hass.services.async_register(DOMAIN, "export_config", handle_export_config)
+    hass.services.async_register(DOMAIN, SERVICE_RELOAD, handle_reload)
+    hass.services.async_register(DOMAIN, SERVICE_EXPORT_CONFIG, handle_export_config)
     hass.services.async_register(DOMAIN, SERVICE_UPDATE_GLOBAL_SETTINGS, handle_update_global_settings)
-    hass.services.async_register(DOMAIN, "activate_guest_mode", handle_activate_guest_mode)
-    hass.services.async_register(DOMAIN, "deactivate_guest_mode", handle_deactivate_guest_mode)
-    hass.services.async_register(DOMAIN, "reset_stats", handle_reset_stats)
+    hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_GUEST_MODE, handle_activate_guest_mode)
+    hass.services.async_register(DOMAIN, SERVICE_DEACTIVATE_GUEST_MODE, handle_deactivate_guest_mode)
+    hass.services.async_register(DOMAIN, SERVICE_RESET_STATS, handle_reset_stats)

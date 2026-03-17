@@ -28,6 +28,7 @@ CONF_PRESENCE_ENTITIES: Final = "presence_entities"  # list of person / device_t
 
 # Frost protection
 CONF_FROST_PROTECTION_TEMP: Final = "frost_protection_temp"  # min temp even in OFF/AWAY mode
+CONF_OFF_USE_FROST_PROTECTION: Final = "off_use_frost_protection"  # True = frost-protect in OFF mode; False = actually turn off TRVs
 
 # Night setback
 CONF_NIGHT_SETBACK_ENABLED: Final = "night_setback_enabled"
@@ -112,6 +113,7 @@ DEFAULT_RADIATOR_KW: Final = 1.0             # kW – sensible default for a sin
 DEFAULT_HKV_FACTOR: Final = 0.083           # kWh per Einheit (typical district-heating value)
 DEFAULT_SUMMER_THRESHOLD: Final = 18.0
 DEFAULT_FROST_PROTECTION_TEMP: Final = 7.0
+DEFAULT_OFF_USE_FROST_PROTECTION: Final = False  # default: actually turn off TRVs in OFF mode
 DEFAULT_NIGHT_SETBACK_OFFSET: Final = 2.0
 DEFAULT_PREHEAT_MINUTES: Final = 0  # disabled by default
 
@@ -176,6 +178,10 @@ SERVICE_SET_ROOM_MODE: Final = "set_room_mode"
 SERVICE_SET_SYSTEM_MODE: Final = "set_system_mode"
 SERVICE_BOOST_ROOM: Final = "boost_room"
 SERVICE_RELOAD: Final = "reload"
+SERVICE_EXPORT_CONFIG: Final = "export_config"
+SERVICE_ACTIVATE_GUEST_MODE: Final = "activate_guest_mode"
+SERVICE_DEACTIVATE_GUEST_MODE: Final = "deactivate_guest_mode"
+SERVICE_RESET_STATS: Final = "reset_stats"
 
 # Roadmap 1.3 – Energy optimisation
 CONF_BOILER_KW: Final = "boiler_kw"                             # kW output of the heating system
