@@ -151,7 +151,7 @@ const STYLES = `
   /* ── Status strip ────────────────────────────────────────────────────────────── */
   .status-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 8px; margin-bottom: 14px;
+    gap: 8px; margin-bottom: 24px;
   }
   .status-item {
     background: var(--card-background-color, #fff); border-radius: 10px; padding: 10px 12px;
@@ -911,7 +911,7 @@ class IHCPanel extends HTMLElement {
     return {
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
-      system_mode:               sel ? sel.state : "—",
+      system_mode:               a.system_mode || (sel ? sel.state : "—"),
       curve_target:              ct  ? parseFloat(ct.state) : null,
       outdoor_temp:              ot  ? parseFloat(ot.state) : null,
       rooms_demanding:           a.rooms_demanding || 0,
