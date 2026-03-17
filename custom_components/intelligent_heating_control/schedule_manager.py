@@ -81,6 +81,7 @@ class ScheduleManager:
                         "offset": float(period.get("offset", 0.0)),
                         "start": period["start"],
                         "end": period["end"],
+                        "mode": period.get("mode", "manual"),
                     }
         return None
 
@@ -129,6 +130,7 @@ class ScheduleManager:
                             "offset": float(period.get("offset", 0.0)),
                             "start": period["start"],
                             "end": period["end"],
+                            "mode": period.get("mode", "manual"),
                         }
         return None
 
@@ -166,6 +168,7 @@ class ScheduleManager:
             "offset": float(period.get("offset", 0.0)),
             "start": period["start"],
             "end": period["end"],
+            "mode": period.get("mode", "manual"),
         }
 
     def update_schedules(self, schedules: list) -> None:
