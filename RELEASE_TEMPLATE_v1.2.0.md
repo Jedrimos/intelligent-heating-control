@@ -1,4 +1,4 @@
-# 🌡️ Intelligent Heating Control v1.2.0b1
+# 🌡️ Intelligent Heating Control v1.2.0b2
 
 > **Breaking Change**: Temperatur-Presets (Eco / Schlaf / Abwesend) sind nicht mehr als feste °C-Werte konfigurierbar — sie folgen jetzt der Außentemperatur-Heizkurve.
 
@@ -205,6 +205,25 @@ Im Modus `off` werden alle Thermostate jetzt auf `hvac_mode: off` gesetzt statt 
 - **icon.png**: War 359×354 px → skaliert auf exakt 256×256 px (HACS-Pflicht)
 - **strings.json**: Fehlte komplett → erstellt (HA lädt ConfigFlow-Übersetzungen daraus, Pflichtdatei)
 - **Fenster-Listener-Unsub-Bug**: Listener wurde beim Reload nicht korrekt abgemeldet → Memory Leak behoben
+- **HA 2024.2+ Kompatibilität**: `ClimateEntityFeature.TURN_OFF` / `TURN_ON` ergänzt
+- **Dashboard Systemmodus-Pill**: Optimistisches UI-Update, kein 1,2-s-Delay mehr nach Klick
+
+---
+
+## 🔄 Neu in Stable (seit Beta b1)
+
+### Gelernte Werte zurücksetzen
+- Reset-Button in **Einstellungen → Intelligente Regelung** setzt Kurvenkorrektur + Aufheizzeiten-Historie zurück
+- `reset_stats`-Service: neuer Parameter `reset_curve: true`
+- Zwei separate Reset-Buttons in **Backup & Restore**: einmal für gelernte Werte, einmal für Tages-Statistiken
+
+### Backup & Restore – Import/Export verbessert
+- **Export** lädt jetzt direkt als `.json`-Datei im Browser herunter
+- **Import** via Datei-Upload: globale Einstellungen + Zimmer werden automatisch via Services eingespielt
+
+### UX: Intelligente Regelung nur im Switch-Modus
+- Bereich „🧠 Intelligente Regelung" wird im TRV-Modus ausgeblendet (TRVs regeln intern selbst)
+- Aktueller Kurvenoffset im Hint-Text sichtbar (z.B. „Aktueller Offset: −0,5 °C")
 
 ---
 
