@@ -31,6 +31,7 @@ from .const import (
     ROOM_MODE_AWAY,
     ROOM_MODE_OFF,
     ROOM_MODE_MANUAL,
+    SYSTEM_MODE_OFF,
     ATTR_DEMAND,
     ATTR_SCHEDULE_ACTIVE,
     ATTR_WINDOW_OPEN,
@@ -156,6 +157,8 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
 
     @property
     def hvac_mode(self) -> HVACMode:
+        if self.coordinator.get_system_mode() == SYSTEM_MODE_OFF:
+            return HVACMode.OFF
         mode = self.coordinator.get_room_mode(self._room_id)
         if mode == ROOM_MODE_OFF:
             return HVACMode.OFF
@@ -166,6 +169,8 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         d = self._room_data
         if d is None:
             return None
+        if self.coordinator.get_system_mode() == SYSTEM_MODE_OFF:
+            return HVACAction.OFF
         if d.get("room_mode") == ROOM_MODE_OFF:
             return HVACAction.OFF
         demand = d.get("demand", 0)

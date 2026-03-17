@@ -803,6 +803,7 @@ class IHCPanel extends HTMLElement {
       "eco": "Eco", "sleep": "Schlafen",
       "system_away": "Sys. Abwesend", "system_vacation": "Urlaub",
       "room_off": "Aus", "manual": "Manuell", "room_away": "Abwesend",
+      "system_off": "⛔ Aus",
       "frost_protection": "❄ Frostschutz",
       "guest_mode": "🎉 Gäste",
       "room_presence_eco": "🚶 Eco (leer)",   // legacy – kept for old stored states
@@ -898,7 +899,7 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="temp-sep">|</div>
             <div class="temp-target-block">
-              <div class="temp-target-val">${room.target_temp !== null ? room.target_temp : "—"}<span style="font-size:13px;font-weight:400">°C</span></div>
+              <div class="temp-target-val">${room.source === "system_off" ? '<span style="font-size:16px">Aus</span>' : (room.target_temp !== null ? room.target_temp + '<span style="font-size:13px;font-weight:400">°C</span>' : "—")}</div>
               <div class="temp-label" style="display:flex;align-items:center;gap:4px">Soll ${tempDiffStr}</div>
             </div>
           </div>
@@ -1215,7 +1216,7 @@ class IHCPanel extends HTMLElement {
         <span style="font-size:18px;font-weight:700">${room.name}</span>
         <span style="font-size:13px;color:var(--secondary-text-color)">
           ${room.current_temp != null ? room.current_temp + " °C" : "—"}
-          → ${room.target_temp != null ? room.target_temp + " °C" : "—"}
+          → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? room.target_temp + " °C" : "—")}
           · ${MODE_ICONS[room.room_mode] || ""} ${MODE_LABELS[room.room_mode] || room.room_mode}
         </span>
         ${room.trv_raw_temp != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#fb8c00 15%,transparent);color:var(--primary-text-color)" title="TRV-Eigentemperatur (am Heizkörper gemessen, vor Korrektur)">🌡️ TRV ${room.trv_raw_temp} °C</span>` : ""}
@@ -1611,7 +1612,7 @@ class IHCPanel extends HTMLElement {
           <div style="font-size:13px">${r.current_temp != null ? r.current_temp + " °C" : "—"}</div>
           ${r.trv_raw_temp != null && hasTrvData ? `<div style="font-size:10px;color:#e65100;margin-top:1px" title="TRV-Rohtemperatur">TRV: ${parseFloat(r.trv_raw_temp).toFixed(1)}°</div>` : ""}
         </td>
-        <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">${r.target_temp != null ? r.target_temp + " °C" : "—"}${effHtml}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">${r.source === "system_off" ? "Aus" : (r.target_temp != null ? r.target_temp + " °C" : "—")}${effHtml}</td>
         <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">
           <div style="display:flex;align-items:center;gap:6px">
             <div style="width:40px;height:7px;border-radius:4px;background:var(--divider-color)">
