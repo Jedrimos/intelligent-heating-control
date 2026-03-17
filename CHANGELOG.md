@@ -17,34 +17,7 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ---
 
-## [1.2.0b2] - 2026-03-17
-
-### Hinzugefügt (seit b1)
-
-#### Gelernte Werte zurücksetzen
-- Neuer **Reset-Button** in Einstellungen → Intelligente Regelung: setzt Kurvenkorrektur + Aufheizzeiten-Historie gemeinsam zurück
-- `reset_stats`-Service nimmt optionalen Parameter `reset_curve: true` für gezielten Lernwerte-Reset
-- Methode `reset_curve_adaptation()` im Coordinator: löscht `_curve_adaptation_delta`, `_warmup_history` und `_warmup_start`
-- Zusätzliche Reset-Buttons in Backup & Restore: getrennt für „Gelernte Werte" und „Statistiken (Laufzeiten/Energie)"
-
-#### Backup & Restore – Import
-- Konfiguration jetzt **direkt als JSON-Datei im Browser herunterladen** (statt nur als HA-Benachrichtigung)
-- Neuer **Import-Bereich**: JSON-Backup hochladen → Bestätigen → IHC spielt globale Einstellungen + alle Zimmer automatisch via Services ein
-- Import-Statusanzeige mit Fortschrittstext
-
-#### UX: Intelligente Regelung nur im Switch-Modus
-- Der Bereich „🧠 Intelligente Regelung" (adaptive Heizkurve, adaptives Vorheizen) wird im **TRV-Modus ausgeblendet** — TRVs haben eigene interne Regelung, eine Host-seitige adaptive Kurve ergibt dort keinen Sinn
-- Aktueller Kurvenoffset wird direkt im Hint-Text angezeigt (z.B. „Aktueller Offset: −0,5 °C")
-
-### Behoben (seit b1)
-
-- **HA 2024.2+ Pflicht**: `ClimateEntityFeature.TURN_OFF` und `TURN_ON` ergänzt (HA wirft sonst Deprecation-Warnung)
-- **Dashboard Systemmodus-Pill**: Optimistisches UI-Update — Pill-Farbe wechselt sofort beim Klick ohne 1,2-s-Delay
-- **Status-Grid**: Abstände zwischen Karten vergrößert (`gap: 12px`, `minmax: 120px`) für bessere Lesbarkeit
-
----
-
-## [1.2.0b1] - 2026-03-15
+## [1.2.0b1] - 2026-03-17
 
 ### Hinzugefügt
 
@@ -99,6 +72,19 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - `sun_entity` jetzt im Panel konfigurierbar (war bisher nur über Config-Flow zugänglich)
 - `weather_cold_threshold` und `weather_cold_boost` im Panel konfigurierbar
 
+#### Gelernte Werte zurücksetzen
+- Reset-Button in Einstellungen → Intelligente Regelung: setzt Kurvenkorrektur + Aufheizzeiten-Historie gemeinsam zurück
+- `reset_stats`-Service nimmt optionalen Parameter `reset_curve: true`
+- Zusätzliche Reset-Buttons in Backup & Restore (Gelernte Werte / Tages-Statistiken getrennt)
+
+#### Backup & Restore – Import
+- Konfiguration direkt als JSON-Datei im Browser herunterladen (statt nur HA-Benachrichtigung)
+- Import via Datei-Upload: globale Einstellungen + alle Zimmer werden automatisch via Services eingespielt
+
+#### UX: Intelligente Regelung nur im Switch-Modus
+- Bereich „🧠 Intelligente Regelung" wird im TRV-Modus ausgeblendet (TRVs regeln intern selbst)
+- Aktueller Kurvenoffset im Hint-Text sichtbar (z.B. „Aktueller Offset: −0,5 °C")
+
 ### Geändert
 
 - **Temperatur-Presets** (eco/sleep/away) sind nicht mehr als feste °C-Werte konfigurierbar, sondern als Abzug (`_offset`) + Maximum (`_max_temp`) relativ zur Heizkurve
@@ -109,6 +95,9 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 - **Frontend ReferenceError**: `systemOverrides` und `overrideLabel` wurden nach dem `.map()`-Callback definiert, in dem sie schon verwendet wurden → Override-Banner hat nie angezeigt
 - **Stale srcMap-Eintrag**: `room_presence_away` hatte keine Zuordnung im srcMap → roher String statt Label angezeigt
+- **HA 2024.2+ Pflicht**: `ClimateEntityFeature.TURN_OFF` / `TURN_ON` ergänzt (sonst Deprecation-Warnung)
+- **Dashboard Systemmodus-Pill**: Optimistisches UI-Update — Pill-Farbe wechselt sofort beim Klick
+- **Status-Grid**: Abstände zwischen Karten vergrößert für bessere Lesbarkeit
 
 ---
 

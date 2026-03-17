@@ -1,4 +1,4 @@
-# 🌡️ Intelligent Heating Control v1.2.0b2
+# 🌡️ Intelligent Heating Control v1.2.0b1
 
 > **Breaking Change**: Temperatur-Presets (Eco / Schlaf / Abwesend) sind nicht mehr als feste °C-Werte konfigurierbar — sie folgen jetzt der Außentemperatur-Heizkurve.
 
@@ -169,6 +169,34 @@ Im Modus `off` werden alle Thermostate jetzt auf `hvac_mode: off` gesetzt statt 
 
 ---
 
+### 🔄 Gelernte Werte zurücksetzen
+
+IHC lernt im Hintergrund (Kurvenkorrektur, Aufheizzeiten) — diese Werte können jetzt gezielt zurückgesetzt werden:
+
+- **Einstellungen → Intelligente Regelung**: Button „Gelernte Werte zurücksetzen"
+  → setzt Kurvenkorrektur auf 0 °C + löscht die Aufheizzeiten-Historie
+- **Backup & Restore**: Zwei separate Reset-Buttons
+  - „Gelernte Werte zurücksetzen" (Kurve + Aufheizhistorie)
+  - „Statistiken zurücksetzen" (Laufzeiten + Energiedaten heute)
+
+---
+
+### 💾 Backup & Restore
+
+- **Export** direkt als `.json`-Datei im Browser herunterladen (kein Umweg über HA-Benachrichtigung)
+- **Import** via Datei-Upload:
+  1. JSON-Backup auswählen
+  2. Bestätigen
+  3. IHC spielt globale Einstellungen + alle Zimmer automatisch via Services ein
+
+---
+
+### 🧠 Intelligente Regelung — nur im Switch-Modus
+
+Der Bereich für adaptive Heizkurve und adaptives Vorheizen wird im TRV-Modus ausgeblendet — TRVs haben ihren eigenen internen Regler, eine zusätzliche Host-seitige Kurvenanpassung würde dazwischenfunken. Im Switch-Modus läuft alles wie gehabt.
+
+---
+
 ## ⚠️ Breaking Changes
 
 | Was geändert | Alt | Neu |
@@ -205,25 +233,10 @@ Im Modus `off` werden alle Thermostate jetzt auf `hvac_mode: off` gesetzt statt 
 - **icon.png**: War 359×354 px → skaliert auf exakt 256×256 px (HACS-Pflicht)
 - **strings.json**: Fehlte komplett → erstellt (HA lädt ConfigFlow-Übersetzungen daraus, Pflichtdatei)
 - **Fenster-Listener-Unsub-Bug**: Listener wurde beim Reload nicht korrekt abgemeldet → Memory Leak behoben
-- **HA 2024.2+ Kompatibilität**: `ClimateEntityFeature.TURN_OFF` / `TURN_ON` ergänzt
+- **HA 2024.2+**: `ClimateEntityFeature.TURN_OFF` / `TURN_ON` ergänzt (HA 2024.2 Pflicht)
 - **Dashboard Systemmodus-Pill**: Optimistisches UI-Update, kein 1,2-s-Delay mehr nach Klick
 
 ---
-
-## 🔄 Neu in Stable (seit Beta b1)
-
-### Gelernte Werte zurücksetzen
-- Reset-Button in **Einstellungen → Intelligente Regelung** setzt Kurvenkorrektur + Aufheizzeiten-Historie zurück
-- `reset_stats`-Service: neuer Parameter `reset_curve: true`
-- Zwei separate Reset-Buttons in **Backup & Restore**: einmal für gelernte Werte, einmal für Tages-Statistiken
-
-### Backup & Restore – Import/Export verbessert
-- **Export** lädt jetzt direkt als `.json`-Datei im Browser herunter
-- **Import** via Datei-Upload: globale Einstellungen + Zimmer werden automatisch via Services eingespielt
-
-### UX: Intelligente Regelung nur im Switch-Modus
-- Bereich „🧠 Intelligente Regelung" wird im TRV-Modus ausgeblendet (TRVs regeln intern selbst)
-- Aktueller Kurvenoffset im Hint-Text sichtbar (z.B. „Aktueller Offset: −0,5 °C")
 
 ---
 
