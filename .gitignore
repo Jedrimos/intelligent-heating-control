@@ -13,3 +13,4 @@ env/
 .idea/
 .vscode/
 *.swp
+*.bak

@@ -307,6 +307,11 @@ DEFAULT_BOOST_DEFAULT_DURATION: Final = 60
 CONF_GUEST_DURATION_HOURS: Final = "guest_duration_hours"
 DEFAULT_GUEST_DURATION_HOURS: Final = 24
 
+# Startup-Gnadenfrist: Sekunden nach HA-Neustart, in denen unknown/unavailable
+# Fenstersensoren (z.B. Zigbee noch nicht bereit) als "offen" behandelt werden.
+CONF_STARTUP_GRACE_SECONDS: Final = "startup_grace_seconds"
+DEFAULT_STARTUP_GRACE_SECONDS: Final = 60
+
 # Rückkehr-Vorheizung: start heating N days before vacation end
 CONF_VACATION_RETURN_PREHEAT_DAYS: Final = "vacation_return_preheat_days"
 DEFAULT_VACATION_RETURN_PREHEAT_DAYS: Final = 0  # disabled

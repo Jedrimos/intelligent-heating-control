@@ -18,13 +18,14 @@ import math
 import time
 import uuid
 from collections import deque
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant, callback, Event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.const import STATE_ON, STATE_OFF, STATE_UNAVAILABLE, STATE_UNKNOWN
 
 from .const import (
@@ -141,6 +142,8 @@ from .const import (
     DEFAULT_WEATHER_COLD_THRESHOLD,
     CONF_WEATHER_COLD_BOOST,
     DEFAULT_WEATHER_COLD_BOOST,
+    CONF_STARTUP_GRACE_SECONDS,
+    DEFAULT_STARTUP_GRACE_SECONDS,
     CONF_HA_SCHEDULES,
     CONF_ECO_OFFSET,
     CONF_SLEEP_OFFSET,
@@ -322,12 +325,24 @@ class IHCCoordinator(DataUpdateCoordinator):
         # before the manual-override detector runs (prevents false "manual override" alerts)
         self._startup_cycles_remaining: int = 1
 
+        # Startup grace period for Zigbee/Z-Wave sensors that report unknown/unavailable
+        # right after HA restart.  During this window, unknown window sensors are treated
+        # as "open" (safe/conservative) to avoid heating with open windows.
+        # Value is set on first _async_update_data call from global config.
+        self._startup_grace_until: float = time.monotonic() + DEFAULT_STARTUP_GRACE_SECONDS
+
         # Manual TRV override detection: track last IHC-set temperature per room
         self._last_ihc_set_temps: Dict[str, float] = {}  # room_id → last temp IHC intentionally set
 
         # Window timing: track when window was first seen open/closed (timestamp)
         self._window_open_since: Dict[str, Optional[float]] = {}   # room_id → epoch when opened
         self._window_closed_since: Dict[str, Optional[float]] = {} # room_id → epoch when closed
+
+        # Event-driven window detection: single subscription for all window sensors.
+        # Using one subscription (not per-sensor) avoids a bug where removing one sensor
+        # would cancel the shared unsub and leave all other sensors unmonitored.
+        self._window_listener_unsub: Optional[Any] = None   # single unsub callback
+        self._window_listener_sensors: set = set()           # currently subscribed sensors
 
         # Build sub-components from config
         self._rebuild_from_config()
@@ -456,6 +471,11 @@ class IHCCoordinator(DataUpdateCoordinator):
 
     def set_system_mode(self, mode: str) -> None:
         self._system_mode = mode
+        # Re-check window states immediately so already-open windows are detected
+        # on the very first update cycle after a mode change (e.g. OFF → AUTO).
+        # Without this, the reaction_time delay causes a false "no window open" on
+        # the first cycle because _window_open_since is None for that room.
+        self._prefill_window_states()
         self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
@@ -464,6 +484,8 @@ class IHCCoordinator(DataUpdateCoordinator):
 
     def set_room_mode(self, room_id: str, mode: str) -> None:
         self._room_modes[room_id] = mode
+        # Same fix: re-check open windows so mode changes react immediately
+        self._prefill_window_states()
         self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
 
@@ -489,7 +511,7 @@ class IHCCoordinator(DataUpdateCoordinator):
         boost_temp = temp
         if boost_temp is None:
             room_cfg = self.get_room_config(room_id)
-            boost_temp = room_cfg.get("boost_temp") if room_cfg else None
+            boost_temp = room_cfg.get(CONF_BOOST_TEMP) if room_cfg else None
         if boost_temp is not None:
             self._room_modes[room_id] = ROOM_MODE_MANUAL
             self._room_manual_temps[room_id] = float(boost_temp)
@@ -1452,7 +1474,6 @@ class IHCCoordinator(DataUpdateCoordinator):
                 eta_dt = datetime.fromisoformat(str(eta_attr).replace("Z", "+00:00"))
                 # Normalise to naive local time for comparison
                 if eta_dt.tzinfo is not None:
-                    from datetime import timezone
                     eta_dt = eta_dt.astimezone(timezone.utc).replace(tzinfo=None)
                 minutes = (eta_dt - datetime.utcnow()).total_seconds() / 60
                 if 0 < minutes <= 120:
@@ -1760,14 +1781,20 @@ class IHCCoordinator(DataUpdateCoordinator):
 
         - window_reaction_time: seconds a sensor must be ON before IHC reacts (default 30 s)
         - window_close_delay:   seconds after sensor goes OFF before IHC resumes heating (default 0 s)
+
+        Startup grace period: if a window sensor reports unknown/unavailable (e.g. Zigbee
+        not yet ready after HA restart), treat it as "open" during the grace window so IHC
+        does not start heating while the sensor state is unreliable.
         """
         room_id = room.get(CONF_ROOM_ID, "")
         reaction_time = int(room.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME))
         close_delay   = int(room.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY))
         now           = time.monotonic()
+        in_grace      = now < self._startup_grace_until
 
         # Check raw sensor state
         sensor_open = False
+        sensor_unknown = False  # any configured sensor is unknown/unavailable
         window_sensors: list = room.get(CONF_WINDOW_SENSORS, [])
         for sensor in window_sensors:
             if sensor:
@@ -1775,12 +1802,24 @@ class IHCCoordinator(DataUpdateCoordinator):
                 if state and state.state == STATE_ON:
                     sensor_open = True
                     break
+                if state is None or state.state in ("unknown", "unavailable"):
+                    sensor_unknown = True
         if not sensor_open:
             window_sensor = room.get(CONF_WINDOW_SENSOR)
             if window_sensor:
                 state = self.hass.states.get(window_sensor)
                 if state and state.state == STATE_ON:
                     sensor_open = True
+                elif state is None or state.state in ("unknown", "unavailable"):
+                    sensor_unknown = True
+
+        # During startup grace: treat unknown sensor as open (conservative / safe)
+        if not sensor_open and sensor_unknown and in_grace:
+            _LOGGER.debug(
+                "IHC: Startup grace – window sensor unknown in '%s', treating as open",
+                room.get(CONF_ROOM_NAME, room_id),
+            )
+            return True
 
         if sensor_open:
             # Record first time seen open; reset close timestamp
@@ -2287,6 +2326,60 @@ class IHCCoordinator(DataUpdateCoordinator):
                         "IHC: Startup – pre-filled baseline for %s = %.1f °C", entity_id, float(trv_target)
                     )
 
+    def _setup_window_listeners(self) -> None:
+        """Subscribe to state changes of all window sensors for event-driven detection.
+
+        When a window sensor changes state, immediately trigger a coordinator refresh
+        so the reaction_time countdown starts right away instead of waiting up to
+        UPDATE_INTERVAL seconds (60s) before the next timer-based cycle.
+
+        Uses a SINGLE subscription for all sensors (not per-sensor).  A per-sensor
+        approach had a bug: removing one sensor called the shared unsub and silently
+        cancelled monitoring for ALL sensors.
+        """
+        # Collect all configured window sensor entity_ids
+        sensor_ids: set[str] = set()
+        for room in self.get_rooms():
+            for sid in room.get(CONF_WINDOW_SENSORS, []):
+                if sid:
+                    sensor_ids.add(sid)
+            single = room.get(CONF_WINDOW_SENSOR)
+            if single:
+                sensor_ids.add(single)
+
+        # Nothing to do if sensor set hasn't changed
+        if sensor_ids == self._window_listener_sensors:
+            return
+
+        # Cancel the old subscription (covers previous sensor set)
+        if self._window_listener_unsub is not None:
+            self._window_listener_unsub()
+            self._window_listener_unsub = None
+
+        self._window_listener_sensors = sensor_ids
+
+        if not sensor_ids:
+            return
+
+        @callback
+        def _on_window_sensor_change(event: Event) -> None:
+            """Trigger coordinator refresh when any window sensor changes."""
+            new_state = event.data.get("new_state")
+            old_state = event.data.get("old_state")
+            # Only refresh on meaningful state transitions (not attribute-only updates)
+            new_s = new_state.state if new_state else None
+            old_s = old_state.state if old_state else None
+            if new_s != old_s:
+                _LOGGER.debug(
+                    "IHC: Window sensor %s changed %s→%s, requesting immediate refresh",
+                    event.data.get("entity_id"), old_s, new_s,
+                )
+                self.hass.async_create_task(self.async_request_refresh())
+
+        self._window_listener_unsub = async_track_state_change_event(
+            self.hass, list(sensor_ids), _on_window_sensor_change
+        )
+
     def _detect_manual_trv_override(self, room: dict, room_id: str, room_mode: str) -> None:
         """Detect if a TRV was manually adjusted and switch room to manual mode.
 
@@ -2377,8 +2470,13 @@ class IHCCoordinator(DataUpdateCoordinator):
         # This prevents false "manuell bedient" notifications right after HA restart.
         if self._startup_cycles_remaining > 0:
             self._startup_cycles_remaining -= 1
+            # Apply configurable grace duration from global config (first cycle only)
+            cfg = self.config_entry.options or self.config_entry.data
+            grace_secs = int(cfg.get(CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS))
+            self._startup_grace_until = time.monotonic() + grace_secs
             self._prefill_window_states()
             self._prefill_last_sent_temps()
+            self._setup_window_listeners()
 
         # Expire any boost timers
         self._check_boost_expiry()
@@ -2838,7 +2936,7 @@ class IHCCoordinator(DataUpdateCoordinator):
     def get_ha_schedule_blocks_for_room(self, room: dict) -> dict[str, list[dict]]:
         """Return {entity_id: [blocks]} for all ha_schedules configured for a room."""
         result: dict[str, list[dict]] = {}
-        for ha_sched in room.get("ha_schedules", []):
+        for ha_sched in room.get(CONF_HA_SCHEDULES, []):
             entity_id = ha_sched.get("entity", "")
             if entity_id:
                 result[entity_id] = self._get_ha_schedule_blocks(entity_id)

@@ -50,6 +50,7 @@ from .const import (
     DEFAULT_NIGHT_SETBACK_OFFSET, DEFAULT_PREHEAT_MINUTES,
     DEFAULT_BOILER_KW, DEFAULT_SOLAR_SURPLUS_THRESHOLD, DEFAULT_SOLAR_BOOST_TEMP,
     DEFAULT_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_ECO_OFFSET,
+    CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS,
 )
 from .coordinator import IHCCoordinator
 
@@ -198,6 +199,8 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "smart_meter_entity":          cfg.get(CONF_SMART_METER_ENTITY, ""),
             "cooling_target_temp":         cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP),
             "static_energy_price":         cfg.get("static_energy_price"),
+            # Startup grace for Zigbee/Z-Wave sensors
+            "startup_grace_seconds":       cfg.get(CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS),
         }
 
 

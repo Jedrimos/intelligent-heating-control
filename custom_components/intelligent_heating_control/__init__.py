@@ -283,7 +283,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_ABSOLUTE_MIN_TEMP: float(call.data.get(CONF_ABSOLUTE_MIN_TEMP, DEFAULT_ABSOLUTE_MIN_TEMP)),
             CONF_ROOM_PREHEAT_MINUTES: int(call.data.get(CONF_ROOM_PREHEAT_MINUTES, DEFAULT_ROOM_PREHEAT_MINUTES)),
             CONF_ROOM_PRESENCE_ENTITIES: call.data.get(CONF_ROOM_PRESENCE_ENTITIES, []),
-            CONF_BOOST_TEMP: call.data.get(CONF_BOOST_TEMP),
+            CONF_BOOST_TEMP: float(call.data[CONF_BOOST_TEMP]) if call.data.get(CONF_BOOST_TEMP) is not None else None,
             CONF_BOOST_DEFAULT_DURATION: int(call.data.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION)),
         }
         await coordinator.async_add_room(room_config)
@@ -366,6 +366,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "ventilation_advice_enabled",
             # Static energy price (fallback when no price sensor)
             "static_energy_price",
+            # Startup grace for Zigbee/Z-Wave sensor warmup
+            "startup_grace_seconds",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:
