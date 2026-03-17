@@ -150,8 +150,8 @@ const STYLES = `
 
   /* ── Status strip ────────────────────────────────────────────────────────────── */
   .status-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 8px; margin-bottom: 14px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px; margin-bottom: 16px;
   }
   .status-item {
     background: var(--card-background-color, #fff); border-radius: 10px; padding: 10px 12px;
