@@ -230,6 +230,7 @@ _LOGGER = logging.getLogger(__name__)
 # TRV battery-save: minimum temperature change before sending a new setpoint to TRV
 TRV_TEMP_HYSTERESIS = 0.3       # °C – only send update if setpoint changes by at least this much
 TRV_LARGE_CHANGE_THRESHOLD = 1.0  # °C – above this, always send immediately (mode change etc.)
+TRV_SETPOINT_STEP = 0.5         # °C – quantise setpoint to TRV resolution (most TRVs: 0.5 °C)
 
 
 class IHCCoordinator(DataUpdateCoordinator):
@@ -2107,6 +2108,9 @@ class IHCCoordinator(DataUpdateCoordinator):
         if state is None:
             return
         if valve_entity.split(".")[0] == "climate":
+            # Quantise to TRV resolution (0.5 °C) to reduce unnecessary radio traffic.
+            # e.g. 21.1 → 21.0, 21.3 → 21.5, 21.7 → 21.5
+            target_temp = round(target_temp / TRV_SETPOINT_STEP) * TRV_SETPOINT_STEP
             last = self._last_sent_temps.get(valve_entity)
             now  = time.monotonic()
 
