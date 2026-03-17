@@ -2411,6 +2411,19 @@ class IHCCoordinator(DataUpdateCoordinator):
             room_presence_active = self._check_room_presence(room)
 
             target_temp, meta = self._calculate_target_temp(room, outdoor_temp)
+
+            # Emergency frost protection when system is OFF (and not already frost-protecting):
+            # If outdoor temp is below 0°C AND room temp is very cold (<10°C) AND window is closed,
+            # override to frost protection to prevent pipe freezing.
+            if (
+                meta.get("source") == "system_off"
+                and outdoor_temp is not None and outdoor_temp < 0.0
+                and current_temp is not None and current_temp < 10.0
+                and not window_open
+            ):
+                target_temp = self._get_frost_protection_temp()
+                meta["source"] = "frost_protection"
+                meta["emergency_frost"] = True
             # Store the outdoor-regulated effective preset temps so entities can expose them
             comfort_eff, eco_eff, sleep_eff, away_eff = self._get_room_preset_temps(room, outdoor_temp)
 
