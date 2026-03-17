@@ -1,16 +1,13 @@
 /**
- * Intelligent Heating Control – Frontend Panel v3
+ * Intelligent Heating Control – Frontend Panel v4
  *
- * Tabs: Dashboard | Zimmer | Übersicht | Einstellungen | Zeitpläne | Heizkurve | Kalender
- *
- * Fixes vs v1:
- *  - Modal bleibt offen (set hass() zerstört es nicht mehr)
- *  - room_id wird korrekt an Services übergeben
- *  - Einstellungen und Übersicht sind getrennte Tabs
- *  - Abwesenheits-Einstellungen im Einstellungen-Tab
- *  - Mehrere Fenster & Thermostate pro Zimmer (window_sensors / valve_entities)
- *  - Boost-Button direkt in Zimmer-Karten
- *  - Echte Werte in Einstellungs-Formularen
+ * UX/UI Overhaul:
+ *  - Modernes Design-System: klare Hierarchie, mehr Weißraum, konsistente Abstände
+ *  - Zimmer-Karten: Temperatur als zentrales Element, farbiger Status-Streifen links
+ *  - Dashboard-Hero: Kompakte Statistiken + Schnell-Modus-Auswahl als Pill-Buttons
+ *  - Einstellungen: 2-spaltige Formulare, klarere Abschnitte
+ *  - Modals: Breitere, besser strukturierte Dialoge
+ *  - Alle Funktionen und Service-Calls bleiben unverändert
  */
 
 const DOMAIN = "intelligent_heating_control";
@@ -50,302 +47,229 @@ const WEATHER_CONDITIONS = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Styles
+// Design-System v4 – Moderne, aufgeräumte Benutzeroberfläche
 // ─────────────────────────────────────────────────────────────────────────────
 const STYLES = `
   :host { font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif); display: block; }
   * { box-sizing: border-box; }
 
-  .panel { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  .panel { max-width: 1100px; margin: 0 auto; padding: 16px 16px 32px; }
 
-  /* Header */
-  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-  .header h1 { margin: 0; font-size: 22px; font-weight: 700; color: var(--primary-text-color); flex: 1; }
-  .header-icon { font-size: 28px; }
-
-  /* Tabs */
-  .tabs { display: flex; border-bottom: 2px solid var(--divider-color, #e0e0e0); margin-bottom: 24px;
-          gap: 0; overflow-x: auto; scrollbar-width: none; }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tab { padding: 10px 18px; cursor: pointer; color: var(--secondary-text-color);
-         border-bottom: 3px solid transparent; margin-bottom: -2px; font-size: 13px; font-weight: 600;
-         transition: all 0.2s; white-space: nowrap; user-select: none; }
-  .tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
-  .tab:hover:not(.active) { color: var(--primary-text-color); background: var(--secondary-background-color); }
-
-  /* Cards */
-  .card { background: var(--card-background-color, #fff); border-radius: 12px; padding: 20px;
-          margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
-  .card-title { font-size: 15px; font-weight: 700; color: var(--primary-text-color);
-                margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-  .card-subtitle { font-size: 12px; color: var(--secondary-text-color); margin-bottom: 16px; }
-
-  /* Overview hero */
-  .overview-hero { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-  @media (max-width: 700px) { .overview-hero { grid-template-columns: 1fr; } }
-  .hero-card { background: var(--card-background-color,#fff); border-radius: 12px; padding: 16px 18px;
-               box-shadow: 0 1px 6px rgba(0,0,0,.08); display: flex; flex-direction: column; gap: 4px; }
-  .hero-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
-                color: var(--secondary-text-color); margin-bottom: 2px; }
-  .hero-value { font-size: 26px; font-weight: 700; color: var(--primary-text-color); line-height: 1.1; }
-  .hero-value.heating { color: var(--error-color, #e53935); }
-  .hero-value.ok { color: var(--success-color, #43a047); }
-  .hero-sub { font-size: 12px; color: var(--secondary-text-color); }
-
-  /* Status bar */
-  .status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-                 gap: 8px; margin-bottom: 16px; }
-  .status-item { background: var(--card-background-color, #fff); border-radius: 10px; padding: 12px 10px;
-                 box-shadow: 0 1px 4px rgba(0,0,0,.08); text-align: center; }
-  .status-label { font-size: 10px; color: var(--secondary-text-color); text-transform: uppercase;
-                  letter-spacing: 0.6px; margin-bottom: 4px; }
-  .status-value { font-size: 18px; font-weight: 700; color: var(--primary-text-color); }
-  .status-value.on { color: var(--error-color, #e53935); }
-  .status-value.ok { color: var(--success-color, #43a047); }
-  .status-value.warn { color: #fb8c00; }
-
-  /* Room cards – Übersicht */
-  .rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
-  .room-card {
-    background: var(--card-background-color, #fff);
-    border-radius: 12px; padding: 16px;
-    box-shadow: 0 1px 6px rgba(0,0,0,.08);
-    border-top: 3px solid var(--divider-color, #e0e0e0);
-    transition: border-color 0.3s, box-shadow 0.3s;
+  /* ── Header ──────────────────────────────────────────────────────────────── */
+  .header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 0;
+    padding: 14px 0 12px;
   }
-  .room-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,.14); }
-  .room-card.heating { border-top-color: var(--error-color, #e53935); }
-  .room-card.satisfied { border-top-color: var(--success-color, #43a047); }
-  .room-card.window-open { border-top-color: #1e88e5; }
-  .room-card.off { border-top-color: #9e9e9e; }
+  .header-icon { font-size: 22px; flex-shrink: 0; }
+  .header h1 {
+    margin: 0; font-size: 17px; font-weight: 700;
+    color: var(--primary-text-color); flex: 1; letter-spacing: -0.2px;
+  }
+  .header-version {
+    font-size: 10px; color: var(--secondary-text-color);
+    background: var(--secondary-background-color, #f5f5f5);
+    padding: 2px 7px; border-radius: 10px; font-weight: 600; flex-shrink: 0;
+  }
 
-  .room-name { font-size: 14px; font-weight: 700; margin-bottom: 10px;
-               display: flex; align-items: center; justify-content: space-between; }
+  /* ── Tabs ─────────────────────────────────────────────────────────────────── */
+  .tabs {
+    display: flex; gap: 2px; margin-bottom: 20px; padding: 3px;
+    background: var(--secondary-background-color, #f5f5f5);
+    border-radius: 10px; overflow-x: auto; scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    padding: 7px 14px; cursor: pointer; border-radius: 7px;
+    color: var(--secondary-text-color); font-size: 12px; font-weight: 600;
+    transition: all 0.15s; white-space: nowrap; user-select: none;
+    background: transparent; border: none; flex-shrink: 0;
+  }
+  .tab.active {
+    background: var(--card-background-color, #fff);
+    color: var(--primary-color);
+    box-shadow: 0 1px 4px rgba(0,0,0,.10);
+  }
+  .tab:hover:not(.active) { color: var(--primary-text-color); background: rgba(0,0,0,0.04); }
 
-  /* Temp display */
-  .temp-display { display: flex; align-items: center; gap: 0; margin-bottom: 10px; }
-  .temp-block { display: flex; flex-direction: column; align-items: center; flex: 1; }
-  .temp-main { font-size: 30px; font-weight: 300; color: var(--primary-text-color); line-height: 1.1; }
-  .temp-label { font-size: 10px; color: var(--secondary-text-color); text-transform: uppercase;
-                letter-spacing: 0.5px; }
-  .temp-sep { font-size: 18px; color: var(--divider-color, #e0e0e0); padding: 0 6px; }
-  .temp-target-block { display: flex; flex-direction: column; align-items: center; flex: 1; }
-  .temp-target-val { font-size: 24px; font-weight: 600; color: var(--primary-color); line-height: 1.1; }
-  /* keep for compat */
-  .temp-current { font-size: 28px; font-weight: 300; color: var(--primary-text-color); }
-  .temp-arrow { font-size: 16px; color: var(--secondary-text-color); }
-  .temp-target { font-size: 18px; font-weight: 600; color: var(--primary-color); }
-  .temp-unit { font-size: 13px; color: var(--secondary-text-color); }
+  /* ── Cards ─────────────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--card-background-color, #fff); border-radius: 12px; padding: 18px 20px;
+    margin-bottom: 14px; border: 1px solid var(--divider-color, #e5e5e5);
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .card-title {
+    font-size: 14px; font-weight: 700; color: var(--primary-text-color);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .card-subtitle { font-size: 12px; color: var(--secondary-text-color); margin-bottom: 14px; }
+
+  /* ── Dashboard Hero ─────────────────────────────────────────────────────────── */
+  .overview-hero {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px;
+  }
+  @media (max-width: 700px) { .overview-hero { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .overview-hero { grid-template-columns: 1fr; } }
+  .hero-card {
+    background: var(--card-background-color, #fff); border-radius: 12px; padding: 14px 16px;
+    border: 1px solid var(--divider-color, #e5e5e5);
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .hero-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--secondary-text-color); margin-bottom: 1px;
+  }
+  .hero-value { font-size: 24px; font-weight: 700; color: var(--primary-text-color); line-height: 1.15; }
+  .hero-value.heating { color: #ef5350; }
+  .hero-value.ok { color: #66bb6a; }
+  .hero-sub { font-size: 11px; color: var(--secondary-text-color); }
+
+  /* System mode quick-select pills */
+  .system-mode-row {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; align-items: center;
+  }
+  .system-mode-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
+    color: var(--secondary-text-color); margin-right: 2px; flex-shrink: 0;
+  }
+  .sysmode-pill {
+    padding: 5px 11px; border-radius: 16px; font-size: 11px; font-weight: 600;
+    border: 1.5px solid var(--divider-color, #e5e5e5); cursor: pointer;
+    transition: all 0.15s; color: var(--secondary-text-color); background: transparent;
+    display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;
+  }
+  .sysmode-pill:hover { border-color: var(--primary-color); color: var(--primary-color); }
+  .sysmode-pill.active-auto     { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+  .sysmode-pill.active-heat     { background: #ef5350; color: #fff; border-color: #ef5350; }
+  .sysmode-pill.active-cool     { background: #42a5f5; color: #fff; border-color: #42a5f5; }
+  .sysmode-pill.active-away     { background: #ffa726; color: #fff; border-color: #ffa726; }
+  .sysmode-pill.active-vacation { background: #66bb6a; color: #fff; border-color: #66bb6a; }
+  .sysmode-pill.active-off      { background: #9e9e9e; color: #fff; border-color: #9e9e9e; }
+  .sysmode-pill.active-guest    { background: #ab47bc; color: #fff; border-color: #ab47bc; }
+
+  /* ── Status strip ────────────────────────────────────────────────────────────── */
+  .status-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px; margin-bottom: 14px;
+  }
+  .status-item {
+    background: var(--card-background-color, #fff); border-radius: 10px; padding: 10px 12px;
+    border: 1px solid var(--divider-color, #e5e5e5);
+    box-shadow: 0 1px 2px rgba(0,0,0,.05); text-align: center;
+  }
+  .status-label {
+    font-size: 10px; color: var(--secondary-text-color); text-transform: uppercase;
+    letter-spacing: 0.6px; margin-bottom: 4px;
+  }
+  .status-value { font-size: 16px; font-weight: 700; color: var(--primary-text-color); }
+  .status-value.on  { color: #ef5350; }
+  .status-value.ok  { color: #66bb6a; }
+  .status-value.warn { color: #ffa726; }
+
+  /* ── Room cards ──────────────────────────────────────────────────────────────── */
+  .rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(275px, 1fr)); gap: 12px; }
+  .room-card {
+    background: var(--card-background-color, #fff); border-radius: 12px;
+    border: 1px solid var(--divider-color, #e5e5e5);
+    border-left: 4px solid var(--divider-color, #e0e0e0);
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    transition: box-shadow 0.2s, border-left-color 0.25s;
+    overflow: hidden;
+  }
+  .room-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.11); }
+  .room-card.heating     { border-left-color: #ef5350; }
+  .room-card.satisfied   { border-left-color: #66bb6a; }
+  .room-card.window-open { border-left-color: #42a5f5; }
+  .room-card.off         { border-left-color: #bdbdbd; }
+  .room-card.eco         { border-left-color: #26a69a; }
+  .room-card.away        { border-left-color: #ffa726; }
+  .room-card.sleep       { border-left-color: #5c6bc0; }
+
+  /* Card inner padding */
+  .room-card-inner { padding: 14px 16px 12px; }
+
+  /* Room header row */
+  .room-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 8px; margin-bottom: 10px;
+  }
+  .room-name { font-size: 14px; font-weight: 700; color: var(--primary-text-color); line-height: 1.2; }
+  .room-status-chips { display: flex; gap: 4px; flex-wrap: wrap; flex-shrink: 0; }
+
+  /* Temperature hero */
+  .room-temp-row {
+    display: flex; align-items: flex-end; gap: 10px; margin-bottom: 10px;
+  }
+  .room-temp-current {
+    display: flex; flex-direction: column;
+  }
+  .room-temp-big {
+    font-size: 38px; font-weight: 300; color: var(--primary-text-color); line-height: 1;
+    letter-spacing: -1px;
+  }
+  .room-temp-unit-big { font-size: 18px; font-weight: 400; color: var(--secondary-text-color); }
+  .room-temp-lbl {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
+    color: var(--secondary-text-color); margin-top: 2px;
+  }
+  .room-temp-target {
+    display: flex; flex-direction: column; align-items: flex-start;
+    margin-bottom: 4px; min-width: 0;
+  }
+  .room-temp-target-val {
+    font-size: 20px; font-weight: 700; color: var(--primary-color); line-height: 1.1;
+  }
+  .room-temp-target-lbl {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--secondary-text-color);
+  }
+  .room-temp-diff {
+    font-size: 11px; margin-left: 4px; line-height: 1.1;
+  }
 
   /* Demand bar */
-  .demand-bar-bg { background: var(--secondary-background-color, #f5f5f5); border-radius: 6px;
-                   height: 6px; margin: 8px 0 4px; overflow: hidden; }
-  .demand-bar { height: 100%; border-radius: 6px; transition: width 0.6s ease, background 0.4s; }
-  .demand-label { font-size: 11px; color: var(--secondary-text-color); margin-bottom: 10px; }
-
-  /* Quick-mode chips */
-  .mode-chips { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
-  .mode-chip { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
-               border: 1.5px solid var(--divider-color); cursor: pointer;
-               transition: all 0.15s; color: var(--secondary-text-color);
-               background: transparent; display: inline-flex; align-items: center; gap: 3px; }
-  .mode-chip:hover { border-color: var(--primary-color); color: var(--primary-color); background: var(--secondary-background-color); }
-  .mode-chip.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
-  .mode-chip.boost { border-color: #fb8c00; color: #fb8c00; }
-  .mode-chip.boost:hover, .mode-chip.boost.active { background: #fb8c00; color: white; }
-
-  /* Badge */
-  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
-           border-radius: 10px; font-size: 11px; font-weight: 600; }
-  .badge-heat { background: #fce4ec; color: #c62828; }
-  .badge-ok   { background: #e8f5e9; color: #2e7d32; }
-  .badge-off  { background: #f5f5f5; color: #757575; }
-  .badge-window { background: #e3f2fd; color: #1565c0; }
-  .badge-eco  { background: #e0f2f1; color: #00695c; }
-  .badge-away { background: #fff3e0; color: #e65100; }
-  .badge-boost { background: #fff3e0; color: #e65100; }
-  .badge-summer { background: #fffde7; color: #f57f17; }
-
-  /* Summer banner */
-  .summer-banner { background: linear-gradient(135deg, #fff9c4, #fffde7);
-                   border: 1px solid #f9a825; border-radius: 8px; padding: 10px 14px;
-                   margin-bottom: 16px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
-
-  /* Room list – Zimmer tab */
-  .room-list-item { display: flex; align-items: center; gap: 12px; padding: 14px;
-                    border-bottom: 1px solid var(--divider-color, #e0e0e0); }
-  .room-list-item:last-child { border-bottom: none; }
-  .room-list-left { flex: 1; min-width: 0; }
-  .room-list-name { font-weight: 600; font-size: 14px; }
-  .room-list-meta { font-size: 12px; color: var(--secondary-text-color); margin-top: 2px; }
-  .room-list-actions { display: flex; gap: 6px; flex-shrink: 0; }
-
-  /* Form rows */
-  .form-group { margin-bottom: 16px; }
-  .form-label { font-size: 13px; font-weight: 600; color: var(--primary-text-color);
-                margin-bottom: 4px; display: block; }
-  .form-hint  { font-size: 11px; color: var(--secondary-text-color); margin-top: 3px; }
-  .form-row   { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .form-input { flex: 1; min-width: 100px; padding: 8px 10px; border-radius: 6px;
-                border: 1.5px solid var(--divider-color, #e0e0e0);
-                background: var(--card-background-color, #fff);
-                color: var(--primary-text-color); font-size: 14px;
-                transition: border-color 0.2s; }
-  .form-input:focus { outline: none; border-color: var(--primary-color); }
-  .form-input.full { width: 100%; flex: none; }
-  .form-select { flex: 1; min-width: 120px; padding: 8px 10px; border-radius: 6px;
-                 border: 1.5px solid var(--divider-color, #e0e0e0);
-                 background: var(--card-background-color, #fff);
-                 color: var(--primary-text-color); font-size: 14px; }
-  .form-select:focus { outline: none; border-color: var(--primary-color); }
-
-  /* Entity list (multi-sensors) */
-  .entity-list { display: flex; flex-direction: column; gap: 6px; }
-  .entity-row { display: flex; gap: 6px; align-items: center; }
-  .entity-row .form-input { flex: 1; }
-
-  /* Buttons */
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px;
-         border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600;
-         transition: all 0.15s; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-primary   { background: var(--primary-color); color: #fff; }
-  .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
-  .btn-danger    { background: var(--error-color, #e53935); color: #fff; }
-  .btn-danger:hover:not(:disabled)  { filter: brightness(1.1); }
-  .btn-secondary { background: var(--secondary-background-color, #f5f5f5);
-                   color: var(--primary-text-color); border: 1.5px solid var(--divider-color, #e0e0e0); }
-  .btn-secondary:hover:not(:disabled) { background: var(--divider-color, #e0e0e0); }
-  .btn-icon { padding: 6px 8px; font-size: 16px; }
-  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
-
-  /* Settings sections */
-  .settings-section { margin-bottom: 24px; }
-  .settings-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase;
-                             letter-spacing: 0.8px; color: var(--secondary-text-color);
-                             margin-bottom: 10px; }
-  .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-  .settings-item { display: flex; flex-direction: column; gap: 4px; }
-  .settings-item label { font-size: 12px; color: var(--secondary-text-color); }
-
-  /* Collapsible settings cards */
-  details.ihc-card { background: var(--card-background-color,#fff); border-radius: 12px;
-                     margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.08); overflow: hidden; }
-  details.ihc-card > summary {
-    list-style: none; cursor: pointer; padding: 16px 20px;
-    display: flex; align-items: center; justify-content: space-between;
-    user-select: none;
+  .demand-wrap { margin-bottom: 6px; }
+  .demand-bar-bg {
+    background: var(--secondary-background-color, #f0f0f0); border-radius: 4px;
+    height: 5px; overflow: hidden;
   }
-  details.ihc-card > summary::-webkit-details-marker { display: none; }
-  details.ihc-card > summary::after {
-    content: "▶"; font-size: 11px; color: var(--secondary-text-color);
-    transition: transform 0.2s; flex-shrink: 0; margin-left: 8px;
+  .demand-bar { height: 100%; border-radius: 4px; transition: width 0.6s ease, background 0.4s; }
+  .demand-meta {
+    font-size: 10px; color: var(--secondary-text-color); margin-top: 4px;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   }
-  details.ihc-card[open] > summary::after { transform: rotate(90deg); }
-  details.ihc-card > summary:hover { background: var(--secondary-background-color, #f5f5f5); }
-  .ihc-card-body { padding: 0 20px 20px; }
-  .ihc-card-title { font-size: 15px; font-weight: 700; color: var(--primary-text-color);
-                    display: flex; align-items: center; gap: 8px; flex: 1; }
-  .ihc-card-badge { font-size: 11px; padding: 2px 7px; border-radius: 8px; font-weight: 600;
-                    background: var(--success-color,#43a047); color: white; margin-left: 6px; }
-  .ihc-card-badge.warn { background: #fb8c00; }
-  .ihc-card-badge.info { background: var(--primary-color); }
 
-  /* Schedule */
-  .day-chips { display: flex; gap: 5px; flex-wrap: wrap; }
-  .day-chip { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center;
-              justify-content: center; cursor: pointer; font-size: 11px; font-weight: 700;
-              border: 2px solid var(--divider-color, #e0e0e0); transition: all 0.15s;
-              color: var(--secondary-text-color); }
-  .day-chip.selected { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
-  .period-row { display: grid; grid-template-columns: 90px 90px 70px 60px 36px;
-                gap: 6px; align-items: center; margin-bottom: 6px; }
-  .period-header { display: grid; grid-template-columns: 90px 90px 70px 60px 36px;
-                   gap: 6px; font-size: 11px; font-weight: 600; color: var(--secondary-text-color);
-                   margin-bottom: 6px; }
-  .sched-block { border: 1px solid var(--divider-color, #e0e0e0); border-radius: 8px;
-                 padding: 14px; margin-bottom: 10px; }
-
-  /* Heating curve table */
-  .curve-table { width: 100%; border-collapse: collapse; }
-  .curve-table th, .curve-table td { padding: 8px 10px; text-align: left;
-                                     border-bottom: 1px solid var(--divider-color, #e0e0e0); }
-  .curve-table th { font-size: 11px; text-transform: uppercase; color: var(--secondary-text-color); }
-  .curve-table input { width: 80px; padding: 5px 8px; border-radius: 5px;
-                       border: 1.5px solid var(--divider-color, #e0e0e0);
-                       background: var(--card-background-color, #fff);
-                       color: var(--primary-text-color); font-size: 13px; }
-  .curve-table input:focus { outline: none; border-color: var(--primary-color); }
-
-  /* Modal */
-  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
-                    backdrop-filter: blur(4px); z-index: 999;
-                    display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .modal { background: var(--card-background-color, #fff); border-radius: 14px;
-           padding: 24px; max-width: 560px; width: 100%; max-height: 90vh;
-           overflow-y: auto; position: relative;
-           box-shadow: 0 8px 40px rgba(0,0,0,.25);
-           animation: modal-in 0.2s ease; }
-  @keyframes modal-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px;
-                 padding-right: 32px; color: var(--primary-text-color); }
-  .modal-close { position: absolute; top: 18px; right: 18px; cursor: pointer;
-                 font-size: 18px; line-height: 1; background: var(--secondary-background-color, #f5f5f5);
-                 border: none; border-radius: 50%; width: 28px; height: 28px;
-                 display: flex; align-items: center; justify-content: center;
-                 color: var(--secondary-text-color); }
-  .modal-close:hover { background: var(--divider-color, #e0e0e0); }
-  .modal-section { border-top: 1px solid var(--divider-color, #e0e0e0); margin-top: 16px; padding-top: 16px; }
-  .modal-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase;
-                          letter-spacing: 0.6px; color: var(--secondary-text-color); margin-bottom: 10px; }
-  /* Force single-column grid inside modals to prevent entity picker covering adjacent columns */
-  .modal .settings-grid { grid-template-columns: 1fr; }
-  /* Collapsible advanced sections within modal */
-  .modal-collapsible { border-top: 1px solid var(--divider-color, #e0e0e0); margin-top: 16px; }
-  .modal-collapsible > summary {
-    padding: 14px 0; cursor: pointer; list-style: none;
-    font-size: 12px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.6px; color: var(--secondary-text-color);
-    display: flex; align-items: center; gap: 6px; user-select: none;
+  /* Alert strips within room card */
+  .room-alerts { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  .room-alert {
+    display: flex; align-items: center; gap: 5px; padding: 3px 8px;
+    border-radius: 5px; font-size: 10px; font-weight: 600; line-height: 1.3;
   }
-  .modal-collapsible > summary::before { content: "▸"; font-size: 11px; transition: transform 0.15s; }
-  .modal-collapsible[open] > summary::before { content: "▾"; }
-  .modal-collapsible > summary:hover { color: var(--primary-color); }
-  .modal-collapsible .modal-collapsible-body { padding-bottom: 4px; }
+  .room-alert.alert-warn { background: #fff3e0; color: #e65100; }
+  .room-alert.alert-info { background: #e3f2fd; color: #1565c0; }
+  .room-alert.alert-danger { background: #fce4ec; color: #c62828; }
+  .room-alert.alert-eco { background: #e8f5e9; color: #2e7d32; }
+  .room-alert.alert-override { background: #fff8e1; color: #f57f17; }
 
-  /* Toast */
-  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
-           background: #212121; color: #fff; padding: 11px 22px; border-radius: 6px;
-           z-index: 2000; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-           animation: toast-in 0.2s ease; pointer-events: none; white-space: nowrap; }
-  @keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-                        to   { opacity: 1; transform: translateX(-50%) translateY(0); } }
+  /* TRV chips */
+  .trv-chips { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 6px; }
+  .trv-chip {
+    font-size: 10px; padding: 2px 7px; border-radius: 8px;
+    display: inline-flex; align-items: center; gap: 3px;
+  }
 
-  /* Info box */
-  .info-box { background: var(--info-color, #e3f2fd); border-left: 3px solid var(--primary-color);
-              padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 16px;
-              line-height: 1.5; }
-
-  /* Spinner */
-  .spinner { display: inline-block; width: 18px; height: 18px;
-             border: 2.5px solid var(--divider-color, #e0e0e0);
-             border-top-color: var(--primary-color); border-radius: 50%;
-             animation: spin 0.7s linear infinite; vertical-align: middle; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* Divider */
-  hr.divider { border: none; border-top: 1px solid var(--divider-color, #e0e0e0); margin: 16px 0; }
-
-  /* Room mode row (replaces mode chips) */
-  .room-mode-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  /* Mode + boost action row */
+  .room-action-row { display: flex; gap: 6px; align-items: center; padding-top: 8px;
+                     border-top: 1px solid var(--divider-color, #e5e5e5); }
   .mode-select {
-    flex: 1; padding: 5px 8px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    flex: 1; padding: 5px 8px; border-radius: 8px; font-size: 11px; font-weight: 600;
     border: 1.5px solid var(--divider-color, #e0e0e0);
     background: var(--secondary-background-color, #f5f5f5);
     color: var(--primary-text-color); cursor: pointer; appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 8px center;
-    padding-right: 22px;
+    padding-right: 22px; min-height: 32px;
   }
   .mode-select.active-auto     { border-color: var(--primary-color);  background: color-mix(in srgb, var(--primary-color) 12%, transparent); }
   .mode-select.active-comfort  { border-color: #fb8c00; background: color-mix(in srgb, #fb8c00 15%, transparent); }
@@ -355,30 +279,302 @@ const STYLES = `
   .mode-select.active-off      { border-color: #9e9e9e; background: color-mix(in srgb, #9e9e9e 15%, transparent); }
   .mode-select.active-manual   { border-color: #8d6e63; background: color-mix(in srgb, #8d6e63 15%, transparent); }
   .btn-boost {
-    padding: 5px 10px; border-radius: 8px; border: 1.5px solid #fb8c00;
-    background: transparent; color: #fb8c00; font-size: 12px; font-weight: 700;
-    cursor: pointer; white-space: nowrap; transition: all 0.15s; flex-shrink: 0;
+    padding: 5px 10px; border-radius: 8px; border: 1.5px solid #ff7043;
+    background: transparent; color: #ff7043; font-size: 11px; font-weight: 700;
+    cursor: pointer; white-space: nowrap; transition: all 0.15s; flex-shrink: 0; min-height: 32px;
   }
-  .btn-boost:hover { background: #fb8c00; color: white; }
+  .btn-boost:hover { background: #ff7043; color: white; }
 
-  /* Custom entity picker */
+  /* Room footer info */
+  .room-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 6px; min-height: 18px;
+  }
+  .room-footer-meta { font-size: 10px; color: var(--secondary-text-color); }
+
+  /* ── Badge / chips ────────────────────────────────────────────────────────── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px;
+    border-radius: 9px; font-size: 10px; font-weight: 700; line-height: 1.4;
+  }
+  .badge-heat   { background: #fce4ec; color: #c62828; }
+  .badge-ok     { background: #e8f5e9; color: #2e7d32; }
+  .badge-off    { background: #f0f0f0; color: #757575; }
+  .badge-window { background: #e3f2fd; color: #1565c0; }
+  .badge-eco    { background: #e0f2f1; color: #00695c; }
+  .badge-away   { background: #fff3e0; color: #e65100; }
+  .badge-boost  { background: #fbe9e7; color: #bf360c; }
+  .badge-summer { background: #fffde7; color: #f57f17; }
+  .badge-sleep  { background: #ede7f6; color: #4527a0; }
+
+  /* ── System banners ─────────────────────────────────────────────────────── */
+  .system-banner {
+    display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+    border-radius: 8px; margin-bottom: 10px; font-size: 12px; font-weight: 600;
+    border-left: 3px solid currentColor;
+  }
+  .system-banner.summer   { background: #fffde7; color: #f57f17; }
+  .system-banner.night    { background: #e8eaf6; color: #3949ab; }
+  .system-banner.away     { background: #fff8e1; color: #f57f17; }
+  .system-banner.solar    { background: #fffde7; color: #f9a825; }
+  .system-banner.cold     { background: #e8eaf6; color: #283593; }
+  .system-banner.price    { background: #fce4ec; color: #c62828; }
+  .system-banner.vacation { background: #e8f5e9; color: #2e7d32; }
+  .system-banner.preheat  { background: #e3f2fd; color: #1565c0; }
+  .system-banner.guest    { background: #fce4ec; color: #880e4f; }
+  .system-banner.eta      { background: #e8f5e9; color: #2e7d32; }
+
+  /* ── Room list (Zimmer-Tab) ─────────────────────────────────────────────── */
+  .room-list-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    border-bottom: 1px solid var(--divider-color, #e5e5e5); cursor: default;
+    transition: background 0.1s;
+  }
+  .room-list-item:hover { background: var(--secondary-background-color, #f9f9f9); }
+  .room-list-item:last-child { border-bottom: none; }
+  .room-list-indicator {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    background: var(--divider-color, #e0e0e0);
+  }
+  .room-list-indicator.heating { background: #ef5350; }
+  .room-list-indicator.ok { background: #66bb6a; }
+  .room-list-indicator.window { background: #42a5f5; }
+  .room-list-indicator.off { background: #bdbdbd; }
+  .room-list-left { flex: 1; min-width: 0; }
+  .room-list-name { font-weight: 600; font-size: 14px; color: var(--primary-text-color); }
+  .room-list-meta { font-size: 11px; color: var(--secondary-text-color); margin-top: 2px; }
+  .room-list-actions { display: flex; gap: 5px; flex-shrink: 0; }
+
+  /* ── Forms ──────────────────────────────────────────────────────────────── */
+  .form-group { margin-bottom: 14px; }
+  .form-label {
+    font-size: 12px; font-weight: 600; color: var(--primary-text-color);
+    margin-bottom: 5px; display: block;
+  }
+  .form-hint  { font-size: 11px; color: var(--secondary-text-color); margin-top: 4px; line-height: 1.45; }
+  .form-row   { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .form-input {
+    flex: 1; min-width: 90px; padding: 7px 10px; border-radius: 6px;
+    border: 1.5px solid var(--divider-color, #e0e0e0);
+    background: var(--card-background-color, #fff);
+    color: var(--primary-text-color); font-size: 13px;
+    transition: border-color 0.15s; line-height: 1.4;
+  }
+  .form-input:focus { outline: none; border-color: var(--primary-color);
+                      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 15%, transparent); }
+  .form-input.full { width: 100%; flex: none; }
+  .form-select {
+    flex: 1; min-width: 120px; padding: 7px 10px; border-radius: 6px;
+    border: 1.5px solid var(--divider-color, #e0e0e0);
+    background: var(--card-background-color, #fff);
+    color: var(--primary-text-color); font-size: 13px; cursor: pointer;
+  }
+  .form-select:focus { outline: none; border-color: var(--primary-color);
+                       box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 15%, transparent); }
+
+  /* Entity list */
+  .entity-list { display: flex; flex-direction: column; gap: 5px; }
+  .entity-row { display: flex; gap: 5px; align-items: center; }
+  .entity-row .form-input { flex: 1; }
+
+  /* ── Buttons ────────────────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px;
+    border-radius: 7px; border: none; cursor: pointer; font-size: 12px; font-weight: 600;
+    transition: all 0.15s; line-height: 1.4; white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary   { background: var(--primary-color); color: #fff; }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn-danger    { background: #ef5350; color: #fff; }
+  .btn-danger:hover:not(:disabled)  { background: #e53935; }
+  .btn-secondary {
+    background: var(--secondary-background-color, #f5f5f5);
+    color: var(--primary-text-color); border: 1.5px solid var(--divider-color, #e0e0e0);
+  }
+  .btn-secondary:hover:not(:disabled) { background: var(--divider-color, #e0e0e0); }
+  .btn-icon { padding: 6px 8px; font-size: 15px; }
+  .btn-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 14px; }
+
+  /* ── Settings sections ──────────────────────────────────────────────────── */
+  .settings-section { margin-bottom: 20px; }
+  .settings-section-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.9px; color: var(--secondary-text-color); margin-bottom: 10px;
+  }
+  .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .settings-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .settings-item { display: flex; flex-direction: column; gap: 4px; }
+  .settings-item label { font-size: 11px; font-weight: 600; color: var(--secondary-text-color); }
+
+  /* Collapsible cards */
+  details.ihc-card {
+    background: var(--card-background-color,#fff); border-radius: 12px;
+    margin-bottom: 12px; border: 1px solid var(--divider-color, #e5e5e5);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05); overflow: hidden;
+  }
+  details.ihc-card > summary {
+    list-style: none; cursor: pointer; padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    user-select: none; gap: 8px;
+  }
+  details.ihc-card > summary::-webkit-details-marker { display: none; }
+  details.ihc-card > summary::after {
+    content: "›"; font-size: 18px; color: var(--secondary-text-color);
+    transition: transform 0.2s; flex-shrink: 0; line-height: 1;
+  }
+  details.ihc-card[open] > summary::after { transform: rotate(90deg); }
+  details.ihc-card > summary:hover { background: var(--secondary-background-color, #f9f9f9); }
+  .ihc-card-body { padding: 0 18px 18px; }
+  .ihc-card-title {
+    font-size: 14px; font-weight: 700; color: var(--primary-text-color);
+    display: flex; align-items: center; gap: 7px; flex: 1;
+  }
+  .ihc-card-badge {
+    font-size: 10px; padding: 2px 7px; border-radius: 8px; font-weight: 700;
+    background: #66bb6a; color: white; margin-left: 4px;
+  }
+  .ihc-card-badge.warn { background: #ffa726; }
+  .ihc-card-badge.info { background: var(--primary-color); }
+
+  /* ── Schedule editor ────────────────────────────────────────────────────── */
+  .day-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .day-chip {
+    width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; cursor: pointer; font-size: 10px; font-weight: 700;
+    border: 2px solid var(--divider-color, #e0e0e0); transition: all 0.15s;
+    color: var(--secondary-text-color);
+  }
+  .day-chip.selected { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+  .period-row { display: grid; grid-template-columns: 90px 90px 70px 60px 34px;
+                gap: 5px; align-items: center; margin-bottom: 5px; }
+  .period-header { display: grid; grid-template-columns: 90px 90px 70px 60px 34px;
+                   gap: 5px; font-size: 10px; font-weight: 700; color: var(--secondary-text-color);
+                   margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .sched-block {
+    border: 1px solid var(--divider-color, #e0e0e0); border-radius: 8px;
+    padding: 12px; margin-bottom: 8px; background: var(--secondary-background-color, #fafafa);
+  }
+
+  /* ── Heating curve ──────────────────────────────────────────────────────── */
+  .curve-table { width: 100%; border-collapse: collapse; }
+  .curve-table th, .curve-table td {
+    padding: 8px 10px; text-align: left;
+    border-bottom: 1px solid var(--divider-color, #e0e0e0);
+  }
+  .curve-table th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--secondary-text-color); }
+  .curve-table input {
+    width: 80px; padding: 5px 8px; border-radius: 5px;
+    border: 1.5px solid var(--divider-color, #e0e0e0);
+    background: var(--card-background-color, #fff);
+    color: var(--primary-text-color); font-size: 13px;
+  }
+  .curve-table input:focus { outline: none; border-color: var(--primary-color); }
+
+  /* ── Modal ──────────────────────────────────────────────────────────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.40);
+    backdrop-filter: blur(5px); z-index: 999;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal {
+    background: var(--card-background-color, #fff); border-radius: 14px;
+    padding: 22px 24px; max-width: 600px; width: 100%; max-height: 90vh;
+    overflow-y: auto; position: relative;
+    box-shadow: 0 10px 50px rgba(0,0,0,.22);
+    animation: modal-in 0.18s ease;
+    border: 1px solid var(--divider-color, #e5e5e5);
+  }
+  @keyframes modal-in { from { transform: scale(0.96) translateY(8px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+  .modal-title {
+    font-size: 17px; font-weight: 700; margin-bottom: 18px;
+    padding-right: 32px; color: var(--primary-text-color);
+  }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px; cursor: pointer;
+    font-size: 16px; line-height: 1; background: var(--secondary-background-color, #f5f5f5);
+    border: none; border-radius: 50%; width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--secondary-text-color); transition: background 0.15s;
+  }
+  .modal-close:hover { background: var(--divider-color, #e0e0e0); }
+  .modal-section { border-top: 1px solid var(--divider-color, #e0e0e0); margin-top: 14px; padding-top: 14px; }
+  .modal-section-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--secondary-text-color); margin-bottom: 10px;
+  }
+  .modal .settings-grid { grid-template-columns: 1fr; }
+  .modal-collapsible { border-top: 1px solid var(--divider-color, #e0e0e0); margin-top: 14px; }
+  .modal-collapsible > summary {
+    padding: 12px 0; cursor: pointer; list-style: none;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.7px; color: var(--secondary-text-color);
+    display: flex; align-items: center; gap: 6px; user-select: none;
+  }
+  .modal-collapsible > summary::before { content: "▸"; font-size: 10px; transition: transform 0.15s; }
+  .modal-collapsible[open] > summary::before { content: "▾"; }
+  .modal-collapsible > summary:hover { color: var(--primary-color); }
+  .modal-collapsible .modal-collapsible-body { padding-bottom: 4px; }
+
+  /* ── Toast ──────────────────────────────────────────────────────────────── */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1e1e1e; color: #fff; padding: 10px 20px; border-radius: 8px;
+    z-index: 2000; font-size: 13px; font-weight: 500;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    animation: toast-in 0.18s ease; pointer-events: none; white-space: nowrap;
+  }
+  @keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+                        to   { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+  /* ── Info / hint boxes ──────────────────────────────────────────────────── */
+  .info-box {
+    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+    border-left: 3px solid var(--primary-color);
+    padding: 9px 13px; border-radius: 6px; font-size: 12px; margin-bottom: 14px;
+    line-height: 1.5; color: var(--primary-text-color);
+  }
+
+  /* ── Spinner ────────────────────────────────────────────────────────────── */
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid var(--divider-color, #e0e0e0);
+    border-top-color: var(--primary-color); border-radius: 50%;
+    animation: spin 0.7s linear infinite; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  hr.divider { border: none; border-top: 1px solid var(--divider-color, #e0e0e0); margin: 14px 0; }
+
+  /* Quick mode chips (legacy, kept for compat) */
+  .mode-chips { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  .mode-chip {
+    padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
+    border: 1.5px solid var(--divider-color); cursor: pointer; transition: all 0.15s;
+    color: var(--secondary-text-color); background: transparent;
+    display: inline-flex; align-items: center; gap: 3px;
+  }
+  .mode-chip:hover { border-color: var(--primary-color); color: var(--primary-color); }
+  .mode-chip.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+  .mode-chip.boost { border-color: #ff7043; color: #ff7043; }
+  .mode-chip.boost:hover, .mode-chip.boost.active { background: #ff7043; color: white; }
+
+  /* ── Entity picker ──────────────────────────────────────────────────────── */
   .ep-wrap { position: relative; }
   .ep-dropdown {
     position: fixed; z-index: 99999;
     background: var(--card-background-color, #fff);
     border: 1.5px solid var(--primary-color);
-    border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,.2);
-    max-height: 260px; overflow-y: auto;
-    min-width: 240px;
+    border-radius: 9px; box-shadow: 0 6px 24px rgba(0,0,0,.18);
+    max-height: 260px; overflow-y: auto; min-width: 240px;
   }
   .ep-item {
-    display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer;
-    border-bottom: 1px solid var(--divider-color, #e0e0e0); transition: background 0.1s;
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer;
+    border-bottom: 1px solid var(--divider-color, #e0e0e0); transition: background 0.08s;
   }
   .ep-item:last-child { border-bottom: none; }
   .ep-item:hover, .ep-item.ep-focused { background: var(--secondary-background-color, #f5f5f5); }
   .ep-badge {
-    font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px;
+    font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 9px;
     white-space: nowrap; text-transform: lowercase; flex-shrink: 0;
   }
   .ep-d-sensor        { background: #e3f2fd; color: #1565c0; }
@@ -392,32 +588,34 @@ const STYLES = `
   .ep-d-device_tracker{ background: #e8eaf6; color: #283593; }
   .ep-d-other         { background: #f5f5f5; color: #616161; }
   .ep-info { flex: 1; min-width: 0; }
-  .ep-name { font-size: 13px; font-weight: 600; color: var(--primary-text-color);
+  .ep-name { font-size: 12px; font-weight: 600; color: var(--primary-text-color);
              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ep-id   { font-size: 11px; color: var(--secondary-text-color);
+  .ep-id   { font-size: 10px; color: var(--secondary-text-color);
              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ep-state { font-size: 12px; font-weight: 600; color: var(--secondary-text-color);
+  .ep-state { font-size: 11px; font-weight: 600; color: var(--secondary-text-color);
               flex-shrink: 0; white-space: nowrap; margin-left: auto; }
   .ep-empty { padding: 12px; text-align: center; color: var(--secondary-text-color);
-              font-size: 13px; font-style: italic; }
+              font-size: 12px; font-style: italic; }
 
-  /* Responsive – mobile optimised (Roadmap 1.5) */
+  /* ── Responsive ─────────────────────────────────────────────────────────── */
   @media (max-width: 600px) {
-    .panel { padding: 10px; }
-    .tab { padding: 10px 10px; font-size: 12px; min-width: 60px; text-align: center; }
+    .panel { padding: 10px 10px 28px; }
+    .tabs { gap: 1px; }
+    .tab { padding: 7px 10px; font-size: 11px; }
     .rooms-grid { grid-template-columns: 1fr; }
     .status-grid { grid-template-columns: repeat(2, 1fr); }
-    .settings-grid { grid-template-columns: 1fr; }
+    .settings-grid, .settings-grid-2 { grid-template-columns: 1fr; }
     .period-row, .period-header { grid-template-columns: 80px 80px 65px 55px 30px; gap: 4px; }
-    .btn { min-height: 44px; }  /* larger touch targets */
-    .form-input, .form-select { min-height: 44px; font-size: 16px; } /* prevent iOS zoom */
-    .mode-chip { min-width: 32px; min-height: 32px; line-height: 32px; }
-    .card { padding: 14px 12px; }
-    .header h1 { font-size: 18px; }
+    .btn { min-height: 42px; }
+    .form-input, .form-select { min-height: 42px; font-size: 16px; }
+    .card { padding: 12px 14px; }
+    .header h1 { font-size: 15px; }
+    .overview-hero { grid-template-columns: 1fr 1fr; }
+    .room-temp-big { font-size: 32px; }
   }
   @media (max-width: 400px) {
-    .tabs { gap: 0; }
-    .tab { padding: 8px 6px; font-size: 11px; }
+    .tab { padding: 6px 8px; font-size: 10px; }
+    .overview-hero { grid-template-columns: 1fr; }
   }
 `;
 
@@ -512,9 +710,9 @@ class IHCPanel extends HTMLElement {
     // Build permanent structure (only once)
     panel.innerHTML = `
       <div class="header">
-        <button class="btn btn-secondary" id="btn-back" style="padding:6px 12px;font-size:12px">← Dashboard</button>
         <span class="header-icon">🌡️</span>
         <h1>Intelligent Heating Control</h1>
+        <span class="header-version">v4</span>
       </div>
       <div class="tabs">
         <div class="tab" data-tab="overview">🏠 Dashboard</div>
@@ -525,12 +723,6 @@ class IHCPanel extends HTMLElement {
       </div>
       <div id="tab-content"></div>
     `;
-
-    // Back button
-    panel.querySelector("#btn-back").addEventListener("click", () => {
-      if (this._hass && this._hass.navigate) this._hass.navigate("/");
-      else history.back();
-    });
 
     // Tab switching – NO full re-render, only update active class + content
     panel.querySelectorAll(".tab").forEach(tab => {
@@ -825,134 +1017,147 @@ class IHCPanel extends HTMLElement {
       const isWindow   = room.window_open;
       const isOff      = room.room_mode === "off";
       const isSat      = !isOff && !isWindow && room.demand === 0;
-      let cls = "room-card";
-      if (isWindow) cls += " window-open";
-      else if (isOff) cls += " off";
-      else if (isHeating) cls += " heating";
-      else if (isSat) cls += " satisfied";
 
+      // Determine card left-border class based on state
+      let cardStatusCls = "";
+      if (isWindow) cardStatusCls = " window-open";
+      else if (isOff) cardStatusCls = " off";
+      else if (isHeating) cardStatusCls = " heating";
+      else if (room.room_mode === "eco") cardStatusCls = " eco";
+      else if (room.room_mode === "sleep") cardStatusCls = " sleep";
+      else if (room.room_mode === "away") cardStatusCls = " away";
+      else if (isSat) cardStatusCls = " satisfied";
+
+      // Compact status badge (top right)
       const statusBadge = (() => {
-        if (isWindow) return `<span class="badge badge-window">🪟 Fenster offen</span>`;
+        if (isWindow) return `<span class="badge badge-window">🪟 offen</span>`;
         if (isOff)    return `<span class="badge badge-off">⛔ Aus</span>`;
+        if (room.boost_remaining > 0)  return `<span class="badge badge-boost">⚡ ${room.boost_remaining}min</span>`;
+        if (isHeating) return `<span class="badge badge-heat">🔥 Heizt</span>`;
         if (room.room_mode === "eco")   return `<span class="badge badge-eco">🌿 Eco</span>`;
         if (room.room_mode === "away")  return `<span class="badge badge-away">🚶 Abwesend</span>`;
-        if (room.room_mode === "sleep") return `<span class="badge badge-eco">🌙 Schlafen</span>`;
-        if (room.boost_remaining > 0)  return `<span class="badge badge-boost">⚡ Boost ${room.boost_remaining}min</span>`;
-        if (isHeating) return `<span class="badge badge-heat">🔥 Heizt</span>`;
+        if (room.room_mode === "sleep") return `<span class="badge badge-sleep">🌙 Schlaf</span>`;
         if (isSat)     return `<span class="badge badge-ok">✓ OK</span>`;
         return "";
       })();
 
       const src = srcMap[room.source] || room.source;
 
-      // Calculate temp difference for visual cue
+      // Temp delta indicator
       const tempDiff = (room.current_temp !== null && room.target_temp !== null)
         ? room.target_temp - room.current_temp : null;
       const tempDiffStr = tempDiff !== null
-        ? (tempDiff > 0.2 ? `<span style="color:var(--error-color,#e53935);font-size:11px">↑ ${tempDiff.toFixed(1)}°</span>`
-           : tempDiff < -0.2 ? `<span style="color:var(--success-color,#43a047);font-size:11px">↓ ${Math.abs(tempDiff).toFixed(1)}°</span>`
-           : `<span style="color:var(--success-color,#43a047);font-size:11px">≈</span>`)
+        ? (tempDiff > 0.3 ? `<span style="color:#ef5350;font-size:10px;font-weight:700">↑${tempDiff.toFixed(1)}°</span>`
+           : tempDiff < -0.3 ? `<span style="color:#66bb6a;font-size:10px;font-weight:700">↓${Math.abs(tempDiff).toFixed(1)}°</span>`
+           : `<span style="color:#66bb6a;font-size:10px">≈</span>`)
         : "";
 
       const modeOptions = ["auto","comfort","eco","sleep","away","off","manual"].map(m =>
         `<option value="${m}" ${room.room_mode === m ? "selected" : ""}>${MODE_ICONS[m] || ""} ${MODE_LABELS[m]}</option>`
       ).join("");
 
-      const anomalyBanner = room.anomaly === "sensor_stuck"
-        ? `<div style="font-size:10px;color:#c62828;background:#fce4ec;border-radius:6px;padding:3px 7px;margin-bottom:6px">⚠️ Sensor liefert konstanten Wert – bitte prüfen</div>`
-        : room.anomaly === "temp_drop"
-        ? `<div style="font-size:10px;color:#e65100;background:#fff3e0;border-radius:6px;padding:3px 7px;margin-bottom:6px">⚠️ Starker Temperaturabfall erkannt</div>`
-        : "";
-
-      const moldBanner = room.mold && room.mold.risk
-        ? `<div style="font-size:10px;color:#1a237e;background:#e8eaf6;border-radius:6px;padding:3px 7px;margin-bottom:6px">💧 Schimmelrisiko – Feuchte ${room.mold.humidity}%${room.mold.dew_point != null ? `, Taupunkt ${room.mold.dew_point}°C` : ""}</div>`
-        : "";
-
+      // Alert chips (compact, stacked)
+      const alerts = [];
+      if (systemOverrides) alerts.push(`<div class="room-alert alert-override">${overrideLabel} – Zimmermodus übersteuert</div>`);
+      if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
+      if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
+      if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);
       const v = room.ventilation;
-      const ventBanner = v && v.level !== "none"
-        ? (() => {
-            const colors = { urgent: ["#b71c1c","#ffebee"], recommended: ["#e65100","#fff3e0"], possible: ["#1565c0","#e3f2fd"] };
-            const icons  = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };
-            const [fg, bg] = colors[v.level] || ["#555","#f5f5f5"];
-            const tip = v.reasons && v.reasons.length ? v.reasons.join(" · ") : v.level;
-            const co2part = v.co2_ppm != null ? ` · CO₂ ${v.co2_ppm} ppm` : "";
-            return `<div style="font-size:10px;color:${fg};background:${bg};border-radius:6px;padding:3px 7px;margin-bottom:6px">${icons[v.level]} ${tip}${co2part}</div>`;
-          })()
-        : "";
+      if (v && v.level !== "none") {
+        const icons = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };
+        const cls   = { urgent: "alert-danger", recommended: "alert-warn", possible: "alert-info" };
+        const tip = v.reasons && v.reasons.length ? v.reasons.join(" · ") : v.level;
+        const co2part = v.co2_ppm != null ? ` · CO₂ ${v.co2_ppm}` : "";
+        alerts.push(`<div class="room-alert ${cls[v.level] || 'alert-info'}">${icons[v.level] || "🌬️"} ${tip}${co2part}</div>`);
+      }
+      const alertsHtml = alerts.length ? `<div class="room-alerts">${alerts.join("")}</div>` : "";
 
-      // Override banner: shown when system mode silently ignores the room mode
-      const overrideBanner = systemOverrides
-        ? `<div style="font-size:10px;color:#e65100;background:#fff3e0;border-radius:6px;padding:3px 8px;margin-bottom:6px;display:flex;align-items:center;gap:4px">${overrideLabel} <span style="opacity:.7">– Zimmermodus übersteuert</span></div>`
-        : "";
+      // TRV chips
+      const trvChips = (room.trv_raw_temp != null || (room.trv_avg_valve != null && room.trv_avg_valve > 0) || room.trv_humidity != null) ? `
+        <div class="trv-chips">
+          ${room.trv_raw_temp != null ? `<span class="trv-chip" style="background:#fff3e0;color:#e65100" title="TRV-Rohtemperatur">🌡️ TRV ${parseFloat(room.trv_raw_temp).toFixed(1)}°</span>` : ""}
+          ${room.trv_avg_valve != null && room.trv_avg_valve > 0 ? `<span class="trv-chip" style="background:#e3f2fd;color:#1565c0" title="Ventilöffnung Ø">🔧 ${Math.round(room.trv_avg_valve)}%</span>` : ""}
+          ${room.trv_humidity != null ? `<span class="trv-chip" style="background:#e8f5e9;color:#2e7d32" title="TRV-Luftfeuchtigkeit">💧 ${Math.round(room.trv_humidity)}%</span>` : ""}
+          ${room.trv_any_heating ? `<span class="trv-chip" style="background:#fce4ec;color:#c62828" title="TRV heizt aktiv">🔥</span>` : ""}
+        </div>` : "";
+
+      // Footer info
+      const footerParts = [];
+      const showRuntime = localStorage.getItem("ihc_show_runtime") !== "false";
+      const showCosts   = localStorage.getItem("ihc_show_costs") !== "false";
+      if (showRuntime && room.runtime_today_minutes > 0) footerParts.push(`⏱ ${room.runtime_today_minutes} min`);
+      if (showCosts && room.energy_today_kwh > 0) footerParts.push(this._costStr(room.energy_today_kwh, g.static_energy_price));
+      if (room.avg_warmup_minutes) footerParts.push(`Ø Aufheiz: ${room.avg_warmup_minutes} min`);
+      if (room.next_period && !room.schedule_active) footerParts.push(`📅 ${room.next_period.start} · ${room.next_period.temperature}°C`);
 
       return `
-        <div class="${cls}">
-          ${overrideBanner}${anomalyBanner}${moldBanner}${ventBanner}
-          <div class="room-name">
-            <span>${room.name}</span>
-            ${statusBadge}
-          </div>
-          <div class="temp-display">
-            <div class="temp-block">
-              <div class="temp-main">${room.current_temp !== null ? room.current_temp : "—"}<span style="font-size:14px;font-weight:400">°C</span></div>
-              <div class="temp-label">Ist</div>
+        <div class="room-card${cardStatusCls}">
+          <div class="room-card-inner">
+            ${alertsHtml}
+            <div class="room-header">
+              <div class="room-name">${room.name}</div>
+              <div class="room-status-chips">${statusBadge}</div>
             </div>
-            <div class="temp-sep">|</div>
-            <div class="temp-target-block">
-              <div class="temp-target-val">${room.source === "system_off" ? '<span style="font-size:16px">Aus</span>' : (room.target_temp !== null ? room.target_temp + '<span style="font-size:13px;font-weight:400">°C</span>' : "—")}</div>
-              <div class="temp-label" style="display:flex;align-items:center;gap:4px">Soll ${tempDiffStr}</div>
+            <div class="room-temp-row">
+              <div class="room-temp-current">
+                <div class="room-temp-big">
+                  ${room.current_temp !== null ? room.current_temp : "—"}<span class="room-temp-unit-big">°</span>
+                </div>
+                <div class="room-temp-lbl">Ist</div>
+              </div>
+              <div style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:4px;padding-left:4px">
+                <svg width="14" height="14" viewBox="0 0 14 14" style="opacity:.35"><path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="room-temp-target" style="padding-bottom:4px">
+                <div class="room-temp-target-val">
+                  ${room.source === "system_off" ? '<span style="font-size:15px;font-weight:700;color:#9e9e9e">Aus</span>'
+                    : (room.target_temp !== null ? room.target_temp + '<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color)">°</span>' : "—")}
+                  ${tempDiffStr}
+                </div>
+                <div class="room-temp-target-lbl">Soll</div>
+              </div>
+              <div style="flex:1"></div>
+              ${this._sparkline(room.temp_history, 60, 28)}
             </div>
-          </div>
-          <div class="demand-bar-bg">
-            <div class="demand-bar" style="width:${room.demand}%;background:${this._demandColor(room.demand)}"></div>
-          </div>
-          <div class="demand-label">${room.demand} % · ${src}${room.night_setback > 0 ? ` · 🌙-${room.night_setback}°` : ""}${room.room_presence_active === false ? ` · 🚶 niemand da` : ""}${room.co2_ppm > 0 ? ` · CO₂ ${room.co2_ppm} ppm` : ""}</div>
-          ${(room.trv_raw_temp != null || (room.trv_avg_valve != null && room.trv_avg_valve > 0) || room.trv_humidity != null) ? `
-          <div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0">
-            ${room.trv_raw_temp != null ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#fff3e0;color:#e65100" title="TRV-Rohtemperatur (vor Blending)">🌡️ TRV ${parseFloat(room.trv_raw_temp).toFixed(1)}°C</span>` : ""}
-            ${room.trv_avg_valve != null && room.trv_avg_valve > 0 ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#e3f2fd;color:#1565c0" title="Durchschnittliche Ventilöffnung aller TRVs">🔧 ${Math.round(room.trv_avg_valve)}%</span>` : ""}
-            ${room.trv_humidity != null ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#e8f5e9;color:#2e7d32" title="Luftfeuchtigkeit vom TRV-Sensor">💧 ${Math.round(room.trv_humidity)}%</span>` : ""}
-            ${room.trv_any_heating ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#fce4ec;color:#c62828" title="Mindestens ein TRV heizt aktiv">🔥 aktiv</span>` : ""}
-          </div>` : ""}
-          <div class="room-mode-row">
-            <select class="mode-select active-${room.room_mode || 'auto'}" data-room-id="${room.room_id}">
-              ${modeOptions}
-            </select>
-            ${room.boost_remaining > 0
-              ? `<button class="btn-boost active" data-room-id="${room.room_id}" data-action="boost-cancel" title="Boost beenden" style="background:#fb8c00;color:white">⚡ ${room.boost_remaining}min ✕</button>`
-              : `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost" title="Boost starten">⚡ Boost</button>`}
-          </div>
-          ${room.next_period && !room.schedule_active ? `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:4px">📅 Nächster Zeitplan: ${room.next_period.start}–${room.next_period.end} · ${room.next_period.temperature}°C</div>` : ""}
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
-            ${(() => {
-              const showRuntime = localStorage.getItem("ihc_show_runtime") !== "false";
-              const showCosts   = localStorage.getItem("ihc_show_costs") !== "false";
-              if (!showRuntime && !showCosts) return "<span></span>";
-              if (room.runtime_today_minutes <= 0) return "<span></span>";
-              const parts = [];
-              if (showRuntime) parts.push(`⏱ ${room.runtime_today_minutes} min`);
-              if (showCosts && room.energy_today_kwh > 0) parts.push(this._costStr(room.energy_today_kwh, g.static_energy_price));
-              return `<span style="font-size:10px;color:var(--secondary-text-color)">${parts.join(" · ")}</span>`;
-            })()}
-            ${room.avg_warmup_minutes ? `<span style="font-size:10px;color:var(--secondary-text-color)" title="Ø Aufheizzeit">🌡️ Ø ${room.avg_warmup_minutes} min</span>` : ""}
-            ${this._sparkline(room.temp_history)}
+            <div class="demand-wrap">
+              <div class="demand-bar-bg">
+                <div class="demand-bar" style="width:${room.demand}%;background:${this._demandColor(room.demand)}"></div>
+              </div>
+              <div class="demand-meta">
+                <span style="font-weight:600;color:${this._demandColor(room.demand)}">${room.demand} %</span>
+                <span>· ${src}</span>
+                ${room.night_setback > 0 ? `<span>· 🌙 -${room.night_setback}°</span>` : ""}
+                ${room.room_presence_active === false ? `<span>· 🚶 niemand da</span>` : ""}
+                ${room.co2_ppm > 0 ? `<span>· CO₂ ${room.co2_ppm} ppm</span>` : ""}
+              </div>
+            </div>
+            ${trvChips}
+            <div class="room-action-row">
+              <select class="mode-select active-${room.room_mode || 'auto'}" data-room-id="${room.room_id}">
+                ${modeOptions}
+              </select>
+              ${room.boost_remaining > 0
+                ? `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost-cancel" title="Boost beenden" style="background:#ff7043;color:white;border-color:#ff7043">⚡ ${room.boost_remaining}min ✕</button>`
+                : `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost" title="Boost starten">⚡</button>`}
+            </div>
+            ${footerParts.length ? `<div class="room-footer"><span class="room-footer-meta">${footerParts.join(" · ")}</span></div>` : ""}
           </div>
         </div>`;
     }).join("");
 
-    // Build system banners
+    // Build system banners (compact new style)
     const banners = [
-      g.summer_mode           ? `<div class="summer-banner">☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</div>` : "",
-      g.night_setback_active  ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#1565c0;">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
-      g.presence_away_active  ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);border-color:#e65100;">🚶 <strong>Anwesenheits-Abwesend</strong> – niemand zuhause</div>` : "",
-      g.solar_boost > 0       ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fffde7,#fff9c4);border-color:#f9a825;">🌞 <strong>Solarüberschuss</strong> – ${g.solar_power != null ? g.solar_power + " W · " : ""}+${g.solar_boost}°C angehoben</div>` : "",
-      g.cold_boost > 0        ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8eaf6,#c5cae9);border-color:#1a237e;">🥶 <strong>Kälteboost aktiv</strong> – alle Zimmer +${g.cold_boost}°C angehoben</div>` : "",
-      g.energy_price_eco_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#c62828;">💶 <strong>Hoher Strompreis</strong> – ${g.energy_price != null ? g.energy_price.toFixed(3) + " €/kWh · " : ""}Eco-Modus aktiv</div>` : "",
-      g.vacation_auto_active  ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-color:#2e7d32;">✈️ <strong>Urlaubs-Modus aktiv</strong></div>` : "",
-      g.return_preheat_active ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#1565c0;">🏠 <strong>Rückkehr-Vorheizung aktiv</strong> – Haus wird aufgeheizt</div>` : "",
-      g.guest_mode_active     ? `<div class="summer-banner" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#880e4f;">🎉 <strong>Gäste-Modus aktiv</strong>${g.guest_remaining_minutes != null ? ` – noch ${g.guest_remaining_minutes} min` : ""}</div>` : "",
-      g.weather_forecast && g.weather_forecast.cold_warning ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8eaf6,#c5cae9);border-color:#1a237e;">🥶 <strong>Kältewarnung</strong> – Tiefsttemperatur heute: <strong>${g.weather_forecast.forecast_today_min}°C</strong>${g.weather_forecast.forecast_today_max != null ? ` / max. ${g.weather_forecast.forecast_today_max}°C` : ""}</div>` : "",
-      g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90 ? `<div class="summer-banner" style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-color:#2e7d32;">🏠 <strong>ETA-Vorheizen</strong> – Ankunft in ~${Math.round(g.eta_preheat_minutes)} min – Heizung bereitet sich vor</div>` : "",
+      g.summer_mode           ? `<div class="system-banner summer">☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</div>` : "",
+      g.night_setback_active  ? `<div class="system-banner night">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
+      g.presence_away_active  ? `<div class="system-banner away">🚶 <strong>Niemand zuhause</strong> – Abwesend-Modus aktiv</div>` : "",
+      g.solar_boost > 0       ? `<div class="system-banner solar">🌞 <strong>Solar-Überschuss</strong>${g.solar_power != null ? " · " + g.solar_power + " W" : ""} · +${g.solar_boost}°C angehoben</div>` : "",
+      g.cold_boost > 0        ? `<div class="system-banner cold">🥶 <strong>Kälteboost</strong> – alle Zimmer +${g.cold_boost}°C angehoben</div>` : "",
+      g.energy_price_eco_active ? `<div class="system-banner price">💶 <strong>Hoher Strompreis</strong>${g.energy_price != null ? " · " + g.energy_price.toFixed(3) + " €/kWh" : ""} – Eco-Absenkung aktiv</div>` : "",
+      g.vacation_auto_active  ? `<div class="system-banner vacation">✈️ <strong>Urlaubs-Modus aktiv</strong></div>` : "",
+      g.return_preheat_active ? `<div class="system-banner preheat">🏠 <strong>Rückkehr-Vorheizung</strong> – Haus wird aufgeheizt</div>` : "",
+      g.guest_mode_active     ? `<div class="system-banner guest">🎉 <strong>Gäste-Modus aktiv</strong>${g.guest_remaining_minutes != null ? ` · noch ${g.guest_remaining_minutes} min` : ""}</div>` : "",
+      g.weather_forecast && g.weather_forecast.cold_warning ? `<div class="system-banner cold">🥶 <strong>Kältewarnung</strong> – Tiefst heute: ${g.weather_forecast.forecast_today_min}°C${g.weather_forecast.forecast_today_max != null ? ` / max. ${g.weather_forecast.forecast_today_max}°C` : ""}</div>` : "",
+      g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90 ? `<div class="system-banner eta">🕒 <strong>ETA-Vorheizen</strong> – Ankunft in ~${Math.round(g.eta_preheat_minutes)} min</div>` : "",
     ].filter(Boolean).join("");
 
     // Hero section
@@ -961,21 +1166,12 @@ class IHCPanel extends HTMLElement {
     const demandNum    = g.total_demand != null ? `${g.total_demand} %` : "—";
     const demandCls    = (g.total_demand || 0) > 0 ? "warn" : "ok";
 
-    // System-mode badge color
-    const modeBadgeStyle = {
-      auto:     "background:#e8f5e9;color:#2e7d32",
-      heat:     "background:#fce4ec;color:#c62828",
-      cool:     "background:#e3f2fd;color:#1565c0",
-      away:     "background:#fff3e0;color:#e65100",
-      vacation: "background:#e8f5e9;color:#2e7d32",
-      off:      "background:#f5f5f5;color:#757575",
-      guest:    "background:#fce4ec;color:#880e4f",
-    }[g.system_mode] || "background:#f5f5f5;color:#616161";
-
+    // Quick system-mode pills
+    const sysModes = [
+      ["auto","⚙️","Automatisch"], ["heat","🔥","Heizen"], ["cool","❄️","Kühlen"],
+      ["away","🚶","Abwesend"], ["vacation","✈️","Urlaub"], ["off","⛔","Aus"], ["guest","🎉","Gäste"],
+    ];
     const modeDisplay = SYSTEM_MODE_LABELS[g.system_mode] || g.system_mode;
-    const modeOptions = Object.entries(SYSTEM_MODE_LABELS)
-      .map(([k, v]) => `<option value="${k}" ${g.system_mode === k ? "selected" : ""}>${v}</option>`)
-      .join("");
 
     const heroSection = `
       <div class="overview-hero">
@@ -992,69 +1188,72 @@ class IHCPanel extends HTMLElement {
             const showCosts   = localStorage.getItem("ihc_show_costs") !== "false";
             if (!showRuntime && !showCosts) return "";
             const parts = [];
-            if (showRuntime) parts.push(`⏱ ${g.heating_runtime_today} min`);
-            if (showCosts) parts.push(this._costStr(g.energy_today_kwh, g.static_energy_price));
-            return `<div class="hero-sub">${parts.join(" · ")}</div>`;
+            if (showRuntime && g.heating_runtime_today > 0) parts.push(`⏱ ${g.heating_runtime_today} min`);
+            if (showCosts && g.energy_today_kwh > 0) parts.push(this._costStr(g.energy_today_kwh, g.static_energy_price));
+            return parts.length ? `<div class="hero-sub">${parts.join(" · ")}</div>` : "";
           })()}
         </div>
-        <div class="hero-card" style="justify-content:space-between">
-          <div class="hero-label">Systemmodus</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <span style="font-size:18px;font-weight:700;padding:4px 12px;border-radius:20px;${modeBadgeStyle}">${modeDisplay}</span>
+        <div class="hero-card">
+          <div class="hero-label">Außen / Vorlauf</div>
+          <div class="hero-value" style="font-size:20px">
+            ${g.outdoor_temp != null ? g.outdoor_temp + " °C" : "—"}
+            ${g.curve_target != null ? `<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color);margin-left:4px">→ ${g.curve_target.toFixed(1)} °C</span>` : ""}
           </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <select id="hero-system-mode" style="flex:1;padding:6px 8px;border-radius:6px;border:1.5px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);font-size:13px">
-              ${modeOptions}
-            </select>
-            <button id="hero-set-mode" style="padding:6px 10px;border-radius:6px;border:none;background:var(--primary-color);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Setzen</button>
-          </div>
+          ${g.flow_temp != null ? `<div class="hero-sub">Vorlauf: ${g.flow_temp.toFixed(1)} °C</div>` : ""}
+          ${g.efficiency_score != null ? `<div class="hero-sub">Effizienz: <strong style="color:${g.efficiency_score >= 80 ? "#66bb6a" : g.efficiency_score >= 50 ? "#ffa726" : "#ef5350"}">${g.efficiency_score.toFixed(0)} %</strong></div>` : ""}
         </div>
+      </div>
+      <div class="system-mode-row">
+        <span class="system-mode-label">Modus:</span>
+        ${sysModes.map(([k, icon, label]) =>
+          `<button class="sysmode-pill active-${g.system_mode === k ? k : ''}" data-sysmode="${k}"
+            title="${label}">${icon} ${label}</button>`
+        ).join("")}
       </div>`;
 
-    // Secondary stats grid (compact)
+    // Secondary stats (weather + yesterday)
     const statsGrid = `
       <div class="status-grid">
-        <div class="status-item">
-          <div class="status-label">Außentemp.</div>
-          <div class="status-value">${this._fmt(g.outdoor_temp, " °C")}</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Kurven-Ziel</div>
-          <div class="status-value">${this._fmt(g.curve_target, " °C")}</div>
-        </div>
-        ${g.flow_temp != null ? `<div class="status-item">
-          <div class="status-label">Vorlauf</div>
-          <div class="status-value">${g.flow_temp} °C</div>
-        </div>` : ""}
-        ${g.efficiency_score != null ? `<div class="status-item" title="Verhältnis Soll-Heizzeit zu Ist-Laufzeit">
-          <div class="status-label">Effizienz</div>
-          <div class="status-value ${g.efficiency_score >= 80 ? "ok" : g.efficiency_score >= 50 ? "warn" : "on"}">${g.efficiency_score} %</div>
-        </div>` : ""}
-        ${localStorage.getItem("ihc_show_energy") !== "false" && g.heating_runtime_yesterday > 0 ? `<div class="status-item" title="Gestriger Verbrauch">
-          <div class="status-label">Gestern</div>
-          <div class="status-value ${g.energy_today_kwh > g.energy_yesterday_kwh ? "on" : "ok"}" style="font-size:15px">${this._costStr(g.energy_yesterday_kwh, g.static_energy_price)}</div>
-        </div>` : ""}
         ${g.weather_forecast ? (() => {
           const fc = g.weather_forecast;
           const wc = WEATHER_CONDITIONS[fc.condition] || { label: fc.condition || "—", icon: "🌡️" };
-          const range = fc.forecast_today_min != null ? `${fc.forecast_today_min}–${fc.forecast_today_max}°C` : "";
-          const dayLabels = ["Heute","Morgen","Übermorgen"];
+          const range = fc.forecast_today_min != null ? `${fc.forecast_today_min}–${fc.forecast_today_max}°` : "";
+          const dayLabels = ["Heute","Morgen","Überg."];
           const fcDays = (fc.forecast || []).slice(0, 3).map((d, i) => {
             const dc = WEATHER_CONDITIONS[d.condition] || { icon: "🌡️" };
-            return `<span style="display:inline-flex;flex-direction:column;align-items:center;margin:0 4px;font-size:10px">
-              <span>${dayLabels[i] || ""}</span>
-              <span style="font-size:13px">${dc.icon}</span>
-              <span style="font-weight:600">${d.min != null ? d.min : "?"}/${d.max != null ? d.max : "?"}°</span>
+            return `<span style="display:inline-flex;flex-direction:column;align-items:center;margin:0 3px;font-size:10px">
+              <span style="color:var(--secondary-text-color)">${dayLabels[i] || ""}</span>
+              <span style="font-size:14px;margin:1px 0">${dc.icon}</span>
+              <span style="font-weight:700">${d.min != null ? d.min : "?"}/${d.max != null ? d.max : "?"}°</span>
             </span>`;
           }).join("");
-          return `<div class="status-item" title="Wettervorhersage 3 Tage" style="min-width:100px">
+          return `<div class="status-item" title="Wettervorhersage 3 Tage" style="min-width:120px;text-align:left;padding:10px 12px">
             <div class="status-label">Wetter</div>
-            <div style="font-size:18px">${wc.icon}</div>
-            <div style="font-size:10px;color:var(--secondary-text-color)">${wc.label}</div>
-            ${range ? `<div style="font-size:10px;font-weight:600">${range}</div>` : ""}
-            ${fcDays ? `<div style="display:flex;margin-top:4px">${fcDays}</div>` : ""}
+            <div style="display:flex;align-items:center;gap:5px;margin:3px 0">
+              <span style="font-size:20px">${wc.icon}</span>
+              <span style="font-size:11px;font-weight:600">${wc.label}${range ? " · " + range : ""}</span>
+            </div>
+            ${fcDays ? `<div style="display:flex;margin-top:4px;gap:4px">${fcDays}</div>` : ""}
           </div>`;
         })() : ""}
+        ${g.solar_power != null ? `<div class="status-item">
+          <div class="status-label">Solar</div>
+          <div class="status-value" style="color:#f9a825">${g.solar_power} W</div>
+          ${g.solar_boost > 0 ? `<div style="font-size:10px;color:#f9a825">+${g.solar_boost}°C Boost</div>` : ""}
+        </div>` : ""}
+        ${g.energy_price != null ? `<div class="status-item">
+          <div class="status-label">Strompreis</div>
+          <div class="status-value" style="color:${g.energy_price_eco_active ? "#ef5350" : "#66bb6a"}">${g.energy_price.toFixed(3)}</div>
+          <div style="font-size:10px;color:var(--secondary-text-color)">€/kWh</div>
+        </div>` : ""}
+        ${g.heating_runtime_yesterday > 0 && localStorage.getItem("ihc_show_energy") !== "false" ? `<div class="status-item" title="Gestriger Verbrauch">
+          <div class="status-label">Gestern</div>
+          <div class="status-value ${g.energy_today_kwh > g.energy_yesterday_kwh ? "on" : "ok"}" style="font-size:13px">${this._costStr(g.energy_yesterday_kwh, g.static_energy_price)}</div>
+        </div>` : ""}
+        ${g.outdoor_humidity != null ? `<div class="status-item">
+          <div class="status-label">Außenfeuchte</div>
+          <div class="status-value">${g.outdoor_humidity.toFixed(0)} %</div>
+        </div>` : ""}
       </div>`;
 
     content.innerHTML = `
