@@ -2611,7 +2611,7 @@ class IHCPanel extends HTMLElement {
                 </div>
               </div>
             </div>
-          </div>` : ""}`}
+          </div>` : ""}
           <hr class="divider">
           <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Solarüberschuss-Heizung</div>
           <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">

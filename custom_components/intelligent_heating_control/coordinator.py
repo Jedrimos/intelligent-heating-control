@@ -265,6 +265,8 @@ class IHCCoordinator(DataUpdateCoordinator):
         self._window_open_counters: Dict[str, int] = {}  # room_id → consecutive drops
         self._boost_until: Dict[str, datetime] = {}  # room_id → boost expiry time
         self._room_pre_boost_mode: Dict[str, str] = {}  # room_id → mode before boost
+        # Cache for YAML-defined schedule entities (logged once, not every 60s cycle)
+        self._yaml_schedule_warned: set = set()  # entity_ids already warned about
 
         # Presence-based auto-away
         self._presence_away_active: bool = False  # True when auto-away triggered by presence
@@ -922,7 +924,10 @@ class IHCCoordinator(DataUpdateCoordinator):
             return 0.0
         threshold = float(cfg.get(CONF_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_THRESHOLD))
         if price >= threshold:
-            return float(cfg.get(CONF_ENERGY_PRICE_ECO_OFFSET, DEFAULT_ENERGY_PRICE_ECO_OFFSET))
+            # Return NEGATIVE offset so the setpoint is LOWERED when electricity is expensive.
+            # CONF_ENERGY_PRICE_ECO_OFFSET is user-configured as a positive "reduction" value (e.g. 2 °C).
+            # Downstream logic applies: target_temp += price_eco_offset (so negative = lower setpoint).
+            return -abs(float(cfg.get(CONF_ENERGY_PRICE_ECO_OFFSET, DEFAULT_ENERGY_PRICE_ECO_OFFSET)))
         return 0.0
 
     def _get_weather_cold_boost(self) -> float:
@@ -3065,11 +3070,18 @@ class IHCCoordinator(DataUpdateCoordinator):
                         )
                         break
                 if config_entry is None:
-                    _LOGGER.warning(
-                        "IHC: HA-Zeitplan '%s' hat keine config_entry_id und konnte auch "
-                        "nicht via Schedule-Suche gefunden werden. "
-                        "Via YAML definiert? Nur UI-Helfer werden unterstützt.", entity_id
-                    )
+                    # YAML-defined schedule helpers have no config entry.
+                    # The schedule state ("on"/"off") still works for heating decisions –
+                    # only the frontend calendar display is unavailable.
+                    # Log only once per entity_id to avoid spam every 60s.
+                    if entity_id not in self._yaml_schedule_warned:
+                        self._yaml_schedule_warned.add(entity_id)
+                        _LOGGER.warning(
+                            "IHC: HA-Zeitplan '%s' wurde via YAML definiert (keine config_entry_id). "
+                            "Heizsteuerung funktioniert normal – Kalenderanzeige im Frontend "
+                            "ist für YAML-Helfer nicht verfügbar. Zur vollen Unterstützung "
+                            "den Helfer über HA-Einstellungen → Helfer neu erstellen.", entity_id
+                        )
                     return [{"_yaml_defined": True}]
             else:
                 config_entry = self.hass.config_entries.async_get_entry(entry.config_entry_id)
