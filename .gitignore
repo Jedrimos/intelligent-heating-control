@@ -14,3 +14,4 @@ env/
 .vscode/
 *.swp
 *.bak
+.claude/
