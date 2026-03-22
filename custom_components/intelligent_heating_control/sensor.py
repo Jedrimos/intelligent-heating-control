@@ -88,11 +88,22 @@ class _IHCBase(CoordinatorEntity):
 
     @property
     def device_info(self):
+        """Hub/central device – used by all global (non-room) entities."""
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
             "name": "Intelligent Heating Control",
             "manufacturer": "IHC",
             "model": "v1.0",
+        }
+
+    def _room_device_info(self, room_id: str, room_name: str) -> dict:
+        """Per-room device, linked to the hub via via_device."""
+        return {
+            "identifiers": {(DOMAIN, f"{self._entry.entry_id}_{room_id}")},
+            "name": f"IHC {room_name}",
+            "manufacturer": "IHC",
+            "model": "Zimmer",
+            "via_device": (DOMAIN, self._entry.entry_id),
         }
 
 
@@ -273,6 +284,10 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
         self._attr_name = f"IHC {self._room_name} Anforderung"
 
     @property
+    def device_info(self):
+        return self._room_device_info(self._room_id, self._room_name)
+
+    @property
     def native_value(self) -> Optional[float]:
         if self.coordinator.data:
             room = self.coordinator.data.get("rooms", {}).get(self._room_id)
@@ -315,6 +330,10 @@ class IHCRoomTargetTempSensor(_IHCBase, SensorEntity):
         self._room_name = room.get(CONF_ROOM_NAME, self._room_id)
         self._attr_unique_id = f"{entry.entry_id}_room_{self._room_id}_target"
         self._attr_name = f"IHC {self._room_name} Zieltemperatur"
+
+    @property
+    def device_info(self):
+        return self._room_device_info(self._room_id, self._room_name)
 
     @property
     def native_value(self) -> Optional[float]:
@@ -457,6 +476,10 @@ class IHCRoomRuntimeSensor(_IHCBase, SensorEntity):
         self._attr_name = f"IHC {self._room_name} Laufzeit heute"
 
     @property
+    def device_info(self):
+        return self._room_device_info(self._room_id, self._room_name)
+
+    @property
     def native_value(self) -> Optional[float]:
         if self.coordinator.data:
             room = self.coordinator.data.get("rooms", {}).get(self._room_id)
@@ -479,6 +502,10 @@ class IHCRoomHumiditySensor(_IHCBase, SensorEntity):
         self._room_name = room.get(CONF_ROOM_NAME, self._room_id)
         self._attr_unique_id = f"{entry.entry_id}_room_{self._room_id}_humidity"
         self._attr_name = f"IHC {self._room_name} Luftfeuchtigkeit"
+
+    @property
+    def device_info(self):
+        return self._room_device_info(self._room_id, self._room_name)
 
     @property
     def native_value(self) -> Optional[float]:
