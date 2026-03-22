@@ -11,7 +11,7 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `1.2.0b1`
+- **Version:** `1.2.0`
 - **Repository:** https://github.com/Jedrimos/intelligent-heatingcontroll
 - **Aktiver Entwicklungs-Branch:** `claude/review-homeassistant-repo-PL7tn`
 - **Dateipfad:** `/home/user/intelligent-heatingcontrol/`
@@ -996,7 +996,7 @@ Pro Heizkreis: Energie-Anteil = (Spreizung × Durchfluss × Laufzeit) / Gesamt.
 
 ## 11. Bekannte offene Punkte / Roadmap (aktualisiert)
 
-### Implementiert (✅)
+### Implementiert (✅) – Release 1.2.0 (2026-03-22)
 - Zeitpläne und Kalender als Zimmer-Sub-Tabs
 - TRV-Modus vollständig implementiert mit:
   - Ventilposition als primäres Anforderungssignal (60% Ventil + 40% Temperaturdelta)
@@ -1011,6 +1011,14 @@ Pro Heizkreis: Energie-Anteil = (Spreizung × Durchfluss × Laufzeit) / Gesamt.
 - Services.yaml: alle Services vollständig dokumentiert
 - strings.json + icon.png für HACS-Kompatibilität
 - Vollständiges CLAUDE.md als Onboarding-Dokument
+- Bugfixes (Gesamt 14 behoben):
+  - Dashboard-Crash (haGrids/HA_MODE_STYLE hoisting)
+  - Demand-Gate: override_demand() synct HeatingController korrekt
+  - CONF_BOOST_TEMP Typfehler (String statt float) + KeyError-Fix
+  - CONF_HA_SCHEDULES fehlte beim Zimmer-Erstellen → KeyError
+  - HA-Zeitplan Config-Entry-Lookup verbessert (unique_id = entry_id Fallback)
+  - datetime.utcnow() → datetime.now() (Python 3.12 deprecated + Timezone-Konsistenz)
+  - 7 weitere Bugs aus vorherigen Beta-Sessions
 
 ### Geplant
 - **3.0:** Wärmeerzeuger-Modus (Heizkreise, Puffer, WP, TWW, KNX) → siehe Kapitel 15
