@@ -2,7 +2,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![HA Version](https://img.shields.io/badge/HA-2023.6%2B-blue.svg)](https://home-assistant.io)
-[![Version](https://img.shields.io/badge/Version-1.2.0-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.3.0-green.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Eine fortschrittliche, zentral aggregierende Heizungssteuerung für Home Assistant – inspiriert von Loxone und Advanced Heating Control v5.
@@ -29,6 +29,9 @@ Eine fortschrittliche, zentral aggregierende Heizungssteuerung für Home Assista
 | 💧 **Schimmelschutz** | Pro Zimmer: Taupunktberechnung + automatische Temperaturerhöhung bei Risiko |
 | 🧳 **Gäste-Modus** | Vorübergehend Komfortbetrieb aller Zimmer ohne Konfigurationsänderung |
 | ❄️ **Frostschutz** | Immer aktiv, auch bei OFF-Modus |
+| 🔋 **TRV-Batteriestatus** | Akkustand aller TRVs im Dashboard – Warnung bei < 20 % |
+| 📈 **Temperaturverlauf** | 7-Tage-Chart pro Zimmer mit Min/Max/Ø-Statistik |
+| 🏠 **Pro-Zimmer-Geräte** | Jedes Zimmer als eigenes Gerät in HA Geräte & Dienste |
 | 🖥️ **Custom Panel** | Eigenes Dashboard-Panel in der HA-Seitenleiste |
 
 ---
@@ -181,6 +184,9 @@ Korrekturen werden zusätzlich angewendet:
 | `sensor.ihc_<zimmer>_anforderung` | Sensor | Heizanforderung 0–100 % |
 | `sensor.ihc_<zimmer>_zieltemperatur` | Sensor | Berechnete Zieltemperatur |
 | `sensor.ihc_<zimmer>_laufzeit_heute` | Sensor | Heizlaufzeit heute in Minuten |
+| `sensor.ihc_<zimmer>_luftfeuchtigkeit` | Sensor | Luftfeuchtigkeit + Taupunkt + Schimmelrisiko *(nur wenn humidity_sensor konfiguriert)* |
+| `binary_sensor.ihc_<zimmer>_lueftungsempfehlung` | Binary Sensor | Lüftungsempfehlung (CO₂ / Feuchte) *(nur wenn Sensor konfiguriert)* |
+| `binary_sensor.ihc_<zimmer>_co2_warnung` | Binary Sensor | CO₂-Warnung *(nur wenn co2_sensor konfiguriert)* |
 | `number.ihc_<zimmer>_offset` | Number | Zimmer-Offset laufzeit-anpassbar (±5 °C) |
 | `select.ihc_<zimmer>_modus` | Select | Zimmermodus-Auswahl |
 
@@ -317,6 +323,7 @@ Das Plugin registriert ein eigenes Panel unter dem Seitenleisten-Eintrag **IHC**
 - Bearbeiten-Modal: alle Felder vorausgefüllt (Thermostate, Sensoren, Presets, Offsets)
 - **Sub-Tab 📅 Zeitplan**: Wöchentliche Zeitpläne direkt im Zimmer-Detail
 - **Sub-Tab 🗓️ Wochenansicht**: Kalenderansicht des Zimmer-Zeitplans
+- **Sub-Tab 📈 Verlauf**: SVG-Temperaturverlauf der letzten 7 Tage mit Min/Max/Ø
 
 #### 📊 Diagnose / Übersicht
 - Systemstatus aller Zimmer auf einen Blick
@@ -419,4 +426,4 @@ MIT License – siehe [LICENSE](LICENSE)
 
 ---
 
-> **Hinweis:** Bugs und Feature-Wünsche bitte als [GitHub Issue](https://github.com/Jedrimos/intelligent-heatingcontroll/issues) melden. Aktuell ist Version 1.2.0 stabil und HACS-kompatibel.
+> **Hinweis:** Bugs und Feature-Wünsche bitte als [GitHub Issue](https://github.com/Jedrimos/intelligent-heatingcontroll/issues) melden. Aktuell ist Version 1.3.0 stabil und HACS-kompatibel.
