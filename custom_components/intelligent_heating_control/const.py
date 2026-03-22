@@ -2,7 +2,7 @@
 from typing import Final
 
 DOMAIN: Final = "intelligent_heating_control"
-PLATFORMS: Final = ["climate", "sensor", "switch", "number", "select"]
+PLATFORMS: Final = ["climate", "sensor", "binary_sensor", "switch", "number", "select"]
 
 # Config keys - global
 CONF_OUTDOOR_TEMP_SENSOR: Final = "outdoor_temp_sensor"

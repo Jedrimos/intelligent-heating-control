@@ -164,6 +164,10 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         mode = self.coordinator.get_room_mode(self._room_id)
         if mode == ROOM_MODE_OFF:
             return HVACMode.OFF
+        # Window open → show climate as OFF (no heating while ventilating)
+        d = self._room_data
+        if d and d.get("window_open"):
+            return HVACMode.OFF
         return HVACMode.HEAT
 
     @property
@@ -175,6 +179,9 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             return HVACAction.OFF
         if d.get("room_mode") == ROOM_MODE_OFF:
             return HVACAction.OFF
+        # Window open → IDLE (not heating)
+        if d.get("window_open"):
+            return HVACAction.IDLE
         demand = d.get("demand", 0)
         data = self.coordinator.data
         controller_mode = (data or {}).get("controller_mode", "switch")
