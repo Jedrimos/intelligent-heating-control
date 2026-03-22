@@ -95,6 +95,7 @@
       if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
       if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
       if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);
+      if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery}%) – bitte tauschen</div>`);
       const v = room.ventilation;
       if (v && v.level !== "none") {
         const icons = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };
@@ -106,11 +107,16 @@
       const alertsHtml = alerts.length ? `<div class="room-alerts">${alerts.join("")}</div>` : "";
 
       // TRV chips
-      const trvChips = (room.trv_raw_temp != null || (room.trv_avg_valve != null && room.trv_avg_valve > 0) || room.trv_humidity != null) ? `
+      const hasTrvInfo = room.trv_raw_temp != null || (room.trv_avg_valve != null && room.trv_avg_valve > 0) || room.trv_humidity != null || room.trv_min_battery != null;
+      const batColor = room.trv_min_battery != null && room.trv_min_battery < 20 ? "#c62828" : room.trv_min_battery != null && room.trv_min_battery < 40 ? "#e65100" : "#2e7d32";
+      const batBg    = room.trv_min_battery != null && room.trv_min_battery < 20 ? "#fce4ec" : room.trv_min_battery != null && room.trv_min_battery < 40 ? "#fff3e0" : "#e8f5e9";
+      const batIcon  = room.trv_min_battery != null && room.trv_min_battery < 20 ? "🪫" : "🔋";
+      const trvChips = hasTrvInfo ? `
         <div class="trv-chips">
           ${room.trv_raw_temp != null ? `<span class="trv-chip" style="background:#fff3e0;color:#e65100" title="TRV-Rohtemperatur">🌡️ TRV ${parseFloat(room.trv_raw_temp).toFixed(1)}°</span>` : ""}
           ${room.trv_avg_valve != null && room.trv_avg_valve > 0 ? `<span class="trv-chip" style="background:#e3f2fd;color:#1565c0" title="Ventilöffnung Ø">🔧 ${Math.round(room.trv_avg_valve)}%</span>` : ""}
           ${room.trv_humidity != null ? `<span class="trv-chip" style="background:#e8f5e9;color:#2e7d32" title="TRV-Luftfeuchtigkeit">💧 ${Math.round(room.trv_humidity)}%</span>` : ""}
+          ${room.trv_min_battery != null ? `<span class="trv-chip" style="background:${batBg};color:${batColor}" title="TRV-Batterie (niedrigster Wert)">${batIcon} ${room.trv_min_battery}%</span>` : ""}
           ${room.trv_any_heating ? `<span class="trv-chip" style="background:#fce4ec;color:#c62828" title="TRV heizt aktiv">🔥</span>` : ""}
         </div>` : "";
 
@@ -125,7 +131,12 @@
         const np = room.next_period;
         const npMode = np.mode && np.mode !== "manual" ? np.mode : null;
         const npTemp = npMode ? `(${npMode})` : (np.temperature != null ? `${np.temperature}°C` : "");
-        footerParts.push(`📅 ${np.start}${npTemp ? " · " + npTemp : ""}`);
+        // In manual mode: highlight as "Reset" instead of generic next-schedule info
+        if (room.room_mode === "manual") {
+          footerParts.push(`↩ Reset ${np.start} Uhr`);
+        } else {
+          footerParts.push(`📅 ${np.start}${npTemp ? " · " + npTemp : ""}`);
+        }
       }
 
       return `

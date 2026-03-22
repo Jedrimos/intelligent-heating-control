@@ -1077,6 +1077,8 @@ class IHCCoordinator(
                 "trv_humidity": trv_data.get("trv_humidity"),
                 "trv_avg_valve": trv_data.get("trv_avg_valve"),
                 "trv_any_heating": trv_data.get("trv_any_heating", False),
+                "trv_min_battery": trv_data.get("trv_min_battery"),
+                "trv_low_battery": trv_data.get("trv_low_battery", False),
                 # Outdoor-regulated effective preset temps (for display in frontend)
                 "comfort_temp_eff": comfort_eff,
                 "eco_temp_eff": eco_eff,

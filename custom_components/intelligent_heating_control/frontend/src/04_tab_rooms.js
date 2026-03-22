@@ -100,11 +100,14 @@
         ${room.trv_raw_temp != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#fb8c00 15%,transparent);color:var(--primary-text-color)" title="TRV-Eigentemperatur (am Heizkörper gemessen, vor Korrektur)">🌡️ TRV ${room.trv_raw_temp} °C</span>` : ""}
         ${room.trv_avg_valve != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#42a5f5 15%,transparent);color:var(--primary-text-color)" title="Durchschnittliche TRV-Ventilöffnung">🔧 Ventil ${room.trv_avg_valve} %</span>` : ""}
         ${room.trv_any_heating ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 15%,transparent);color:var(--primary-text-color)" title="Mindestens ein TRV meldet aktives Heizen">🔥 TRV heizt</span>` : ""}
+        ${room.trv_min_battery != null ? (() => { const lw = room.trv_min_battery < 20; const med = room.trv_min_battery < 40; const bg = lw ? "color-mix(in srgb,#ef5350 15%,transparent)" : med ? "color-mix(in srgb,#fb8c00 15%,transparent)" : "color-mix(in srgb,#66bb6a 15%,transparent)"; const ico = lw ? "🪫" : "🔋"; return `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${bg};color:var(--primary-text-color)" title="TRV-Batterie (niedrigster Wert aller TRVs)">${ico} ${room.trv_min_battery}%</span>`; })() : ""}
+        ${room.room_mode === "manual" && room.next_period ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#9c27b0 15%,transparent);color:var(--primary-text-color)" title="Automatischer Reset beim nächsten Zeitplan-Eintrag">↩ Reset ${room.next_period.start} Uhr</span>` : ""}
         <button class="btn btn-secondary" id="edit-room-btn" style="margin-left:auto">✏️ Einstellungen</button>
       </div>
       <div class="tabs" style="margin-bottom:16px">
         <div class="tab ${tab === "schedule" ? "active" : ""}" data-subtab="schedule">📅 Zeitplan</div>
         <div class="tab ${tab === "calendar" ? "active" : ""}" data-subtab="calendar">🗓️ Wochenansicht</div>
+        <div class="tab ${tab === "history" ? "active" : ""}" data-subtab="history">📈 Verlauf</div>
       </div>
       <div id="room-detail-content"></div>`;
 
@@ -124,6 +127,7 @@
 
     const detailContent = content.querySelector("#room-detail-content");
     if (tab === "schedule") this._renderRoomScheduleInline(room, detailContent);
+    else if (tab === "history") this._renderRoomHistory(room, detailContent);
     else this._renderRoomCalendarInline(room, detailContent);
   }
 
@@ -523,5 +527,119 @@
         }, 1200);
       });
     });
+  }
+
+  _renderRoomHistory(room, container) {
+    const history = room.temp_history || [];
+
+    if (history.length < 2) {
+      container.innerHTML = `<div class="card"><div style="padding:24px;color:var(--secondary-text-color);text-align:center">
+        Noch zu wenig Daten – Verlauf wird stündlich aufgezeichnet (max. 7 Tage).
+      </div></div>`;
+      return;
+    }
+
+    const vals   = history.map(p => p.v);
+    const times  = history.map(p => p.t);
+    const minV   = Math.min(...vals);
+    const maxV   = Math.max(...vals);
+    const range  = maxV - minV || 1;
+
+    // Chart dimensions
+    const W = 560, H = 180, padL = 38, padR = 12, padT = 14, padB = 36;
+    const cW = W - padL - padR;
+    const cH = H - padT - padB;
+
+    const xOf = i => padL + (i / (vals.length - 1)) * cW;
+    const yOf = v => padT + cH - ((v - minV) / range) * cH;
+
+    // Polyline
+    const pts = vals.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(" ");
+
+    // Target temp reference line
+    const tgt = room.target_temp;
+    const tgtLine = (tgt != null && tgt >= minV - 1 && tgt <= maxV + 1) ? (() => {
+      const y = yOf(tgt).toFixed(1);
+      return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#fb8c00" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
+              <text x="${padL - 4}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="9" fill="#fb8c00">${parseFloat(tgt).toFixed(1)}</text>`;
+    })() : "";
+
+    // Y-axis labels (4 ticks)
+    const yTicks = [0, 0.33, 0.67, 1].map(f => {
+      const v = minV + f * range;
+      const y = yOf(v).toFixed(1);
+      return `<line x1="${padL - 3}" y1="${y}" x2="${padL}" y2="${y}" stroke="var(--divider-color)" stroke-width="1"/>
+              <text x="${padL - 5}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="9" fill="var(--secondary-text-color)">${v.toFixed(1)}</text>`;
+    }).join("");
+
+    // X-axis labels: show every ~24 entries (daily) or first/last
+    const xLabels = [];
+    const step = Math.max(1, Math.floor(vals.length / 7));
+    for (let i = 0; i < vals.length; i += step) {
+      const t = times[i] || "";
+      // Parse ISO datetime: "2026-03-22T14:00" → "Mo 14:00"
+      let label = t;
+      try {
+        const d = new Date(t);
+        const dayNames = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+        label = `${dayNames[d.getDay()]} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+      } catch(_) { /* keep raw */ }
+      const x = xOf(i).toFixed(1);
+      xLabels.push(`<text x="${x}" y="${H - padB + 14}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${label}</text>`);
+    }
+
+    // Last known temp + min/max annotation
+    const lastVal = vals[vals.length - 1];
+    const lastX   = xOf(vals.length - 1).toFixed(1);
+    const lastY   = yOf(lastVal).toFixed(1);
+
+    const svg = `
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${room.name}">
+        <!-- Grid -->
+        <rect x="${padL}" y="${padT}" width="${cW}" height="${cH}" fill="var(--card-background-color,#fafafa)" rx="4" opacity="0.5"/>
+        ${[0, 0.33, 0.67, 1].map(f => {
+          const y = yOf(minV + f * range).toFixed(1);
+          return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="var(--divider-color)" stroke-width="0.5" opacity="0.6"/>`;
+        }).join("")}
+        <!-- Target reference -->
+        ${tgtLine}
+        <!-- Y axis -->
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + cH}" stroke="var(--divider-color)" stroke-width="1"/>
+        ${yTicks}
+        <!-- X axis -->
+        <line x1="${padL}" y1="${padT + cH}" x2="${W - padR}" y2="${padT + cH}" stroke="var(--divider-color)" stroke-width="1"/>
+        ${xLabels.join("")}
+        <!-- Curve -->
+        <polyline points="${pts}" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <!-- Current value dot -->
+        <circle cx="${lastX}" cy="${lastY}" r="4" fill="var(--primary-color)" stroke="white" stroke-width="1.5"/>
+        <text x="${parseFloat(lastX) + 7}" y="${parseFloat(lastY) + 4}" font-size="10" font-weight="600" fill="var(--primary-color)">${lastVal.toFixed(1)} °C</text>
+      </svg>`;
+
+    const minStr = minV.toFixed(1);
+    const maxStr = maxV.toFixed(1);
+    const avgStr = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-title">📈 Temperaturverlauf – ${room.name}</div>
+        <div style="padding:4px 0 12px;overflow-x:auto">${svg}</div>
+        <div style="display:flex;gap:24px;padding:4px 0 8px;flex-wrap:wrap">
+          <div style="font-size:12px;color:var(--secondary-text-color)">
+            <span style="font-weight:600;color:var(--primary-text-color)">Min:</span> ${minStr} °C
+          </div>
+          <div style="font-size:12px;color:var(--secondary-text-color)">
+            <span style="font-weight:600;color:var(--primary-text-color)">Max:</span> ${maxStr} °C
+          </div>
+          <div style="font-size:12px;color:var(--secondary-text-color)">
+            <span style="font-weight:600;color:var(--primary-text-color)">Ø:</span> ${avgStr} °C
+          </div>
+          <div style="font-size:12px;color:var(--secondary-text-color)">
+            <span style="font-weight:600;color:var(--primary-text-color)">Messpunkte:</span> ${vals.length}
+          </div>
+          ${tgt != null ? `<div style="font-size:12px;color:#fb8c00"><span style="font-weight:600">Soll:</span> ${parseFloat(tgt).toFixed(1)} °C</div>` : ""}
+        </div>
+        <div style="font-size:11px;color:var(--secondary-text-color);padding-top:4px">Stündliche Messung · max. 7 Tage Verlauf · Ziel-Linie orange gestrichelt</div>
+      </div>`;
   }
 

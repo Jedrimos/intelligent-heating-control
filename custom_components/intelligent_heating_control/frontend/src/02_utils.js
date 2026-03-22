@@ -102,6 +102,8 @@
         trv_humidity:     state.attributes.trv_humidity ?? null,
         trv_avg_valve:    state.attributes.trv_avg_valve ?? null,
         trv_any_heating:  state.attributes.trv_any_heating === true,
+        trv_min_battery:  state.attributes.trv_min_battery ?? null,
+        trv_low_battery:  state.attributes.trv_low_battery === true,
       };
     });
     // Enrich from demand sensors

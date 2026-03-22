@@ -89,6 +89,22 @@ class TRVControllerMixin:
             if action:
                 hvac_actions.append(str(action))
 
+        batteries: list[float] = []
+        for eid in entities:
+            state = self.hass.states.get(eid)
+            if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                continue
+            attrs = state.attributes
+            bat = attrs.get("battery") or attrs.get("battery_level")
+            if bat is not None:
+                try:
+                    batteries.append(float(bat))
+                except (ValueError, TypeError):
+                    pass
+
+        trv_min_battery = round(min(batteries)) if batteries else None
+        trv_low_battery = any(b < 20 for b in batteries)
+
         return {
             "trv_temps": temps,
             "trv_avg_temp": round(sum(temps) / len(temps), 1) if temps else None,
@@ -97,6 +113,8 @@ class TRVControllerMixin:
             "trv_avg_valve": round(sum(valve_positions) / len(valve_positions), 1) if valve_positions else None,
             "trv_any_heating": any(a == "heating" for a in hvac_actions),
             "trv_hvac_actions": hvac_actions,
+            "trv_min_battery": trv_min_battery,
+            "trv_low_battery": trv_low_battery,
         }
 
     def _blend_trv_temp(

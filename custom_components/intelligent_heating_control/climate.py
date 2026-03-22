@@ -284,6 +284,8 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "trv_humidity": d.get("trv_humidity"),
             "trv_avg_valve": d.get("trv_avg_valve"),
             "trv_any_heating": d.get("trv_any_heating", False),
+            "trv_min_battery": d.get("trv_min_battery"),
+            "trv_low_battery": d.get("trv_low_battery", False),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
