@@ -10,11 +10,55 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### Geplant
-- ETA-basiertes Vorheizen bei Heimkehr
-- Anforderungs-Heatmap im Dashboard
-- Temperaturverlauf-Graph (24h Ist/Soll/Außen)
 - Passive Solar Heating via Rollosteuerung (v2.1)
 - Wärmeerzeuger-Modus: Heizkreise, Puffer, Wärmepumpe, TWW (v3.0)
+
+---
+
+## [1.3.0] - 2026-03-22
+
+### Hinzugefügt
+
+#### Pro-Zimmer HA-Geräte
+- Jedes konfigurierte Zimmer erscheint jetzt als **eigenes Gerät** in Einstellungen → Geräte & Dienste
+- Alle Zimmer-Entitäten (Climate, Sensoren, Binary Sensors) sind dem Zimmer-Gerät zugeordnet
+- Zimmer-Geräte sind via `via_device` mit dem zentralen Hub-Gerät verknüpft
+- Übersichtlichere Geräteverwaltung, besonders ab 3+ Zimmern
+
+#### TRV-Batteriestatus
+- IHC liest jetzt den Akkustand aller konfigurierten TRV-Entitäten aus (`battery`, `battery_level` Attribut)
+- Dashboard-Kachel zeigt Batterie-Chip: 🔋 grün (≥ 40 %), orange (20–39 %), 🪫 rot (< 20 %)
+- Rote Alert-Leiste wenn ein TRV unter 20 % fällt: *„🔋 TRV-Batterie schwach – bitte tauschen"*
+- Batterie-Badge auch im Zimmer-Detail-Header sichtbar
+- Neue Attribute in `climate.*`: `trv_min_battery`, `trv_low_battery`
+
+#### Temperaturverlauf-Chart im Zimmer-Detail
+- Neuer Sub-Tab **📈 Verlauf** im Zimmer-Detail (neben Zeitplan / Wochenansicht)
+- SVG-Chart mit den stündlichen Temperatur-Snapshots der letzten 7 Tage
+- X-Achse: Wochentag + Uhrzeit, Y-Achse: °C mit Labels
+- Gestrichelte orange Linie zeigt aktuelle Zieltemperatur
+- Statistik-Zeile: Min / Max / Ø / Messpunkte
+
+#### Manueller Override – Reset-Zeitpunkt sichtbar
+- Dashboard-Footer zeigt `↩ Reset HH:MM Uhr` statt `📅 HH:MM` wenn ein Zimmer im Modus **Manuell** ist (nach TRV-Eingriff)
+- Zimmer-Detail-Header: lila Badge `↩ Reset HH:MM Uhr` wenn `manual` + nächster Zeitplan-Eintrag vorhanden
+
+#### Luftfeuchtigkeit als eigene Sensor-Entität
+- Neue Entität `sensor.ihc_<zimmer>_luftfeuchtigkeit` (device_class: `humidity`, Einheit: `%`)
+- Wird automatisch erstellt wenn ein `humidity_sensor` im Zimmer konfiguriert ist
+- Attribute: `dew_point` (Taupunkt), `mold_risk`, `threshold`
+- Nutzbar für Automationen, Verlaufsdiagramme und Lovelace direkt
+
+### Gefixt
+
+#### Lüftungsempfehlung – falsche Dauerwarnung
+- **Bug:** Die Lüftungsempfehlung wertete `Innentemperatur − Außentemperatur` aus.
+  In der Heizperiode ist diese Differenz immer 10–20 °C → dauerhaft „Lüften empfohlen" ohne jeden Sensor.
+- **Fix:** Temperaturunterschied-Logik komplett entfernt. Die Empfehlung basiert jetzt ausschließlich auf CO₂ (ppm) und/oder Luftfeuchtigkeit (%).
+
+#### Lüftungsempfehlung – Ghost-Entitäten für sensorlose Zimmer
+- **Bug:** `binary_sensor.ihc_*_lueftungsempfehlung` wurde für alle Zimmer erstellt, auch ohne Feuchte- oder CO₂-Sensor.
+- **Fix:** Entität wird nur noch erstellt wenn `humidity_sensor` ODER `co2_sensor` konfiguriert ist.
 
 ---
 

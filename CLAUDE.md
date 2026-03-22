@@ -1094,6 +1094,25 @@ Pro Heizkreis: Energie-Anteil = (Spreizung × Durchfluss × Laufzeit) / Gesamt.
 
 ## 11. Bekannte offene Punkte / Roadmap (aktualisiert)
 
+### Implementiert (✅) – Release 1.3.0 (2026-03-22)
+- **Pro-Zimmer HA-Geräte:** Jedes Zimmer erscheint als eigenes Gerät in HA
+  - `device_info` mit `via_device` → Hub verlinkt alle Zimmer-Geräte
+  - Betrifft: climate.py, sensor.py, binary_sensor.py
+- **TRV-Batteriestatus:** `battery`/`battery_level` Attribut aus TRV-Entitäten
+  - `trv_min_battery` + `trv_low_battery` in room_data + climate.extra_state_attributes
+  - Dashboard: Chip (grün/orange/rot) + Alert-Leiste bei < 20%
+  - Zimmer-Detail: Badge im Header
+- **Temperaturverlauf-Chart:** Neuer Sub-Tab „📈 Verlauf" im Zimmer-Detail
+  - SVG-Chart mit 7-Tage-History (stündlich), Ziellinie, Min/Max/Ø-Statistik
+- **Manueller Override – Reset-Zeitpunkt:** Badge „↩ Reset HH:MM Uhr" in Dashboard + Zimmer-Detail
+- **`sensor.ihc_<zimmer>_luftfeuchtigkeit`:** Neue Sensor-Entität (device_class: humidity)
+  - Nur erstellt wenn `humidity_sensor` konfiguriert; Attribute: dew_point, mold_risk, threshold
+- **Lüftungsempfehlung – Temperaturunterschied-Bug gefixt:**
+  - Delta innen/außen aus Score-Berechnung entfernt (war Dauerwarnung in Heizperiode)
+  - Skip-Condition: gibt None zurück wenn weder CO₂ noch Feuchte vorhanden
+- **Lüftungsempfehlung – Ghost-Entitäten gefixt:**
+  - `binary_sensor.*_lueftungsempfehlung` nur noch bei konfigurierten Sensoren
+
 ### Implementiert (✅) – Release 1.2.0 (2026-03-22)
 - Zeitpläne und Kalender als Zimmer-Sub-Tabs
 - TRV-Modus vollständig implementiert mit:
@@ -1109,19 +1128,10 @@ Pro Heizkreis: Energie-Anteil = (Spreizung × Durchfluss × Laufzeit) / Gesamt.
 - Services.yaml: alle Services vollständig dokumentiert
 - strings.json + icon.png für HACS-Kompatibilität
 - Vollständiges CLAUDE.md als Onboarding-Dokument
-- Bugfixes (Gesamt 14 behoben):
-  - Dashboard-Crash (haGrids/HA_MODE_STYLE hoisting)
-  - Demand-Gate: override_demand() synct HeatingController korrekt
-  - CONF_BOOST_TEMP Typfehler (String statt float) + KeyError-Fix
-  - CONF_HA_SCHEDULES fehlte beim Zimmer-Erstellen → KeyError
-  - HA-Zeitplan Config-Entry-Lookup verbessert (unique_id = entry_id Fallback)
-  - datetime.utcnow() → datetime.now() (Python 3.12 deprecated + Timezone-Konsistenz)
-  - 7 weitere Bugs aus vorherigen Beta-Sessions
+- Bugfixes (Gesamt 14 behoben)
 
 ### Geplant
 - **3.0:** Wärmeerzeuger-Modus (Heizkreise, Puffer, WP, TWW, KNX) → siehe Kapitel 15
 - **2.1:** Passive Solar Heating via Rollosteuerung → siehe Kapitel 13
-- **1.1:** Temperaturverlauf 7 Tage (168h Snapshots)
-- **1.3:** Adaptive Heizkurve, Solarüberschuss, Energiepreisoptimierung
-- **1.4:** ETA-basierte Vorheizung
+- **1.4:** ETA-basierte Vorheizung (Backend bereits implementiert, UI ausstehend)
 - **1.5:** PID Vorlauftemperaturregelung, Smart-Meter, Tibber-Forecast

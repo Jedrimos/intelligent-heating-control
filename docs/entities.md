@@ -2,6 +2,8 @@
 
 IHC erstellt beim Start automatisch alle Entitäten basierend auf der Konfiguration. Alle Entitäten sind mit der IHC-Integration verknüpft und werden beim Entfernen der Integration gelöscht.
 
+> **Geräte-Struktur (ab v1.3.0):** Jedes Zimmer erscheint als eigenes HA-Gerät unterhalb des zentralen Hub-Geräts „Intelligent Heating Control". Alle zimmer-spezifischen Entitäten sind dem jeweiligen Zimmer-Gerät zugeordnet.
+
 ---
 
 ## Pro Zimmer
@@ -52,6 +54,16 @@ Die Hauptentität des Zimmers. Kompatibel mit allen HA-Features die `climate.*` 
 | `mold_protection_enabled` | bool | Schimmelschutz aktiviert? |
 | `mold` | dict | Schimmelschutz-Status: `{risk, dew_point, humidity}` |
 | `room_presence_active` | bool | Zimmer-spezifische Anwesenheit (wenn konfiguriert) |
+| `trv_raw_temp` | float | Unkorrigierte TRV-Durchschnittstemperatur (am Heizkörper) |
+| `trv_humidity` | float | TRV-Luftfeuchtigkeit (falls TRV dieses Attribut meldet) |
+| `trv_avg_valve` | float | Durchschnittliche Ventilöffnung aller TRVs (0–100 %) |
+| `trv_any_heating` | bool | Mindestens ein TRV meldet `hvac_action: heating` |
+| `trv_min_battery` | int | Niedrigster Akkustand aller konfigurierten TRVs (%) |
+| `trv_low_battery` | bool | `true` wenn ein TRV unter 20 % Akkustand hat |
+| `temp_history` | list | Stündliche Temperatur-Snapshots (max. 168 Einträge / 7 Tage) |
+| `avg_warmup_minutes` | float | Lernbasierte Ø-Aufheizzeit (für adaptives Vorheizen) |
+| `anomaly` | string | Sensor-Anomalie: `sensor_stuck`, `temp_drop` oder `null` |
+| `next_period` | dict | Nächster Zeitplan-Eintrag `{start, end, mode, temperature}` |
 
 **Mögliche `source`-Werte:**
 
@@ -110,6 +122,44 @@ Berechnete Solltemperatur des Zimmers.
 Heizlaufzeit des Zimmers heute in Minuten (zurückgesetzt um Mitternacht).
 
 **Geräteklasse:** `duration` (min)
+
+---
+
+### `sensor.ihc_wohnzimmer_luftfeuchtigkeit` *(neu in 1.3.0)*
+
+Aktuelle Raumluftfeuchtigkeit in Prozent. Wird nur erstellt wenn im Zimmer ein `humidity_sensor` konfiguriert ist.
+
+**Geräteklasse:** `humidity` (%)
+
+| Attribut | Typ | Beschreibung |
+|----------|-----|-------------|
+| `dew_point` | float | Berechneter Taupunkt (Magnus-Formel) in °C |
+| `mold_risk` | bool | Ist der Schimmelschutz-Schwellwert überschritten? |
+| `threshold` | float | Konfigurierter Schimmelschutz-Schwellwert in % |
+
+---
+
+### `binary_sensor.ihc_wohnzimmer_lueftungsempfehlung`
+
+Lüftungsempfehlung basierend auf CO₂-Gehalt und/oder Luftfeuchtigkeit. Wird nur erstellt wenn `humidity_sensor` ODER `co2_sensor` konfiguriert ist.
+
+**Ein** (`on`) wenn Level `urgent` oder `recommended`.
+
+| Attribut | Typ | Beschreibung |
+|----------|-----|-------------|
+| `level` | string | `urgent`, `recommended`, `possible`, `none` |
+| `score` | int | Interner Bewertungswert (höher = dringlicher) |
+| `reasons` | list | Texte die die Empfehlung begründen |
+| `co2_ppm` | float | Aktueller CO₂-Wert (falls Sensor konfiguriert) |
+| `room_humidity` | float | Aktuelle Luftfeuchtigkeit (falls Sensor konfiguriert) |
+
+---
+
+### `binary_sensor.ihc_wohnzimmer_co2_warnung`
+
+CO₂-Warnung (device_class: `gas`). Wird nur erstellt wenn `co2_sensor` konfiguriert ist.
+
+**Ein** (`on`) wenn CO₂ > konfigurierter `co2_threshold_bad` (Standard: 1200 ppm).
 
 ---
 
