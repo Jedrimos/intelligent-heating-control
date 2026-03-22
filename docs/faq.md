@@ -153,9 +153,11 @@ Nein, aktuell wird nur eine Instanz pro HA unterstützt. Multi-Instanz ist auf d
 
 ### Wie kann ich die Konfiguration sichern?
 
-1. **Export**: IHC Panel → Einstellungen → Backup → Export
-   - Erstellt eine HA-Persistent-Notification mit der kompletten Konfiguration als JSON
-2. **HA-Backup**: Standard HA Backup (enthält automatisch `config_entries.json` mit IHC-Konfiguration)
+1. **Export**: IHC Panel → Einstellungen → Backup & Restore → Export
+   - Lädt die komplette Konfiguration direkt als `.json`-Datei im Browser herunter
+   - Enthält alle Zimmer, Zeitpläne, Heizkurven-Punkte und Globaleinstellungen
+2. **Import**: Backup & Restore → Datei auswählen → IHC spielt alle Einstellungen automatisch ein
+3. **HA-Backup**: Standard HA Backup (enthält automatisch `config_entries.json` mit IHC-Konfiguration)
 
 ### Wie kann ich Debugging-Informationen erhalten?
 

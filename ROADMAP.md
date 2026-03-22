@@ -4,7 +4,7 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ---
 
-## ✅ Bereits umgesetzt (v1.0.x)
+## ✅ Umgesetzt in v1.0.x
 
 - [x] Außentemperaturgeführte Heizkurve mit konfigurierbaren Stützpunkten
 - [x] Loxone-artiger Klimabaustein (gewichtete Anforderungsaggregation)
@@ -27,55 +27,35 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ---
 
-## ✅ Bereits umgesetzt (v1.2.0)
+## ✅ Umgesetzt in v1.2.0
 
 - [x] **Alle Temperaturen outdoor-geregelt**: Komfort/Eco/Schlaf/Abwesend folgen der Heizkurve
 - [x] **Konfigurierbarer Offset pro Modus**: Eco/Schlaf/Abwesend = Komfort − einstellbarer Abzug
 - [x] **Maximum pro Modus**: Eco/Schlaf/Abwesend-Temps haben konfigurierbare Obergrenzen
 - [x] **HA Schedule-Integration**: `schedule.*`-Entities als Heizplan pro Zimmer einbindbar
-- [x] **HA-Zeitplan-Modus**: Jede Bindung konfiguriert Temperaturmodus (Komfort/Eco/Schlaf/Abwesend)
-- [x] **`ha_schedule_off_mode`**: Einstellbarer Fallback bei keinem aktiven HA-Zeitplan (Eco oder Schlaf)
-- [x] **Anwesenheit → Abwesend-Temperatur**: Wenn niemand zuhause, outdoor-geregelte Abwesend-Temp statt Eco
+- [x] **`ha_schedule_off_mode`**: Einstellbarer Fallback bei keinem aktiven HA-Zeitplan
+- [x] **Anwesenheit → Abwesend-Temperatur**: Wenn niemand zuhause, outdoor-geregelte Abwesend-Temp
 - [x] **Gäste-Modus**: Systemweiter Komfortbetrieb mit konfigurierbarer Dauer
 - [x] **Schimmelschutz pro Zimmer**: Luftfeuchtigkeit + Taupunktberechnung + automatische Temperaturerhöhung
-- [x] **Wettervorhersage in der Heizregelung**: Automatischer Kälte-Boost bei prognostizierter Kältewelle
+- [x] **Wettervorhersage in der Heizregelung**: Kälte-Boost bei prognostizierter Kältewelle
 - [x] **Wetteranzeige auf Deutsch**: Alle 15 HA-Wetterzustände übersetzt mit Emoji
 - [x] **Übersicht-Tab neu gestaltet**: Hero-Bereich, Override-Banner, Temperatur-Differenz-Indikator
+- [x] **TRV-Modus überarbeitet**: Ventilposition als primäres Anforderungssignal (60%/40% Blending)
+- [x] **TRV Setpoint-Quantisierung**: 0,5 °C-Schritte → reduziert Funk-Traffic, schont Akkus
+- [x] **Event-getriebene Fenstererkennung**: Sofortige Reaktion statt 60-Sekunden-Polling
+- [x] **Startup-Gnadenfrist**: Zigbee/Z-Wave Sensoren haben 60 s Zeit nach HA-Neustart
+- [x] **Zeitpläne als Sub-Tabs im Zimmer-Detail**: Keine globalen Zeitplan-/Kalender-Tabs mehr
+- [x] **Config-Flow vollständig synchronisiert**: Add- und Edit-Modal haben denselben Funktionsumfang
+- [x] **4 neue Services dokumentiert**: `export_config`, `activate_guest_mode`, `deactivate_guest_mode`, `reset_stats`
+- [x] **Backup & Restore**: Export als JSON-Download, Import via Datei-Upload
+- [x] **Gelernte Werte zurücksetzen**: Kurvenkorrektur + Aufheizzeiten getrennt rücksetzbar
+- [x] **HACS-Kompatibilität**: icon.png 256×256, strings.json erstellt
 - [x] **`sun_entity` im Panel konfigurierbar**
-
----
-
-## ✅ Bereits umgesetzt (v1.3 + v1.4 + v1.5)
-
-### Einschränkungen behoben
-- [x] **Warmup-History persistiert**: Aufheizzeiten überleben HA-Neustarts (Store)
-- [x] **Heizkurven-Editor**: Config-Flow unterstützt jetzt bis zu 15 Stützpunkte (war: 7)
-- [x] **Kühlmodus fertiggestellt**: `SYSTEM_MODE_COOL` gibt konfigurierbare Kühl-Zieltemperatur zurück
-- [x] **Vorlauftemperatur PID-Regler**: Neues `flow_temp_pid.py` – wenn Sensor vorhanden, echte Rückkopplungsregelung statt linearem Modell
-- [x] **Temperaturhistorie**: 7-Tage-Speicherung mit stündlichen Snapshots (ISO-Timestamps), persistent im Store
-
-### v1.3 – Intelligentere Regelung
-- [x] **Adaptive Heizkurve**: Lernt täglich aus Aufheizzeiten (±0.5°C/Tag, max. ±3°C, konfigurierbar), persistiert im Store
-- [x] **Predictive Pre-Heating**: Nutzt historische Aufheizzeiten (`avg_warmup × 1.1`) statt fixer Vorheizdauer – adaptiv und raumspezifisch
-- [x] **Wettervorhersage 3 Tage**: Übersicht zeigt nächste 3 Tage mit Min/Max/Icon im Hero-Bereich
-- [x] **Tibber/Nordpool Demand-Response**: Stündliche Preisliste (`today_prices`-Attribut) – günstige Stunden → Boost, teure Stunden → Eco (nicht nur Schwellenwert)
-
-### v1.4 – Präsenz & Personensteuerung
-- [x] **ETA-basiertes Vorheizen**: Liest `estimated_arrival_time`-Attribut von `person.*`/`device_tracker.*`, heizt wenn ETA ≤ 90 min; Banner im Übersicht-Tab
-- [x] **Zimmer-Anwesenheit UI**: Edit-Modal hat neues Feld für `room_presence_entities` (kommagetrennt)
-- [x] **Kalender-Urlaubserkennung**: `vacation_calendar` + Keyword → auto. Urlaubs-Start/Ende aus HA-Kalender (1× täglich)
-
-### v1.5 – Energieoptimierung
-- [x] **Long-Term Statistics**: `IHCEnergyTodaySensor` (TOTAL_INCREASING + ENERGY) → HA erstellt automatisch LTS; neue Sensoren `IHCEnergyYesterdaySensor` und `IHCHeatingRuntimeYesterdaySensor`
-- [x] **Smart Meter Integration**: `smart_meter_entity` – liest echten Verbrauch aus `sensor.*` mit kWh (TOTAL_INCREASING), Delta seit Mitternacht
-- [x] **PID Vorlauftemperatur**: `flow_temp_sensor` als Rückmessquelle, `pid_kp/ki/kd` konfigurierbar im Panel
+- [x] **Switch-only Einstellungen im TRV-Modus ausgeblendet**
 
 ---
 
 ## Version 1.6 – Erweiterte Raumsteuerung (nächste Priorität)
-
-### Verbesserte Anwesenheitserkennung (Rest)
-- **Multi-Zonen-Anwesenheit**: Verschiedene Heimzonen (Hauptwohnsitz, Wochenendhaus)
 
 ### Zimmer-spezifische Anwesenheit
 - Pro Zimmer: eigene `person.*` / `device_tracker.*` Entitäten konfigurierbar
@@ -83,63 +63,14 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 - Schlafzimmer tagsüber automatisch in Eco wenn niemand dort schläft
 - Integration mit HA Bayesian Sensor / Template Sensor
 
+### Multi-Zonen-Anwesenheit
+- Verschiedene Heimzonen (Hauptwohnsitz, Wochenendhaus)
+
 ### Urlaubs-Assistent
 - Einfache Eingabe von Abwesenheitszeitraum: „Ich bin vom 15.12.–02.01. im Urlaub"
 - Kalenderintegration (HA-Kalender-Entities)
-- **Rückkehr-Vorheizung**: Zimmer sind warm wenn man zurückkommt – ohne manuelles Eingreifen
+- **Rückkehr-Vorheizung**: Zimmer sind warm wenn man zurückkommt
 - Frostschutz-Optimierung für den Urlaubszeitraum
-
----
-
-## Version 1.5 – Energieoptimierung *(Basis bereits vorhanden)*
-
-### Echte Energiestatistiken
-- Tages-/Wochen-/Monatsauswertungen mit Vergleich zur Vorperiode
-- Integration mit HA Energy Dashboard (echte kWh-Entitäten)
-- Export als Long-Term Statistics für Recorder
-
-### Heizungsoptimierungs-Score
-- Täglicher Effizienz-Score (0–100 Punkte)
-- Bewertet: Laufzeit vs. Außentemperatur, Zeitplan-Einhaltung, Boost-Häufigkeit
-- „Heute: 87 Punkte – 15% effizienter als letzte Woche"
-- Tipp-System: „Dein Wohnzimmer heizt öfter als andere Zimmer – Offset prüfen?"
-
-### Predictive Demand-Response
-- Vorausschauende Lastverschiebung basierend auf Spot-Preis-Prognose (ENTSO-E, Tibber API)
-- *„Morgen 02:00–05:00 Uhr günstiger Strom → jetzt auf 22°C aufheizen, dann Pause bis 06:00"*
-- Konfigurierbare maximale Vorab-Ladetemperatur
-
-### Smart Meter Integration
-- Echten Gas-/Stromverbrauch aus Smart Meter (DSMR, SML) lesen
-- Echtzeit-Kostenberechnung statt nur Schätzung aus Laufzeit × kW
-- CO₂-Emission-Tracking
-
----
-
-## Version 1.6 – Erweiterte Raumsteuerung
-
-### CO₂-Sensor-Integration
-- Lüftungsempfehlung bei zu hohem CO₂-Wert
-- Nach dem Lüften: automatisch kurze Aufheizphase starten
-- CO₂-Verlauf als Datenpunkt für Raumqualitäts-Anzeige im Panel
-
-### Fußbodenheizungs-Modus
-- Eigene Regelparameter für die träge Fußbodenheizung
-- Größeres Totband (Deadband), deutlich längere Mindest-Ein/Aus-Zeiten
-- Schutz vor Überhitzung durch Temperaturgrenzen für Estrich
-- Automatischer Wechsel zwischen Fußboden- und Heizkörper-Modus im Hybridsystem
-
-### Hydraulischer Abgleich (Hilfsfunktion)
-- Geführter Assistent: misst Aufheizzeiten aller Zimmer
-- Erkennt Ungleichgewichte (ein Zimmer heizt viel schneller als andere)
-- Gibt Hinweise für Ventilvoreinstellungen
-- Protokoll der Messergebnisse als Export
-
-### Mehrzone-Heizkreis-Unterstützung
-- Separate Heizkreise (Fußbodenheizung vs. Heizkörper)
-- Pro Zimmer: Zuweisung zu einem oder mehreren Heizkreisen
-- Separate Klimabaustein-Instanz pro Heizkreis
-- Visualisierung der Heizkreise im Panel
 
 ---
 
@@ -153,27 +84,19 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ### Konfigurations-Assistent (Setup Wizard)
 - Geführter Einrichtungsassistent für neue Nutzer
-- **Automatische Entitätserkennung**: scannt alle `climate.*`, `sensor.*temperature*`, `binary_sensor.*window*` im System und schlägt sinnvolle Zuordnungen vor
+- **Automatische Entitätserkennung**: scannt alle `climate.*`, `sensor.*temperature*`, `binary_sensor.*window*` und schlägt sinnvolle Zuordnungen vor
 - Gebäudetyp-Auswahl (Altbau / Neubau / Passivhaus) → vorbelegte Heizkurve
 - Test-Modus: „Alles korrekt verbunden?" mit visueller Prüfung
 
 ### Heizgruppen
 - Mehrere Zimmer zu einer Gruppe zusammenfassen (z.B. „Erdgeschoss")
 - Gemeinsame Zeitpläne für eine Gruppe pflegen
-- Wenn Person im EG → alle EG-Zimmer auf Komfort
 - Gruppen-Boost, Gruppen-Modus-Wechsel
 
 ### Lovelace-Card (separate HACS-Komponente)
 - Kompakte Karte für das normale HA-Dashboard
 - Zeigt: aktuelle Zimmertemperaturen, Heizstatus, Systemmode
 - „Quick Actions": Modus-Chips direkt in der Karte
-- Responsive für Sidebar-Widgets
-
-### Backup & Restore *(Basis bereits vorhanden)*
-- Vollständiger Export inkl. Zeitplänen als JSON/YAML
-- **Import-Funktion**: Konfiguration wiederherstellen per Datei-Upload
-- Automatische tägliche Backups als HA-Persistent-Notification
-- Versioniertes Backup-Archiv
 
 ---
 
@@ -196,62 +119,65 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 - Das System lernt das thermische Verhalten des Gebäudes
 - Schätzt automatisch die Wärmedämmung (effektiver U-Wert)
 - Prognose: „Bei aktuell -2°C außen und Heizung aus: Wohnzimmer kühlt in ~3h unter 18°C"
-- Optimiert Mindest-Aus-Zeiten auf Basis des Modells
 
-### Sprachsteuerungsoptimierung
-- Optimierte Expose-Integration für Google Assistant / Alexa / Apple Siri
-- Natürlichsprachliche Befehle via HA Conversations/Assist:
-  - *„Schlafzimmer auf 18 Grad für die nächsten 2 Stunden"*
-  - *„Alle Zimmer auf Eco-Modus"*
-  - *„Urlaub: Ich bin vom 20. bis 27. Dezember weg"*
+---
+
+## Version 2.1 – Passive Solar Heating via Rollosteuerung
+
+**Idee:** Bevor die Heizung morgens anläuft → Rolladen hochfahren damit Sonnenwärme den Raum vorwärmt.
+Im Sommer umgekehrt: Rolladen runterfahren um Aufheizung durch Sonne zu verhindern.
+
+Neue Konstanten pro Zimmer: `CONF_COVER_ENTITIES`, `CONF_WINDOW_ORIENTATION`, `CONF_SOLAR_PASSIVE_HEAT`, `CONF_SOLAR_PASSIVE_COOL`
+
+---
+
+## Version 3.0 – Wärmeerzeuger-Modus (Heat Generator Mode)
+
+Vollständiger dritter Betriebsmodus für professionelle Zentralheizungsanlagen mit mehreren Heizkreisen, Wärmepumpen, KNX-Integration und hydraulischem Abgleich.
+
+### Neue Fähigkeiten:
+- **Heizkreis-Verwaltung**: Separate Pumpen und Mischventile pro Heizkreis (Heizkörper 60°C / FBH 35°C)
+- **Mischventil-PID-Regelung**: Pro Heizkreis eigene Vorlauftemperatur-Regelung
+- **Pufferspeicher-Management**: Dreischicht-Temperaturüberwachung, Erzeuger-Anforderung aus Puffer-Logik
+- **Warmwasser-Priorisierung (TWW)**: Heizkreise stoppen während TWW-Aufheizung
+- **Wärmepumpe-Optimierung**: COP-geführte Vorlauftemperatur-Minimierung + Bivalenz-Punkt-Logik
+- **Hydraulischer Abgleich**: Automatisches Lernen aus Rücklauftemperatur-Differenzen
+- **KNX-Integration**: Thermostat-Anforderungslesung + Stellantrieb-Steuerung
+
+Alle Details: siehe Abschnitt 15 in [CLAUDE.md](CLAUDE.md)
 
 ---
 
 ## Langfristige Ideen (Backlog)
 
 ### Integration mit externen Systemen
-- **OpenTherm**: Direkte Kesselkommunikation für Vorlauftemperaturregelung (ohne externen Switch)
+- **OpenTherm**: Direkte Kesselkommunikation für Vorlauftemperaturregelung
 - **KNX**: Direkte KNX-Gruppenadressierung für Aktoren
-- **Loxone**: Bidirektionale Sync mit Loxone Miniserver
-- **Zigbee2MQTT**: Erweiterte TRV-Unterstützung mit Direktkopplung ohne HA-Climate-Entity
+- **Zigbee2MQTT**: Erweiterte TRV-Unterstützung mit Direktkopplung
 - **MQTT Discovery**: Automatische Geräteerkennung neuer TRVs
 - **Matter/Thread**: Zukunftssichere Smart-Home-Integration
 
-### Gebäudespezifische Physik-Modelle
-- **Thermische Masse**: Berücksichtigung der Gebäude-Wärmekapazität (Beton vs. Holz)
-- **Solargewinn**: Südausgerichtete Zimmer bei Sonnenschein automatisch kühler regulieren
-- **Nachbarschaftseffekte**: Wärmeübertragung zwischen Zimmern modellieren (offene Türen)
-- **Lüftungsanlage**: MVHR/Wohnraumlüftung als Wärmequelle/-senke berücksichtigen
-
 ### Smart Grid & Demand Response
-- Integration mit Smart Grid Tarifsignalen (§14a EnWG, DR-Signale)
+- Integration mit Smart Grid Tarifsignalen (§14a EnWG)
 - Lastverschiebung für netzkonforme Steuerung
 - Teilnahme an aggregierten Demand-Response-Programmen
 
-### Multi-Instanz & Multi-Haus
-- Mehrere IHC-Instanzen für verschiedene Wohneinheiten
-- Mandantenfähige Konfiguration (Vermieter/Mieter-Modell)
-- Cloud-Sync zwischen mehreren HA-Instanzen
-
 ### Community & Ecosystem
 - **Konfigurations-Templates**: Vorlagen für Altbau, Neubau, Passivhaus teilen
-- **Heizkurven-Community**: Bewährte Kurven für gängige Heizsysteme (Gas, Wärmepumpe, Pellets)
-- **Sensor-Bibliothek**: Getestete und empfohlene Sensorkombinationen
+- **Heizkurven-Community**: Bewährte Kurven für gängige Heizsysteme teilen
 - **Lovelace Card**: Separate HACS-Komponente für HA-Dashboard-Integration
 
 ---
 
-## Bekannte Einschränkungen (zu beheben)
+## Bekannte Einschränkungen
 
-- [ ] Kühlmodus: Grundgerüst vorhanden, aber noch nicht vollständig getestet und dokumentiert
-- [ ] Config-Flow Heizkurven-Editor: Auf 7 Punkte limitiert – Frontend-Editor ohne Limit bevorzugen
-- [ ] Zeitplan-Persistierung nach Neustart: Bearbeitete Zeitpläne im Frontend gehen ohne Speichern verloren
-- [ ] Vorlauftemperaturregelung: Momentan nur Weiterleitung an `number.*` Entity, kein echter PID-Regler
-- [ ] Keine persistente Temperaturhistorie über HA-Neustarts hinaus (nur RAM)
+- [ ] Kühlmodus: Grundgerüst vorhanden, aber noch nicht vollständig getestet
+- [ ] Config-Flow Heizkurven-Editor: Auf 7 Punkte limitiert — Frontend-Editor empfohlen
+- [ ] Zeitplan-Persistierung: Ungespeicherte Änderungen im Frontend gehen beim Tab-Wechsel verloren
 - [ ] Kein Support für mehrere separate Config Entries (nur eine IHC-Instanz pro HA-Instanz)
 
 ---
 
-*Zuletzt aktualisiert: 2026-03-15*
+*Zuletzt aktualisiert: 2026-03-22*
 
 *Beiträge und Feature-Requests sind herzlich willkommen über [GitHub Issues](https://github.com/Jedrimos/intelligent-heatingcontroll/issues)*

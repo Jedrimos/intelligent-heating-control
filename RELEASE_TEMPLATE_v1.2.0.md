@@ -1,4 +1,4 @@
-# 🌡️ Intelligent Heating Control v1.2.0b1
+# 🌡️ Intelligent Heating Control v1.2.0
 
 > **Breaking Change**: Temperatur-Presets (Eco / Schlaf / Abwesend) sind nicht mehr als feste °C-Werte konfigurierbar — sie folgen jetzt der Außentemperatur-Heizkurve.
 
@@ -130,13 +130,13 @@ Sensoren brauchen nach einem HA-Neustart Zeit bis sie ihren Zustand melden. Neue
 
 ---
 
-### 🎨 UX / UI Overhaul v4
+### 🎨 UX / UI Overhaul
 
-Komplett überarbeitetes Design-System:
 - Modernes Card-Layout mit klarer Hierarchie
 - Zimmer-Zeitpläne und Kalenderansicht als **Sub-Tabs direkt im Zimmer-Detail** (statt eigene globale Tabs)
 - Verbesserte Responsivität
 - Konsistente Farbgebung nach Heizstatus
+- Switch-only Einstellungen (Hysterese, adaptive Kurve, PID) im TRV-Modus automatisch ausgeblendet
 
 ---
 
@@ -156,7 +156,7 @@ Vier weitere Services sind jetzt vollständig registriert und in `services.yaml`
 
 | Service | Beschreibung |
 |---------|-------------|
-| `export_config` | Aktuelle Konfiguration als JSON-Event ausgeben |
+| `export_config` | Konfiguration als JSON herunterladen + HA-Event ausgeben |
 | `activate_guest_mode` | Gäste-Modus mit optionaler Dauer aktivieren |
 | `deactivate_guest_mode` | Gäste-Modus sofort beenden |
 | `reset_stats` | Laufzeit- und Energiestatistiken zurücksetzen |
@@ -210,33 +210,33 @@ Der Bereich für adaptive Heizkurve und adaptives Vorheizen wird im TRV-Modus au
 
 ---
 
-## 🐛 Bug Fixes
+## 🐛 Bug Fixes (14 behoben)
 
 ### Heizlogik
 - **Phantom-Anforderung**: TRV-Temp > Sollwert → demand wird korrekt auf 0 gesetzt
 - **Frostschutz im Aus-Modus**: Dashboard zeigte 7 °C statt „Aus"; Notfall-Frostschutz nur bei echten Minusgraden
 - **Modus „Aus"**: Climate-Entitäten zeigen jetzt `HVACMode.OFF` statt Komforttemperatur
+- **Demand-Gate**: `override_demand()` synct HeatingController korrekt
+- **CONF_BOOST_TEMP**: Typfehler (String statt float) + KeyError behoben
+- **CONF_HA_SCHEDULES**: Fehlte beim Zimmer-Erstellen → KeyError behoben
 
 ### Frontend
 - **Override-Banner**: ReferenceError behoben (`systemOverrides`/`overrideLabel` wurden vor ihrer Definition verwendet)
 - **Systemmodus-Buttons im Dashboard**: `querySelector` → `querySelectorAll + data-sysmode` (Elemente existierten nach UI-Refactor nicht mehr)
 - **Stale srcMap-Eintrag**: `room_presence_away` hatte keine Label-Zuordnung → roher String wurde angezeigt
+- **TRV-Reaktionszeiten**: `parseFloat()` → `parseInt()` (Backend erwartet int)
+- **Schimmelschutz-Select**: CSS-Klasse `form-input` → `form-select`
 
 ### Konfiguration & Services
 - **HA-Startup-Crash**: `CONF_WINDOW_OPEN_TEMP` wurde in `coordinator.py` importiert, aber in `const.py` gelöscht
 - **4 Services fehlten in `services.yaml`**: `export_config`, `activate_guest_mode`, `deactivate_guest_mode`, `reset_stats`
-- **Magic Strings**: `"update_global_settings"` als Hardstring → jetzt `SERVICE_UPDATE_GLOBAL_SETTINGS`-Konstante
-- **Typfehler Edit-Modal**: Reaktionszeiten wurden als `float` gesendet, Backend erwartet `int`
-- **Mold-Protect-ID-Fehler**: Falsche Entitäts-ID in `sensor.py` generiert
+- **Window-Listener-Unsub-Bug**: Listener wurde beim Reload nicht korrekt abgemeldet → Memory Leak behoben
 
 ### HACS & HA-Kompatibilität
 - **icon.png**: War 359×354 px → skaliert auf exakt 256×256 px (HACS-Pflicht)
 - **strings.json**: Fehlte komplett → erstellt (HA lädt ConfigFlow-Übersetzungen daraus, Pflichtdatei)
-- **Fenster-Listener-Unsub-Bug**: Listener wurde beim Reload nicht korrekt abgemeldet → Memory Leak behoben
-- **HA 2024.2+**: `ClimateEntityFeature.TURN_OFF` / `TURN_ON` ergänzt (HA 2024.2 Pflicht)
+- **HA 2024.2+**: `ClimateEntityFeature.TURN_OFF` / `TURN_ON` ergänzt
 - **Dashboard Systemmodus-Pill**: Optimistisches UI-Update, kein 1,2-s-Delay mehr nach Klick
-
----
 
 ---
 

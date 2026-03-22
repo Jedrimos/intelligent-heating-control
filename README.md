@@ -18,6 +18,7 @@ Eine fortschrittliche, zentral aggregierende Heizungssteuerung für Home Assista
 | 🏗️ **Klimabaustein** | Loxone-artiger zentraler Regler – aggregiert alle Zimmer, entscheidet den Kessel |
 | 📈 **Heizkurve** | Außentemperaturgeführte Basistemperatur – alle Presets (Komfort/Eco/Schlaf/Abwesend) folgen der Kurve |
 | 📅 **Zeitpläne** | Wöchentliche Zeitpläne + HA `schedule.*` Entities als Heizplan pro Zimmer |
+| 🔧 **Switch- & TRV-Modus** | Switch: steuert Heizungsschalter; TRV: steuert Thermostat-Ventile direkt mit Ventilposition als Anforderungssignal |
 | 🚪 **Multi-TRV** | Mehrere Thermostate + Fenstersensoren pro Zimmer |
 | ⚡ **Boost** | Zeitlich begrenzter Komfortmodus per Button oder Service |
 | 🚶 **Anwesenheit** | Automatischer Abwesend-Modus (outdoor-geregelt) wenn niemand zuhause ist |
@@ -28,7 +29,7 @@ Eine fortschrittliche, zentral aggregierende Heizungssteuerung für Home Assista
 | 💧 **Schimmelschutz** | Pro Zimmer: Taupunktberechnung + automatische Temperaturerhöhung bei Risiko |
 | 🧳 **Gäste-Modus** | Vorübergehend Komfortbetrieb aller Zimmer ohne Konfigurationsänderung |
 | ❄️ **Frostschutz** | Immer aktiv, auch bei OFF-Modus |
-| 🖥️ **Custom Panel** | Eigenes Dashboard-Panel mit 5 Tabs in der HA-Seitenleiste |
+| 🖥️ **Custom Panel** | Eigenes Dashboard-Panel in der HA-Seitenleiste |
 
 ---
 
@@ -107,7 +108,7 @@ Standardkurve (für Niedertemperatur-Heizsysteme geeignet):
 
 ### 4. Zeitpläne erstellen
 
-**IHC Panel → Zeitpläne** → Zimmer auswählen → Tagesgruppen und Zeiträume konfigurieren.
+**IHC Panel → Zimmer** → Zimmer auswählen → Sub-Tab **📅 Zeitplan** → Tagesgruppen und Zeiträume konfigurieren.
 
 ---
 
@@ -300,11 +301,13 @@ Das Plugin registriert ein eigenes Panel unter dem Seitenleisten-Eintrag **IHC**
 
 ### Tabs im Überblick
 
-#### 📊 Übersicht
+#### 🏠 Dashboard (Übersicht)
 - Echtzeit-Raumkarten: Ist/Soll-Temperatur, Anforderungsbalken, Betriebsstatus
+- **Hero-Bereich**: Heizstatus | Gesamtanforderung | Systemmodus — direkt umschaltbar
 - Schnell-Modi: Modus-Chips direkt auf der Karte umschalten
 - Boost-Button: 60-Minuten-Komfortmodus per Klick
-- Status-Leiste: Außentemperatur, Heizkurven-Ziel, Gesamtanforderung, Systemmodus, Laufzeit, Energie
+- Override-Banner pro Karte wenn Systemmodus den Zimmermodus übersteuert
+- Status-Leiste: Außentemperatur, Heizkurven-Ziel, Gesamtanforderung, Laufzeit, Energie
 - Banner für aktive Sonderzustände: Sommer, Nacht, Abwesend, Solar-Boost, Hoher Strompreis
 
 #### 🚪 Zimmer
@@ -312,6 +315,12 @@ Das Plugin registriert ein eigenes Panel unter dem Seitenleisten-Eintrag **IHC**
 - Zimmer hinzufügen/bearbeiten/löschen
 - Entity-Autocomplete: Vorschläge während der Eingabe von Sensor-IDs
 - Bearbeiten-Modal: alle Felder vorausgefüllt (Thermostate, Sensoren, Presets, Offsets)
+- **Sub-Tab 📅 Zeitplan**: Wöchentliche Zeitpläne direkt im Zimmer-Detail
+- **Sub-Tab 🗓️ Wochenansicht**: Kalenderansicht des Zimmer-Zeitplans
+
+#### 📊 Diagnose / Übersicht
+- Systemstatus aller Zimmer auf einen Blick
+- Anforderungen, Betriebszustände, Sensor-Werte
 
 #### ⚙️ Einstellungen
 - Systemmodus manuell setzen
@@ -320,13 +329,8 @@ Das Plugin registriert ein eigenes Panel unter dem Seitenleisten-Eintrag **IHC**
 - Klimabaustein: Schwellenwert, Hysterese, Mindestzeiten
 - Anwesenheitserkennung: person.* / device_tracker.* auswählen
 - Energie & Solar: Kesselleistung, Solar-Sensor, Strompreis-Sensor
-
-#### 📅 Zeitpläne
-- Zimmerauswahl per Tab
-- Tagesgruppen (Mo–Fr / Sa–So oder beliebige Kombination)
-- Zeiträume: Von/Bis, Temperatur, Offset
-- Übernacht-Zeiträume möglich
-- Lädt bestehende Zeitpläne automatisch
+- Backup & Restore: Export als JSON-Datei, Import via Datei-Upload
+- TRV-Modus: Hardware & Steuerung (Ventilposition-Einstellungen)
 
 #### 📈 Heizkurve
 - Stützpunkte bearbeiten (Außentemperatur → Zieltemperatur)
@@ -415,4 +419,4 @@ MIT License – siehe [LICENSE](LICENSE)
 
 ---
 
-> **Hinweis:** Dieses Plugin befindet sich in aktiver Entwicklung. Bugs und Feature-Wünsche bitte als [GitHub Issue](https://github.com/Jedrimos/intelligent-heatingcontroll/issues) melden.
+> **Hinweis:** Bugs und Feature-Wünsche bitte als [GitHub Issue](https://github.com/Jedrimos/intelligent-heatingcontroll/issues) melden. Aktuell ist Version 1.2.0 stabil und HACS-kompatibel.

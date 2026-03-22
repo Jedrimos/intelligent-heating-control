@@ -14,10 +14,11 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Anforderungs-Heatmap im Dashboard
 - Temperaturverlauf-Graph (24h Ist/Soll/Außen)
 - Passive Solar Heating via Rollosteuerung (v2.1)
+- Wärmeerzeuger-Modus: Heizkreise, Puffer, Wärmepumpe, TWW (v3.0)
 
 ---
 
-## [1.2.0b1] - 2026-03-17
+## [1.2.0] - 2026-03-22
 
 ### Hinzugefügt
 
@@ -68,36 +69,100 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Zimmer sortiert nach Priorität: Heizt > Fenster offen > Anforderung > Zufrieden > Aus
 - Wetterbereich in der Statusleiste nutzt deutschen Namen + Emoji
 
+#### Zeitpläne + Kalender als Zimmer-Sub-Tabs
+- Zeitpläne und Kalenderansicht sind nicht mehr globale Tabs, sondern **Sub-Tabs direkt im Zimmer-Detail**
+- Bessere UX: Zeitplan-Bearbeitung immer im Kontext des ausgewählten Zimmers
+
 #### Einstellungen erweitert
 - `sun_entity` jetzt im Panel konfigurierbar (war bisher nur über Config-Flow zugänglich)
 - `weather_cold_threshold` und `weather_cold_boost` im Panel konfigurierbar
+- TRV-spezifische Einstellungen jetzt im Panel sichtbar (Hardware & Steuerung)
+- Switch-only Einstellungen (adaptive Heizkurve, Hysterese, PID) werden im TRV-Modus ausgeblendet
+
+#### TRV-Modus: Komplett überarbeitet
+- **Ventilposition als primäres Anforderungssignal**: TRV-Modus nutzt 60% Ventilposition + 40% Temperaturdelta
+- Switch-Modus optional: 30% Ventilposition + 70% Temperaturdelta mit Klemmung
+- Kompatibel mit allen gängigen TRV-Typen (Zigbee2MQTT: `valve_position`, Z-Wave: `position`, Eurotronic: `pi_heating_demand`)
+- **Setpoint-Quantisierung auf 0,5 °C-Schritte**: reduziert unnötige Funk-Übertragungen, schont TRV-Akkus
+- **Phantom-Anforderung verhindert**: Wenn TRV-Temp bereits über Sollwert → demand = 0
+- **Laufzeitmessung via Ventilposition**: Ventilposition > 8% gilt als „Zimmer heizt aktiv" — direktes Signal
+- Temperatur-Blending: Raumsensor primär, TRV-Temp als Fallback oder gewichtet konfigurierbar (`trv_temp_weight`)
+
+#### Event-getriebene Fenstererkennung
+- Fenstersensoren lösen jetzt **sofort** via `async_track_state_change_event` aus — vorher gab es einen fixen 60-Sekunden-Polling-Delay
+- Konfigurierte Reaktions- und Schließverzögerungen bleiben erhalten
+- Beim Wechsel von `off` → `auto`: alle Fensterzustände sofort eingelesen (`_prefill_window_states`)
+
+#### Startup-Gnadenfrist für Zigbee / Z-Wave
+- Neue Einstellung `startup_grace_seconds` (Standard: 60 s): während dieser Zeit werden `unavailable`-Zustände von Temperatursensoren nicht als Fehler gewertet
+- Verhindert falsche Anforderungen direkt nach einem HA-Neustart
+
+#### Config-Flow vollständig synchronisiert
+- Add-Room und Edit-Room Modal haben jetzt denselben Funktionsumfang
+- CO₂-Sensor + Schwellwert im Add-Modal ergänzt
+- Raum-Anwesenheitsliste (`room_presence_entities`) im Add-Modal ergänzt
+- Boost-Temperatur (`boost_temp`) + Standard-Dauer im Add-Modal ergänzt
+- TRV-Felder: `trv_temp_weight`, `trv_temp_offset`, `trv_min_send_interval` in config_flow + Add-Modal
+
+#### Neue Services
+Vier weitere Services sind jetzt vollständig registriert und in `services.yaml` dokumentiert:
+- `export_config` – Konfiguration als JSON-Event + Browser-Download ausgeben
+- `activate_guest_mode` – Gäste-Modus mit optionaler Dauer aktivieren
+- `deactivate_guest_mode` – Gäste-Modus sofort beenden
+- `reset_stats` – Laufzeit- und Energiestatistiken zurücksetzen
+
+#### Backup & Restore
+- **Export** direkt als `.json`-Datei im Browser herunterladen (kein Umweg über HA-Benachrichtigung)
+- **Import** via Datei-Upload: globale Einstellungen + alle Zimmer werden automatisch via Services eingespielt
+- Backup & Restore Layout repariert
 
 #### Gelernte Werte zurücksetzen
-- Reset-Button in Einstellungen → Intelligente Regelung: setzt Kurvenkorrektur + Aufheizzeiten-Historie gemeinsam zurück
+- **Einstellungen → Intelligente Regelung**: Reset-Button setzt Kurvenkorrektur + Aufheizzeiten-Historie zurück
 - `reset_stats`-Service nimmt optionalen Parameter `reset_curve: true`
-- Zusätzliche Reset-Buttons in Backup & Restore (Gelernte Werte / Tages-Statistiken getrennt)
+- **Backup & Restore**: Zwei separate Reset-Buttons (Gelernte Werte / Tages-Statistiken getrennt)
 
-#### Backup & Restore – Import
-- Konfiguration direkt als JSON-Datei im Browser herunterladen (statt nur HA-Benachrichtigung)
-- Import via Datei-Upload: globale Einstellungen + alle Zimmer werden automatisch via Services eingespielt
-
-#### UX: Intelligente Regelung nur im Switch-Modus
-- Bereich „🧠 Intelligente Regelung" wird im TRV-Modus ausgeblendet (TRVs regeln intern selbst)
-- Aktueller Kurvenoffset im Hint-Text sichtbar (z.B. „Aktueller Offset: −0,5 °C")
+#### HACS-Kompatibilität
+- `icon.png` auf exakt **256×256 px** skaliert (HACS-Pflicht, war 359×354 px)
+- `strings.json` erstellt (HA lädt ConfigFlow-Übersetzungen daraus, Pflichtdatei)
 
 ### Geändert
 
 - **Temperatur-Presets** (eco/sleep/away) sind nicht mehr als feste °C-Werte konfigurierbar, sondern als Abzug (`_offset`) + Maximum (`_max_temp`) relativ zur Heizkurve
 - `room_presence_eco`-Quelle umbenannt zu `room_presence_away` (reflektiert das tatsächliche Verhalten)
 - `ROOM_MODE_AWAY` bei explizitem Zimmer-Abwesend-Modus nutzt jetzt ebenfalls den outdoor-geregelten `away_base`-Wert
+- `datetime.utcnow()` → `datetime.now(timezone.utc)` (Python 3.12 deprecated + Timezone-Konsistenz)
+- `SERVICE_UPDATE_GLOBAL_SETTINGS`: War als Magic-String codiert → jetzt Konstante in `const.py`
+- Veraltete Konstante `CONF_PRESENCE_ENTITY` (Singular) entfernt; `CONF_PRESENCE_ENTITIES` (Plural) ist die korrekte Variante
 
 ### Behoben
 
-- **Frontend ReferenceError**: `systemOverrides` und `overrideLabel` wurden nach dem `.map()`-Callback definiert, in dem sie schon verwendet wurden → Override-Banner hat nie angezeigt
+#### Frontend
+- **Override-Banner ReferenceError**: `systemOverrides` und `overrideLabel` wurden nach dem `.map()`-Callback definiert, in dem sie schon verwendet wurden → Banner hat nie angezeigt
+- **Systemmodus-Buttons im Dashboard**: `querySelector` → `querySelectorAll + data-sysmode` (Elemente existierten nach UI-Refactor nicht mehr)
 - **Stale srcMap-Eintrag**: `room_presence_away` hatte keine Zuordnung im srcMap → roher String statt Label angezeigt
-- **HA 2024.2+ Pflicht**: `ClimateEntityFeature.TURN_OFF` / `TURN_ON` ergänzt (sonst Deprecation-Warnung)
+- **Dashboard-Crash**: `systemOverrides`/`overrideLabel` Hoisting-Bug behoben
+- **TRV-Reaktionszeiten**: Frontend sendete `parseFloat()` wo Backend `int()` erwartet — behoben auf `parseInt()`
+- **Schimmelschutz-Select**: CSS-Klasse von `form-input` auf `form-select` korrigiert
+
+#### Heizlogik
+- **Phantom-Anforderung**: TRV-Temp > Sollwert → demand wird korrekt auf 0 gesetzt
+- **Frostschutz im Aus-Modus**: Dashboard zeigte 7 °C statt „Aus"; Notfall-Frostschutz nur bei echten Minusgraden
+- **Modus „Aus"**: Climate-Entitäten zeigen jetzt `HVACMode.OFF` statt Komforttemperatur
+- **Demand-Gate**: `override_demand()` synct HeatingController korrekt
+- **CONF_BOOST_TEMP**: Typfehler (String statt float) + KeyError-Fix
+- **CONF_HA_SCHEDULES**: Fehlte beim Zimmer-Erstellen → KeyError behoben
+- **Window-Listener-Unsub-Bug**: Listener wurde beim Reload nicht korrekt abgemeldet → Memory Leak behoben
+
+#### Konfiguration & Services
+- **HA-Startup-Crash**: `CONF_WINDOW_OPEN_TEMP` wurde in `coordinator.py` importiert, aber in `const.py` gelöscht
+- **4 Services fehlten in `services.yaml`**: `export_config`, `activate_guest_mode`, `deactivate_guest_mode`, `reset_stats`
+- **HA-Zeitplan Config-Entry-Lookup**: `unique_id = entry_id` Fallback verbessert
+- **CONF_ROOM_PRESENCE_ENTITIES**: Fehlte im config_flow Add-Room Schema
+- **CONF_BOOST_TEMP**: Fehlte im config_flow Add-Room Schema + Add-Room Modal
+
+#### HACS & HA-Kompatibilität
+- **HA 2024.2+**: `ClimateEntityFeature.TURN_OFF` / `TURN_ON` ergänzt (HA 2024.2 Pflicht)
 - **Dashboard Systemmodus-Pill**: Optimistisches UI-Update — Pill-Farbe wechselt sofort beim Klick
-- **Status-Grid**: Abstände zwischen Karten vergrößert für bessere Lesbarkeit
 
 ---
 

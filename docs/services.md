@@ -274,13 +274,13 @@ data:
 
 ## `export_config`
 
-Exportiert die komplette Konfiguration als HA-Persistent-Notification im JSON-Format.
+Exportiert die komplette Konfiguration als JSON-Datei.
 
 ```yaml
 service: intelligent_heating_control.export_config
 ```
 
-Der Export erscheint als Benachrichtigung in HA (Glocken-Symbol). Er enthält alle Zimmer, Zeitpläne, Heizkurven-Punkte und Globaleinstellungen.
+Der Export wird direkt als `.json`-Datei im Browser heruntergeladen. Er enthält alle Zimmer, Zeitpläne, Heizkurven-Punkte und Globaleinstellungen und kann über **Backup & Restore → Import** wieder eingespielt werden.
 
 ---
 
