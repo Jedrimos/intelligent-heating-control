@@ -190,6 +190,7 @@ CONF_SOLAR_BOOST_TEMP: Final = "solar_boost_temp"               # °C boost adde
 CONF_ENERGY_PRICE_ENTITY: Final = "energy_price_entity"         # dynamic price sensor (€/kWh)
 CONF_ENERGY_PRICE_THRESHOLD: Final = "energy_price_threshold"   # €/kWh above which eco kicks in
 CONF_ENERGY_PRICE_ECO_OFFSET: Final = "energy_price_eco_offset" # °C reduction when price is high
+CONF_STATIC_ENERGY_PRICE: Final = "static_energy_price"         # fallback price €/kWh when no sensor
 
 # Roadmap 1.4 – Advanced room control
 CONF_TEMP_CALIBRATION: Final = "temp_calibration"               # per-room sensor offset (°C)
@@ -295,6 +296,7 @@ ATTR_SYSTEM_MODE: Final = "system_mode"
 CONF_CONTROLLER_MODE: Final = "controller_mode"
 CONTROLLER_MODE_SWITCH: Final = "switch"   # control a boiler switch (default)
 CONTROLLER_MODE_TRV: Final = "trv"         # control TRVs directly (close them when no demand)
+CONTROLLER_MODE_HG: Final = "hg"           # Heat Generator mode – Roadmap 3.0 (WIP)
 DEFAULT_CONTROLLER_MODE: Final = CONTROLLER_MODE_SWITCH
 
 # Boost-Modus (per room)

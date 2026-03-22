@@ -366,8 +366,6 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "ventilation_advice_enabled",
             # Static energy price (fallback when no price sensor)
             "static_energy_price",
-            # Startup grace for Zigbee/Z-Wave sensor warmup
-            "startup_grace_seconds",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:

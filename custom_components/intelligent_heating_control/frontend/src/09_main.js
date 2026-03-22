@@ -44,6 +44,22 @@ class IHCPanel extends HTMLElement {
     // elements mid-click and prevent any button from working.
     // The _startAutoRefresh timer handles overview updates every 5 seconds.
     // All other tabs are only rendered when the user switches to them.
+
+    // Safety net: if the content area is empty (e.g. after HA reconnect / panel
+    // remount), schedule a re-render for the next animation frame so the user
+    // doesn't see a permanent black screen.
+    if (!this._pendingRender) {
+      const content = this.shadowRoot?.querySelector("#tab-content");
+      if (content && content.childElementCount === 0) {
+        this._pendingRender = true;
+        requestAnimationFrame(() => {
+          this._pendingRender = false;
+          if (this._hass) {
+            try { this._renderTabContent(); } catch(e) { console.error("IHC recovery render error:", e); }
+          }
+        });
+      }
+    }
   }
 
   connectedCallback() {
@@ -77,7 +93,10 @@ class IHCPanel extends HTMLElement {
     }
     this._refreshTimer = setInterval(() => {
       if (!this._hass || this._modalOpen || this._userInteracting) return;
-      if (this._activeTab === "overview" || this._activeTab === "diagnose") {
+      const content = this.shadowRoot?.querySelector("#tab-content");
+      // Always re-render if the content area is empty (recovery from blank screen)
+      const isEmpty = content && content.childElementCount === 0;
+      if (isEmpty || this._activeTab === "overview" || this._activeTab === "diagnose") {
         try { this._renderTabContent(); } catch(e) { console.error("IHC refresh error:", e); }
       }
     }, 5000);
@@ -154,12 +173,21 @@ class IHCPanel extends HTMLElement {
     if (!content) return;
     // Clean up any entity picker dropdowns from the previous render before replacing content
     this._cleanupEntityPickers(content);
-    switch (this._activeTab) {
-      case "overview":   this._renderOverview(content); break;
-      case "rooms":      this._renderRooms(content); break;
-      case "diagnose":   this._renderDiagnose(content); break;
-      case "settings":   this._renderSettings(content); break;
-      case "curve":      this._renderCurve(content); break;
+    try {
+      switch (this._activeTab) {
+        case "overview":   this._renderOverview(content); break;
+        case "rooms":      this._renderRooms(content); break;
+        case "diagnose":   this._renderDiagnose(content); break;
+        case "settings":   this._renderSettings(content); break;
+        case "curve":      this._renderCurve(content); break;
+      }
+    } catch(e) {
+      console.error("IHC render error:", e);
+      // Show recoverable error state instead of blank/black screen
+      content.innerHTML = `<div class="info-box" style="color:var(--error-color,#ef5350)">
+        ⚠️ Darstellungsfehler (${this._activeTab}): ${e.message || "Unbekannt"}<br>
+        <small style="opacity:.7">Bitte Tab wechseln oder die Seite neu laden. Details in der Browser-Konsole.</small>
+      </div>`;
     }
   }
 

@@ -154,8 +154,7 @@ from .const import (
     DEFAULT_WEATHER_COLD_THRESHOLD,
     CONF_WEATHER_COLD_BOOST,
     DEFAULT_WEATHER_COLD_BOOST,
-    CONF_STARTUP_GRACE_SECONDS,
-    DEFAULT_STARTUP_GRACE_SECONDS,
+
     CONF_HA_SCHEDULES,
     CONF_ECO_OFFSET,
     CONF_SLEEP_OFFSET,
@@ -354,11 +353,6 @@ class IHCCoordinator(
         # before the manual-override detector runs (prevents false "manual override" alerts)
         self._startup_cycles_remaining: int = 1
 
-        # Startup grace period for Zigbee/Z-Wave sensors that report unknown/unavailable
-        # right after HA restart.  During this window, unknown window sensors are treated
-        # as "open" (safe/conservative) to avoid heating with open windows.
-        # Value is set on first _async_update_data call from global config.
-        self._startup_grace_until: float = time.monotonic() + DEFAULT_STARTUP_GRACE_SECONDS
 
         # Manual TRV override detection: track last IHC-set temperature per room
         self._last_ihc_set_temps: Dict[str, float] = {}  # room_id → last temp IHC intentionally set
@@ -841,9 +835,6 @@ class IHCCoordinator(
         if self._startup_cycles_remaining > 0:
             self._startup_cycles_remaining -= 1
             # Apply configurable grace duration from global config (first cycle only)
-            cfg = self.config_entry.options or self.config_entry.data
-            grace_secs = int(cfg.get(CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS))
-            self._startup_grace_until = time.monotonic() + grace_secs
             self._prefill_window_states()
             self._prefill_last_sent_temps()
             self._setup_window_listeners()
@@ -1038,12 +1029,11 @@ class IHCCoordinator(
             if _loop_trv_mode or room.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND):
                 demand = self._apply_trv_valve_demand(demand, trv_data, trv_mode=_loop_trv_mode)
 
-            # Safety gate: if room sensor shows temp at or above target, the room is
-            # warm enough → force demand to 0 regardless of TRV valve position.
-            # Note: deadband applies on the LOWER side (don't reheat until temp drops
-            # to target - deadband), but the UPPER gate is simply target_temp itself.
-            # This prevents valve-position blending from showing demand when IST >= SOLL.
-            if current_temp is not None and current_temp >= target_temp:
+            # Safety gate: if room sensor is within deadband (current >= target - deadband),
+            # the room is comfortable enough → force demand to 0 regardless of TRV valve
+            # position. This matches the new demand formula which returns 0 within the
+            # deadband zone, preventing TRV valve-position blending from inflating demand.
+            if current_temp is not None and current_temp >= (target_temp - deadband):
                 demand = 0.0
             # Sync the post-gate demand back to the controller so that get_total_demand()
             # and get_rooms_demanding() use the correct (gated) value, not the stale

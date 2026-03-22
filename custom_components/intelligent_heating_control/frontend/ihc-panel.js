@@ -1,13 +1,8 @@
+// === 00_constants.js ===
 /**
- * Intelligent Heating Control – Frontend Panel v4
- *
- * UX/UI Overhaul:
- *  - Modernes Design-System: klare Hierarchie, mehr Weißraum, konsistente Abstände
- *  - Zimmer-Karten: Temperatur als zentrales Element, farbiger Status-Streifen links
- *  - Dashboard-Hero: Kompakte Statistiken + Schnell-Modus-Auswahl als Pill-Buttons
- *  - Einstellungen: 2-spaltige Formulare, klarere Abschnitte
- *  - Modals: Breitere, besser strukturierte Dialoge
- *  - Alle Funktionen und Service-Calls bleiben unverändert
+ * 00_constants.js
+ * IHC Frontend – Shared Constants
+ * Contains: DOMAIN, DAYS, DAY_KEYS, MODE_LABELS, MODE_ICONS, SYSTEM_MODE_LABELS, WEATHER_CONDITIONS
  */
 
 const DOMAIN = "intelligent_heating_control";
@@ -46,9 +41,13 @@ const WEATHER_CONDITIONS = {
   "windy-variant":    { label: "Stürmisch",              icon: "💨" },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Design-System v4 – Moderne, aufgeräumte Benutzeroberfläche
-// ─────────────────────────────────────────────────────────────────────────────
+// === 01_styles.css.js ===
+/**
+ * 01_styles.css.js
+ * IHC Frontend – Complete CSS Design System (v4)
+ * Contains: STYLES template literal with all component styles
+ */
+
 const STYLES = `
   :host { font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif); display: block; }
   * { box-sizing: border-box; }
@@ -619,6 +618,19 @@ const STYLES = `
   }
 `;
 
+// === 09_main.js (Part A: class open + lifecycle) ===
+/**
+ * 09_main.js
+ * IHC Frontend – Web Component Class
+ * Contains:
+ *   PART A: class IHCPanel declaration, constructor, lifecycle methods,
+ *           set hass(), _startAutoRefresh(), _render(), _updateActiveTab(), _renderTabContent()
+ *   PART B (after all method files): class closing brace + customElements.define()
+ *
+ * Build note: build.py splits this file at the marker comment and inserts
+ * method files (02-08) between Part A and Part B.
+ */
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Panel Component
 // ─────────────────────────────────────────────────────────────────────────────
@@ -653,6 +665,22 @@ class IHCPanel extends HTMLElement {
     // elements mid-click and prevent any button from working.
     // The _startAutoRefresh timer handles overview updates every 5 seconds.
     // All other tabs are only rendered when the user switches to them.
+
+    // Safety net: if the content area is empty (e.g. after HA reconnect / panel
+    // remount), schedule a re-render for the next animation frame so the user
+    // doesn't see a permanent black screen.
+    if (!this._pendingRender) {
+      const content = this.shadowRoot?.querySelector("#tab-content");
+      if (content && content.childElementCount === 0) {
+        this._pendingRender = true;
+        requestAnimationFrame(() => {
+          this._pendingRender = false;
+          if (this._hass) {
+            try { this._renderTabContent(); } catch(e) { console.error("IHC recovery render error:", e); }
+          }
+        });
+      }
+    }
   }
 
   connectedCallback() {
@@ -686,7 +714,10 @@ class IHCPanel extends HTMLElement {
     }
     this._refreshTimer = setInterval(() => {
       if (!this._hass || this._modalOpen || this._userInteracting) return;
-      if (this._activeTab === "overview" || this._activeTab === "diagnose") {
+      const content = this.shadowRoot?.querySelector("#tab-content");
+      // Always re-render if the content area is empty (recovery from blank screen)
+      const isEmpty = content && content.childElementCount === 0;
+      if (isEmpty || this._activeTab === "overview" || this._activeTab === "diagnose") {
         try { this._renderTabContent(); } catch(e) { console.error("IHC refresh error:", e); }
       }
     }, 5000);
@@ -763,14 +794,49 @@ class IHCPanel extends HTMLElement {
     if (!content) return;
     // Clean up any entity picker dropdowns from the previous render before replacing content
     this._cleanupEntityPickers(content);
-    switch (this._activeTab) {
-      case "overview":   this._renderOverview(content); break;
-      case "rooms":      this._renderRooms(content); break;
-      case "diagnose":   this._renderDiagnose(content); break;
-      case "settings":   this._renderSettings(content); break;
-      case "curve":      this._renderCurve(content); break;
+    try {
+      switch (this._activeTab) {
+        case "overview":   this._renderOverview(content); break;
+        case "rooms":      this._renderRooms(content); break;
+        case "diagnose":   this._renderDiagnose(content); break;
+        case "settings":   this._renderSettings(content); break;
+        case "curve":      this._renderCurve(content); break;
+      }
+    } catch(e) {
+      console.error("IHC render error:", e);
+      // Show recoverable error state instead of blank/black screen
+      content.innerHTML = `<div class="info-box" style="color:var(--error-color,#ef5350)">
+        ⚠️ Darstellungsfehler (${this._activeTab}): ${e.message || "Unbekannt"}<br>
+        <small style="opacity:.7">Bitte Tab wechseln oder die Seite neu laden. Details in der Browser-Konsole.</small>
+      </div>`;
     }
   }
+
+  // ── Data Helpers ───────────────────────────────────────────────────────────
+
+
+
+// === 02_utils.js ===
+/**
+ * 02_utils.js
+ * IHC Frontend – Utility / Helper Methods
+ * Contains: _st, _getRoomData, _getGlobal, _fmt, _demandColor, _sparkline,
+ *           _callService, _kwh, _costStr, _toast,
+ *           _entityOptions, _attachEntityPickers, _cleanupEntityPickers,
+ *           _renderPresenceCheckboxes,
+ *           _bindEntityListAdders, _makeHaSchedRow, _bindHaSchedAdder, _collectHaScheduleRows
+ * These are all non-tab helper methods that belong to IHCPanel.
+ */
+
+// NOTE: These methods are defined on IHCPanel.prototype below the class body
+// to keep this file self-contained as a logical fragment.
+// When build.py concatenates the files, they are inserted INSIDE the class
+// via the 09_main.js class body that uses Object.assign or prototype extension.
+//
+// ACTUALLY: build.py simply concatenates all files.  The class declaration in
+// 09_main.js OPENS the class brace, and all method files (02-08) are placed
+// BETWEEN the opening brace (in 09_main.js) and the closing brace + registration
+// (also in 09_main.js).  This file is a raw JS fragment – NOT a standalone module.
 
   // ── Data Helpers ───────────────────────────────────────────────────────────
 
@@ -973,6 +1039,333 @@ class IHCPanel extends HTMLElement {
     </svg>`;
   }
 
+  // ── Service Calls ──────────────────────────────────────────────────────────
+
+  async _callService(service, data) {
+    if (!this._hass) return;
+    try {
+      await this._hass.callService(DOMAIN, service, data);
+    } catch (e) {
+      console.error("IHC service error:", service, e);
+      this._toast("❌ Fehler: " + (e.message || "Unbekannt"));
+    }
+  }
+
+  // ── Energy correction factor ────────────────────────────────────────────────
+  // Applies the user-set calibration factor (stored in localStorage) to kWh values.
+  _kwh(raw) {
+    const factor = parseFloat(localStorage.getItem("ihc_energy_factor") || "1") || 1;
+    return Math.round(raw * factor * 10) / 10;
+  }
+
+  // Returns the "costs" display string: "X kWh" or "X kWh · Y €" if static price configured.
+  // price = optional override (from room radiator_kw etc), falls back to global static_energy_price.
+  _costStr(rawKwh, staticPrice) {
+    const kwh = this._kwh(rawKwh);
+    const parts = [`~${kwh} kWh`];
+    const price = staticPrice ?? (parseFloat(localStorage.getItem("ihc_static_price") || "") || null);
+    if (price && kwh > 0) parts.push(`≈ ${(kwh * price).toFixed(2)} €`);
+    return parts.join(" · ");
+  }
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+
+  _toast(msg, ms = 3000) {
+    const root = this.shadowRoot.querySelector("#toast-root");
+    if (!root) return;
+    if (this._toastTimeout) clearTimeout(this._toastTimeout);
+    root.innerHTML = `<div class="toast">${msg}</div>`;
+    this._toastTimeout = setTimeout(() => { root.innerHTML = ""; }, ms);
+  }
+
+  // ── Helper: legacy datalist options (kept for fallback) ─────────────────────
+  _entityOptions(domains) {
+    if (!this._hass) return "";
+    return Object.keys(this._hass.states)
+      .filter(id => !domains.length || domains.some(d => id.startsWith(d + ".")))
+      .sort()
+      .map(id => {
+        const state = this._hass.states[id];
+        const name  = state?.attributes?.friendly_name;
+        const label = name && name !== id ? `${name} – ${id}` : id;
+        return `<option value="${id}" label="${label}">`;
+      })
+      .join("");
+  }
+
+  // ── HA-style entity picker (attaches to inputs with data-ep-domains) ─────────
+  _attachEntityPickers(root) {
+    if (!this._hass) return;
+    root.querySelectorAll("input[data-ep-domains]").forEach(input => {
+      // Wrap input in .ep-wrap if not already done
+      if (input.parentElement.classList.contains("ep-wrap")) return;
+      const domains = (input.dataset.epDomains || "").split(",").map(d => d.trim()).filter(Boolean);
+
+      const wrap = document.createElement("div");
+      wrap.className = "ep-wrap";
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+
+      // Append dropdown to shadow root so it isn't clipped by modal overflow
+      const dropdown = document.createElement("div");
+      dropdown.className = "ep-dropdown";
+      dropdown.style.display = "none";
+      this.shadowRoot.appendChild(dropdown);
+
+      // Tag dropdown with a unique key so it can be cleaned up when the section is re-rendered
+      const _cleanup = () => { dropdown.remove(); };
+      input._epCleanup = _cleanup;
+
+      let focusedIdx = -1;
+
+      const domainBadge = (id) => {
+        const d = id.split(".")[0];
+        const cls = ["sensor","climate","switch","binary_sensor","weather","number","input_boolean","person","device_tracker"].includes(d)
+          ? `ep-d-${d}` : "ep-d-other";
+        return `<span class="ep-badge ${cls}">${d}</span>`;
+      };
+
+      const stateLabel = (state) => {
+        const s = state.state;
+        if (!s || s === "unavailable" || s === "unknown") return "";
+        const u = state.attributes?.unit_of_measurement || "";
+        return `<span class="ep-state">${s}${u ? " " + u : ""}</span>`;
+      };
+
+      const positionDropdown = () => {
+        const rect = input.getBoundingClientRect();
+        const dropW = Math.max(rect.width, 420);
+        const maxLeft = window.innerWidth - dropW - 8;
+        dropdown.style.top   = (rect.bottom + 2) + "px";
+        dropdown.style.left  = Math.min(rect.left, maxLeft) + "px";
+        dropdown.style.width = dropW + "px";
+      };
+
+      const renderDropdown = () => {
+        const q = input.value.toLowerCase();
+        const entries = Object.entries(this._hass.states)
+          .filter(([id]) => !domains.length || domains.some(d => id.startsWith(d + ".")))
+          .filter(([id, s]) => {
+            if (!q) return true;
+            return id.toLowerCase().includes(q) || (s.attributes?.friendly_name || "").toLowerCase().includes(q);
+          })
+          .sort(([a], [b]) => a.localeCompare(b))
+          .slice(0, 60);
+
+        focusedIdx = -1;
+        if (!entries.length) {
+          dropdown.innerHTML = `<div class="ep-empty">Keine Entitäten gefunden</div>`;
+        } else {
+          dropdown.innerHTML = entries.map(([id, state]) => {
+            const name = state.attributes?.friendly_name;
+            return `<div class="ep-item" data-value="${id}">
+              ${domainBadge(id)}
+              <div class="ep-info">
+                <div class="ep-name">${name || id}</div>
+                <div class="ep-id">${id}</div>
+              </div>
+              ${stateLabel(state)}
+            </div>`;
+          }).join("");
+
+          dropdown.querySelectorAll(".ep-item").forEach(item => {
+            item.addEventListener("mousedown", e => {
+              e.preventDefault();
+              input.value = item.dataset.value;
+              dropdown.style.display = "none";
+              input.dispatchEvent(new Event("change", { bubbles: true }));
+            });
+          });
+        }
+        positionDropdown();
+        dropdown.style.display = "";
+      };
+
+      const hideDropdown = () => { dropdown.style.display = "none"; focusedIdx = -1; };
+
+      input.addEventListener("focus", renderDropdown);
+      input.addEventListener("blur",  () => setTimeout(hideDropdown, 200));
+      input.addEventListener("input", renderDropdown);
+
+      input.addEventListener("keydown", e => {
+        const items = dropdown.querySelectorAll(".ep-item");
+        if (!items.length) return;
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          focusedIdx = Math.min(focusedIdx + 1, items.length - 1);
+          items.forEach((it, i) => it.classList.toggle("ep-focused", i === focusedIdx));
+          items[focusedIdx]?.scrollIntoView({ block: "nearest" });
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          focusedIdx = Math.max(focusedIdx - 1, 0);
+          items.forEach((it, i) => it.classList.toggle("ep-focused", i === focusedIdx));
+        } else if (e.key === "Enter" && focusedIdx >= 0) {
+          e.preventDefault();
+          input.value = items[focusedIdx].dataset.value;
+          hideDropdown();
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        } else if (e.key === "Escape") {
+          hideDropdown();
+        }
+      });
+    });
+  }
+
+  _cleanupEntityPickers(container) {
+    container?.querySelectorAll("input[data-ep-domains]").forEach(inp => inp._epCleanup?.());
+  }
+
+  // ── Helper: Presence checkboxes from HA states ──────────────────────────────
+  _renderPresenceCheckboxes(currentEntities) {
+    if (!this._hass) return "";
+
+    const homeStates = new Set(["home", "on"]);
+    const mkChip = id => {
+      const state = this._hass.states[id];
+      const label = state?.attributes?.friendly_name || id;
+      const isHome = homeStates.has((state?.state || "").toLowerCase());
+      const checked = currentEntities.includes(id) ? "checked" : "";
+      const dot = isHome
+        ? `<span style="width:7px;height:7px;border-radius:50%;background:#43a047;flex-shrink:0"></span>`
+        : `<span style="width:7px;height:7px;border-radius:50%;background:#bdbdbd;flex-shrink:0"></span>`;
+      return `<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;
+          padding:6px 10px;border:1px solid var(--divider-color);border-radius:8px;
+          background:${checked ? "var(--primary-color,#03a9f4)1a" : "transparent"}">
+        <input type="checkbox" class="presence-cb" value="${id}" ${checked} style="margin:0">
+        ${dot}
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+        <span style="font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${isHome ? "zuhause" : "weg"}</span>
+      </label>`;
+    };
+
+    const persons  = Object.keys(this._hass.states).filter(id => id.startsWith("person.")).sort();
+    const trackers = Object.keys(this._hass.states).filter(id => id.startsWith("device_tracker.")).sort();
+    const booleans = Object.keys(this._hass.states).filter(id => id.startsWith("input_boolean.")).sort();
+
+    if (!persons.length && !trackers.length && !booleans.length)
+      return "<em style='color:var(--secondary-text-color);font-size:12px'>Keine person.* / device_tracker.* Entitäten gefunden</em>";
+
+    const section = (title, ids) => ids.length === 0 ? "" : `
+      <div style="font-size:11px;font-weight:600;color:var(--secondary-text-color);
+          text-transform:uppercase;letter-spacing:.5px;margin:10px 0 5px">${title}</div>
+      <div style="display:flex;flex-direction:column;gap:4px">${ids.map(mkChip).join("")}</div>`;
+
+    // Device-trackers get a collapse toggle if more than 5
+    let trackerBlock = "";
+    if (trackers.length > 0) {
+      const shown  = trackers.slice(0, 5);
+      const hidden = trackers.slice(5);
+      trackerBlock = `
+        <div style="font-size:11px;font-weight:600;color:var(--secondary-text-color);
+            text-transform:uppercase;letter-spacing:.5px;margin:10px 0 5px">Geräte (device_tracker)</div>
+        <div style="display:flex;flex-direction:column;gap:4px">${shown.map(mkChip).join("")}</div>
+        ${hidden.length ? `
+          <div id="tracker-overflow" style="display:none;flex-direction:column;gap:4px">${hidden.map(mkChip).join("")}</div>
+          <button type="button" id="tracker-toggle"
+            style="margin-top:6px;font-size:12px;color:var(--primary-color);background:none;border:none;cursor:pointer;padding:2px 0;text-align:left">
+            ▸ ${hidden.length} weitere Geräte anzeigen
+          </button>` : ""}`;
+    }
+
+    return section("Personen", persons) + trackerBlock + section("Schalter (input_boolean)", booleans);
+  }
+
+  /** Binds "+"-buttons that add entity rows to entity-list containers. */
+  _bindEntityListAdders() {
+    setTimeout(() => {
+      this.shadowRoot.querySelectorAll(".add-entity").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const listId    = btn.dataset.list;
+          const epDomains = btn.dataset.epDomains || "";
+          const list      = this.shadowRoot.querySelector(`#${listId}`);
+          if (!list) return;
+          const placeholder = btn.closest(".entity-row").querySelector("input").placeholder;
+          const row = document.createElement("div");
+          row.className = "entity-row";
+          row.innerHTML = `
+            <input type="text" class="form-input" placeholder="${placeholder}"
+              ${epDomains ? `data-ep-domains="${epDomains}"` : ""} autocomplete="off">
+            <button class="btn btn-danger btn-icon remove-entity">✕</button>`;
+          list.appendChild(row);
+          row.querySelector(".remove-entity").addEventListener("click", () => row.remove());
+          // Attach entity picker to the new input
+          if (epDomains) this._attachEntityPickers(row);
+        });
+      });
+      // Also bind remove-entity buttons already in DOM (pre-filled rows)
+      this.shadowRoot.querySelectorAll(".remove-entity").forEach(btn => {
+        if (!btn._bound) {
+          btn._bound = true;
+          btn.addEventListener("click", () => btn.closest(".entity-row").remove());
+        }
+      });
+    }, 30);
+  }
+
+  // ── HA Schedule row helpers ─────────────────────────────────────────────
+
+  /** Renders a single HA schedule row and returns its element. */
+  _makeHaSchedRow(entry = {}) {
+    const row = document.createElement("div");
+    row.className = "ha-sched-row";
+    row.style.cssText = "display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:6px;align-items:center;margin-bottom:6px";
+    row.innerHTML = `
+      <input type="text" class="form-input hs-entity" placeholder="schedule.zimmer"
+        data-ep-domains="schedule" autocomplete="off" value="${entry.entity || ''}">
+      <select class="form-select hs-mode" style="min-width:90px">
+        <option value="comfort" ${(entry.mode||'comfort')==='comfort'?'selected':''}>Komfort</option>
+        <option value="eco"     ${entry.mode==='eco'    ?'selected':''}>Eco</option>
+        <option value="sleep"   ${entry.mode==='sleep'  ?'selected':''}>Schlaf</option>
+        <option value="away"    ${entry.mode==='away'   ?'selected':''}>Abwesend</option>
+      </select>
+      <input type="text" class="form-input hs-cond" placeholder="Bedingung (optional)"
+        data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off" value="${entry.condition_entity || ''}">
+      <input type="text" class="form-input hs-cond-state" placeholder="Zustand"
+        style="width:70px" value="${entry.condition_state || 'on'}">
+      <button class="btn btn-danger btn-icon hs-remove" title="Entfernen">✕</button>`;
+    row.querySelector(".hs-remove").addEventListener("click", () => row.remove());
+    // Attach entity pickers after row is appended (caller must ensure DOM is ready)
+    setTimeout(() => this._attachEntityPickers(row), 0);
+    return row;
+  }
+
+  /** Attaches the "add" button for HA schedule rows. Call after modal renders. */
+  _bindHaSchedAdder(existingEntries, listId, addBtnId) {
+    setTimeout(() => {
+      const list = this.shadowRoot.querySelector(`#${listId}`);
+      if (!list) return;
+      // Render pre-existing entries
+      existingEntries.forEach(entry => list.appendChild(this._makeHaSchedRow(entry)));
+      const btn = this.shadowRoot.querySelector(`#${addBtnId}`);
+      if (btn) btn.addEventListener("click", () => list.appendChild(this._makeHaSchedRow()));
+    }, 50);
+  }
+
+  /** Collects HA schedule rows from a modal container into an array. */
+  _collectHaScheduleRows(modal) {
+    return [...modal.querySelectorAll(".ha-sched-row")]
+      .map(row => {
+        const entity = row.querySelector(".hs-entity").value.trim();
+        if (!entity) return null;
+        const entry = { entity, mode: row.querySelector(".hs-mode").value };
+        const cond = row.querySelector(".hs-cond").value.trim();
+        if (cond) {
+          entry.condition_entity = cond;
+          entry.condition_state  = row.querySelector(".hs-cond-state").value.trim() || "on";
+        }
+        return entry;
+      })
+      .filter(Boolean);
+  }
+
+
+// === 03_tab_dashboard.js ===
+/**
+ * 03_tab_dashboard.js
+ * IHC Frontend – Dashboard / Übersicht Tab
+ * Contains: _renderOverview()
+ */
+
   // ── Übersicht Tab ──────────────────────────────────────────────────────────
 
   _renderOverview(content) {
@@ -1108,7 +1501,7 @@ class IHCPanel extends HTMLElement {
             <div class="room-temp-row">
               <div class="room-temp-current">
                 <div class="room-temp-big">
-                  ${room.current_temp !== null ? room.current_temp : "—"}<span class="room-temp-unit-big">°</span>
+                  ${room.current_temp !== null ? parseFloat(room.current_temp).toFixed(1) : "—"}<span class="room-temp-unit-big">°</span>
                 </div>
                 <div class="room-temp-lbl">Ist</div>
               </div>
@@ -1118,7 +1511,7 @@ class IHCPanel extends HTMLElement {
               <div class="room-temp-target" style="padding-bottom:4px">
                 <div class="room-temp-target-val">
                   ${room.source === "system_off" ? '<span style="font-size:15px;font-weight:700;color:#9e9e9e">Aus</span>'
-                    : (room.target_temp !== null ? room.target_temp + '<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color)">°</span>' : "—")}
+                    : (room.target_temp !== null ? parseFloat(room.target_temp).toFixed(1) + '<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color)">°</span>' : "—")}
                   ${tempDiffStr}
                 </div>
                 <div class="room-temp-target-lbl">Soll</div>
@@ -1331,8 +1724,13 @@ class IHCPanel extends HTMLElement {
     });
   }
 
-  // ── Zimmer Tab ─────────────────────────────────────────────────────────────
 
+// === 04_tab_rooms.js ===
+/**
+ * 04_tab_rooms.js
+ * IHC Frontend – Rooms Tab
+ * Contains: _renderRooms, _renderRoomDetail, _renderRoomScheduleInline, _renderRoomCalendarInline
+ */
   _renderRooms(content) {
     const rooms = this._getRoomData();
     const roomList = Object.values(rooms);
@@ -1855,6 +2253,14 @@ class IHCPanel extends HTMLElement {
     });
   }
 
+
+
+// === 06_tab_diagnose.js ===
+/**
+ * 06_tab_diagnose.js
+ * IHC Frontend – Diagnose / Übersicht Tab
+ * Contains: _renderDiagnose
+ */
   // ── Übersicht (Diagnose) Tab ────────────────────────────────────────────────
 
   _renderDiagnose(content) {
@@ -2136,6 +2542,13 @@ class IHCPanel extends HTMLElement {
 
   // ── Einstellungen Tab ──────────────────────────────────────────────────────
 
+
+// === 05_tab_settings.js ===
+/**
+ * 05_tab_settings.js
+ * IHC Frontend – Settings Tab
+ * Contains: _renderSettings
+ */
   _renderSettings(content) {
     const dem = this._st("sensor.ihc_gesamtanforderung") || { attributes: {} };
     const a   = dem.attributes;
@@ -2159,6 +2572,7 @@ class IHCPanel extends HTMLElement {
               <select class="form-select" id="controller-mode">
                 <option value="switch" ${(a.controller_mode || "switch") === "switch" ? "selected" : ""}>🔌 Heizungsschalter (Kessel EIN/AUS)</option>
                 <option value="trv" ${(a.controller_mode || "switch") === "trv" ? "selected" : ""}>🌡️ TRV-Modus (Thermostate direkt steuern)</option>
+                <option value="hg" ${(a.controller_mode || "switch") === "hg" ? "selected" : ""}>🏭 Wärmeerzeuger-Modus ⚠️ Work in Progress</option>
               </select>
               <span class="form-hint">
                 <strong>🔌 Heizungsschalter:</strong> IHC schaltet einen zentralen Kessel-Schalter (z.B. <code>switch.heizung</code>). Geeignet für Gas/Öl-Heizungen mit einem Hauptschalter.<br>
@@ -2172,7 +2586,7 @@ class IHCPanel extends HTMLElement {
                 value="${a.outdoor_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Wird für die Heizkurve, Sommerautomatik und Kältewarnung benötigt. Empfohlen: Wetterdienst-Sensor oder externer Temperaturfühler.</span>
             </div>
-            <div class="settings-item">
+            <div id="heating-switch-item" class="settings-item">
               <label>Heizungsschalter</label>
               <input type="text" class="form-input" id="heating-switch"
                 placeholder="switch.heizung (leer = deaktiviert)"
@@ -2198,6 +2612,7 @@ class IHCPanel extends HTMLElement {
                 step="0.5" min="0" max="5" value="${a.weather_cold_boost ?? 0}">
               <span class="form-hint">Bei Kältewarnung werden alle Zimmer um diesen Wert zusätzlich aufgeheizt (0 = kein Boost).</span>
             </div>
+            <div id="cooling-section">
             <div class="settings-item">
               <label>Kühlung aktivieren</label>
               <select class="form-select" id="enable-cooling">
@@ -2213,16 +2628,6 @@ class IHCPanel extends HTMLElement {
                 value="${a.cooling_switch ?? ''}" data-ep-domains="switch,input_boolean" autocomplete="off">
               <span class="form-hint">Wird eingeschaltet wenn Kühlung aktiv ist.</span>
             </div>
-          </div>
-            <div class="settings-item">
-              <label>Startup-Wartezeit Zigbee/Z-Wave (s)</label>
-              <input type="number" class="form-input" id="startup-grace-seconds"
-                min="0" max="300" step="10" value="${a.startup_grace_seconds ?? 60}">
-              <span class="form-hint">
-                Nach einem HA-Neustart warten viele Zigbee/Z-Wave Sensoren kurz bevor sie ihren Zustand melden.
-                In dieser Zeit werden Fenstersensoren mit Status <em>unbekannt</em> sicherheitshalber als <strong>offen</strong> behandelt
-                – so wird nicht versehentlich geheizt. 0 = deaktiviert.
-              </span>
             </div>
           </div>
           <div class="btn-row">
@@ -2327,22 +2732,50 @@ class IHCPanel extends HTMLElement {
       </details>
 
       <!-- ── Regelung ──────────────────────────────────── -->
-      ${g.controller_mode === "trv" && !a.heating_switch ? `
-      <details class="ihc-card">
-        <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese <span style="opacity:0.5;font-weight:400;font-size:11px">– nicht aktiv im TRV-Modus</span></span></summary>
+
+      <!-- ── TRV-Modus Info ─────────────────────────────────── -->
+      <details id="sec-trv-info" class="ihc-card" style="${(g.controller_mode || 'switch') !== 'trv' ? 'display:none' : ''}">
+        <summary><span class="ihc-card-title">ℹ️ TRV-Modus aktiv</span></summary>
         <div class="ihc-card-body">
-          <div class="info-box" style="background:#fff3cd;border-color:#ffc107">
-            Im <strong>TRV-Modus ohne zentralen Heizungsschalter</strong> ist die Heizungsregelung (Schwelle, Hysterese, Min-Zeiten) nicht aktiv –
-            jedes Thermostatventil entscheidet selbst wann es öffnet und schließt.<br>
-            <br>
-            Wenn du einen <strong>zentralen Kessel</strong> hast der eingeschaltet werden muss (z.B. Gas-Brenner + TRVs an jedem Heizkörper),
-            trage den Kessel-Schalter unter <em>Hardware &amp; Steuerung → Heizungsschalter</em> ein –
-            dann wird diese Sektion automatisch aktiv.
+          <div class="info-box">
+            Im <strong>TRV-Modus</strong> steuert IHC die Thermostatventile direkt. Die zentrale Heizungsregelung (Kesselschalter, Schwelle, Hysterese) wird nicht benötigt.<br><br>
+            Wenn du einen zentralen Kessel hast der eingeschaltet werden muss (Hybrid-Setup: Gas-Brenner + TRVs), trage den Kessel-Schalter unter <em>Hardware &amp; Steuerung → Heizungsschalter</em> ein.
           </div>
         </div>
       </details>
-      ` : `
-      <details class="ihc-card" ${g.controller_mode !== "trv" ? "open" : ""}>
+
+      <!-- ── Wärmeerzeuger WIP ──────────────────────────────── -->
+      <details id="sec-hg" class="ihc-card" style="${(g.controller_mode || 'switch') !== 'hg' ? 'display:none' : ''}">
+        <summary>
+          <span class="ihc-card-title">🏭 Wärmeerzeuger-Einstellungen
+            <span style="background:#ff6f00;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:8px">⚠️ Work in Progress</span>
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="info-box" style="background:#fff3cd;border-color:#ffc107">
+            ⚠️ Der <strong>Wärmeerzeuger-Modus</strong> ist noch in Entwicklung (Roadmap 3.0). Diese Felder sind noch nicht aktiv – der Modus verhält sich derzeit wie der Heizungsschalter-Modus.
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Vorlauftemperatur-Entity (Heizkreis)</label>
+              <input type="text" class="form-input" disabled placeholder="Kommt in Version 3.0" value="">
+              <span class="form-hint">Mischventil / Heizkreis-Vorlauf – kommt in Version 3.0</span>
+            </div>
+            <div class="settings-item">
+              <label>Pufferspeicher oben (Sensor)</label>
+              <input type="text" class="form-input" disabled placeholder="Kommt in Version 3.0" value="">
+              <span class="form-hint">Pufferspeicher-Überwachung – kommt in Version 3.0</span>
+            </div>
+            <div class="settings-item">
+              <label>Wärmepumpe-Entity</label>
+              <input type="text" class="form-input" disabled placeholder="Kommt in Version 3.0" value="">
+              <span class="form-hint">WP-Integration und COP-Optimierung – kommt in Version 3.0</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details id="sec-boiler-demand" class="ihc-card" ${g.controller_mode !== "trv" ? "open" : ""}>
         <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese
           ${g.controller_mode === "trv" ? `<span style="opacity:0.6;font-weight:400;font-size:11px"> – Kessel-Schutz</span>` : ""}
         </span></summary>
@@ -2408,7 +2841,6 @@ class IHCPanel extends HTMLElement {
           </div>
         </div>
       </details>
-      `}
 
       <!-- ── Gäste-Modus ────────────────────────────────── -->
       <details class="ihc-card" ${g.guest_mode_active ? "open" : ""}>
@@ -2440,7 +2872,7 @@ class IHCPanel extends HTMLElement {
       </details>
 
       <!-- ── Kalibrierungs-Assistent ──────────────────────── -->
-      <details class="ihc-card">
+      <details id="sec-calibration" class="ihc-card">
         <summary>
           <span class="ihc-card-title">📋 Kalibrierungs-Assistent
             <span class="badge-neutral" style="margin-left:6px;font-size:10px;padding:2px 7px;border-radius:10px;background:#e3f2fd;color:#1565c0;font-weight:700">Für Mieter</span>
@@ -2587,7 +3019,7 @@ class IHCPanel extends HTMLElement {
               <span class="form-hint">Zimmer werden auf diese Temperatur heruntergekühlt wenn Kühlung aktiv ist.</span>
             </div>
           </div>
-          ${g.controller_mode !== "trv" ? `<div style="margin-top:8px">
+          ${g.controller_mode !== "trv" ? `<div id="sec-flow-pid" style="margin-top:8px">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;padding:6px 0;user-select:none">
               <input type="checkbox" id="flow-temp-enabled" ${a.flow_temp_entity ? "checked" : ""}>
               🌡️ Vorlauftemperatur-Regelung
@@ -2609,6 +3041,24 @@ class IHCPanel extends HTMLElement {
                     value="${a.flow_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
                   <span class="form-hint">Optional: Sensor der die tatsächliche Vorlauftemperatur misst. Aktiviert einen PID-Regler für präzisere Vorlaufsteuerung.</span>
                 </div>
+                <div class="settings-item">
+                  <label>PID Proportionalanteil (Kp)</label>
+                  <input type="number" class="form-input" id="pid-kp" min="0" max="20" step="0.1" value="${a.pid_kp ?? 2.0}">
+                  <span class="form-hint">Stärke der proportionalen Reaktion. Höher = aggressiver. Typisch: 1.0–5.0</span>
+                </div>
+                <div class="settings-item">
+                  <label>PID Integrationsanteil (Ki)</label>
+                  <input type="number" class="form-input" id="pid-ki" min="0" max="5" step="0.01" value="${a.pid_ki ?? 0.1}">
+                  <span class="form-hint">Beseitigt bleibende Regelabweichungen. Typisch: 0.05–0.5</span>
+                </div>
+                <div class="settings-item">
+                  <label>PID Differentialanteil (Kd)</label>
+                  <input type="number" class="form-input" id="pid-kd" min="0" max="10" step="0.1" value="${a.pid_kd ?? 0.5}">
+                  <span class="form-hint">Dämpft Überschwingen. Typisch: 0.1–2.0</span>
+                </div>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-primary" id="save-flow-settings">💾 Vorlauf &amp; PID speichern</button>
               </div>
             </div>
           </div>` : ""}
@@ -2727,6 +3177,11 @@ class IHCPanel extends HTMLElement {
                   ? `<br><strong>Aktueller Offset: ${g.adaptive_curve_delta > 0 ? "+" : ""}${g.adaptive_curve_delta.toFixed(1)} °C</strong>`
                   : ""}
               </span>
+            </div>
+            <div id="adaptive-curve-max-delta-item" class="settings-item">
+              <label>Max. Kurvenkorrektur (°C)</label>
+              <input type="number" class="form-input" id="adaptive-curve-max-delta" min="0.5" max="10" step="0.5" value="${a.adaptive_curve_max_delta ?? 3.0}">
+              <span class="form-hint">Maximale kumulative Verschiebung der Heizkurve durch adaptives Lernen (±). Typisch: 2–5 °C</span>
             </div>
             ` : ""}
             <div class="settings-item">
@@ -2852,7 +3307,6 @@ class IHCPanel extends HTMLElement {
         weather_cold_threshold:   parseFloat(content.querySelector("#weather-cold-threshold").value) || 0,
         weather_cold_boost:       parseFloat(content.querySelector("#weather-cold-boost").value) || 0,
         controller_mode:          content.querySelector("#controller-mode").value,
-        startup_grace_seconds:    parseInt(content.querySelector("#startup-grace-seconds").value, 10) || 0,
       });
       this._toast("✓ Hardware-Einstellungen gespeichert");
     });
@@ -3021,6 +3475,23 @@ class IHCPanel extends HTMLElement {
       content.querySelector("#flow-temp-section").style.display = e.target.checked ? "" : "none";
     });
 
+    // Save flow temp + PID settings
+    content.querySelector("#save-flow-settings")?.addEventListener("click", () => {
+      const kp = parseFloat(content.querySelector("#pid-kp")?.value);
+      const ki = parseFloat(content.querySelector("#pid-ki")?.value);
+      const kd = parseFloat(content.querySelector("#pid-kd")?.value);
+      const flowEnabledEl = content.querySelector("#flow-temp-enabled");
+      const flowEnabled = flowEnabledEl ? flowEnabledEl.checked : false;
+      this._callService("update_global_settings", {
+        flow_temp_entity:  flowEnabled ? (content.querySelector("#flow-temp-entity")?.value.trim() ?? "") : "",
+        flow_temp_sensor:  flowEnabled ? (content.querySelector("#flow-temp-sensor")?.value.trim() ?? "") : "",
+        ...(isNaN(kp) ? {} : { pid_kp: kp }),
+        ...(isNaN(ki) ? {} : { pid_ki: ki }),
+        ...(isNaN(kd) ? {} : { pid_kd: kd }),
+      });
+      this._toast("✓ Vorlauf & PID gespeichert");
+    });
+
     // Runtime / costs visibility toggles – stored in localStorage (frontend-only)
     content.querySelector("#show-runtime-stats").addEventListener("change", e => {
       localStorage.setItem("ihc_show_runtime", e.target.value);
@@ -3042,12 +3513,8 @@ class IHCPanel extends HTMLElement {
       if (boilerKw !== null) chk.push(boilerKw);
       if (chk.some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
       const staticPrice = parseFloat(content.querySelector("#static-energy-price").value);
-      const flowEnabledEl = content.querySelector("#flow-temp-enabled");
-      const flowEnabled = flowEnabledEl ? flowEnabledEl.checked : false;
       this._callService("update_global_settings", {
         ...(boilerKw !== null ? { boiler_kw: boilerKw } : {}),
-        flow_temp_entity:        flowEnabled ? content.querySelector("#flow-temp-entity")?.value.trim() : "",
-        flow_temp_sensor:        flowEnabled ? content.querySelector("#flow-temp-sensor")?.value.trim() : "",
         solar_entity:            content.querySelector("#solar-entity").value.trim(),
         solar_surplus_threshold: solarSurplus,
         solar_boost_temp:        solarBoost,
@@ -3076,6 +3543,7 @@ class IHCPanel extends HTMLElement {
         adaptive_preheat_enabled: content.querySelector("#adaptive-preheat-enabled")?.value === "true",
         eta_preheat_enabled:      content.querySelector("#eta-preheat-enabled")?.value === "true",
         vacation_calendar:        content.querySelector("#vacation-calendar")?.value.trim() ?? "",
+        adaptive_curve_max_delta: parseFloat(content.querySelector("#adaptive-curve-max-delta")?.value) || 3.0,
       });
       this._toast("✓ Intelligente Regelung gespeichert");
     });
@@ -3207,200 +3675,47 @@ class IHCPanel extends HTMLElement {
       this._toast("✓ Standarddauer gespeichert");
     });
 
+    // ── Mode visibility ──────────────────────────────────────────────
+    const _updateModeVisibility = (newMode) => {
+      const isTrv    = newMode === "trv";
+      const isHg     = newMode === "hg";
+      const isBoiler = !isTrv;
+      const hs = content.querySelector("#heating-switch-item");
+      if (hs) hs.style.display = isBoiler ? "" : "none";
+      const cs = content.querySelector("#cooling-section");
+      if (cs) cs.style.display = isBoiler ? "" : "none";
+      const sbd = content.querySelector("#sec-boiler-demand");
+      if (sbd) sbd.style.display = (isBoiler || a.heating_switch) ? "" : "none";
+      const sti = content.querySelector("#sec-trv-info");
+      if (sti) sti.style.display = isTrv ? "" : "none";
+      const shg = content.querySelector("#sec-hg");
+      if (shg) shg.style.display = isHg ? "" : "none";
+      const sfl = content.querySelector("#sec-flow-pid");
+      if (sfl) sfl.style.display = isBoiler ? "" : "none";
+      const scal = content.querySelector("#sec-calibration");
+      if (scal) scal.style.display = isTrv ? "none" : "";
+      const acd = content.querySelector("#adaptive-curve-max-delta-item");
+      if (acd) acd.style.display = isTrv ? "none" : "";
+      const ace = content.querySelector("#adaptive-curve-enabled")?.closest(".settings-item");
+      if (ace) ace.style.display = isTrv ? "none" : "";
+    };
+    _updateModeVisibility(g.controller_mode || "switch");
+    content.querySelector("#controller-mode")?.addEventListener("change", e => {
+      _updateModeVisibility(e.target.value);
+    });
+
     // Attach HA-style entity pickers to all entity inputs
     this._attachEntityPickers(content);
   }
 
-  // ── Helper: Presence checkboxes from HA states ──────────────────────────────
-  _renderPresenceCheckboxes(currentEntities) {
-    if (!this._hass) return "";
 
-    const homeStates = new Set(["home", "on"]);
-    const mkChip = id => {
-      const state = this._hass.states[id];
-      const label = state?.attributes?.friendly_name || id;
-      const isHome = homeStates.has((state?.state || "").toLowerCase());
-      const checked = currentEntities.includes(id) ? "checked" : "";
-      const dot = isHome
-        ? `<span style="width:7px;height:7px;border-radius:50%;background:#43a047;flex-shrink:0"></span>`
-        : `<span style="width:7px;height:7px;border-radius:50%;background:#bdbdbd;flex-shrink:0"></span>`;
-      return `<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;
-          padding:6px 10px;border:1px solid var(--divider-color);border-radius:8px;
-          background:${checked ? "var(--primary-color,#03a9f4)1a" : "transparent"}">
-        <input type="checkbox" class="presence-cb" value="${id}" ${checked} style="margin:0">
-        ${dot}
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
-        <span style="font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${isHome ? "zuhause" : "weg"}</span>
-      </label>`;
-    };
 
-    const persons  = Object.keys(this._hass.states).filter(id => id.startsWith("person.")).sort();
-    const trackers = Object.keys(this._hass.states).filter(id => id.startsWith("device_tracker.")).sort();
-    const booleans = Object.keys(this._hass.states).filter(id => id.startsWith("input_boolean.")).sort();
-
-    if (!persons.length && !trackers.length && !booleans.length)
-      return "<em style='color:var(--secondary-text-color);font-size:12px'>Keine person.* / device_tracker.* Entitäten gefunden</em>";
-
-    const section = (title, ids) => ids.length === 0 ? "" : `
-      <div style="font-size:11px;font-weight:600;color:var(--secondary-text-color);
-          text-transform:uppercase;letter-spacing:.5px;margin:10px 0 5px">${title}</div>
-      <div style="display:flex;flex-direction:column;gap:4px">${ids.map(mkChip).join("")}</div>`;
-
-    // Device-trackers get a collapse toggle if more than 5
-    let trackerBlock = "";
-    if (trackers.length > 0) {
-      const shown  = trackers.slice(0, 5);
-      const hidden = trackers.slice(5);
-      trackerBlock = `
-        <div style="font-size:11px;font-weight:600;color:var(--secondary-text-color);
-            text-transform:uppercase;letter-spacing:.5px;margin:10px 0 5px">Geräte (device_tracker)</div>
-        <div style="display:flex;flex-direction:column;gap:4px">${shown.map(mkChip).join("")}</div>
-        ${hidden.length ? `
-          <div id="tracker-overflow" style="display:none;flex-direction:column;gap:4px">${hidden.map(mkChip).join("")}</div>
-          <button type="button" id="tracker-toggle"
-            style="margin-top:6px;font-size:12px;color:var(--primary-color);background:none;border:none;cursor:pointer;padding:2px 0;text-align:left">
-            ▸ ${hidden.length} weitere Geräte anzeigen
-          </button>` : ""}`;
-    }
-
-    return section("Personen", persons) + trackerBlock + section("Schalter (input_boolean)", booleans);
-  }
-
-  // ── Helper: legacy datalist options (kept for fallback) ─────────────────────
-  _entityOptions(domains) {
-    if (!this._hass) return "";
-    return Object.keys(this._hass.states)
-      .filter(id => !domains.length || domains.some(d => id.startsWith(d + ".")))
-      .sort()
-      .map(id => {
-        const state = this._hass.states[id];
-        const name  = state?.attributes?.friendly_name;
-        const label = name && name !== id ? `${name} – ${id}` : id;
-        return `<option value="${id}" label="${label}">`;
-      })
-      .join("");
-  }
-
-  // ── HA-style entity picker (attaches to inputs with data-ep-domains) ─────────
-  _attachEntityPickers(root) {
-    if (!this._hass) return;
-    root.querySelectorAll("input[data-ep-domains]").forEach(input => {
-      // Wrap input in .ep-wrap if not already done
-      if (input.parentElement.classList.contains("ep-wrap")) return;
-      const domains = (input.dataset.epDomains || "").split(",").map(d => d.trim()).filter(Boolean);
-
-      const wrap = document.createElement("div");
-      wrap.className = "ep-wrap";
-      input.parentNode.insertBefore(wrap, input);
-      wrap.appendChild(input);
-
-      // Append dropdown to shadow root so it isn't clipped by modal overflow
-      const dropdown = document.createElement("div");
-      dropdown.className = "ep-dropdown";
-      dropdown.style.display = "none";
-      this.shadowRoot.appendChild(dropdown);
-
-      // Tag dropdown with a unique key so it can be cleaned up when the section is re-rendered
-      const _cleanup = () => { dropdown.remove(); };
-      input._epCleanup = _cleanup;
-
-      let focusedIdx = -1;
-
-      const domainBadge = (id) => {
-        const d = id.split(".")[0];
-        const cls = ["sensor","climate","switch","binary_sensor","weather","number","input_boolean","person","device_tracker"].includes(d)
-          ? `ep-d-${d}` : "ep-d-other";
-        return `<span class="ep-badge ${cls}">${d}</span>`;
-      };
-
-      const stateLabel = (state) => {
-        const s = state.state;
-        if (!s || s === "unavailable" || s === "unknown") return "";
-        const u = state.attributes?.unit_of_measurement || "";
-        return `<span class="ep-state">${s}${u ? " " + u : ""}</span>`;
-      };
-
-      const positionDropdown = () => {
-        const rect = input.getBoundingClientRect();
-        const dropW = Math.max(rect.width, 420);
-        const maxLeft = window.innerWidth - dropW - 8;
-        dropdown.style.top   = (rect.bottom + 2) + "px";
-        dropdown.style.left  = Math.min(rect.left, maxLeft) + "px";
-        dropdown.style.width = dropW + "px";
-      };
-
-      const renderDropdown = () => {
-        const q = input.value.toLowerCase();
-        const entries = Object.entries(this._hass.states)
-          .filter(([id]) => !domains.length || domains.some(d => id.startsWith(d + ".")))
-          .filter(([id, s]) => {
-            if (!q) return true;
-            return id.toLowerCase().includes(q) || (s.attributes?.friendly_name || "").toLowerCase().includes(q);
-          })
-          .sort(([a], [b]) => a.localeCompare(b))
-          .slice(0, 60);
-
-        focusedIdx = -1;
-        if (!entries.length) {
-          dropdown.innerHTML = `<div class="ep-empty">Keine Entitäten gefunden</div>`;
-        } else {
-          dropdown.innerHTML = entries.map(([id, state]) => {
-            const name = state.attributes?.friendly_name;
-            return `<div class="ep-item" data-value="${id}">
-              ${domainBadge(id)}
-              <div class="ep-info">
-                <div class="ep-name">${name || id}</div>
-                <div class="ep-id">${id}</div>
-              </div>
-              ${stateLabel(state)}
-            </div>`;
-          }).join("");
-
-          dropdown.querySelectorAll(".ep-item").forEach(item => {
-            item.addEventListener("mousedown", e => {
-              e.preventDefault();
-              input.value = item.dataset.value;
-              dropdown.style.display = "none";
-              input.dispatchEvent(new Event("change", { bubbles: true }));
-            });
-          });
-        }
-        positionDropdown();
-        dropdown.style.display = "";
-      };
-
-      const hideDropdown = () => { dropdown.style.display = "none"; focusedIdx = -1; };
-
-      input.addEventListener("focus", renderDropdown);
-      input.addEventListener("blur",  () => setTimeout(hideDropdown, 200));
-      input.addEventListener("input", renderDropdown);
-
-      input.addEventListener("keydown", e => {
-        const items = dropdown.querySelectorAll(".ep-item");
-        if (!items.length) return;
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          focusedIdx = Math.min(focusedIdx + 1, items.length - 1);
-          items.forEach((it, i) => it.classList.toggle("ep-focused", i === focusedIdx));
-          items[focusedIdx]?.scrollIntoView({ block: "nearest" });
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          focusedIdx = Math.max(focusedIdx - 1, 0);
-          items.forEach((it, i) => it.classList.toggle("ep-focused", i === focusedIdx));
-        } else if (e.key === "Enter" && focusedIdx >= 0) {
-          e.preventDefault();
-          input.value = items[focusedIdx].dataset.value;
-          hideDropdown();
-          input.dispatchEvent(new Event("change", { bubbles: true }));
-        } else if (e.key === "Escape") {
-          hideDropdown();
-        }
-      });
-    });
-  }
-
-  // ── Heizkurve Tab ──────────────────────────────────────────────────────────
-
+// === 07_tab_curve.js ===
+/**
+ * 07_tab_curve.js
+ * IHC Frontend – Heating Curve Tab
+ * Contains: _renderCurve, _collectCurvePoints, _drawCurve
+ */
   _renderCurve(content) {
     const defaultCurve = [
       { outdoor_temp: -20, target_temp: 24.0 }, { outdoor_temp: -10, target_temp: 23.0 },
@@ -3536,7 +3851,16 @@ class IHCPanel extends HTMLElement {
     }
   }
 
-  // ── Modals ─────────────────────────────────────────────────────────────────
+
+
+// === 08_modals.js ===
+/**
+ * 08_modals.js
+ * IHC Frontend – Modals
+ * Contains: _showAddRoomModal, _showEditRoomModal, _showConfirmModal,
+ *           _showModal, _closeModal, _cleanupEntityPickers,
+ *           _bindEntityListAdders, _makeHaSchedRow, _bindHaSchedAdder, _collectHaScheduleRows
+ */
 
   _showAddRoomModal() {
     this._showModal(`
@@ -4408,42 +4732,8 @@ class IHCPanel extends HTMLElement {
 
   // ── Service Calls ──────────────────────────────────────────────────────────
 
-  async _callService(service, data) {
-    if (!this._hass) return;
-    try {
-      await this._hass.callService(DOMAIN, service, data);
-    } catch (e) {
-      console.error("IHC service error:", service, e);
-      this._toast("❌ Fehler: " + (e.message || "Unbekannt"));
-    }
-  }
 
-  // ── Energy correction factor ────────────────────────────────────────────────
-  // Applies the user-set calibration factor (stored in localStorage) to kWh values.
-  _kwh(raw) {
-    const factor = parseFloat(localStorage.getItem("ihc_energy_factor") || "1") || 1;
-    return Math.round(raw * factor * 10) / 10;
-  }
-
-  // Returns the "costs" display string: "X kWh" or "X kWh · Y €" if static price configured.
-  // price = optional override (from room radiator_kw etc), falls back to global static_energy_price.
-  _costStr(rawKwh, staticPrice) {
-    const kwh = this._kwh(rawKwh);
-    const parts = [`~${kwh} kWh`];
-    const price = staticPrice ?? (parseFloat(localStorage.getItem("ihc_static_price") || "") || null);
-    if (price && kwh > 0) parts.push(`≈ ${(kwh * price).toFixed(2)} €`);
-    return parts.join(" · ");
-  }
-
-  // ── Toast ──────────────────────────────────────────────────────────────────
-
-  _toast(msg, ms = 3000) {
-    const root = this.shadowRoot.querySelector("#toast-root");
-    if (!root) return;
-    if (this._toastTimeout) clearTimeout(this._toastTimeout);
-    root.innerHTML = `<div class="toast">${msg}</div>`;
-    this._toastTimeout = setTimeout(() => { root.innerHTML = ""; }, ms);
-  }
+// === 09_main.js (Part B: class close + registration) ===
 }
 
 customElements.define("ihc-panel", IHCPanel);

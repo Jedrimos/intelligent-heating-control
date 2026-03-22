@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any, Dict, Optional
+
+# States that mean "sensor has no real value yet"
+_UNKNOWN_STATES = frozenset(("unknown", "unavailable"))
 
 from homeassistant.core import callback, Event
 from homeassistant.const import STATE_ON
@@ -33,44 +36,68 @@ class WindowManagerMixin:
         - window_reaction_time: seconds a sensor must be ON before IHC reacts (default 30 s)
         - window_close_delay:   seconds after sensor goes OFF before IHC resumes heating (default 0 s)
 
-        Startup grace period: if a window sensor reports unknown/unavailable (e.g. Zigbee
-        not yet ready after HA restart), treat it as "open" during the grace window so IHC
-        does not start heating while the sensor state is unreliable.
+        Startup behaviour (no fixed grace timer):
+        If a sensor is unknown/unavailable (e.g. Zigbee not yet ready after HA restart)
+        we use the LAST KNOWN state for that sensor.  The state-change event listener
+        fires as soon as the sensor reports a real value, so the system reacts instantly
+        without any artificial wait time.  Sensors that were "closed" before restart
+        stay closed; sensors that were "open" stay open – both are safe defaults.
         """
         room_id = room.get(CONF_ROOM_ID, "")
         reaction_time = int(room.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME))
         close_delay   = int(room.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY))
         now           = time.monotonic()
-        in_grace      = now < self._startup_grace_until
 
-        # Check raw sensor state
-        sensor_open = False
-        sensor_unknown = False  # any configured sensor is unknown/unavailable
-        window_sensors: list = room.get(CONF_WINDOW_SENSORS, [])
-        for sensor in window_sensors:
-            if sensor:
-                state = self.hass.states.get(sensor)
-                if state and state.state == STATE_ON:
-                    sensor_open = True
-                    break
-                if state is None or state.state in ("unknown", "unavailable"):
-                    sensor_unknown = True
+        # Initialise last-known-state cache on first use
+        if not hasattr(self, "_window_sensor_last_known"):
+            self._window_sensor_last_known: Dict[str, bool] = {}
+
+        def _sensor_is_open(entity_id: str) -> Optional[bool]:
+            """Return True/False for real states; None for unknown/unavailable."""
+            state = self.hass.states.get(entity_id)
+            if state is None or state.state in _UNKNOWN_STATES:
+                return None  # not yet ready
+            result = state.state == STATE_ON
+            self._window_sensor_last_known[entity_id] = result
+            return result
+
+        # Check raw sensor state — first real "ON" wins
+        sensor_open: Optional[bool] = None
+        for sensor in room.get(CONF_WINDOW_SENSORS, []):
+            if not sensor:
+                continue
+            val = _sensor_is_open(sensor)
+            if val is None:
+                # Sensor not ready → fall back to last known value (default closed)
+                val = self._window_sensor_last_known.get(sensor, False)
+                _LOGGER.debug(
+                    "IHC: Window sensor %s unknown – using last known state: %s",
+                    sensor, val,
+                )
+            if val:
+                sensor_open = True
+                break
+            elif sensor_open is None:
+                sensor_open = False
+
         if not sensor_open:
-            window_sensor = room.get(CONF_WINDOW_SENSOR)
-            if window_sensor:
-                state = self.hass.states.get(window_sensor)
-                if state and state.state == STATE_ON:
+            single = room.get(CONF_WINDOW_SENSOR)
+            if single:
+                val = _sensor_is_open(single)
+                if val is None:
+                    val = self._window_sensor_last_known.get(single, False)
+                    _LOGGER.debug(
+                        "IHC: Window sensor %s unknown – using last known state: %s",
+                        single, val,
+                    )
+                if val:
                     sensor_open = True
-                elif state is None or state.state in ("unknown", "unavailable"):
-                    sensor_unknown = True
+                elif sensor_open is None:
+                    sensor_open = False
 
-        # During startup grace: treat unknown sensor as open (conservative / safe)
-        if not sensor_open and sensor_unknown and in_grace:
-            _LOGGER.debug(
-                "IHC: Startup grace – window sensor unknown in '%s', treating as open",
-                room.get(CONF_ROOM_NAME, room_id),
-            )
-            return True
+        # No sensor configured at all → window assumed closed
+        if sensor_open is None:
+            sensor_open = False
 
         if sensor_open:
             # Record first time seen open; reset close timestamp

@@ -32,24 +32,122 @@ die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 ## 2. Datei-Übersicht
 
+> **Schnellreferenz:** Welche Datei für welche Änderung?
+
+### Backend-Dateien
+
 ```
 custom_components/intelligent_heating_control/
-├── __init__.py          # Integration setup, Service-Registrierung
-├── manifest.json        # HACS-Metadaten, version, requirements
-├── const.py             # ALLE Konstanten (CONF_*, DEFAULT_*, ATTR_*, etc.)
-├── coordinator.py       # Heizlogik, Berechnung, Update-Zyklus, Service-Handler
-├── config_flow.py       # HA ConfigFlow (Setup-Wizard + Options-Dialog)
-├── climate.py           # Climate-Entität (eine pro Zimmer + global)
-├── sensor.py            # Sensor-Entitäten
-├── switch.py            # Switch-Entitäten
-├── number.py            # Number-Entitäten
-├── select.py            # Select-Entitäten
-├── services.yaml        # Service-Definitionen (8 Services)
-├── strings.json         # Übersetzungen für config_flow
-├── icon.png             # Integration-Icon (256×256 PNG, orange Heizkörper)
-└── frontend/
-    └── ihc-panel.js     # KOMPLETTES Frontend (Web Component, ~4000 Zeilen)
+├── __init__.py              # Integration setup, Service-Registrierung (add_room, update_room etc.)
+│                            # → Neue Services? Hier registrieren + handle_*() implementieren
+│
+├── manifest.json            # HACS-Metadaten (version, domain, requirements)
+│                            # → Version bumpen für jedes Release
+│
+├── const.py                 # ALLE Konstanten: CONF_*, DEFAULT_*, SERVICE_*, MODE_*
+│                            # → Neue Konstante? Hier definieren, dann in allen Stellen importieren
+│
+├── coordinator.py           # Orchestrator: ruft Mixin-Methoden auf, Update-Zyklus, Service-Handler
+│                            # → Hier: _async_update_data(), alle Service-Handler, TRV-Sendlogik
+│
+├── config_flow.py           # HA ConfigFlow (Setup-Wizard + Options-Dialog)
+│                            # → Neue Einstellungen? Hier in Schema + save-handler eintragen
+│
+├── climate.py               # Climate-Entitäten (pro Zimmer + global)
+│                            # → extra_state_attributes: hier werden alle Daten ans Frontend geliefert
+│
+├── sensor.py                # Sensor-Entitäten (Gesamtanforderung, Laufzeit, etc.)
+├── binary_sensor.py         # Binary-Sensor-Entitäten (Lüftungsempfehlung, CO₂-Warnung pro Zimmer)
+├── switch.py                # Switch-Entitäten
+├── number.py                # Number-Entitäten
+├── select.py                # Select-Entitäten
+│
+├── services.yaml            # Service-Dokumentation für HA UI (Developer Tools)
+│                            # → Neuer Service? IMMER hier dokumentieren, sonst unsichtbar in HA
+│
+├── strings.json             # Pflichtdatei für HA ConfigFlow-Übersetzungen (= Kopie von translations/en.json)
+├── icon.png                 # Integration-Icon (256×256 PNG, HACS-Pflicht)
+│
+└── Mixin-Dateien (werden von coordinator.py importiert und geerbt):
+    ├── presence_manager.py      # Anwesenheitserkennung, away-Modus-Logik
+    │                            # → _check_presence_based_away(), _async_startup_presence_sync()
+    ├── window_manager.py        # Fenstererkennung (Event-getrieben), last-known-state Logik
+    │                            # → _is_window_open(), _prefill_window_states(), _setup_window_listeners()
+    │                            # → KEIN Grace-Timer mehr! Unbekannte Sensoren nutzen letzten bekannten Zustand
+    ├── trv_controller.py        # TRV-Ventilsteuerung, Setpoint-Quantisierung, Override-Erkennung
+    │                            # → _apply_trv_mode(), _blend_trv_temp(), _apply_trv_valve_demand()
+    ├── room_logic.py            # Raumtemperatur-Berechnung, Anforderung, Modus-Auflösung
+    │                            # → _calculate_room_data(), _get_target_temp(), Zeitplan-Auswertung
+    ├── energy_manager.py        # Laufzeitmessung, kWh-Schätzung, Heizkurve
+    │                            # → _update_runtime_tracking(), _get_heating_curve_temp()
+    ├── comfort_manager.py       # Schimmelschutz, CO₂-Überwachung, Lüftungsempfehlung
+    │                            # → _check_mold_protection(), _check_co2(), _check_ventilation()
+    ├── vacation_manager.py      # Urlaubs-Modus, Kalender-Integration, Gäste-Modus
+    │                            # → _check_vacation_mode(), _check_calendar_vacation()
+    ├── climate_adjustments.py   # Solar-Boost, Energiepreis-Eco, Adaptive Heizkurve
+    │                            # → _get_solar_boost(), _get_energy_price_eco_offset(), _adapt_heating_curve()
+    └── heat_generator_stub.py   # Wärmeerzeuger-Modus Stub (Roadmap 3.0, WIP)
 ```
+
+### Frontend-Dateien
+
+```
+custom_components/intelligent_heating_control/frontend/
+├── ihc-panel.js             # KOMPILIERTE Datei – NICHT direkt bearbeiten!
+│                            # Wird von build.py aus src/ zusammengebaut
+│                            # Diese Datei lädt Home Assistant
+│
+├── build.py                 # Build-Script: python3 frontend/build.py
+│                            # → Konkateniert src/-Dateien in korrekter Reihenfolge → ihc-panel.js
+│
+└── src/                     # Quell-Dateien (hier entwickeln!)
+    ├── 00_constants.js      # DOMAIN, DAYS, MODE_LABELS, WEATHER_CONDITIONS
+    ├── 01_styles.css.js     # Komplettes CSS als Template-Literal (STYLES)
+    │                        # → Design-Änderungen hier
+    ├── 02_utils.js          # Helper-Methoden: _getRoomData, _getGlobal, _callService,
+    │                        # _toast, _attachEntityPickers, _renderPresenceCheckboxes
+    │                        # → Neue Helper-Methoden hier
+    ├── 03_tab_dashboard.js  # Dashboard-Tab: _renderOverview()
+    │                        # → Hero-Bereich, Zimmer-Kacheln, Systemmodus-Buttons
+    ├── 04_tab_rooms.js      # Zimmer-Tab: _renderRooms(), _renderRoomDetail(),
+    │                        # _renderRoomScheduleInline(), _renderRoomCalendarInline()
+    │                        # → Zimmer-Detail, Zeitplan-Editor, Kalender-Ansicht
+    ├── 05_tab_settings.js   # Einstellungen-Tab: _renderSettings()
+    │                        # → MODUS-ABHÄNGIG: Abschnitte werden je nach controller_mode
+    │                        #   (trv/switch/hg) ein-/ausgeblendet
+    │                        # → TRV: nur Basis-Einstellungen sichtbar
+    │                        # → Switch: + Heizungsregelung, Vorlauf, Kalibrierung
+    │                        # → HG (WIP): + Wärmeerzeuger-Sektion mit WIP-Badge
+    ├── 06_tab_diagnose.js   # Diagnose-Tab: _renderDiagnose()
+    │                        # → System-Status, Sensor-Werte, Energie-Statistiken
+    ├── 07_tab_curve.js      # Heizkurve-Tab: _renderCurve(), _drawCurve()
+    ├── 08_modals.js         # Modale Dialoge: _showAddRoomModal(), _showEditRoomModal(),
+    │                        # _showConfirmModal(), _showModal()
+    │                        # → Zimmer hinzufügen/bearbeiten
+    └── 09_main.js           # IHCPanel Klasse: constructor, lifecycle (set hass, connectedCallback),
+                             # _renderTabContent() Switch-Case
+                             # → Tab-Navigation, Panel-Mounting, Klasse-Definition
+```
+
+### Häufige Aufgaben → Welche Datei?
+
+| Aufgabe | Datei(en) |
+|---------|-----------|
+| Neue globale Einstellung hinzufügen | `const.py` → `config_flow.py` → `climate.py` → `coordinator.py` → `src/05_tab_settings.js` |
+| Neue Zimmer-Einstellung | `const.py` → `coordinator.py` → `climate.py` → `__init__.py` → `config_flow.py` → `src/08_modals.js` |
+| Neuen Service | `const.py` → `__init__.py` → `services.yaml` |
+| Dashboard ändern | `src/03_tab_dashboard.js` |
+| Zimmer-Detail ändern | `src/04_tab_rooms.js` |
+| Einstellungen-Tab | `src/05_tab_settings.js` |
+| Diagnose-Tab | `src/06_tab_diagnose.js` |
+| CSS/Design | `src/01_styles.css.js` |
+| Fensterlogik | `window_manager.py` |
+| TRV-Steuerung | `trv_controller.py` |
+| Heizlogik pro Zimmer | `room_logic.py` |
+| Solar/Energiepreis | `climate_adjustments.py` |
+| Anwesenheit | `presence_manager.py` |
+
+> **Nach Änderungen in src/:** Immer `python3 frontend/build.py` ausführen um `ihc-panel.js` neu zu bauen!
 
 ---
 

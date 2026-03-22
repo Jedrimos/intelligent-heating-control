@@ -139,7 +139,7 @@
             <div class="room-temp-row">
               <div class="room-temp-current">
                 <div class="room-temp-big">
-                  ${room.current_temp !== null ? room.current_temp : "—"}<span class="room-temp-unit-big">°</span>
+                  ${room.current_temp !== null ? parseFloat(room.current_temp).toFixed(1) : "—"}<span class="room-temp-unit-big">°</span>
                 </div>
                 <div class="room-temp-lbl">Ist</div>
               </div>
@@ -149,7 +149,7 @@
               <div class="room-temp-target" style="padding-bottom:4px">
                 <div class="room-temp-target-val">
                   ${room.source === "system_off" ? '<span style="font-size:15px;font-weight:700;color:#9e9e9e">Aus</span>'
-                    : (room.target_temp !== null ? room.target_temp + '<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color)">°</span>' : "—")}
+                    : (room.target_temp !== null ? parseFloat(room.target_temp).toFixed(1) + '<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color)">°</span>' : "—")}
                   ${tempDiffStr}
                 </div>
                 <div class="room-temp-target-lbl">Soll</div>

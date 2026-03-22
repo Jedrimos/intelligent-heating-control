@@ -26,6 +26,7 @@
               <select class="form-select" id="controller-mode">
                 <option value="switch" ${(a.controller_mode || "switch") === "switch" ? "selected" : ""}>🔌 Heizungsschalter (Kessel EIN/AUS)</option>
                 <option value="trv" ${(a.controller_mode || "switch") === "trv" ? "selected" : ""}>🌡️ TRV-Modus (Thermostate direkt steuern)</option>
+                <option value="hg" ${(a.controller_mode || "switch") === "hg" ? "selected" : ""}>🏭 Wärmeerzeuger-Modus ⚠️ Work in Progress</option>
               </select>
               <span class="form-hint">
                 <strong>🔌 Heizungsschalter:</strong> IHC schaltet einen zentralen Kessel-Schalter (z.B. <code>switch.heizung</code>). Geeignet für Gas/Öl-Heizungen mit einem Hauptschalter.<br>
@@ -39,7 +40,7 @@
                 value="${a.outdoor_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Wird für die Heizkurve, Sommerautomatik und Kältewarnung benötigt. Empfohlen: Wetterdienst-Sensor oder externer Temperaturfühler.</span>
             </div>
-            <div class="settings-item">
+            <div id="heating-switch-item" class="settings-item">
               <label>Heizungsschalter</label>
               <input type="text" class="form-input" id="heating-switch"
                 placeholder="switch.heizung (leer = deaktiviert)"
@@ -65,6 +66,7 @@
                 step="0.5" min="0" max="5" value="${a.weather_cold_boost ?? 0}">
               <span class="form-hint">Bei Kältewarnung werden alle Zimmer um diesen Wert zusätzlich aufgeheizt (0 = kein Boost).</span>
             </div>
+            <div id="cooling-section">
             <div class="settings-item">
               <label>Kühlung aktivieren</label>
               <select class="form-select" id="enable-cooling">
@@ -80,16 +82,6 @@
                 value="${a.cooling_switch ?? ''}" data-ep-domains="switch,input_boolean" autocomplete="off">
               <span class="form-hint">Wird eingeschaltet wenn Kühlung aktiv ist.</span>
             </div>
-          </div>
-            <div class="settings-item">
-              <label>Startup-Wartezeit Zigbee/Z-Wave (s)</label>
-              <input type="number" class="form-input" id="startup-grace-seconds"
-                min="0" max="300" step="10" value="${a.startup_grace_seconds ?? 60}">
-              <span class="form-hint">
-                Nach einem HA-Neustart warten viele Zigbee/Z-Wave Sensoren kurz bevor sie ihren Zustand melden.
-                In dieser Zeit werden Fenstersensoren mit Status <em>unbekannt</em> sicherheitshalber als <strong>offen</strong> behandelt
-                – so wird nicht versehentlich geheizt. 0 = deaktiviert.
-              </span>
             </div>
           </div>
           <div class="btn-row">
@@ -194,22 +186,50 @@
       </details>
 
       <!-- ── Regelung ──────────────────────────────────── -->
-      ${g.controller_mode === "trv" && !a.heating_switch ? `
-      <details class="ihc-card">
-        <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese <span style="opacity:0.5;font-weight:400;font-size:11px">– nicht aktiv im TRV-Modus</span></span></summary>
+
+      <!-- ── TRV-Modus Info ─────────────────────────────────── -->
+      <details id="sec-trv-info" class="ihc-card" style="${(g.controller_mode || 'switch') !== 'trv' ? 'display:none' : ''}">
+        <summary><span class="ihc-card-title">ℹ️ TRV-Modus aktiv</span></summary>
         <div class="ihc-card-body">
-          <div class="info-box" style="background:#fff3cd;border-color:#ffc107">
-            Im <strong>TRV-Modus ohne zentralen Heizungsschalter</strong> ist die Heizungsregelung (Schwelle, Hysterese, Min-Zeiten) nicht aktiv –
-            jedes Thermostatventil entscheidet selbst wann es öffnet und schließt.<br>
-            <br>
-            Wenn du einen <strong>zentralen Kessel</strong> hast der eingeschaltet werden muss (z.B. Gas-Brenner + TRVs an jedem Heizkörper),
-            trage den Kessel-Schalter unter <em>Hardware &amp; Steuerung → Heizungsschalter</em> ein –
-            dann wird diese Sektion automatisch aktiv.
+          <div class="info-box">
+            Im <strong>TRV-Modus</strong> steuert IHC die Thermostatventile direkt. Die zentrale Heizungsregelung (Kesselschalter, Schwelle, Hysterese) wird nicht benötigt.<br><br>
+            Wenn du einen zentralen Kessel hast der eingeschaltet werden muss (Hybrid-Setup: Gas-Brenner + TRVs), trage den Kessel-Schalter unter <em>Hardware &amp; Steuerung → Heizungsschalter</em> ein.
           </div>
         </div>
       </details>
-      ` : `
-      <details class="ihc-card" ${g.controller_mode !== "trv" ? "open" : ""}>
+
+      <!-- ── Wärmeerzeuger WIP ──────────────────────────────── -->
+      <details id="sec-hg" class="ihc-card" style="${(g.controller_mode || 'switch') !== 'hg' ? 'display:none' : ''}">
+        <summary>
+          <span class="ihc-card-title">🏭 Wärmeerzeuger-Einstellungen
+            <span style="background:#ff6f00;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:8px">⚠️ Work in Progress</span>
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="info-box" style="background:#fff3cd;border-color:#ffc107">
+            ⚠️ Der <strong>Wärmeerzeuger-Modus</strong> ist noch in Entwicklung (Roadmap 3.0). Diese Felder sind noch nicht aktiv – der Modus verhält sich derzeit wie der Heizungsschalter-Modus.
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Vorlauftemperatur-Entity (Heizkreis)</label>
+              <input type="text" class="form-input" disabled placeholder="Kommt in Version 3.0" value="">
+              <span class="form-hint">Mischventil / Heizkreis-Vorlauf – kommt in Version 3.0</span>
+            </div>
+            <div class="settings-item">
+              <label>Pufferspeicher oben (Sensor)</label>
+              <input type="text" class="form-input" disabled placeholder="Kommt in Version 3.0" value="">
+              <span class="form-hint">Pufferspeicher-Überwachung – kommt in Version 3.0</span>
+            </div>
+            <div class="settings-item">
+              <label>Wärmepumpe-Entity</label>
+              <input type="text" class="form-input" disabled placeholder="Kommt in Version 3.0" value="">
+              <span class="form-hint">WP-Integration und COP-Optimierung – kommt in Version 3.0</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details id="sec-boiler-demand" class="ihc-card" ${g.controller_mode !== "trv" ? "open" : ""}>
         <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese
           ${g.controller_mode === "trv" ? `<span style="opacity:0.6;font-weight:400;font-size:11px"> – Kessel-Schutz</span>` : ""}
         </span></summary>
@@ -275,7 +295,6 @@
           </div>
         </div>
       </details>
-      `}
 
       <!-- ── Gäste-Modus ────────────────────────────────── -->
       <details class="ihc-card" ${g.guest_mode_active ? "open" : ""}>
@@ -307,7 +326,7 @@
       </details>
 
       <!-- ── Kalibrierungs-Assistent ──────────────────────── -->
-      <details class="ihc-card">
+      <details id="sec-calibration" class="ihc-card">
         <summary>
           <span class="ihc-card-title">📋 Kalibrierungs-Assistent
             <span class="badge-neutral" style="margin-left:6px;font-size:10px;padding:2px 7px;border-radius:10px;background:#e3f2fd;color:#1565c0;font-weight:700">Für Mieter</span>
@@ -454,7 +473,7 @@
               <span class="form-hint">Zimmer werden auf diese Temperatur heruntergekühlt wenn Kühlung aktiv ist.</span>
             </div>
           </div>
-          ${g.controller_mode !== "trv" ? `<div style="margin-top:8px">
+          ${g.controller_mode !== "trv" ? `<div id="sec-flow-pid" style="margin-top:8px">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;padding:6px 0;user-select:none">
               <input type="checkbox" id="flow-temp-enabled" ${a.flow_temp_entity ? "checked" : ""}>
               🌡️ Vorlauftemperatur-Regelung
@@ -476,6 +495,24 @@
                     value="${a.flow_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
                   <span class="form-hint">Optional: Sensor der die tatsächliche Vorlauftemperatur misst. Aktiviert einen PID-Regler für präzisere Vorlaufsteuerung.</span>
                 </div>
+                <div class="settings-item">
+                  <label>PID Proportionalanteil (Kp)</label>
+                  <input type="number" class="form-input" id="pid-kp" min="0" max="20" step="0.1" value="${a.pid_kp ?? 2.0}">
+                  <span class="form-hint">Stärke der proportionalen Reaktion. Höher = aggressiver. Typisch: 1.0–5.0</span>
+                </div>
+                <div class="settings-item">
+                  <label>PID Integrationsanteil (Ki)</label>
+                  <input type="number" class="form-input" id="pid-ki" min="0" max="5" step="0.01" value="${a.pid_ki ?? 0.1}">
+                  <span class="form-hint">Beseitigt bleibende Regelabweichungen. Typisch: 0.05–0.5</span>
+                </div>
+                <div class="settings-item">
+                  <label>PID Differentialanteil (Kd)</label>
+                  <input type="number" class="form-input" id="pid-kd" min="0" max="10" step="0.1" value="${a.pid_kd ?? 0.5}">
+                  <span class="form-hint">Dämpft Überschwingen. Typisch: 0.1–2.0</span>
+                </div>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-primary" id="save-flow-settings">💾 Vorlauf &amp; PID speichern</button>
               </div>
             </div>
           </div>` : ""}
@@ -594,6 +631,11 @@
                   ? `<br><strong>Aktueller Offset: ${g.adaptive_curve_delta > 0 ? "+" : ""}${g.adaptive_curve_delta.toFixed(1)} °C</strong>`
                   : ""}
               </span>
+            </div>
+            <div id="adaptive-curve-max-delta-item" class="settings-item">
+              <label>Max. Kurvenkorrektur (°C)</label>
+              <input type="number" class="form-input" id="adaptive-curve-max-delta" min="0.5" max="10" step="0.5" value="${a.adaptive_curve_max_delta ?? 3.0}">
+              <span class="form-hint">Maximale kumulative Verschiebung der Heizkurve durch adaptives Lernen (±). Typisch: 2–5 °C</span>
             </div>
             ` : ""}
             <div class="settings-item">
@@ -719,7 +761,6 @@
         weather_cold_threshold:   parseFloat(content.querySelector("#weather-cold-threshold").value) || 0,
         weather_cold_boost:       parseFloat(content.querySelector("#weather-cold-boost").value) || 0,
         controller_mode:          content.querySelector("#controller-mode").value,
-        startup_grace_seconds:    parseInt(content.querySelector("#startup-grace-seconds").value, 10) || 0,
       });
       this._toast("✓ Hardware-Einstellungen gespeichert");
     });
@@ -888,6 +929,23 @@
       content.querySelector("#flow-temp-section").style.display = e.target.checked ? "" : "none";
     });
 
+    // Save flow temp + PID settings
+    content.querySelector("#save-flow-settings")?.addEventListener("click", () => {
+      const kp = parseFloat(content.querySelector("#pid-kp")?.value);
+      const ki = parseFloat(content.querySelector("#pid-ki")?.value);
+      const kd = parseFloat(content.querySelector("#pid-kd")?.value);
+      const flowEnabledEl = content.querySelector("#flow-temp-enabled");
+      const flowEnabled = flowEnabledEl ? flowEnabledEl.checked : false;
+      this._callService("update_global_settings", {
+        flow_temp_entity:  flowEnabled ? (content.querySelector("#flow-temp-entity")?.value.trim() ?? "") : "",
+        flow_temp_sensor:  flowEnabled ? (content.querySelector("#flow-temp-sensor")?.value.trim() ?? "") : "",
+        ...(isNaN(kp) ? {} : { pid_kp: kp }),
+        ...(isNaN(ki) ? {} : { pid_ki: ki }),
+        ...(isNaN(kd) ? {} : { pid_kd: kd }),
+      });
+      this._toast("✓ Vorlauf & PID gespeichert");
+    });
+
     // Runtime / costs visibility toggles – stored in localStorage (frontend-only)
     content.querySelector("#show-runtime-stats").addEventListener("change", e => {
       localStorage.setItem("ihc_show_runtime", e.target.value);
@@ -909,12 +967,8 @@
       if (boilerKw !== null) chk.push(boilerKw);
       if (chk.some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
       const staticPrice = parseFloat(content.querySelector("#static-energy-price").value);
-      const flowEnabledEl = content.querySelector("#flow-temp-enabled");
-      const flowEnabled = flowEnabledEl ? flowEnabledEl.checked : false;
       this._callService("update_global_settings", {
         ...(boilerKw !== null ? { boiler_kw: boilerKw } : {}),
-        flow_temp_entity:        flowEnabled ? content.querySelector("#flow-temp-entity")?.value.trim() : "",
-        flow_temp_sensor:        flowEnabled ? content.querySelector("#flow-temp-sensor")?.value.trim() : "",
         solar_entity:            content.querySelector("#solar-entity").value.trim(),
         solar_surplus_threshold: solarSurplus,
         solar_boost_temp:        solarBoost,
@@ -943,6 +997,7 @@
         adaptive_preheat_enabled: content.querySelector("#adaptive-preheat-enabled")?.value === "true",
         eta_preheat_enabled:      content.querySelector("#eta-preheat-enabled")?.value === "true",
         vacation_calendar:        content.querySelector("#vacation-calendar")?.value.trim() ?? "",
+        adaptive_curve_max_delta: parseFloat(content.querySelector("#adaptive-curve-max-delta")?.value) || 3.0,
       });
       this._toast("✓ Intelligente Regelung gespeichert");
     });
@@ -1072,6 +1127,35 @@
       if (isNaN(dur)) { this._toast("⚠️ Ungültiger Wert"); return; }
       this._callService("update_global_settings", { guest_duration_hours: dur });
       this._toast("✓ Standarddauer gespeichert");
+    });
+
+    // ── Mode visibility ──────────────────────────────────────────────
+    const _updateModeVisibility = (newMode) => {
+      const isTrv    = newMode === "trv";
+      const isHg     = newMode === "hg";
+      const isBoiler = !isTrv;
+      const hs = content.querySelector("#heating-switch-item");
+      if (hs) hs.style.display = isBoiler ? "" : "none";
+      const cs = content.querySelector("#cooling-section");
+      if (cs) cs.style.display = isBoiler ? "" : "none";
+      const sbd = content.querySelector("#sec-boiler-demand");
+      if (sbd) sbd.style.display = (isBoiler || a.heating_switch) ? "" : "none";
+      const sti = content.querySelector("#sec-trv-info");
+      if (sti) sti.style.display = isTrv ? "" : "none";
+      const shg = content.querySelector("#sec-hg");
+      if (shg) shg.style.display = isHg ? "" : "none";
+      const sfl = content.querySelector("#sec-flow-pid");
+      if (sfl) sfl.style.display = isBoiler ? "" : "none";
+      const scal = content.querySelector("#sec-calibration");
+      if (scal) scal.style.display = isTrv ? "none" : "";
+      const acd = content.querySelector("#adaptive-curve-max-delta-item");
+      if (acd) acd.style.display = isTrv ? "none" : "";
+      const ace = content.querySelector("#adaptive-curve-enabled")?.closest(".settings-item");
+      if (ace) ace.style.display = isTrv ? "none" : "";
+    };
+    _updateModeVisibility(g.controller_mode || "switch");
+    content.querySelector("#controller-mode")?.addEventListener("change", e => {
+      _updateModeVisibility(e.target.value);
     });
 
     // Attach HA-style entity pickers to all entity inputs

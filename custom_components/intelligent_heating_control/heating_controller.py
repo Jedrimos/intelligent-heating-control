@@ -38,39 +38,49 @@ def calculate_room_demand(
     current_temp: float,
     target_temp: float,
     deadband: float = 0.5,
+    demand_range: float = 5.0,
 ) -> float:
     """
     Calculate proportional heating demand for a room (0.0 - 100.0 %).
 
-    Demand is proportional in the range [target - deadband*2 ... target]:
-      - current >= target          → 0 %  (no heating needed)
-      - current <= target - 2*db  → 100 % (full demand)
-      - linear in between
+    Two-zone model:
+      1. Deadband zone  [current >= target - deadband]  → 0 %
+         (room is close enough to target, no heating needed)
+      2. Proportional zone  [deadband ... deadband + demand_range]  → 0–100 %
+         Demand scales linearly from 0 % at the deadband edge to 100 % when
+         the room is (deadband + demand_range) °C below target.
 
-    The deadband creates a comfortable hysteresis per room.
+    With defaults (deadband=0.5, demand_range=5.0):
+      current >= target - 0.5°C  →   0 %  (within comfort zone)
+      current =  target - 1.0°C  →  10 %  (slightly cold)
+      current =  target - 3.0°C  →  50 %  (noticeably cold)
+      current <= target - 5.5°C  → 100 %  (very cold, full demand)
+
+    This makes the 0–100 % scale meaningful: you can actually tell the
+    difference between a room that is 1 °C cold (10 %) and one that is
+    5 °C cold (90 %), instead of both capping at 100 % after just 1 °C.
     """
     diff = target_temp - current_temp
-    if diff <= 0:
+    # Within deadband or above target → no demand
+    if diff <= deadband:
         return 0.0
-    max_diff = deadband * 2.0
-    if diff >= max_diff:
-        return 100.0
-    return round((diff / max_diff) * 100.0, 1)
+    # Proportional range above the deadband
+    effective_diff = diff - deadband
+    return round(min(100.0, (effective_diff / demand_range) * 100.0), 1)
 
 
 def calculate_room_cooling_demand(
     current_temp: float,
     target_temp: float,
     deadband: float = 0.5,
+    demand_range: float = 5.0,
 ) -> float:
-    """Calculate cooling demand (0-100%) - mirrors heating logic."""
+    """Calculate cooling demand (0-100%) - mirrors heating logic (inverted direction)."""
     diff = current_temp - target_temp
-    if diff <= 0:
+    if diff <= deadband:
         return 0.0
-    max_diff = deadband * 2.0
-    if diff >= max_diff:
-        return 100.0
-    return round((diff / max_diff) * 100.0, 1)
+    effective_diff = diff - deadband
+    return round(min(100.0, (effective_diff / demand_range) * 100.0), 1)
 
 
 class HeatingController:
@@ -143,6 +153,7 @@ class HeatingController:
             "target_temp": effective_target,
             "demand": demand,
             "weight": weight,
+            "deadband": deadband,
             "window_open": window_open,
             "room_mode": room_mode,
         }
@@ -250,7 +261,7 @@ class HeatingController:
             if ct is None:
                 continue
             w = state["weight"]
-            weighted_sum += calculate_room_cooling_demand(ct, tt, 0.5) * w
+            weighted_sum += calculate_room_cooling_demand(ct, tt, state.get("deadband", 0.5)) * w
             total_weight += w
 
         if total_weight == 0:
