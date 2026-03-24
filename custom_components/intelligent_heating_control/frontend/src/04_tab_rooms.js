@@ -420,6 +420,19 @@
           </div>
         </details>
 
+        <details class="modal-collapsible">
+          <summary class="modal-section-title">📅 HA Zeitplan – Fallback-Modus</summary>
+          <div class="settings-item" style="margin-top:8px">
+            <label>Wenn kein HA-Zeitplan aktiv</label>
+            <select class="form-select" id="rs-sched-off-mode">
+              <option value="eco"   ${(room.ha_schedule_off_mode || 'eco') === 'eco'   ? 'selected' : ''}>Eco-Temperatur</option>
+              <option value="sleep" ${(room.ha_schedule_off_mode || 'eco') === 'sleep' ? 'selected' : ''}>Schlaf-Temperatur</option>
+              <option value="away"  ${(room.ha_schedule_off_mode || 'eco') === 'away'  ? 'selected' : ''}>Abwesend-Temperatur</option>
+            </select>
+            <span class="form-hint">Modus wenn kein HA schedule.* aktiv ist (HA-Zeitpläne im Tab "Zeitplan" konfigurieren)</span>
+          </div>
+        </details>
+
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
         </div>
@@ -513,6 +526,7 @@
         trv_valve_demand:         container.querySelector("#rs-trv-valve-demand")?.checked === true,
         trv_min_send_interval:    parseInt(container.querySelector("#rs-trv-min-send-interval")?.value, 10) || 0,
         trv_calibrations:         (() => { try { const v = container.querySelector("#rs-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
+        ha_schedule_off_mode:     container.querySelector("#rs-sched-off-mode")?.value || "eco",
       });
       this._toast(`✓ ${room.name} gespeichert`);
     });

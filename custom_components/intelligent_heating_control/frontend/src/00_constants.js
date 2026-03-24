@@ -10,11 +10,13 @@ const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 const MODE_LABELS = {
   auto: "Auto", comfort: "Komfort", eco: "Eco",
-  sleep: "Schlafen", away: "Abwesend", off: "Aus", manual: "Manuell"
+  sleep: "Schlafen", away: "Abwesend", off: "Aus", manual: "Manuell",
+  vacation: "Urlaub", guest: "Gäste", boost: "Boost"
 };
 const MODE_ICONS = {
   auto: "⚙️", comfort: "☀️", eco: "🌿", sleep: "🌙",
-  away: "🚶", off: "⛔", manual: "✏️"
+  away: "🚶", off: "⛔", manual: "✏️",
+  vacation: "🏖️", guest: "👥", boost: "⚡"
 };
 const SYSTEM_MODE_LABELS = {
   auto: "Automatisch", heat: "Heizen", cool: "Kühlen",

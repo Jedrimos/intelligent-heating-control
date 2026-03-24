@@ -235,6 +235,9 @@ from .const import (
     DEFAULT_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
+    CONF_BOOST_TEMP,
+    CONF_BOOST_DEFAULT_DURATION,
+    DEFAULT_BOOST_DEFAULT_DURATION,
 )
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager

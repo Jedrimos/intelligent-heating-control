@@ -178,6 +178,11 @@
             <input type="number" class="form-input" id="m-boost-temp" value="24" step="0.5" min="15" max="35">
             <span class="form-hint">Temperatur während aktivem Boost-Modus</span>
           </div>
+          <div class="settings-item">
+            <label>Standard-Boost-Dauer (min)</label>
+            <input type="number" class="form-input" id="m-boost-dur" value="60" step="5" min="5" max="480">
+            <span class="form-hint">Standard-Dauer wenn Boost ohne explizite Zeit gestartet wird</span>
+          </div>
         </div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0">
           TRV-Sensor-Integration: TRV-Temperatur als Korrekturquelle nutzen (0 = deaktiviert)
@@ -271,6 +276,7 @@
           <select class="form-select" id="m-sched-off-mode">
             <option value="eco" selected>Eco-Temperatur</option>
             <option value="sleep">Schlaf-Temperatur</option>
+            <option value="away">Abwesend-Temperatur</option>
           </select>
         </div>
         <!-- schedule/condition rows use data-ep-domains via _createHaScheduleRow -->
@@ -327,6 +333,7 @@
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         boost_temp:             parseFloat(modal.querySelector("#m-boost-temp")?.value) || null,
+        boost_default_duration: parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
         trv_temp_weight:        parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.checked === true,
@@ -624,8 +631,9 @@
           <div class="settings-item" style="margin-bottom:10px">
             <label>Wenn kein Zeitplan aktiv</label>
             <select class="form-select" id="m-sched-off-mode">
-              <option value="eco"   ${(typeof room !== 'undefined' ? room.ha_schedule_off_mode : 'eco') === 'eco'   ? 'selected' : ''}>Eco-Temperatur</option>
-              <option value="sleep" ${(typeof room !== 'undefined' ? room.ha_schedule_off_mode : 'eco') === 'sleep' ? 'selected' : ''}>Schlaf-Temperatur</option>
+              <option value="eco"   ${(room.ha_schedule_off_mode || 'eco') === 'eco'   ? 'selected' : ''}>Eco-Temperatur</option>
+              <option value="sleep" ${(room.ha_schedule_off_mode || 'eco') === 'sleep' ? 'selected' : ''}>Schlaf-Temperatur</option>
+              <option value="away"  ${(room.ha_schedule_off_mode || 'eco') === 'away'  ? 'selected' : ''}>Abwesend-Temperatur</option>
             </select>
           </div>
           <div id="m-ha-sched-list"></div>
