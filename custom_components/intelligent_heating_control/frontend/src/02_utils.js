@@ -84,7 +84,6 @@
         humidity_sensor: state.attributes.humidity_sensor || "",
         mold_protection_enabled: state.attributes.mold_protection_enabled !== false,
         // Boost config
-        boost_temp: state.attributes.boost_temp ?? null,
         boost_default_duration: state.attributes.boost_default_duration ?? 60,
         // HA schedule blocks (from schedule.* entity config entries)
         ha_schedule_blocks: state.attributes.ha_schedule_blocks || {},

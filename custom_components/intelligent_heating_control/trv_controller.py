@@ -343,6 +343,45 @@ class TRVControllerMixin:
         if single and single not in room.get(CONF_VALVE_ENTITIES, []):
             self._turn_off_valve_entity(single)
 
+    def _boost_valve_entity(self, valve_entity: str) -> bool:
+        """Activate HA native boost preset on a single TRV climate entity.
+
+        Returns True if the boost preset was sent successfully (TRV supports it),
+        False if the TRV does not expose a 'boost' preset_mode.
+        """
+        if not valve_entity or not valve_entity.startswith("climate."):
+            return False
+        state = self.hass.states.get(valve_entity)
+        if state is None:
+            return False
+        if "boost" not in (state.attributes.get("preset_modes") or []):
+            return False
+        self._trv_command_sent_at[valve_entity] = time.monotonic()
+        self.hass.async_create_task(
+            self.hass.services.async_call(
+                "climate",
+                "set_preset_mode",
+                {"entity_id": valve_entity, "preset_mode": "boost"},
+            )
+        )
+        return True
+
+    def _boost_valve_entities(self, room: dict) -> bool:
+        """Try to activate native boost preset on all TRV entities in a room.
+
+        Returns True if ALL configured TRV entities received the boost preset
+        (i.e. every TRV supports it).  Returns False if any TRV does not support
+        boost – in that case the caller should fall back to sending a temperature.
+        """
+        entities = list(room.get(CONF_VALVE_ENTITIES, []))
+        single = room.get(CONF_VALVE_ENTITY)
+        if single and single not in entities:
+            entities.insert(0, single)
+        entities = [e for e in entities if e]
+        if not entities:
+            return False
+        return all(self._boost_valve_entity(e) for e in entities)
+
     def _prefill_last_sent_temps(self) -> None:
         """Pre-populate _last_sent_temps with TRVs' current target temperatures.
 

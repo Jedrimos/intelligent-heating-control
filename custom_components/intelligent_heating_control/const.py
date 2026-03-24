@@ -299,8 +299,7 @@ CONTROLLER_MODE_TRV: Final = "trv"         # control TRVs directly (close them w
 CONTROLLER_MODE_HG: Final = "hg"           # Heat Generator mode – Roadmap 3.0 (WIP)
 DEFAULT_CONTROLLER_MODE: Final = CONTROLLER_MODE_SWITCH
 
-# Boost-Modus (per room)
-CONF_BOOST_TEMP: Final = "boost_temp"               # °C target during boost
+# Boost-Modus (per room) – uses HA native climate boost preset
 CONF_BOOST_DEFAULT_DURATION: Final = "boost_default_duration"  # minutes
 DEFAULT_BOOST_DEFAULT_DURATION: Final = 60
 

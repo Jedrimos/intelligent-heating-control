@@ -235,7 +235,6 @@ from .const import (
     DEFAULT_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
-    CONF_BOOST_TEMP,
     CONF_BOOST_DEFAULT_DURATION,
     DEFAULT_BOOST_DEFAULT_DURATION,
 )
@@ -560,25 +559,17 @@ class IHCCoordinator(
     def get_room_manual_temp(self, room_id: str) -> Optional[float]:
         return self._room_manual_temps.get(room_id)
 
-    def set_room_boost(self, room_id: str, duration_minutes: int = 60, temp: Optional[float] = None) -> None:
+    def set_room_boost(self, room_id: str, duration_minutes: int = 60) -> None:
         """Activate boost mode for a room for the given duration.
 
-        If `temp` is given the room switches to manual mode at that temperature.
-        Otherwise the room config's boost_temp is used; if absent, comfort mode is used.
+        Uses HA native climate boost preset on TRV entities when supported.
+        Falls back to comfort mode temperature for non-boost TRVs and switch mode.
         """
         # Remember current mode so we can restore it after boost ends
         if room_id not in self._boost_until:  # Only save if not already in boost
             self._room_pre_boost_mode[room_id] = self._room_modes.get(room_id, ROOM_MODE_AUTO)
         self._boost_until[room_id] = datetime.now() + timedelta(minutes=duration_minutes)
-        boost_temp = temp
-        if boost_temp is None:
-            room_cfg = self.get_room_config(room_id)
-            boost_temp = room_cfg.get(CONF_BOOST_TEMP) if room_cfg else None
-        if boost_temp is not None:
-            self._room_modes[room_id] = ROOM_MODE_MANUAL
-            self._room_manual_temps[room_id] = float(boost_temp)
-        else:
-            self._room_modes[room_id] = ROOM_MODE_COMFORT
+        self._room_modes[room_id] = ROOM_MODE_COMFORT
         self.async_update_listeners()
         self.hass.async_create_task(self._async_save_runtime_state())
         self.hass.async_create_task(self.async_request_refresh())
@@ -1067,6 +1058,11 @@ class IHCCoordinator(
             # Collect mold data – use TRV humidity as fallback if no room humidity sensor
             mold_data = self._check_mold_risk(room, current_temp, trv_humidity=trv_data.get("trv_humidity"))
 
+            # Felt temperature (apparent temperature based on humidity)
+            felt_temperature = None
+            if mold_data and mold_data.get("humidity") is not None and current_temp is not None:
+                felt_temperature = self._calculate_felt_temperature(current_temp, mold_data["humidity"])
+
             # In TRV mode: quantise displayed target to 0.5 °C steps to stay consistent
             # with the actual setpoint sent to TRVs (avoids "21.1°C SOLL, but TRV gets 21.0°C")
             display_target = target_temp
@@ -1089,6 +1085,7 @@ class IHCCoordinator(
                 "anomaly": self._detect_sensor_anomaly(room_id),    # Roadmap 1.1
                 "room_presence_active": room_presence_active,       # Roadmap 1.2
                 "mold": mold_data,                                  # Roadmap 2.0
+                "felt_temperature": felt_temperature,              # Gefühlte Temperatur
                 # TRV sensor data (optional – all None when not available)
                 "trv_raw_temp": trv_raw_temp,
                 "trv_humidity": trv_data.get("trv_humidity"),
@@ -1154,6 +1151,10 @@ class IHCCoordinator(
                     # (The TRV's internal thermostat would otherwise try to heat if room cools at night)
                     frost_temp = self._get_frost_protection_temp()
                     self._set_valve_entities(room, frost_temp)
+                elif self.get_boost_remaining_minutes(room_id) > 0:
+                    # Boost active: try native HA boost preset; fallback to comfort temp
+                    if not self._boost_valve_entities(room):
+                        self._set_valve_entities(room, rdata["target_temp"])
                 else:
                     # Always send the desired target – TRV decides whether to heat
                     self._set_valve_entities(room, rdata["target_temp"])

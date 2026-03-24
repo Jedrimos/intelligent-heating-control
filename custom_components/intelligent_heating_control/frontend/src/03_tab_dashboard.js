@@ -360,11 +360,8 @@
         } else {
           const rooms = this._getRoomData();
           const room  = Object.values(rooms).find(r => r.room_id === roomId);
-          const dur   = room?.boost_default_duration || 60;
-          const temp  = room?.boost_temp || null;
-          const data  = { id: roomId, duration_minutes: dur };
-          if (temp) data.temp = temp;
-          this._callService("boost_room", data).then(() => {
+          const dur  = room?.boost_default_duration || 60;
+          this._callService("boost_room", { id: roomId, duration_minutes: dur }).then(() => {
             setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
           });
           this._toast(`⚡ Boost aktiviert (${dur} min${temp ? ` → ${temp}°C` : ""})`);

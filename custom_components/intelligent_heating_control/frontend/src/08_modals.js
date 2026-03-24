@@ -174,14 +174,9 @@
         <summary class="modal-section-title">🚀 Boost &amp; TRV-Sensor</summary>
         <div class="settings-grid" style="margin-top:8px">
           <div class="settings-item">
-            <label>Boost-Zieltemperatur (°C)</label>
-            <input type="number" class="form-input" id="m-boost-temp" value="24" step="0.5" min="15" max="35">
-            <span class="form-hint">Temperatur während aktivem Boost-Modus</span>
-          </div>
-          <div class="settings-item">
             <label>Standard-Boost-Dauer (min)</label>
             <input type="number" class="form-input" id="m-boost-dur" value="60" step="5" min="5" max="480">
-            <span class="form-hint">Standard-Dauer wenn Boost ohne explizite Zeit gestartet wird</span>
+            <span class="form-hint">Nutzt HA nativen Boost-Modus auf dem TRV – kein manuelles Temperaturziel</span>
           </div>
         </div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0">
@@ -332,7 +327,6 @@
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
-        boost_temp:             parseFloat(modal.querySelector("#m-boost-temp")?.value) || null,
         boost_default_duration: parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
         trv_temp_weight:        parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
@@ -644,13 +638,10 @@
       <details class="modal-collapsible">
         <summary>⚡ Boost</summary>
         <div class="modal-collapsible-body">
+          <p style="font-size:0.85em;color:var(--secondary-text-color);margin:0 0 8px">
+            Aktiviert den nativen HA-Boost-Modus auf den TRVs. Kein Temperaturziel – der TRV öffnet vollständig.
+          </p>
           <div class="settings-grid" style="margin-bottom:10px">
-            <div class="settings-item">
-              <label>Boost-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="m-boost-temp"
-                value="${room.boost_temp ?? room.comfort_temp ?? 22}" min="15" max="35" step="0.5">
-              <span class="form-hint">Zieltemperatur während Boost (leer = Komfort)</span>
-            </div>
             <div class="settings-item">
               <label>Boost-Dauer (min)</label>
               <input type="number" class="form-input" id="m-boost-dur"
@@ -767,7 +758,6 @@
         hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         room_presence_entities:   (modal.querySelector("#m-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
-        boost_temp:               parseFloat(modal.querySelector("#m-boost-temp")?.value) || null,
         boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value) || 60,
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
@@ -786,12 +776,9 @@
       const boostBtn = modal?.querySelector("#m-boost-btn");
       if (boostBtn) {
         boostBtn.addEventListener("click", () => {
-          const dur  = parseInt(modal.querySelector("#m-boost-dur")?.value) || 60;
-          const temp = parseFloat(modal.querySelector("#m-boost-temp")?.value) || null;
-          const data = { id: room.room_id, duration_minutes: dur };
-          if (temp && !isNaN(temp)) data.temp = temp;
-          this._callService("boost_room", data);
-          this._toast(`⚡ Boost ${dur} min ${temp ? `→ ${temp}°C ` : ""}für ${room.name}`);
+          const dur = parseInt(modal.querySelector("#m-boost-dur")?.value) || 60;
+          this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
+          this._toast(`⚡ Boost ${dur} min für ${room.name}`);
           this._closeModal();
         });
       }

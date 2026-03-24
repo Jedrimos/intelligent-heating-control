@@ -83,6 +83,7 @@ async def async_setup_entry(
         entities.append(IHCRoomRuntimeSensor(coordinator, entry, room))
         if room.get("humidity_sensor"):
             entities.append(IHCRoomHumiditySensor(coordinator, entry, room))
+            entities.append(IHCRoomFeltTempSensor(coordinator, entry, room))
     async_add_entities(entities, update_before_add=True)
 
 
@@ -541,4 +542,44 @@ class IHCRoomHumiditySensor(_IHCBase, SensorEntity):
                     "threshold": mold.get("threshold"),
                     "room_id": self._room_id,
                 }
+        return {}
+
+
+class IHCRoomFeltTempSensor(_IHCBase, SensorEntity):
+    """Gefühlte Temperatur (Apparent Temperature) based on room temp + humidity."""
+
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_icon = "mdi:thermometer-water"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
+        super().__init__(coordinator, entry)
+        self._room_id = room[CONF_ROOM_ID]
+        self._room_name = room.get(CONF_ROOM_NAME, self._room_id)
+        self._attr_unique_id = f"{entry.entry_id}_room_{self._room_id}_felt_temp"
+        self._attr_name = f"IHC {self._room_name} Gefühlte Temperatur"
+
+    @property
+    def device_info(self):
+        return self._room_device_info(self._room_id, self._room_name)
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data:
+            room = self.coordinator.data.get("rooms", {}).get(self._room_id)
+            if room:
+                return room.get("felt_temperature")
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        if self.coordinator.data:
+            room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+            mold = room.get("mold") or {}
+            return {
+                "actual_temp": room.get("current_temp"),
+                "humidity": mold.get("humidity"),
+                "room_id": self._room_id,
+            }
         return {}

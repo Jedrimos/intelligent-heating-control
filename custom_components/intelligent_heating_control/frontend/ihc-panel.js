@@ -905,7 +905,6 @@ class IHCPanel extends HTMLElement {
         humidity_sensor: state.attributes.humidity_sensor || "",
         mold_protection_enabled: state.attributes.mold_protection_enabled !== false,
         // Boost config
-        boost_temp: state.attributes.boost_temp ?? null,
         boost_default_duration: state.attributes.boost_default_duration ?? 60,
         // HA schedule blocks (from schedule.* entity config entries)
         ha_schedule_blocks: state.attributes.ha_schedule_blocks || {},
@@ -1727,11 +1726,8 @@ class IHCPanel extends HTMLElement {
         } else {
           const rooms = this._getRoomData();
           const room  = Object.values(rooms).find(r => r.room_id === roomId);
-          const dur   = room?.boost_default_duration || 60;
-          const temp  = room?.boost_temp || null;
-          const data  = { id: roomId, duration_minutes: dur };
-          if (temp) data.temp = temp;
-          this._callService("boost_room", data).then(() => {
+          const dur  = room?.boost_default_duration || 60;
+          this._callService("boost_room", { id: roomId, duration_minutes: dur }).then(() => {
             setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
           });
           this._toast(`⚡ Boost aktiviert (${dur} min${temp ? ` → ${temp}°C` : ""})`);
@@ -2111,14 +2107,13 @@ class IHCPanel extends HTMLElement {
           </div>
         </details>
 
-        <details class="modal-collapsible" ${(room.boost_temp || room.boost_default_duration !== 60) ? "open" : ""}>
+        <details class="modal-collapsible" ${room.boost_default_duration !== 60 ? "open" : ""}>
           <summary class="modal-section-title">⚡ Boost</summary>
+          <p style="margin:0 0 8px;font-size:0.85em;color:var(--secondary-text-color)">
+            Aktiviert den nativen HA-Boost-Modus auf den TRVs des Zimmers für die gewünschte Dauer.
+            Ohne native Boost-Unterstützung des TRVs wird stattdessen die Komforttemperatur genutzt.
+          </p>
           <div class="settings-grid">
-            <div class="settings-item">
-              <label>Boost-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="rs-boost-temp"
-                value="${room.boost_temp ?? room.comfort_temp ?? 22}" min="15" max="35" step="0.5">
-            </div>
             <div class="settings-item">
               <label>Boost-Dauer (min)</label>
               <input type="number" class="form-input" id="rs-boost-dur"
@@ -2207,11 +2202,8 @@ class IHCPanel extends HTMLElement {
     const boostBtn = container.querySelector("#rs-boost-btn");
     if (boostBtn) {
       boostBtn.addEventListener("click", () => {
-        const dur  = parseInt(container.querySelector("#rs-boost-dur")?.value) || 60;
-        const temp = parseFloat(container.querySelector("#rs-boost-temp")?.value) || null;
-        const data = { id: room.room_id, duration_minutes: dur };
-        if (temp && !isNaN(temp)) data.temp = temp;
-        this._callService("boost_room", data);
+        const dur = parseInt(container.querySelector("#rs-boost-dur")?.value) || 60;
+        this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
         this._toast(`⚡ Boost ${dur} min für ${room.name}`);
       });
     }
@@ -2263,7 +2255,6 @@ class IHCPanel extends HTMLElement {
         hkv_factor:               parseFloat(container.querySelector("#rs-hkv-factor").value) || 0.083,
         room_presence_entities:   (container.querySelector("#rs-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
-        boost_temp:               parseFloat(container.querySelector("#rs-boost-temp")?.value) || null,
         boost_default_duration:   parseInt(container.querySelector("#rs-boost-dur")?.value) || 60,
         trv_temp_weight:          parseFloat(container.querySelector("#rs-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(container.querySelector("#rs-trv-temp-offset")?.value ?? "-2"),
@@ -4625,14 +4616,9 @@ class IHCPanel extends HTMLElement {
         <summary class="modal-section-title">🚀 Boost &amp; TRV-Sensor</summary>
         <div class="settings-grid" style="margin-top:8px">
           <div class="settings-item">
-            <label>Boost-Zieltemperatur (°C)</label>
-            <input type="number" class="form-input" id="m-boost-temp" value="24" step="0.5" min="15" max="35">
-            <span class="form-hint">Temperatur während aktivem Boost-Modus</span>
-          </div>
-          <div class="settings-item">
             <label>Standard-Boost-Dauer (min)</label>
             <input type="number" class="form-input" id="m-boost-dur" value="60" step="5" min="5" max="480">
-            <span class="form-hint">Standard-Dauer wenn Boost ohne explizite Zeit gestartet wird</span>
+            <span class="form-hint">Nutzt HA nativen Boost-Modus auf dem TRV – kein manuelles Temperaturziel</span>
           </div>
         </div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0">
@@ -4783,7 +4769,6 @@ class IHCPanel extends HTMLElement {
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
-        boost_temp:             parseFloat(modal.querySelector("#m-boost-temp")?.value) || null,
         boost_default_duration: parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
         trv_temp_weight:        parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
@@ -5095,13 +5080,10 @@ class IHCPanel extends HTMLElement {
       <details class="modal-collapsible">
         <summary>⚡ Boost</summary>
         <div class="modal-collapsible-body">
+          <p style="font-size:0.85em;color:var(--secondary-text-color);margin:0 0 8px">
+            Aktiviert den nativen HA-Boost-Modus auf den TRVs. Kein Temperaturziel – der TRV öffnet vollständig.
+          </p>
           <div class="settings-grid" style="margin-bottom:10px">
-            <div class="settings-item">
-              <label>Boost-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="m-boost-temp"
-                value="${room.boost_temp ?? room.comfort_temp ?? 22}" min="15" max="35" step="0.5">
-              <span class="form-hint">Zieltemperatur während Boost (leer = Komfort)</span>
-            </div>
             <div class="settings-item">
               <label>Boost-Dauer (min)</label>
               <input type="number" class="form-input" id="m-boost-dur"
@@ -5218,7 +5200,6 @@ class IHCPanel extends HTMLElement {
         hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         room_presence_entities:   (modal.querySelector("#m-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
-        boost_temp:               parseFloat(modal.querySelector("#m-boost-temp")?.value) || null,
         boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value) || 60,
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
@@ -5237,12 +5218,9 @@ class IHCPanel extends HTMLElement {
       const boostBtn = modal?.querySelector("#m-boost-btn");
       if (boostBtn) {
         boostBtn.addEventListener("click", () => {
-          const dur  = parseInt(modal.querySelector("#m-boost-dur")?.value) || 60;
-          const temp = parseFloat(modal.querySelector("#m-boost-temp")?.value) || null;
-          const data = { id: room.room_id, duration_minutes: dur };
-          if (temp && !isNaN(temp)) data.temp = temp;
-          this._callService("boost_room", data);
-          this._toast(`⚡ Boost ${dur} min ${temp ? `→ ${temp}°C ` : ""}für ${room.name}`);
+          const dur = parseInt(modal.querySelector("#m-boost-dur")?.value) || 60;
+          this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
+          this._toast(`⚡ Boost ${dur} min für ${room.name}`);
           this._closeModal();
         });
       }

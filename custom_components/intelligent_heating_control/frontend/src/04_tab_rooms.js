@@ -367,14 +367,13 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${(room.boost_temp || room.boost_default_duration !== 60) ? "open" : ""}>
+        <details class="modal-collapsible" ${room.boost_default_duration !== 60 ? "open" : ""}>
           <summary class="modal-section-title">⚡ Boost</summary>
+          <p style="margin:0 0 8px;font-size:0.85em;color:var(--secondary-text-color)">
+            Aktiviert den nativen HA-Boost-Modus auf den TRVs des Zimmers für die gewünschte Dauer.
+            Ohne native Boost-Unterstützung des TRVs wird stattdessen die Komforttemperatur genutzt.
+          </p>
           <div class="settings-grid">
-            <div class="settings-item">
-              <label>Boost-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="rs-boost-temp"
-                value="${room.boost_temp ?? room.comfort_temp ?? 22}" min="15" max="35" step="0.5">
-            </div>
             <div class="settings-item">
               <label>Boost-Dauer (min)</label>
               <input type="number" class="form-input" id="rs-boost-dur"
@@ -463,11 +462,8 @@
     const boostBtn = container.querySelector("#rs-boost-btn");
     if (boostBtn) {
       boostBtn.addEventListener("click", () => {
-        const dur  = parseInt(container.querySelector("#rs-boost-dur")?.value) || 60;
-        const temp = parseFloat(container.querySelector("#rs-boost-temp")?.value) || null;
-        const data = { id: room.room_id, duration_minutes: dur };
-        if (temp && !isNaN(temp)) data.temp = temp;
-        this._callService("boost_room", data);
+        const dur = parseInt(container.querySelector("#rs-boost-dur")?.value) || 60;
+        this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
         this._toast(`⚡ Boost ${dur} min für ${room.name}`);
       });
     }
@@ -519,7 +515,6 @@
         hkv_factor:               parseFloat(container.querySelector("#rs-hkv-factor").value) || 0.083,
         room_presence_entities:   (container.querySelector("#rs-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
-        boost_temp:               parseFloat(container.querySelector("#rs-boost-temp")?.value) || null,
         boost_default_duration:   parseInt(container.querySelector("#rs-boost-dur")?.value) || 60,
         trv_temp_weight:          parseFloat(container.querySelector("#rs-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(container.querySelector("#rs-trv-temp-offset")?.value ?? "-2"),

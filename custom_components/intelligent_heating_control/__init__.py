@@ -86,7 +86,6 @@ from .const import (
     CONF_ABSOLUTE_MIN_TEMP,
     CONF_ROOM_PREHEAT_MINUTES,
     CONF_ROOM_PRESENCE_ENTITIES,
-    CONF_BOOST_TEMP,
     CONF_BOOST_DEFAULT_DURATION,
     CONF_TRV_TEMP_WEIGHT,
     CONF_TRV_TEMP_OFFSET,
@@ -294,7 +293,6 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_ABSOLUTE_MIN_TEMP: float(call.data.get(CONF_ABSOLUTE_MIN_TEMP, DEFAULT_ABSOLUTE_MIN_TEMP)),
             CONF_ROOM_PREHEAT_MINUTES: int(call.data.get(CONF_ROOM_PREHEAT_MINUTES, DEFAULT_ROOM_PREHEAT_MINUTES)),
             CONF_ROOM_PRESENCE_ENTITIES: call.data.get(CONF_ROOM_PRESENCE_ENTITIES, []),
-            CONF_BOOST_TEMP: float(call.data.get(CONF_BOOST_TEMP)) if call.data.get(CONF_BOOST_TEMP) is not None else None,
             CONF_BOOST_DEFAULT_DURATION: int(call.data.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION)),
             CONF_MOLD_HUMIDITY_THRESHOLD: float(call.data.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD)),
             CONF_TRV_TEMP_WEIGHT: float(call.data.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT)),
@@ -339,8 +337,6 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
                     updates[k] = int(float(v))
                 elif k in _BOOL_FIELDS:
                     updates[k] = bool(v)
-                elif k == CONF_BOOST_TEMP:
-                    updates[k] = float(v) if v not in (None, "") else None
                 else:
                     updates[k] = v
             except (TypeError, ValueError):
@@ -362,13 +358,11 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         room_id = call.data.get(CONF_ROOM_ID)
         duration = int(call.data.get("duration_minutes", 60))
         cancel = bool(call.data.get("cancel", False))
-        temp_raw = call.data.get("temp")
-        temp = float(temp_raw) if temp_raw is not None else None
         if room_id:
             if cancel:
                 coordinator.cancel_room_boost(room_id)
             else:
-                coordinator.set_room_boost(room_id, duration, temp=temp)
+                coordinator.set_room_boost(room_id, duration)
 
     async def handle_reload(call: ServiceCall) -> None:
         await hass.config_entries.async_reload(entry.entry_id)

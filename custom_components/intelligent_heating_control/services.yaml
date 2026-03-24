@@ -281,14 +281,6 @@ update_room:
           min: 10
           max: 22
           step: 0.5
-    boost_temp:
-      name: Boost-Temperatur (°C)
-      required: false
-      selector:
-        number:
-          min: 15
-          max: 35
-          step: 0.5
     boost_default_duration:
       name: Boost-Dauer (min)
       required: false

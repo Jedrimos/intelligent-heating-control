@@ -10,7 +10,7 @@ _UNKNOWN_STATES = frozenset(("unknown", "unavailable"))
 
 from homeassistant.core import callback, Event
 from homeassistant.const import STATE_ON
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_track_state_change_event, async_call_later
 
 from .const import (
     CONF_ROOM_ID,
@@ -207,12 +207,34 @@ class WindowManagerMixin:
             # Only refresh on meaningful state transitions (not attribute-only updates)
             new_s = new_state.state if new_state else None
             old_s = old_state.state if old_state else None
-            if new_s != old_s:
-                _LOGGER.debug(
-                    "IHC: Window sensor %s changed %s→%s, requesting immediate refresh",
-                    event.data.get("entity_id"), old_s, new_s,
-                )
-                self.hass.async_create_task(self.async_request_refresh())
+            if new_s == old_s:
+                return
+
+            entity_id = event.data.get("entity_id")
+            _LOGGER.debug(
+                "IHC: Window sensor %s changed %s→%s, requesting immediate refresh",
+                entity_id, old_s, new_s,
+            )
+            # Immediate refresh – starts the reaction_time countdown
+            self.hass.async_create_task(self.async_request_refresh())
+
+            # If window opened: schedule a second refresh after reaction_time so IHC
+            # actually acts on the open window without waiting up to 60s for the next
+            # regular update cycle.
+            if new_s == STATE_ON:
+                for room in self.get_rooms():
+                    room_sensors = list(room.get(CONF_WINDOW_SENSORS, []))
+                    single = room.get(CONF_WINDOW_SENSOR)
+                    if single and single not in room_sensors:
+                        room_sensors.append(single)
+                    if entity_id in room_sensors:
+                        reaction_time = int(room.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME))
+                        if reaction_time > 0:
+                            @callback
+                            def _delayed_refresh(_now) -> None:
+                                self.hass.async_create_task(self.async_request_refresh())
+                            async_call_later(self.hass, reaction_time, _delayed_refresh)
+                        break
 
         self._window_listener_unsub = async_track_state_change_event(
             self.hass, list(sensor_ids), _on_window_sensor_change

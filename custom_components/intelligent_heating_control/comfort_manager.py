@@ -210,6 +210,20 @@ class ComfortManagerMixin:
             "room_humidity": room_humidity,
         }
 
+    @staticmethod
+    def _calculate_felt_temperature(temp: float, humidity: float) -> float:
+        """Calculate apparent (felt) temperature from air temperature and relative humidity.
+
+        Uses Steadman's Apparent Temperature formula adapted for indoor use (no wind):
+            e  = (rh/100) × 6.112 × exp(17.67 × T / (T + 243.5))   [hPa vapour pressure]
+            AT = T + 0.348 × e − 4.25
+
+        At typical indoor conditions (20 °C / 50 % RH) this yields ≈ 19.8 °C.
+        High humidity makes warm rooms feel warmer; low humidity makes them feel cooler.
+        """
+        e = (humidity / 100.0) * 6.112 * math.exp(17.67 * temp / (temp + 243.5))
+        return round(temp + 0.348 * e - 4.25, 1)
+
     def _apply_room_calibration(self, room: dict, raw_temp: Optional[float]) -> Optional[float]:
         """Apply per-room sensor calibration offset."""
         if raw_temp is None:

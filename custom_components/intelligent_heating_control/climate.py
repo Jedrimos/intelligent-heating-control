@@ -54,7 +54,6 @@ from .const import (
     CONF_HKV_FACTOR,
     CONF_AWAY_TEMP_ROOM,
     DEFAULT_AWAY_TEMP_ROOM,
-    CONF_BOOST_TEMP,
     CONF_BOOST_DEFAULT_DURATION,
     CONF_TRV_TEMP_WEIGHT,
     DEFAULT_TRV_TEMP_WEIGHT,
@@ -91,8 +90,10 @@ PRESET_TO_MODE = {
     "Sleep": ROOM_MODE_SLEEP,
     "Away": ROOM_MODE_AWAY,
     "Manual": ROOM_MODE_MANUAL,
+    "Boost": ROOM_MODE_COMFORT,  # Boost uses comfort mode temperature as fallback
 }
 MODE_TO_PRESET = {v: k for k, v in PRESET_TO_MODE.items()}
+# "Boost" is a special runtime preset – not a permanent room mode mapping
 
 HVAC_MODE_MAP = {
     ROOM_MODE_OFF: HVACMode.OFF,
@@ -207,6 +208,9 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
 
     @property
     def preset_mode(self) -> Optional[str]:
+        d = self._room_data or {}
+        if d.get("boost_remaining", 0) > 0:
+            return "Boost"
         mode = self.coordinator.get_room_mode(self._room_id)
         return MODE_TO_PRESET.get(mode, "Auto")
 
@@ -270,11 +274,11 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "mold_protection_enabled": room_cfg.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED),
             "mold_humidity_threshold": room_cfg.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD),
             "mold": d.get("mold"),
+            "felt_temperature": d.get("felt_temperature"),
             # Presence
             "room_presence_entities": room_cfg.get("room_presence_entities", []),
             "room_presence_active": d.get("room_presence_active"),
             # Boost config
-            "boost_temp": room_cfg.get(CONF_BOOST_TEMP),
             "boost_default_duration": room_cfg.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION),
             # Ventilation advice + CO2
             "co2_sensor": room_cfg.get(CONF_CO2_SENSOR, ""),
@@ -311,5 +315,10 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
                 self.coordinator.set_room_mode(self._room_id, ROOM_MODE_AUTO)
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
-        mode = PRESET_TO_MODE.get(preset_mode, ROOM_MODE_AUTO)
-        self.coordinator.set_room_mode(self._room_id, mode)
+        if preset_mode == "Boost":
+            room_cfg = self.coordinator.get_room_config(self._room_id) or {}
+            duration = int(room_cfg.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION))
+            self.coordinator.set_room_boost(self._room_id, duration)
+        else:
+            mode = PRESET_TO_MODE.get(preset_mode, ROOM_MODE_AUTO)
+            self.coordinator.set_room_mode(self._room_id, mode)

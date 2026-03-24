@@ -87,7 +87,6 @@ from .const import (
     CONF_HKV_SENSOR,
     CONF_HKV_FACTOR,
     CONF_HA_SCHEDULE_OFF_MODE,
-    CONF_BOOST_TEMP,
     CONF_BOOST_DEFAULT_DURATION,
     CONF_ROOM_PRESENCE_ENTITIES,
     CONF_TRV_TEMP_WEIGHT,
@@ -728,7 +727,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_RADIATOR_KW: float(user_input.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW)),
                 CONF_HKV_SENSOR: user_input.get(CONF_HKV_SENSOR, ""),
                 CONF_HKV_FACTOR: float(user_input.get(CONF_HKV_FACTOR, DEFAULT_HKV_FACTOR)),
-                CONF_BOOST_TEMP: float(user_input[CONF_BOOST_TEMP]) if user_input.get(CONF_BOOST_TEMP) not in (None, "") else None,
                 CONF_BOOST_DEFAULT_DURATION: int(user_input.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION)),
                 CONF_ROOM_PRESENCE_ENTITIES: user_input.get(CONF_ROOM_PRESENCE_ENTITIES, []),
                 CONF_TRV_TEMP_WEIGHT: float(user_input.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT)),
@@ -827,9 +825,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_BOOST_DEFAULT_DURATION, default=DEFAULT_BOOST_DEFAULT_DURATION): selector.selector({
                 "number": {"min": 5, "max": 480, "step": 5, "unit_of_measurement": "min", "mode": "box"}
-            }),
-            vol.Optional(CONF_BOOST_TEMP): selector.selector({
-                "number": {"min": 15, "max": 35, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             vol.Optional(CONF_TRV_TEMP_WEIGHT, default=DEFAULT_TRV_TEMP_WEIGHT): selector.selector({
                 "number": {"min": 0.0, "max": 0.5, "step": 0.05, "mode": "box"}
@@ -972,9 +967,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_BOOST_DEFAULT_DURATION, default=int(room.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION))): selector.selector({
                 "number": {"min": 5, "max": 480, "step": 5, "unit_of_measurement": "min", "mode": "box"}
-            }),
-            vol.Optional(CONF_BOOST_TEMP, default=float(room.get(CONF_BOOST_TEMP) or 24.0)): selector.selector({
-                "number": {"min": 15, "max": 35, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             vol.Optional(CONF_TRV_TEMP_WEIGHT, default=float(room.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT))): selector.selector({
                 "number": {"min": 0.0, "max": 0.5, "step": 0.05, "mode": "box"}
