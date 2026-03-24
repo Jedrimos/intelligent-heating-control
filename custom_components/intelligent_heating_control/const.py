@@ -363,3 +363,22 @@ DEFAULT_TRV_VALVE_DEMAND: Final = False
 # 0 = deaktiviert (immer senden wenn Schwelle überschritten), Empfehlung: 300 s (5 min)
 CONF_TRV_MIN_SEND_INTERVAL: Final = "trv_min_send_interval"  # Sekunden
 DEFAULT_TRV_MIN_SEND_INTERVAL: Final = 0  # 0 = nur Temperatur-Hysterese aktiv (compat)
+
+# Per-TRV Kalibrierung (pro Entität, ergänzt den Zimmer-weiten trv_temp_offset)
+# Dict: {"climate.trv_schrank": -2.0, "climate.trv_fenster": 0.5}
+CONF_TRV_CALIBRATIONS: Final = "trv_calibrations"
+
+# Stuck-Valve-Erkennung: Wie lange (Sekunden) muss ein Ventil stuck bleiben
+# bevor ein Alarm ausgelöst wird (Standard: 30 min = 1800s)
+CONF_STUCK_VALVE_TIMEOUT: Final = "stuck_valve_timeout"
+DEFAULT_STUCK_VALVE_TIMEOUT: Final = 1800  # 30 Minuten
+
+# Kalkschutz: periodisches Ventil-Bewegen um Verkalkungs-Festfressen zu verhindern
+CONF_LIMESCALE_PROTECTION_ENABLED: Final = "limescale_protection_enabled"
+DEFAULT_LIMESCALE_PROTECTION_ENABLED: Final = False
+CONF_LIMESCALE_INTERVAL_DAYS: Final = "limescale_interval_days"
+DEFAULT_LIMESCALE_INTERVAL_DAYS: Final = 14  # alle 2 Wochen
+CONF_LIMESCALE_TIME: Final = "limescale_time"
+DEFAULT_LIMESCALE_TIME: Final = "10:00"      # Uhrzeit für Kalkschutz-Übung
+CONF_LIMESCALE_DURATION_MINUTES: Final = "limescale_duration_minutes"
+DEFAULT_LIMESCALE_DURATION_MINUTES: Final = 5  # Minuten vollständig geöffnet

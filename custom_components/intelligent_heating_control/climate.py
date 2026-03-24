@@ -64,6 +64,7 @@ from .const import (
     DEFAULT_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
+    CONF_TRV_CALIBRATIONS,
     DEFAULT_ABSOLUTE_MIN_TEMP,
     DEFAULT_ROOM_QM,
     DEFAULT_ROOM_PREHEAT_MINUTES,
@@ -286,12 +287,14 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "trv_temp_offset": room_cfg.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET),
             "trv_valve_demand": room_cfg.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND),
             "trv_min_send_interval": room_cfg.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL),
+            "trv_calibrations": room_cfg.get(CONF_TRV_CALIBRATIONS, {}),
             "trv_raw_temp": d.get("trv_raw_temp"),
             "trv_humidity": d.get("trv_humidity"),
             "trv_avg_valve": d.get("trv_avg_valve"),
             "trv_any_heating": d.get("trv_any_heating", False),
             "trv_min_battery": d.get("trv_min_battery"),
             "trv_low_battery": d.get("trv_low_battery", False),
+            "trv_stuck_valves": d.get("trv_stuck_valves", []),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:

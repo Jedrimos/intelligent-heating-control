@@ -353,9 +353,19 @@ class IHCCoordinator(
         # before the manual-override detector runs (prevents false "manual override" alerts)
         self._startup_cycles_remaining: int = 1
 
-
         # Manual TRV override detection: track last IHC-set temperature per room
         self._last_ihc_set_temps: Dict[str, float] = {}  # room_id → last temp IHC intentionally set
+
+        # Stuck-valve detection: entity_id → monotonic time when stuck condition first appeared
+        self._trv_stuck_since: Dict[str, float] = {}
+
+        # Kalkschutz: entity_id → date of last exercise
+        self._limescale_last_exercise: Dict[str, Any] = {}
+        # Kalkschutz: entity_id → monotonic time when exercise started (None = not in progress)
+        self._limescale_in_progress: Dict[str, float] = {}
+
+        # ETA preheat: last computed eta_minutes (shared across room loop)
+        self._current_eta_minutes: Optional[float] = None
 
         # Window timing: track when window was first seen open/closed (timestamp)
         self._window_open_since: Dict[str, Optional[float]] = {}   # room_id → epoch when opened
@@ -884,6 +894,7 @@ class IHCCoordinator(
         cold_boost = self._get_weather_cold_boost()
         # v1.4 – ETA pre-heat: minutes until someone arrives home
         eta_minutes = self._get_eta_preheat_minutes()
+        self._current_eta_minutes = eta_minutes
         # Controller mode – needed inside the room loop for TRV-specific behaviour
         _loop_ctrl_mode = self.get_config().get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
         _loop_trv_mode = _loop_ctrl_mode == CONTROLLER_MODE_TRV
@@ -1047,6 +1058,9 @@ class IHCCoordinator(
                 is_now_warm=demand == 0 and current_temp is not None,
             )
 
+            # Stuck-valve detection: are any TRV valves stuck (calcified / jammed)?
+            stuck_valves = self._detect_stuck_valves(room, room_id, demand)
+
             # Collect mold data – use TRV humidity as fallback if no room humidity sensor
             mold_data = self._check_mold_risk(room, current_temp, trv_humidity=trv_data.get("trv_humidity"))
 
@@ -1079,6 +1093,7 @@ class IHCCoordinator(
                 "trv_any_heating": trv_data.get("trv_any_heating", False),
                 "trv_min_battery": trv_data.get("trv_min_battery"),
                 "trv_low_battery": trv_data.get("trv_low_battery", False),
+                "trv_stuck_valves": stuck_valves,
                 # Outdoor-regulated effective preset temps (for display in frontend)
                 "comfort_temp_eff": comfort_eff,
                 "eco_temp_eff": eco_eff,
@@ -1168,6 +1183,9 @@ class IHCCoordinator(
 
         if enable_cooling:
             self._set_cooling_switch(should_cool)
+
+        # Kalkschutz: periodisch Ventile bewegen um Verkalkungs-Festfressen zu verhindern
+        self._run_limescale_protection(room_data)
 
         # Roadmap 1.4 – Set boiler flow temp
         flow_temp = self._calculate_flow_temp(outdoor_temp, total_demand)

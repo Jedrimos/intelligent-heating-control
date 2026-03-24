@@ -297,6 +297,12 @@ update_room:
           min: 5
           max: 480
           step: 5
+    trv_calibrations:
+      name: TRV-Kalibrierungen (pro Gerät)
+      description: "Dict mit entity_id → Offset °C, z.B. {\"climate.trv_schrank\": -2.0}"
+      required: false
+      selector:
+        object:
 
 set_room_mode:
   name: Zimmermodus setzen
@@ -471,6 +477,41 @@ update_global_settings:
           min: 0
           max: 120
           step: 5
+    stuck_valve_timeout:
+      name: Stuck-Valve Timeout (s)
+      description: Sekunden bis ein Ventil als feststehend gilt
+      required: false
+      selector:
+        number:
+          min: 300
+          max: 7200
+          step: 300
+    limescale_protection_enabled:
+      name: Kalkschutz aktiviert
+      required: false
+      selector:
+        boolean:
+    limescale_interval_days:
+      name: Kalkschutz-Intervall (Tage)
+      required: false
+      selector:
+        number:
+          min: 7
+          max: 90
+          step: 1
+    limescale_time:
+      name: Kalkschutz-Uhrzeit (HH:MM)
+      required: false
+      selector:
+        text:
+    limescale_duration_minutes:
+      name: Kalkschutz-Dauer (min)
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 30
+          step: 1
 
 reload:
   name: Integration neu laden

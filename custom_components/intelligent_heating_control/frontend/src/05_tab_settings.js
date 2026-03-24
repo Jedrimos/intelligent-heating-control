@@ -675,6 +675,55 @@
         </div>
       </details>
 
+      <!-- ── Kalkschutz & TRV-Wartung ───────────────────── -->
+      <details class="ihc-card" ${a.limescale_protection_enabled ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">🔩 Kalkschutz &amp; Stuck-Valve-Erkennung
+            ${a.limescale_protection_enabled ? activeBadge("Aktiv") : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="info-box">Verhindert das Festfressen von TRV-Ventilen durch Kalk. Bewegt die Ventile regelmäßig durch den vollen Hub.</div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Kalkschutz aktiviert</label>
+              <select class="form-select" id="limescale-enabled">
+                <option value="false" ${!a.limescale_protection_enabled ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${a.limescale_protection_enabled  ? "selected" : ""}>Aktiviert</option>
+              </select>
+              <span class="form-hint">Öffnet alle TRV-Ventile vollständig für kurze Zeit in regelmäßigen Abständen.</span>
+            </div>
+            <div class="settings-item">
+              <label>Intervall (Tage)</label>
+              <input type="number" class="form-input" id="limescale-interval" min="7" max="90" step="1"
+                value="${a.limescale_interval_days ?? 14}">
+              <span class="form-hint">Alle N Tage wird die Übung durchgeführt (Standard: 14 Tage).</span>
+            </div>
+            <div class="settings-item">
+              <label>Uhrzeit (HH:MM)</label>
+              <input type="text" class="form-input" id="limescale-time" placeholder="10:00"
+                value="${a.limescale_time ?? '10:00'}">
+              <span class="form-hint">Zeitfenster (±15 min) für die Ventil-Übung. Wähle eine Zeit wenn niemand zuhause friert.</span>
+            </div>
+            <div class="settings-item">
+              <label>Dauer (min)</label>
+              <input type="number" class="form-input" id="limescale-duration" min="1" max="30" step="1"
+                value="${a.limescale_duration_minutes ?? 5}">
+              <span class="form-hint">Wie lange die Ventile vollständig geöffnet bleiben (Standard: 5 min).</span>
+            </div>
+            <div class="settings-item">
+              <label>Stuck-Valve Timeout (s)</label>
+              <input type="number" class="form-input" id="stuck-valve-timeout" min="300" max="7200" step="300"
+                value="${a.stuck_valve_timeout ?? 1800}">
+              <span class="form-hint">Sekunden bis ein klemmendes Ventil als Fehler gemeldet wird (Standard: 1800 = 30 min). Erkannte Fehler erscheinen als binary_sensor.</span>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-limescale-settings">💾 Kalkschutz speichern</button>
+          </div>
+        </div>
+      </details>
+
       <!-- ── Urlaubs-Assistent ───────────────────────────── -->
       <details class="ihc-card" ${g.vacation_auto_active || a.vacation_start ? "open" : ""}>
         <summary>
@@ -1000,6 +1049,17 @@
         adaptive_curve_max_delta: parseFloat(content.querySelector("#adaptive-curve-max-delta")?.value) || 3.0,
       });
       this._toast("✓ Intelligente Regelung gespeichert");
+    });
+
+    content.querySelector("#save-limescale-settings")?.addEventListener("click", () => {
+      this._callService("update_global_settings", {
+        limescale_protection_enabled: content.querySelector("#limescale-enabled")?.value === "true",
+        limescale_interval_days:      parseInt(content.querySelector("#limescale-interval")?.value) || 14,
+        limescale_time:               content.querySelector("#limescale-time")?.value.trim() || "10:00",
+        limescale_duration_minutes:   parseInt(content.querySelector("#limescale-duration")?.value) || 5,
+        stuck_valve_timeout:          parseInt(content.querySelector("#stuck-valve-timeout")?.value) || 1800,
+      });
+      this._toast("✓ Kalkschutz gespeichert");
     });
 
     content.querySelector("#reset-curve-btn")?.addEventListener("click", () => {

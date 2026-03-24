@@ -20,6 +20,17 @@ from .const import (
     DEFAULT_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
+    CONF_TRV_CALIBRATIONS,
+    CONF_STUCK_VALVE_TIMEOUT,
+    DEFAULT_STUCK_VALVE_TIMEOUT,
+    CONF_LIMESCALE_PROTECTION_ENABLED,
+    DEFAULT_LIMESCALE_PROTECTION_ENABLED,
+    CONF_LIMESCALE_INTERVAL_DAYS,
+    DEFAULT_LIMESCALE_INTERVAL_DAYS,
+    CONF_LIMESCALE_TIME,
+    DEFAULT_LIMESCALE_TIME,
+    CONF_LIMESCALE_DURATION_MINUTES,
+    DEFAULT_LIMESCALE_DURATION_MINUTES,
     ROOM_MODE_OFF,
     ROOM_MODE_MANUAL,
 )
@@ -57,6 +68,8 @@ class TRVControllerMixin:
         valve_positions: list[float] = []
         hvac_actions: list[str] = []
 
+        calibrations: dict = room.get(CONF_TRV_CALIBRATIONS) or {}
+
         for eid in entities:
             state = self.hass.states.get(eid)
             if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
@@ -66,7 +79,8 @@ class TRVControllerMixin:
             t = attrs.get("current_temperature")
             if t is not None:
                 try:
-                    temps.append(float(t))
+                    per_trv_cal = float(calibrations.get(eid, 0.0))
+                    temps.append(float(t) + per_trv_cal)
                 except (ValueError, TypeError):
                     pass
 
@@ -431,3 +445,166 @@ class TRVControllerMixin:
                     )
                 )
                 break  # Only trigger once per update cycle per room
+
+    # ------------------------------------------------------------------
+    # Stuck-Valve-Erkennung
+    # ------------------------------------------------------------------
+
+    def _detect_stuck_valves(self, room: dict, room_id: str, demand: float) -> list[str]:
+        """Detect TRV valves that appear stuck (calcified / mechanically jammed).
+
+        A valve is considered stuck when:
+          1. IHC is requesting heat for this room (demand > 0).
+          2. IHC sent a setpoint to this TRV more than GRACE_PERIOD ago.
+          3. The valve position is below STUCK_THRESHOLD (5%) despite the above.
+          4. This condition has persisted for at least STUCK_TIMEOUT seconds.
+
+        Returns a list of entity_ids that are currently stuck.
+        """
+        entities: list[str] = list(room.get(CONF_VALVE_ENTITIES) or [])
+        single = room.get(CONF_VALVE_ENTITY, "")
+        if single and single not in entities:
+            entities.insert(0, single)
+        if not entities:
+            return []
+
+        cfg = self.get_config()
+        stuck_timeout = int(cfg.get(CONF_STUCK_VALVE_TIMEOUT, DEFAULT_STUCK_VALVE_TIMEOUT))
+        stuck_entities: list[str] = []
+        now = time.monotonic()
+
+        for eid in entities:
+            state = self.hass.states.get(eid)
+            if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                # Unavailable → clear any stuck tracking
+                self._trv_stuck_since.pop(eid, None)
+                continue
+            attrs = state.attributes
+            vp = attrs.get("valve_position") or attrs.get("position") or attrs.get("pi_heating_demand")
+            if vp is None:
+                # TRV does not report valve position → cannot detect stuck
+                self._trv_stuck_since.pop(eid, None)
+                continue
+            try:
+                valve_pos = float(vp)
+            except (ValueError, TypeError):
+                self._trv_stuck_since.pop(eid, None)
+                continue
+
+            # Only suspect stuck if:
+            # – room has active demand (IHC wants heat)
+            # – IHC had sent a command to this TRV (it knows the setpoint)
+            # – command was not just sent (grace period elapsed)
+            # – valve is essentially closed
+            last_sent = self._last_sent_temps.get(eid)
+            sent_at = self._trv_command_sent_at.get(eid)
+            grace_elapsed = (sent_at is None) or ((now - sent_at) > self._trv_command_grace)
+
+            if demand > 0 and last_sent is not None and grace_elapsed and valve_pos < 5.0:
+                # Stuck condition active – track since when
+                if eid not in self._trv_stuck_since:
+                    self._trv_stuck_since[eid] = now
+                elif (now - self._trv_stuck_since[eid]) >= stuck_timeout:
+                    stuck_entities.append(eid)
+            else:
+                # Condition cleared – reset tracker
+                self._trv_stuck_since.pop(eid, None)
+
+        return stuck_entities
+
+    # ------------------------------------------------------------------
+    # Kalkschutz (Limescale Protection)
+    # ------------------------------------------------------------------
+
+    def _run_limescale_protection(self, room_data: dict) -> None:
+        """Periodically exercise all TRV valves to prevent limescale calcification.
+
+        When enabled, sends the maximum temperature (fully opens valve) to each
+        TRV once per interval (default: every 14 days). After the exercise
+        duration (default: 5 min), normal operation resumes automatically.
+
+        Exercise only starts when:
+        – Feature is enabled globally.
+        – Current time is within the configured exercise window (±15 min).
+        – No room is currently demanding heat (to avoid interrupting heating).
+        – The TRV entity is reachable.
+        """
+        from datetime import date, datetime as dt
+
+        cfg = self.get_config()
+        if not cfg.get(CONF_LIMESCALE_PROTECTION_ENABLED, DEFAULT_LIMESCALE_PROTECTION_ENABLED):
+            return
+
+        interval_days = int(cfg.get(CONF_LIMESCALE_INTERVAL_DAYS, DEFAULT_LIMESCALE_INTERVAL_DAYS))
+        exercise_time_str = cfg.get(CONF_LIMESCALE_TIME, DEFAULT_LIMESCALE_TIME)
+        exercise_duration_s = int(cfg.get(CONF_LIMESCALE_DURATION_MINUTES, DEFAULT_LIMESCALE_DURATION_MINUTES)) * 60
+
+        now_dt = dt.now()
+        today = now_dt.date()
+        now_mono = time.monotonic()
+
+        # Parse exercise time window
+        try:
+            hour, minute = (int(x) for x in exercise_time_str.split(":"))
+        except (ValueError, AttributeError):
+            hour, minute = 10, 0
+
+        window_start = now_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        window_end = now_dt.replace(hour=hour, minute=minute + 15 if minute <= 44 else 59, second=59, microsecond=0)
+        in_window = window_start <= now_dt <= window_end
+
+        # Any room demanding heat right now? Skip to avoid cold rooms.
+        any_demand = any(
+            rdata.get("demand", 0) > 0
+            for rdata in room_data.values()
+        )
+
+        for room in self.get_rooms():
+            entities: list[str] = list(room.get(CONF_VALVE_ENTITIES) or [])
+            single = room.get(CONF_VALVE_ENTITY, "")
+            if single and single not in entities:
+                entities.insert(0, single)
+            for eid in entities:
+                if not eid:
+                    continue
+                state = self.hass.states.get(eid)
+                if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                    continue
+
+                # Check if exercise is in progress for this entity
+                started_at = self._limescale_in_progress.get(eid)
+                if started_at is not None:
+                    if (now_mono - started_at) >= exercise_duration_s:
+                        # Exercise done – remove from in-progress (normal control resumes)
+                        del self._limescale_in_progress[eid]
+                        self._last_sent_temps.pop(eid, None)  # force fresh setpoint next cycle
+                        _LOGGER.info("IHC: Kalkschutz abgeschlossen für %s", eid)
+                    # Still in progress – keep max_temp (set again to be safe)
+                    else:
+                        max_temp = float(state.attributes.get("max_temp", 30.0))
+                        self.hass.async_create_task(
+                            self.hass.services.async_call(
+                                "climate", "set_temperature",
+                                {"entity_id": eid, "temperature": max_temp},
+                            )
+                        )
+                    continue
+
+                # Not in progress – check if due
+                last_exercise = self._limescale_last_exercise.get(eid)
+                days_since = (today - last_exercise).days if last_exercise else interval_days + 1
+
+                if days_since >= interval_days and in_window and not any_demand:
+                    max_temp = float(state.attributes.get("max_temp", 30.0))
+                    _LOGGER.info(
+                        "IHC: Kalkschutz gestartet für %s (letzter: %s, max=%.1f°C)",
+                        eid, last_exercise, max_temp,
+                    )
+                    self._limescale_in_progress[eid] = now_mono
+                    self._limescale_last_exercise[eid] = today
+                    self.hass.async_create_task(
+                        self.hass.services.async_call(
+                            "climate", "set_temperature",
+                            {"entity_id": eid, "temperature": max_temp},
+                        )
+                    )

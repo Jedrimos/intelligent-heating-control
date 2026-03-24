@@ -51,6 +51,11 @@ from .const import (
     DEFAULT_BOILER_KW, DEFAULT_SOLAR_SURPLUS_THRESHOLD, DEFAULT_SOLAR_BOOST_TEMP,
     DEFAULT_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_ECO_OFFSET,
     CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS,
+    CONF_STUCK_VALVE_TIMEOUT, DEFAULT_STUCK_VALVE_TIMEOUT,
+    CONF_LIMESCALE_PROTECTION_ENABLED, DEFAULT_LIMESCALE_PROTECTION_ENABLED,
+    CONF_LIMESCALE_INTERVAL_DAYS, DEFAULT_LIMESCALE_INTERVAL_DAYS,
+    CONF_LIMESCALE_TIME, DEFAULT_LIMESCALE_TIME,
+    CONF_LIMESCALE_DURATION_MINUTES, DEFAULT_LIMESCALE_DURATION_MINUTES,
 )
 from .coordinator import IHCCoordinator
 
@@ -214,6 +219,13 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "static_energy_price":         cfg.get("static_energy_price"),
             # Startup grace for Zigbee/Z-Wave sensors
             "startup_grace_seconds":       cfg.get(CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS),
+            # Stuck-valve detection
+            "stuck_valve_timeout":         cfg.get(CONF_STUCK_VALVE_TIMEOUT, DEFAULT_STUCK_VALVE_TIMEOUT),
+            # Kalkschutz (limescale protection)
+            "limescale_protection_enabled": cfg.get(CONF_LIMESCALE_PROTECTION_ENABLED, DEFAULT_LIMESCALE_PROTECTION_ENABLED),
+            "limescale_interval_days":     cfg.get(CONF_LIMESCALE_INTERVAL_DAYS, DEFAULT_LIMESCALE_INTERVAL_DAYS),
+            "limescale_time":              cfg.get(CONF_LIMESCALE_TIME, DEFAULT_LIMESCALE_TIME),
+            "limescale_duration_minutes":  cfg.get(CONF_LIMESCALE_DURATION_MINUTES, DEFAULT_LIMESCALE_DURATION_MINUTES),
         }
 
 

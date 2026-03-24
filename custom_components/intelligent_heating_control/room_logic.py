@@ -314,6 +314,12 @@ class RoomLogicMixin:
         else:
             preheat_minutes = static_preheat
 
+        # v1.4 – ETA-based preheat: if someone arrives home soon, start heating early enough.
+        # Use the ETA as an additional preheat trigger even if static/adaptive preheat is 0.
+        eta_minutes = getattr(self, "_current_eta_minutes", None)
+        if eta_minutes and eta_minutes > 0:
+            preheat_minutes = max(preheat_minutes, int(eta_minutes))
+
         # --- 3a. HA schedule entities (external schedule.* entities with optional condition) ---
         # Each entry uses an existing room preset (comfort/eco/sleep/away) – no separate temp needed.
         # First matching active schedule wins. If schedules are configured but none fires → Eco.

@@ -46,6 +46,7 @@ async def async_setup_entry(
             continue
         has_humidity = bool(room.get("humidity_sensor"))
         has_co2      = bool(room.get("co2_sensor"))
+        has_valves   = bool(room.get("valve_entities") or room.get("valve_entity"))
         # Ventilation advice binary sensor: only useful when actual sensor data exists
         if has_humidity or has_co2:
             entities.append(
@@ -55,6 +56,11 @@ async def async_setup_entry(
         if has_co2:
             entities.append(
                 IHCCO2WarningSensor(coordinator, entry, room_id, room_name)
+            )
+        # Stuck-valve warning: only when TRV valve entities are configured
+        if has_valves:
+            entities.append(
+                IHCStuckValveSensor(coordinator, entry, room_id, room_name)
             )
     async_add_entities(entities, True)
 
@@ -170,3 +176,50 @@ class IHCCO2WarningSensor(CoordinatorEntity, BinarySensorEntity):
         if self.is_on:
             return "mdi:molecule-co2"
         return "mdi:leaf"
+
+
+class IHCStuckValveSensor(CoordinatorEntity, BinarySensorEntity):
+    """Binary sensor: True when at least one TRV valve appears stuck (calcified/jammed)."""
+
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_has_entity_name = False
+
+    def __init__(
+        self,
+        coordinator: IHCCoordinator,
+        entry: ConfigEntry,
+        room_id: str,
+        room_name: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._room_name = room_name
+        self._entry_id = entry.entry_id
+        self._attr_name = f"IHC {room_name} Ventil-Fehler"
+        self._attr_unique_id = f"{entry.entry_id}_{room_id}_stuck_valve"
+
+    @property
+    def device_info(self):
+        return _room_device_info(self._entry_id, self._room_id, self._room_name)
+
+    @property
+    def is_on(self) -> bool | None:
+        data = self.coordinator.data or {}
+        room = data.get("rooms", {}).get(self._room_id, {})
+        stuck = room.get("trv_stuck_valves", [])
+        return bool(stuck)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        data = self.coordinator.data or {}
+        room = data.get("rooms", {}).get(self._room_id, {})
+        return {
+            "stuck_valve_entities": room.get("trv_stuck_valves", []),
+            "room_id": self._room_id,
+        }
+
+    @property
+    def icon(self) -> str:
+        if self.is_on:
+            return "mdi:valve-closed"
+        return "mdi:valve"

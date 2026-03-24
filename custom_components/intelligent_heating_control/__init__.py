@@ -92,6 +92,7 @@ from .const import (
     CONF_TRV_TEMP_OFFSET,
     CONF_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
+    CONF_TRV_CALIBRATIONS,
     CONF_MOLD_HUMIDITY_THRESHOLD,
     DEFAULT_WINDOW_REACTION_TIME,
     DEFAULT_WINDOW_CLOSE_DELAY,
@@ -300,6 +301,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_TRV_TEMP_OFFSET: float(call.data.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET)),
             CONF_TRV_VALVE_DEMAND: bool(call.data.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND)),
             CONF_TRV_MIN_SEND_INTERVAL: int(call.data.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL)),
+            CONF_TRV_CALIBRATIONS: call.data.get(CONF_TRV_CALIBRATIONS) or {},
         }
         await coordinator.async_add_room(room_config)
 
@@ -412,6 +414,13 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "ventilation_advice_enabled",
             # Static energy price (fallback when no price sensor)
             "static_energy_price",
+            # Stuck-valve detection
+            "stuck_valve_timeout",
+            # Kalkschutz (limescale protection)
+            "limescale_protection_enabled", "limescale_interval_days",
+            "limescale_time", "limescale_duration_minutes",
+            # Startup grace period
+            "startup_grace_seconds",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:
