@@ -1131,7 +1131,59 @@ Pro Heizkreis: Energie-Anteil = (Spreizung × Durchfluss × Laufzeit) / Gesamt.
 - Bugfixes (Gesamt 14 behoben)
 
 ### Geplant
-- **3.0:** Wärmeerzeuger-Modus (Heizkreise, Puffer, WP, TWW, KNX) → siehe Kapitel 15
-- **2.1:** Passive Solar Heating via Rollosteuerung → siehe Kapitel 13
+
+#### Kurzfristig (1.x)
 - **1.4:** ETA-basierte Vorheizung (Backend bereits implementiert, UI ausstehend)
 - **1.5:** PID Vorlauftemperaturregelung, Smart-Meter, Tibber-Forecast
+
+#### Mittelfristig (2.x)
+- **2.1:** Passive Solar Heating via Rollosteuerung → siehe Kapitel 13
+
+#### Intelligente Heizoptimierung (Neue Ideen – noch nicht versioniert)
+
+**Optimum Start (Optimale Startzeit)**
+- IHC lernt die Aufheizrate pro Zimmer (°C/min) in Abhängigkeit der Außentemperatur
+- Berechnet dynamisch den spätestmöglichen Startzeitpunkt um den Sollwert pünktlich zu erreichen
+- Ersetzt das fixe `CONF_PREHEAT_MINUTES` durch ein lernbasiertes Modell
+- Speichert: `heating_rate_per_room` als Rolling-Average aus gemessenen Aufheizzyklen
+
+**Geo-Fencing / ETA-basierte Ankunfts-Heizung**
+- HA `device_tracker` kennt den Standort → "Person ist 15 Minuten entfernt"
+- Heizung startet automatisch getimed auf Ankunft (kein manuelles "ich komme gleich")
+- Neue Konfiguration: `CONF_ARRIVAL_PREHEAT_ENTITY` (device_tracker.*) + `CONF_ARRIVAL_PREHEAT_MINUTES`
+
+**Thermische Masse pro Zimmer lernen**
+- IHC beobachtet die Abkühlrate bei abgeschalteter Heizung und geschlossenem Fenster
+- Speichert `cooling_rate` (°C/Stunde pro °C Differenz innen/außen) pro Zimmer
+- Nutzung: Berechnung der optimalen Startzeit + Vorhersage wann nächste Heizanforderung kommt
+- Betonzimmer kühlen langsamer → brauchen weniger Vorheizung; Dachzimmer schneller → mehr
+
+**Peak Shaving – gestaffelter Heizungsstart**
+- Wenn alle Zimmer gleichzeitig anfordern → Kessel auf 100%, ineffizient
+- Zimmer nach Priorität/Aufheizrate um 1–3 Minuten versetzt starten
+- Konfiguration: `CONF_PEAK_SHAVING_ENABLED` (bool) + Priorität implizit aus `CONF_WEIGHT`
+
+**CO₂-prädiktive Lüftungsplanung**
+- CO₂-Anstiegsrate messen → Zeitpunkt vorhersagen wann Lüftung nötig sein wird
+- Kurz vor prognostizierter Lüftung: Raum leicht vorheizen (+1°C Offset, z.B. 5 min vorher)
+- Nach dem Lüften keine Kälteschock-Reaktionsheizung notwendig → komfortabler + effizienter
+- Neues Attribut: `co2_ventilation_eta_minutes` in room_data
+
+**Schlaf-Temperatur-Profil (Kurve statt fixer Schlaftemperatur)**
+- Statt einem fixen `CONF_SLEEP_OFFSET`: Temperaturkurve über die Nacht
+- Optimum: ~18–20°C beim Einschlafen → 16–17°C um 2–4 Uhr → 18°C ab 5–6 Uhr
+- Umsetzung: `CONF_SLEEP_TEMP_PROFILE` = Liste von `{time, temp}` Punkten pro Zimmer
+
+**Gefühlte Temperatur / Komfortindex (ASHRAE 55)**
+- Luftfeuchte beeinflusst Kältegefühl: 17°C bei 80% fühlt sich kälter an als bei 40%
+- Berechnung: Operative Temperatur aus Raumtemp + Luftfeuchte → PMV (Predicted Mean Vote)
+- Wenn Komfortindex zu niedrig → Sollwert automatisch leicht anheben
+- Nutzt bereits vorhandenen `CONF_HUMIDITY_SENSOR`
+
+**Feiertags- / Schulferienkalender**
+- HA-Kalender-Entität mit Feiertagen/Ferien → wenn aktiv: Wochenend-Zeitplan statt Werktagsplan
+- Konfiguration: `CONF_HOLIDAY_CALENDAR` (calendar.*) + `CONF_HOLIDAY_SCHEDULE_MODE` ("weekend" | "comfort")
+- Kein manuelles Umschalten mehr an Feiertagen notwendig
+
+#### Langfristig (3.x)
+- **3.0:** Wärmeerzeuger-Modus (Heizkreise, Puffer, WP, TWW, KNX) → siehe Kapitel 15
