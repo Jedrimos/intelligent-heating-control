@@ -758,9 +758,9 @@ class IHCPanel extends HTMLElement {
         <span class="topbar-version">v1.4</span>
       `;
       shadow.appendChild(topbar);
-      // Fire the HA sidebar-toggle event (composed: true crosses shadow DOM)
+      // Fire the HA sidebar-toggle event on window (crosses shadow DOM reliably)
       topbar.querySelector("#ihc-menu-btn").addEventListener("click", () => {
-        this.dispatchEvent(new CustomEvent("hass-open-menu", { bubbles: true, composed: true }));
+        window.dispatchEvent(new CustomEvent("hass-toggle-menu"));
       });
     }
 
