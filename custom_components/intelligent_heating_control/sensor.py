@@ -84,7 +84,7 @@ async def async_setup_entry(
         entities.append(IHCRoomRuntimeSensor(coordinator, entry, room))
         if room.get("humidity_sensor"):
             entities.append(IHCRoomHumiditySensor(coordinator, entry, room))
-            entities.append(IHCRoomFeltTempSensor(coordinator, entry, room))
+        entities.append(IHCRoomFeltTempSensor(coordinator, entry, room))
     async_add_entities(entities, update_before_add=True)
 
 

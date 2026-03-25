@@ -159,6 +159,10 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
 
     @property
     def target_temperature(self) -> Optional[float]:
+        # During boost: report max_temp so the climate tile matches what we send to the TRV
+        if self.coordinator.get_boost_remaining_minutes(self._room_id) > 0:
+            room_cfg = self.coordinator.get_room_config(self._room_id) or {}
+            return float(room_cfg.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
         d = self._room_data
         return d.get("target_temp") if d else None
 
@@ -208,8 +212,10 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
 
     @property
     def preset_mode(self) -> Optional[str]:
-        d = self._room_data or {}
-        if d.get("boost_remaining", 0) > 0:
+        # Read boost state directly from coordinator (not from room_data) so the
+        # preset updates immediately on set_room_boost() without waiting for the
+        # next coordinator refresh cycle.
+        if self.coordinator.get_boost_remaining_minutes(self._room_id) > 0:
             return "Boost"
         mode = self.coordinator.get_room_mode(self._room_id)
         return MODE_TO_PRESET.get(mode, "Auto")
@@ -320,5 +326,9 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             duration = int(room_cfg.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION))
             self.coordinator.set_room_boost(self._room_id, duration)
         else:
+            # Cancel boost timer before switching to another preset so the countdown
+            # stops immediately and the TRV returns to normal setpoint on the next cycle.
+            if self.coordinator.get_boost_remaining_minutes(self._room_id) > 0:
+                self.coordinator.cancel_room_boost(self._room_id)
             mode = PRESET_TO_MODE.get(preset_mode, ROOM_MODE_AUTO)
             self.coordinator.set_room_mode(self._room_id, mode)

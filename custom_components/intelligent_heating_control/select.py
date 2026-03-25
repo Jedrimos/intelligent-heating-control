@@ -105,10 +105,11 @@ class IHCRoomModeSelect(CoordinatorEntity, SelectEntity):
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "Intelligent Heating Control",
+            "identifiers": {(DOMAIN, f"{self._entry.entry_id}_{self._room_id}")},
+            "name": f"IHC {self._room_name}",
             "manufacturer": "IHC",
-            "model": "v1.0",
+            "model": "Zimmer",
+            "via_device": (DOMAIN, self._entry.entry_id),
         }
 
     @property
