@@ -1,7 +1,7 @@
 {
   "domain": "intelligent_heating_control",
   "name": "Intelligent Heating Control",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "documentation": "https://github.com/Jedrimos/intelligent-heatingcontroll/tree/main/docs",
   "issue_tracker": "https://github.com/Jedrimos/intelligent-heatingcontroll/issues",
   "requirements": [],
