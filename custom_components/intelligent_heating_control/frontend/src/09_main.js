@@ -124,9 +124,19 @@ class IHCPanel extends HTMLElement {
         <span class="topbar-version">v1.4</span>
       `;
       shadow.appendChild(topbar);
-      // Fire the HA sidebar-toggle event on window (crosses shadow DOM reliably)
+      // Toggle HA sidebar – try several approaches to cover all HA versions
       topbar.querySelector("#ihc-menu-btn").addEventListener("click", () => {
+        // 1. Modern HA 2023+ (home-assistant-main listens on window)
         window.dispatchEvent(new CustomEvent("hass-toggle-menu"));
+        // 2. Legacy event name (pre-2023)
+        window.dispatchEvent(new CustomEvent("hass-open-menu"));
+        // 3. Direct DOM: click HA's own hidden menu button if present
+        try {
+          const haEl = document.querySelector("home-assistant");
+          const main = haEl?.shadowRoot?.querySelector("home-assistant-main");
+          const menuBtn = main?.shadowRoot?.querySelector("ha-menu-button");
+          if (menuBtn) menuBtn.click();
+        } catch (_) { /* ignore */ }
       });
     }
 

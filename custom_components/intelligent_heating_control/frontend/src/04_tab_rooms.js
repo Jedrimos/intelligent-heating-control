@@ -388,19 +388,6 @@
           </div>
         </details>
 
-        <details class="modal-collapsible">
-          <summary class="modal-section-title">📅 HA Zeitplan – Fallback-Modus</summary>
-          <div class="settings-item" style="margin-top:8px">
-            <label>Wenn kein HA-Zeitplan aktiv</label>
-            <select class="form-select" id="rs-sched-off-mode">
-              <option value="eco"   ${(room.ha_schedule_off_mode || 'eco') === 'eco'   ? 'selected' : ''}>Eco-Temperatur</option>
-              <option value="sleep" ${(room.ha_schedule_off_mode || 'eco') === 'sleep' ? 'selected' : ''}>Schlaf-Temperatur</option>
-              <option value="away"  ${(room.ha_schedule_off_mode || 'eco') === 'away'  ? 'selected' : ''}>Abwesend-Temperatur</option>
-            </select>
-            <span class="form-hint">Modus wenn kein HA schedule.* aktiv ist (HA-Zeitpläne im Tab "Zeitplan" konfigurieren)</span>
-          </div>
-        </details>
-
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
         </div>
@@ -507,7 +494,6 @@
         trv_valve_demand:         container.querySelector("#rs-trv-valve-demand")?.checked === true,
         trv_min_send_interval:    parseInt(container.querySelector("#rs-trv-min-send-interval")?.value, 10) || 0,
         trv_calibrations:         (() => { try { const v = container.querySelector("#rs-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
-        ha_schedule_off_mode:     container.querySelector("#rs-sched-off-mode")?.value || "eco",
       });
       this._toast(`✓ ${room.name} gespeichert`);
     });
@@ -524,7 +510,7 @@
         await this._callService("remove_room", { id: room.room_id });
         this._selectedRoom = null;
         this._toast(`✓ Zimmer „${room.name}" gelöscht`);
-        this._renderRooms(container.closest(".tab-content") || container);
+        this._renderRooms(fullContent);
       });
     }
   }
@@ -732,6 +718,56 @@
       // Clear buffer so next open re-reads from saved HA state
       delete this._editingSchedules[selId];
       this._toast(`✓ Zeitpläne für „${room.name}" gespeichert`);
+    });
+
+    // ── HA Schedules (schedule.* entities) ────────────────────────────────
+    const haSchedCard = document.createElement("div");
+    haSchedCard.className = "card";
+    haSchedCard.style.marginTop = "16px";
+    haSchedCard.innerHTML = `
+      <div class="card-title">🏠 HA Zeitpläne (schedule.*)</div>
+      <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 12px">
+        Verbindet <strong>schedule.*</strong>-Helfer mit diesem Zimmer. Wenn aktiv, übernimmt IHC den
+        gewählten Temperaturmodus. Erstellen: HA → Einstellungen → Helfer → Zeitplan.
+      </p>
+      <div class="settings-item" style="margin-bottom:14px">
+        <label style="font-weight:600">Fallback wenn kein HA-Zeitplan aktiv</label>
+        <select class="form-select" id="rs-ha-sched-off-mode" style="margin-top:4px">
+          <option value="eco"   ${(room.ha_schedule_off_mode || 'eco') === 'eco'   ? 'selected' : ''}>🌿 Eco-Temperatur</option>
+          <option value="sleep" ${(room.ha_schedule_off_mode || 'eco') === 'sleep' ? 'selected' : ''}>🌙 Schlaf-Temperatur</option>
+          <option value="away"  ${(room.ha_schedule_off_mode || 'eco') === 'away'  ? 'selected' : ''}>🚶 Abwesend-Temperatur</option>
+        </select>
+        <span class="form-hint">Modus wenn kein schedule.* gerade eingeschaltet ist</span>
+      </div>
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--secondary-text-color)">
+        Verknüpfte Zeitpläne
+      </div>
+      <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:8px;display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:4px;align-items:center">
+        <span>Entität (schedule.*)</span><span>Modus</span><span>Bedingung (optional)</span><span>Zustand</span><span></span>
+      </div>
+      <div id="rs-ha-sched-list"></div>
+      <div class="btn-row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+        <button class="btn btn-secondary" id="rs-add-ha-sched">+ Zeitplan hinzufügen</button>
+        <button class="btn btn-primary"   id="rs-save-ha-sched">💾 HA Zeitpläne speichern</button>
+      </div>`;
+    container.appendChild(haSchedCard);
+
+    // Pre-populate existing HA schedule rows
+    const haSchedList = haSchedCard.querySelector("#rs-ha-sched-list");
+    (room.ha_schedules || []).forEach(entry => haSchedList.appendChild(this._makeHaSchedRow(entry)));
+
+    haSchedCard.querySelector("#rs-add-ha-sched").addEventListener("click", () =>
+      haSchedList.appendChild(this._makeHaSchedRow()));
+
+    haSchedCard.querySelector("#rs-save-ha-sched").addEventListener("click", async () => {
+      const ha_schedules = this._collectHaScheduleRows(haSchedCard);
+      const ha_schedule_off_mode = haSchedCard.querySelector("#rs-ha-sched-off-mode").value;
+      await this._callService("update_room", {
+        id: room.room_id,
+        ha_schedules,
+        ha_schedule_off_mode,
+      });
+      this._toast(`✓ HA Zeitpläne für „${room.name}" gespeichert`);
     });
   }
 
