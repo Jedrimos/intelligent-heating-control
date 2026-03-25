@@ -38,11 +38,6 @@
             ${room.window_open ? " · 🪟 Fenster offen" : ""}
           </div>
         </div>
-        <div class="room-list-actions">
-          <button class="btn btn-secondary" data-action="edit" data-id="${room.entity_id}" title="Einstellungen bearbeiten">✏️</button>
-          <button class="btn btn-danger btn-icon" data-action="delete"
-            data-id="${room.room_id}" data-name="${room.name}" title="Zimmer löschen">🗑</button>
-        </div>
       </div>`;
     }).join("");
 
@@ -62,38 +57,12 @@
     // Clicking the room row opens the detail view
     content.querySelectorAll("[data-action='open']").forEach(row => {
       row.addEventListener("click", e => {
-        // Don't trigger on edit/delete button clicks
-        if (e.target.closest("[data-action='edit']") || e.target.closest("[data-action='delete']")) return;
         this._selectedRoom = row.dataset.id;
         this._selectedRoomTab = this._selectedRoomTab || "schedule";
         this._renderRooms(content);
       });
     });
 
-    content.querySelectorAll("[data-action='edit']").forEach(btn => {
-      btn.addEventListener("click", e => {
-        e.stopPropagation();
-        this._showEditRoomModal(btn.dataset.id);
-      });
-    });
-
-    content.querySelectorAll("[data-action='delete']").forEach(btn => {
-      btn.addEventListener("click", e => {
-        e.stopPropagation();
-        const name = btn.dataset.name;
-        const id   = btn.dataset.id;
-        if (!id) { this._toast("Fehler: Zimmer-ID fehlt"); return; }
-        this._showConfirmModal(
-          `Zimmer „${name}" wirklich löschen?`,
-          "Diese Aktion entfernt alle Entitäten dieses Zimmers.",
-          async () => {
-            await this._callService("remove_room", { id });
-            this._closeModal();
-            this._toast(`✓ Zimmer „${name}" gelöscht`);
-          }
-        );
-      });
-    });
   }
 
   _renderRoomDetail(room, content) {
@@ -435,6 +404,23 @@
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
         </div>
+
+        <details style="margin-top:24px;border:1px solid var(--error-color,#b00020);border-radius:8px;padding:0">
+          <summary style="padding:12px 16px;cursor:pointer;font-weight:600;color:var(--error-color,#b00020);list-style:none;display:flex;align-items:center;gap:8px">
+            🗑 Zimmer löschen
+          </summary>
+          <div style="padding:0 16px 16px">
+            <p style="font-size:13px;color:var(--secondary-text-color);margin:12px 0 8px">
+              Diese Aktion entfernt das Zimmer und alle zugehörigen Entitäten dauerhaft.<br>
+              Gib zur Bestätigung den Zimmernamen ein:
+              <strong>${room.name}</strong>
+            </p>
+            <input type="text" class="form-input" id="rs-delete-confirm-name"
+              placeholder="Zimmernamen eingeben…" autocomplete="off"
+              style="margin-bottom:10px">
+            <button class="btn btn-danger" id="rs-delete-btn" disabled>Zimmer endgültig löschen</button>
+          </div>
+        </details>
       </div>`;
 
     // Bind entity list adders (re-uses the existing helper)
@@ -525,6 +511,22 @@
       });
       this._toast(`✓ ${room.name} gespeichert`);
     });
+
+    // Delete confirmation: enable button only when name matches exactly
+    const deleteNameInput = container.querySelector("#rs-delete-confirm-name");
+    const deleteBtn = container.querySelector("#rs-delete-btn");
+    if (deleteNameInput && deleteBtn) {
+      deleteNameInput.addEventListener("input", () => {
+        deleteBtn.disabled = deleteNameInput.value.trim() !== room.name;
+      });
+      deleteBtn.addEventListener("click", async () => {
+        if (deleteNameInput.value.trim() !== room.name) return;
+        await this._callService("remove_room", { id: room.room_id });
+        this._selectedRoom = null;
+        this._toast(`✓ Zimmer „${room.name}" gelöscht`);
+        this._renderRooms(container.closest(".tab-content") || container);
+      });
+    }
   }
 
   _renderRoomScheduleInline(room, container) {
