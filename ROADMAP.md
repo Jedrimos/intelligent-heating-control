@@ -100,6 +100,54 @@ Hier sind alle geplanten Verbesserungen und Ideen für zukünftige Versionen dok
 
 ---
 
+## Version 1.8 – Intelligente Heizoptimierung
+
+### Optimum Start (Lernbasierte Vorheizung)
+- IHC misst wie lange jeder Raum zum Aufheizen braucht (°C/min je nach Außentemperatur)
+- Berechnet automatisch den **spätmöglichsten** Startzeitpunkt damit der Raum pünktlich zum Zeitplan warm ist
+- Ersetzt das fixe `CONF_PREHEAT_MINUTES` durch ein lernendes Modell
+- Beispiel: Wohnzimmer braucht bei -5°C außen 45 Minuten → Heizung startet 45 min vor Zeitplan-Beginn automatisch
+
+### Thermische Masse pro Zimmer lernen
+- IHC beobachtet die **Abkühlrate** wenn Heizung aus und Fenster zu
+- Speichert `cooling_rate` (°C/Stunde je °C Differenz innen/außen) pro Zimmer
+- Betonzimmer kühlen langsam → brauchen weniger Vorheizung; Dachzimmer schnell → mehr
+- Nutzung: Vorhersage wann nächste Heizanforderung kommt + optimale Startzeit
+
+### Peak Shaving – Gestaffelter Heizungsstart
+- Wenn alle Zimmer gleichzeitig anfordern → Kessel auf 100% → ineffizient + Stromspitze
+- Zimmer werden nach Priorität/Aufheizrate um 1–3 Minuten versetzt gestartet
+- Konfiguration: `CONF_PEAK_SHAVING_ENABLED` (bool) + Priorität aus `CONF_WEIGHT`
+
+### Geo-Fencing / ETA-basierte Ankunftsheizung
+- HA `device_tracker` kennt GPS-Standort → „Person ist 15 Minuten entfernt"
+- Heizung startet automatisch getimed auf Ankunft – kein manuelles „Ich komme gleich"
+- Neue Felder: `CONF_ARRIVAL_PREHEAT_ENTITY` (device_tracker.*) + `CONF_ARRIVAL_PREHEAT_MINUTES`
+
+### CO₂-prädiktive Lüftungsplanung
+- CO₂-Anstiegsrate messen → Zeitpunkt vorhersagen wann Lüftung nötig sein wird
+- Kurz vor prognostizierter Lüftung: Raum leicht vorheizen (+1°C, ca. 5 min vorher)
+- Nach dem Lüften keine Kälteschock-Reaktionsheizung nötig → komfortabler + effizienter
+- Neues Attribut: `co2_ventilation_eta_minutes` in room_data
+
+### Schlaf-Temperaturprofil (Kurve statt fixer Schlaftemperatur)
+- Statt einem fixen `CONF_SLEEP_OFFSET`: Temperaturkurve über die Nacht
+- Optimum laut Schlafforschung: ~20°C beim Einschlafen → 16–17°C um 3 Uhr → 19°C ab 6 Uhr
+- Umsetzung: `CONF_SLEEP_TEMP_PROFILE` = Liste von `{time, temp}` Punkten pro Zimmer
+
+### Gefühlte Temperatur / Komfortindex (ASHRAE 55)
+- Luftfeuchte beeinflusst Wärmeempfinden: 17°C bei 80% fühlt sich kälter an als bei 40%
+- Berechnung: PMV (Predicted Mean Vote) aus Raumtemperatur + Luftfeuchtigkeit
+- Bei zu niedrigem Komfortindex → Sollwert automatisch leicht anheben
+- Nutzt bereits vorhandenen `CONF_HUMIDITY_SENSOR` ohne Extra-Hardware
+
+### Feiertags- & Schulferienkalender
+- HA-Kalender-Entität mit Feiertagen/Ferien → wenn aktiv: Wochenend-Zeitplan statt Werktagsplan
+- Konfiguration: `CONF_HOLIDAY_CALENDAR` + `CONF_HOLIDAY_SCHEDULE_MODE` ("weekend" | "comfort")
+- Kein manuelles Umschalten mehr an Feiertagen / Brückentagen
+
+---
+
 ## Version 2.0 – KI & Automatisierung
 
 ### KI-basierte Temperaturvorhersage
@@ -178,6 +226,6 @@ Alle Details: siehe Abschnitt 15 in [CLAUDE.md](CLAUDE.md)
 
 ---
 
-*Zuletzt aktualisiert: 2026-03-22*
+*Zuletzt aktualisiert: 2026-03-26*
 
 *Beiträge und Feature-Requests sind herzlich willkommen über [GitHub Issues](https://github.com/Jedrimos/intelligent-heatingcontroll/issues)*
