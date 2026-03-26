@@ -28,6 +28,9 @@ from .const import (
     CONF_SUMMER_THRESHOLD,
     CONF_SHOW_PANEL,
     CONF_PRESENCE_ENTITIES,
+    CONF_HEATING_PERIOD_ENTITY,
+    CONF_PRESENCE_AWAY_DELAY_MINUTES,
+    DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_FROST_PROTECTION_TEMP,
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_NIGHT_SETBACK_ENABLED,
@@ -110,6 +113,10 @@ from .const import (
     CONF_VACATION_CALENDAR_KEYWORD,
     # New features
     CONF_TRV_CALIBRATIONS,
+    CONF_ROOM_TEMP_THRESHOLD,
+    DEFAULT_ROOM_TEMP_THRESHOLD,
+    CONF_COMFORT_TEMP_ENTITY,
+    CONF_ECO_TEMP_ENTITY,
     CONF_STUCK_VALVE_TIMEOUT,
     DEFAULT_STUCK_VALVE_TIMEOUT,
     CONF_LIMESCALE_PROTECTION_ENABLED,
@@ -435,6 +442,20 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "entity": {"domain": ["person", "device_tracker", "input_boolean"], "multiple": True}
             }),
+            # --- Heizperiode-Entität ---
+            vol.Optional(
+                CONF_HEATING_PERIOD_ENTITY,
+                default=cfg.get(CONF_HEATING_PERIOD_ENTITY, "")
+            ): selector.selector({
+                "entity": {"domain": ["input_boolean", "binary_sensor", "switch"]}
+            }),
+            # --- Anwesenheits-Verzögerung ---
+            vol.Optional(
+                CONF_PRESENCE_AWAY_DELAY_MINUTES,
+                default=int(cfg.get(CONF_PRESENCE_AWAY_DELAY_MINUTES, DEFAULT_PRESENCE_AWAY_DELAY_MINUTES))
+            ): selector.selector({
+                "number": {"min": 0, "max": 120, "step": 5, "unit_of_measurement": "min", "mode": "slider"}
+            }),
             # --- Frost protection ---
             vol.Optional(
                 CONF_FROST_PROTECTION_TEMP,
@@ -734,6 +755,9 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_TRV_VALVE_DEMAND: bool(user_input.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND)),
                 CONF_TRV_MIN_SEND_INTERVAL: int(user_input.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL)),
                 CONF_TRV_CALIBRATIONS: user_input.get(CONF_TRV_CALIBRATIONS) or {},
+                CONF_ROOM_TEMP_THRESHOLD: float(user_input.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
+                CONF_COMFORT_TEMP_ENTITY: user_input.get(CONF_COMFORT_TEMP_ENTITY, ""),
+                CONF_ECO_TEMP_ENTITY: user_input.get(CONF_ECO_TEMP_ENTITY, ""),
                 CONF_SCHEDULES: [],
                 CONF_HA_SCHEDULES: [],
             }
@@ -840,6 +864,11 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ROOM_PRESENCE_ENTITIES, default=[]): selector.selector({
                 "entity": {"domain": ["person", "device_tracker", "input_boolean", "binary_sensor"], "multiple": True}
             }),
+            vol.Optional(CONF_ROOM_TEMP_THRESHOLD, default=DEFAULT_ROOM_TEMP_THRESHOLD): selector.selector({
+                "number": {"min": 0, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
+            vol.Optional(CONF_ECO_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
         })
         return self.async_show_form(
             step_id="add_room",
@@ -982,6 +1011,11 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ROOM_PRESENCE_ENTITIES, default=room.get(CONF_ROOM_PRESENCE_ENTITIES, [])): selector.selector({
                 "entity": {"domain": ["person", "device_tracker", "input_boolean", "binary_sensor"], "multiple": True}
             }),
+            vol.Optional(CONF_ROOM_TEMP_THRESHOLD, default=float(room.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD))): selector.selector({
+                "number": {"min": 0, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=room.get(CONF_COMFORT_TEMP_ENTITY, "")): selector.selector({"text": {}}),
+            vol.Optional(CONF_ECO_TEMP_ENTITY, default=room.get(CONF_ECO_TEMP_ENTITY, "")): selector.selector({"text": {}}),
         })
         return self.async_show_form(step_id="edit_room_details", data_schema=schema)
 
