@@ -9,6 +9,8 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_PRESENCE_ENTITIES,
+    CONF_PRESENCE_AWAY_DELAY_MINUTES,
+    DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_ROOM_PRESENCE_ENTITIES,
     SYSTEM_MODE_AUTO,
     SYSTEM_MODE_AWAY,
@@ -53,14 +55,27 @@ class PresenceManagerMixin:
         if not entities:
             return  # feature disabled
 
+        delay_minutes = int(cfg.get(CONF_PRESENCE_AWAY_DELAY_MINUTES, DEFAULT_PRESENCE_AWAY_DELAY_MINUTES))
+
         if not someone_home and self._system_mode == SYSTEM_MODE_AUTO:
+            if delay_minutes > 0:
+                # Start or check pending timer
+                if not hasattr(self, '_presence_away_pending_since') or self._presence_away_pending_since is None:
+                    self._presence_away_pending_since = dt_util.utcnow()
+                    _LOGGER.info("IHC: All persons away – auto-away pending (%d min delay)", delay_minutes)
+                    return
+                elapsed = (dt_util.utcnow() - self._presence_away_pending_since).total_seconds() / 60
+                if elapsed < delay_minutes:
+                    return  # Still waiting
             _LOGGER.info("IHC: All persons away – activating auto-away mode")
+            self._presence_away_pending_since = None
             self._system_mode = SYSTEM_MODE_AWAY
             self._presence_away_active = True
             self.hass.async_create_task(self._async_save_runtime_state())
 
-        elif someone_home and self._presence_away_active:
+        elif someone_home and (self._presence_away_active or getattr(self, '_presence_away_pending_since', None) is not None):
             _LOGGER.info("IHC: Person arrived home – restoring auto mode")
+            self._presence_away_pending_since = None
             self._system_mode = SYSTEM_MODE_AUTO
             self._presence_away_active = False
             self.hass.async_create_task(self._async_save_runtime_state())

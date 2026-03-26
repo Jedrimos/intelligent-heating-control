@@ -341,6 +341,15 @@ _callService("reload",                 {})
 | `CONF_BOOST_DEFAULT_DURATION` | int | 60 | Boost-Standarddauer (min) |
 | `CONF_TEMP_CALIBRATION` | float | 0.0 | Sensor-Kalibrierungsoffset °C |
 | `CONF_ECO_OFFSET` | float | 3.0 | Eco-Abzug °C |
+| `CONF_ROOM_TEMP_THRESHOLD` | float | 0.0 | Heiz-Mindesttemperatur °C (0=aus, Blueprint: `input_mode_room_temperature_threshold`) |
+| `CONF_COMFORT_TEMP_ENTITY` | str | – | `input_number.*` für dynamischen Komfort-Sollwert (Blueprint: `input_temperature_comfort`) |
+| `CONF_ECO_TEMP_ENTITY` | str | – | `input_number.*` für dynamischen Eco-Sollwert (Blueprint: `input_temperature_eco`) |
+
+### Globale CONF_* – Neu (Blueprint-Abgleich)
+| Konstante | Typ | Default | Beschreibung |
+|-----------|-----|---------|--------------|
+| `CONF_HEATING_PERIOD_ENTITY` | str | – | `input_boolean.*` / `binary_sensor.*`: OFF = Heizperiode inaktiv (Blueprint: `input_mode_winter`) |
+| `CONF_PRESENCE_AWAY_DELAY_MINUTES` | int | 0 | Minuten Verzögerung vor Auto-Away (Blueprint: `input_presence_reaction_off_time`) |
 
 ### Systemmodi (`SYSTEM_MODES`)
 `auto` | `heat` | `cool` | `off` | `away` | `vacation` | `guest`
@@ -1131,6 +1140,58 @@ Pro Heizkreis: Energie-Anteil = (Spreizung × Durchfluss × Laufzeit) / Gesamt.
 - Bugfixes (Gesamt 14 behoben)
 
 ### Geplant
+
+#### Blueprint-Abgleich: `panhans/advanced_heating_control` (2026-03-26)
+
+Abgleich mit dem Blueprint `panhans/advanced_heating_control.yaml` ergab folgende Lücken:
+
+| Blueprint-Parameter | IHC-Status | Priorität | Aufwand |
+|---|---|---|---|
+| `input_mode_winter: input_boolean.heizperiode` | ⚠️ Konstante + Backend **teilweise** (const.py, coordinator.py) – config_flow + Frontend fehlt | Hoch | S |
+| `input_presence_reaction_off_time` (30min Delay) | ⚠️ Konstante + Backend **teilweise** – config_flow + Frontend fehlt | Hoch | S |
+| `input_mode_room_temperature_threshold: 16` | ⚠️ Konstante **definiert** – room_logic.py, config_flow, __init__.py, Frontend fehlt | Hoch | M |
+| `input_temperature_comfort: input_number.*` | ⚠️ Konstante **definiert** – room_logic.py-Nutzung, config_flow, __init__.py, Frontend fehlt | Mittel | M |
+| `input_temperature_eco: input_number.*` | ⚠️ Konstante **definiert** – room_logic.py-Nutzung, config_flow, __init__.py, Frontend fehlt | Mittel | M |
+| `input_mode_room_temperature` (sensor vs. TRV Priorität) | ⚠️ Bereits via `CONF_TRV_TEMP_WEIGHT` (0.0–1.0) – Dokumentation verbessern | Niedrig | XS |
+| `input_window_legacy_restore` (Sollwert nach Fenster wiederherstellen) | ❌ Fehlt komplett | Niedrig | S |
+
+**Noch auszuführende Implementierungsschritte (je Feature vollständige Checkliste):**
+
+##### `CONF_HEATING_PERIOD_ENTITY` – Heizperiode-Entity
+- [x] `const.py` – `CONF_HEATING_PERIOD_ENTITY` definiert
+- [x] `coordinator.py` – `_is_heating_period_active()` + Einbindung in Heizlogik
+- [ ] `config_flow.py` – Feld in `async_step_global_settings()` (entity selector: input_boolean, binary_sensor, switch)
+- [ ] `climate.py` – `extra_state_attributes` → `"heating_period_active"` (bereits in coordinator data)
+- [ ] Frontend `05_tab_settings.js` – Feld "Heizperiode-Entität" in Globaleinstellungen anzeigen
+
+##### `CONF_PRESENCE_AWAY_DELAY_MINUTES` – Anwesenheits-Verzögerung
+- [x] `const.py` – `CONF_PRESENCE_AWAY_DELAY_MINUTES`, `DEFAULT_PRESENCE_AWAY_DELAY_MINUTES = 0`
+- [x] `presence_manager.py` – Delay-Timer in `_update_presence_auto_away()` (mit `_presence_away_pending_since`)
+- [x] `coordinator.py` – `_presence_away_pending_since = None` initialisiert + Import
+- [ ] `config_flow.py` – Slider 0–120 min in `async_step_global_settings()` nahe Presence-Sektion
+- [ ] Frontend `05_tab_settings.js` – Slider in Anwesenheits-Abschnitt
+
+##### `CONF_ROOM_TEMP_THRESHOLD` – Temperaturschwelle pro Zimmer
+- [x] `const.py` – `CONF_ROOM_TEMP_THRESHOLD`, `DEFAULT_ROOM_TEMP_THRESHOLD = 0.0`
+- [x] `room_logic.py` – Check in `_calculate_target_temp()` nach Systemmode-Checks (1b), vor Raummode-Checks (2): wenn `current_temp < threshold` → Komfort-Sollwert erzwingen (source: `"temp_threshold_override"`)
+- [ ] `config_flow.py` – Feld in Add/Edit-Room (number: 0–25°C, 0=deaktiviert)
+- [ ] `__init__.py` – `handle_add_room()`: `CONF_ROOM_TEMP_THRESHOLD: float(...)`; `_FLOAT_FIELDS` in `handle_update_room()`
+- [ ] Frontend `08_modals.js` – Feld in Add/Edit-Modal (beide synchron!)
+- [ ] Frontend `04_tab_rooms.js` – Zimmer-Detail: Badge/Status anzeigen wenn aktiv
+
+##### `CONF_COMFORT_TEMP_ENTITY` / `CONF_ECO_TEMP_ENTITY` – Dynamische Sollwert-Entitäten
+- [x] `const.py` – `CONF_COMFORT_TEMP_ENTITY`, `CONF_ECO_TEMP_ENTITY` definiert
+- [x] `room_logic.py` – In `_get_room_preset_temps()`: Entity-Wert überschreibt Heizkurven-Wert wenn konfiguriert
+- [ ] `config_flow.py` – Entity-Selector (input_number) in Add/Edit-Room
+- [ ] `__init__.py` – `handle_add_room()`: beide Felder ergänzen
+- [ ] Frontend `08_modals.js` – Entity-ID Textfeld in Add/Edit-Modal (beide synchron!)
+
+##### `CONF_WINDOW_RESTORE_MODE` – Sollwert-Wiederherstellung nach Fenster schließen
+- [ ] `const.py` – `CONF_WINDOW_RESTORE_MODE: Final = "window_restore_mode"` (Werte: `"previous"` | `"schedule"`)
+- [ ] `window_manager.py` – Letzten Sollwert vor Fensteröffnung pro Raum speichern (`_pre_window_temp`)
+- [ ] `coordinator.py` – Bei Fenster-Schließen: `_pre_window_temp` verwenden statt Kurve neu berechnen
+- [ ] `config_flow.py` – Select in Room-Settings
+- [ ] `__init__.py` + Frontend – Standard Add/Edit-Modal Sync
 
 #### Kurzfristig (1.x)
 - **1.4:** ETA-basierte Vorheizung (Backend bereits implementiert, UI ausstehend)

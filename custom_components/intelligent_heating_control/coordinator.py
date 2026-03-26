@@ -78,6 +78,9 @@ from .const import (
     CONF_SUMMER_MODE_ENABLED,
     CONF_SUMMER_THRESHOLD,
     CONF_PRESENCE_ENTITIES,
+    CONF_HEATING_PERIOD_ENTITY,
+    CONF_PRESENCE_AWAY_DELAY_MINUTES,
+    DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_FROST_PROTECTION_TEMP,
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_NIGHT_SETBACK_ENABLED,
@@ -295,6 +298,7 @@ class IHCCoordinator(
 
         # Presence-based auto-away
         self._presence_away_active: bool = False  # True when auto-away triggered by presence
+        self._presence_away_pending_since = None  # datetime when all persons left (for delay)
 
         # Roadmap 1.2 – Vacation assistant: track auto-vacation mode
         self._vacation_auto_active: bool = False  # True when activated by date range
@@ -624,6 +628,17 @@ class IHCCoordinator(
         if outdoor_temp is None:
             return False
         return outdoor_temp >= threshold
+
+    def _is_heating_period_active(self) -> bool:
+        """Return True if heating is enabled via external entity (Heizperiode)."""
+        cfg = self.get_config()
+        entity_id = cfg.get(CONF_HEATING_PERIOD_ENTITY, "")
+        if not entity_id:
+            return True  # no entity configured → always enabled
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return True  # entity unavailable → assume enabled
+        return state.state.lower() not in ("off", "false", "0", "no")
 
     # ------------------------------------------------------------------
     # Roadmap 1.2 – Vacation assistant
@@ -1138,8 +1153,9 @@ class IHCCoordinator(
         cfg = self.get_config()
         enable_cooling = bool(cfg.get(CONF_ENABLE_COOLING, False))
         controller_mode = cfg.get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
-        # Sommerautomatik: block heating if outdoor temp exceeds threshold
-        should_heat = False if summer_mode else self._controller.should_heat(self._system_mode)
+        # Sommerautomatik / Heizperiode: block heating if outdoor temp exceeds threshold or period inactive
+        heating_period_active = self._is_heating_period_active()
+        should_heat = False if (summer_mode or not heating_period_active) else self._controller.should_heat(self._system_mode)
         should_cool = self._controller.should_cool(self._system_mode) if enable_cooling else False
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
@@ -1173,8 +1189,8 @@ class IHCCoordinator(
                 if window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn TRV off (or frost-protect if off mode not supported by the device)
                     self._turn_off_valve_entities(room)
-                elif summer_mode:
-                    # Sommerautomatik: send frost protection temp to close TRV valves.
+                elif summer_mode or not self._is_heating_period_active():
+                    # Sommerautomatik or heating period disabled: send frost protection temp to close TRV valves.
                     # (The TRV's internal thermostat would otherwise try to heat if room cools at night)
                     frost_temp = self._get_frost_protection_temp()
                     self._set_valve_entities(room, frost_temp)
@@ -1191,7 +1207,7 @@ class IHCCoordinator(
             # TRV mode: if a heating_switch is configured, use it to fire the central boiler
             # when any room demands heat. This supports setups with TRVs + central boiler:
             # the boiler must run to supply hot water, while TRVs distribute it per-room.
-            if cfg.get(CONF_HEATING_SWITCH) and not summer_mode:
+            if cfg.get(CONF_HEATING_SWITCH) and not summer_mode and self._is_heating_period_active():
                 trv_heat_needed = any(
                     rd.get("demand", 0) > 0
                     and not rd.get("window_open", False)
@@ -1300,6 +1316,7 @@ class IHCCoordinator(
             "heating_active": should_heat,
             "cooling_active": should_cool,
             "summer_mode": summer_mode,
+            "heating_period_active": heating_period_active,
             "night_setback_active": night_setback_active,
             "presence_away_active": self._presence_away_active,
             "vacation_auto_active": self._vacation_auto_active,

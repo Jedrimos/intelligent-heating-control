@@ -7,6 +7,8 @@ from collections import deque
 from datetime import datetime
 from typing import Optional
 
+from homeassistant.const import STATE_ON
+
 from .const import (
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
@@ -14,8 +16,13 @@ from .const import (
     CONF_MAX_TEMP,
     CONF_ROOM_OFFSET,
     CONF_DEADBAND,
+    CONF_TEMP_SENSOR,
     CONF_COMFORT_TEMP,
+    CONF_COMFORT_TEMP_ENTITY,
+    CONF_ECO_TEMP_ENTITY,
     CONF_AWAY_TEMP_ROOM,
+    CONF_ROOM_TEMP_THRESHOLD,
+    DEFAULT_ROOM_TEMP_THRESHOLD,
     DEFAULT_AWAY_TEMP_ROOM,
     CONF_AWAY_TEMP,
     CONF_VACATION_TEMP,
@@ -164,9 +171,28 @@ class RoomLogicMixin:
 
         comfort_base = min(max_temp, max(effective_floor, comfort_base))
 
+        # Dynamic comfort/eco temperature via HA entities (Blueprint: input_temperature_comfort/eco)
+        comfort_entity = room.get(CONF_COMFORT_TEMP_ENTITY, "")
+        if comfort_entity:
+            entity_state = self.hass.states.get(comfort_entity)
+            if entity_state and entity_state.state not in ("unknown", "unavailable"):
+                try:
+                    comfort_base = min(max_temp, max(effective_floor, float(entity_state.state)))
+                except (ValueError, TypeError):
+                    pass  # keep curve-based value on parse error
+
         eco_offset  = float(room.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET))
         eco_max     = float(room.get(CONF_ECO_MAX_TEMP, DEFAULT_ECO_MAX_TEMP))
         eco_base    = min(eco_max, min(max_temp, max(effective_floor, comfort_base - eco_offset)))
+
+        eco_entity = room.get(CONF_ECO_TEMP_ENTITY, "")
+        if eco_entity:
+            entity_state = self.hass.states.get(eco_entity)
+            if entity_state and entity_state.state not in ("unknown", "unavailable"):
+                try:
+                    eco_base = min(max_temp, max(effective_floor, float(entity_state.state)))
+                except (ValueError, TypeError):
+                    pass  # keep offset-based value on parse error
 
         sleep_offset = float(room.get(CONF_SLEEP_OFFSET, DEFAULT_SLEEP_OFFSET))
         sleep_max    = float(room.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP))
@@ -243,6 +269,29 @@ class RoomLogicMixin:
                 "source": "room_presence_away", "schedule_active": False,
                 "away_base": effective_away,
             }
+
+        # --- 1c. Room temperature threshold override (Blueprint: input_mode_room_temperature_threshold) ---
+        # If current room temp is below threshold, force comfort heating regardless of room mode.
+        # Does NOT override system-level OFF/VACATION.
+        room_threshold = float(room.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD))
+        if room_threshold > 0.0 and room_mode in (ROOM_MODE_AUTO, ROOM_MODE_ECO, ROOM_MODE_SLEEP, ROOM_MODE_AWAY):
+            temp_sensor = room.get(CONF_TEMP_SENSOR, "")
+            current_temp = None
+            if temp_sensor:
+                s = self.hass.states.get(temp_sensor)
+                if s and s.state not in ("unknown", "unavailable"):
+                    try:
+                        current_temp = float(s.state)
+                    except (ValueError, TypeError):
+                        pass
+            if current_temp is not None and current_temp < room_threshold:
+                target = min(max_temp, max(min_temp, comfort_base + room_offset))
+                return target, {
+                    "source": "temp_threshold_override",
+                    "schedule_active": False,
+                    "threshold": room_threshold,
+                    "current_temp": current_temp,
+                }
 
         # --- 2. Room mode preset overrides ---
         if room_mode == ROOM_MODE_OFF:
@@ -344,7 +393,6 @@ class RoomLogicMixin:
                         continue  # Condition not met – skip this binding
                 # Check whether the HA schedule is currently active
                 sched_state = self.hass.states.get(entity_id)
-                from homeassistant.const import STATE_ON
                 if sched_state and sched_state.state == STATE_ON:
                     sched_mode = ha_sched.get("mode", ROOM_MODE_COMFORT)
                     ha_temp = mode_to_temp.get(sched_mode, mode_to_temp[ROOM_MODE_COMFORT])

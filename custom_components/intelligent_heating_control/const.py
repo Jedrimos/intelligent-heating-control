@@ -367,6 +367,21 @@ DEFAULT_TRV_VALVE_DEMAND: Final = False
 CONF_TRV_MIN_SEND_INTERVAL: Final = "trv_min_send_interval"  # Sekunden
 DEFAULT_TRV_MIN_SEND_INTERVAL: Final = 0  # 0 = nur Temperatur-Hysterese aktiv (compat)
 
+# Blueprint-Kompatibilität: Heizperiode-Steuerung via externe HA-Entität
+CONF_HEATING_PERIOD_ENTITY: Final = "heating_period_entity"  # input_boolean.* → OFF = kein Heizen
+
+# Anwesenheits-Verzögerung: Minuten bis Auto-Away nach Abwesenheit aller Personen
+CONF_PRESENCE_AWAY_DELAY_MINUTES: Final = "presence_away_delay_minutes"
+DEFAULT_PRESENCE_AWAY_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompatibel)
+
+# Pro-Zimmer Temperaturschwelle: Heizt immer wenn Raumtemperatur darunter liegt (Blueprint: input_mode_room_temperature_threshold)
+CONF_ROOM_TEMP_THRESHOLD: Final = "room_temp_threshold"  # °C, 0.0 = deaktiviert
+DEFAULT_ROOM_TEMP_THRESHOLD: Final = 0.0
+
+# Pro-Zimmer dynamische Temperaturen via HA-Entitäten (Blueprint: input_temperature_comfort/eco)
+CONF_COMFORT_TEMP_ENTITY: Final = "comfort_temp_entity"  # input_number.* für dynamischen Komfort-Sollwert
+CONF_ECO_TEMP_ENTITY: Final = "eco_temp_entity"          # input_number.* für dynamischen Eco-Sollwert
+
 # Per-TRV Kalibrierung (pro Entität, ergänzt den Zimmer-weiten trv_temp_offset)
 # Dict: {"climate.trv_schrank": -2.0, "climate.trv_fenster": 0.5}
 CONF_TRV_CALIBRATIONS: Final = "trv_calibrations"
