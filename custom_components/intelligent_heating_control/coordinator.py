@@ -450,6 +450,13 @@ class IHCCoordinator(
             if mode == ROOM_MODE_MANUAL and room_id not in self._room_manual_since:
                 self._room_manual_since[room_id] = dt_util.utcnow()
         self._presence_away_active = data.get("presence_away_active", False)
+        pending_str = data.get("presence_away_pending_since")
+        if pending_str:
+            try:
+                from datetime import datetime
+                self._presence_away_pending_since = datetime.fromisoformat(pending_str)
+            except (ValueError, TypeError):
+                self._presence_away_pending_since = None
         self._vacation_auto_active = data.get("vacation_auto_active", False)
         self._heating_runtime_today = data.get("heating_runtime_today", 0.0)
         self._heating_runtime_yesterday = data.get("heating_runtime_yesterday", 0.0)
@@ -493,6 +500,7 @@ class IHCCoordinator(
             "room_modes": self._room_modes,
             "room_manual_temps": self._room_manual_temps,
             "presence_away_active": self._presence_away_active,
+            "presence_away_pending_since": self._presence_away_pending_since.isoformat() if self._presence_away_pending_since else None,
             "vacation_auto_active": self._vacation_auto_active,
             "heating_runtime_today": self._heating_runtime_today,
             "heating_runtime_yesterday": self._heating_runtime_yesterday,

@@ -237,6 +237,11 @@
             <span class="form-hint">Soll-Temperatur fällt nie unter diesen Wert (auch bei Eco/Away/Schlaf)</span>
           </div>
           <div class="settings-item">
+            <label>Mindesttemperatur-Schwelle (°C)</label>
+            <input type="number" class="form-input" id="m-room-temp-threshold" value="0" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+            <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
+          </div>
+          <div class="settings-item">
             <label>Zimmergröße (m²)</label>
             <input type="number" class="form-input" id="m-room-qm" value="0" step="1" min="0" max="200">
             <span class="form-hint">0 = nicht gesetzt · wird für Vorheizzeit, Gewichtung &amp; Energieberechnung genutzt</span>
@@ -312,6 +317,7 @@
         deadband:               parseFloat(modal.querySelector("#m-deadband")?.value) || 0.5,
         weight:                 parseFloat(modal.querySelector("#m-weight")?.value) || 1.0,
         absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15.0,
+        room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
@@ -487,7 +493,7 @@
         </div>
       </details>
 
-      <details class="modal-collapsible" ${(room.room_qm > 0 || room.absolute_min_temp !== 15) ? "open" : ""}>
+      <details class="modal-collapsible" ${(room.room_qm > 0 || room.absolute_min_temp !== 15 || room.room_temp_threshold > 0) ? "open" : ""}>
         <summary>🌡️ Temperaturgrenzen &amp; Zeiten</summary>
         <div class="modal-collapsible-body">
           <div class="settings-grid">
@@ -496,6 +502,12 @@
               <input type="number" class="form-input" id="m-absolute-min-temp"
                 value="${room.absolute_min_temp ?? 15}" step="0.5" min="5" max="25">
               <span class="form-hint">Setpoint fällt nie unter diesen Wert (auch bei Eco/Away/Schlaf)</span>
+            </div>
+            <div class="settings-item">
+              <label>Mindesttemperatur-Schwelle (°C)</label>
+              <input type="number" class="form-input" id="m-room-temp-threshold"
+                value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+              <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
             </div>
             <div class="settings-item">
               <label>Zimmergröße (m²)</label>
@@ -743,6 +755,7 @@
         deadband:       parseFloat(modal.querySelector("#m-deadband").value),
         weight:         parseFloat(modal.querySelector("#m-weight").value),
         absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15,
+        room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
