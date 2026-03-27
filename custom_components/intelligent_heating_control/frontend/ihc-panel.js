@@ -1858,6 +1858,8 @@ class IHCPanel extends HTMLElement {
         ${room.room_mode === "manual" && room.next_period ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#9c27b0 15%,transparent);color:var(--primary-text-color)" title="Automatischer Reset beim nächsten Zeitplan-Eintrag">↩ Reset ${room.next_period.start} Uhr</span>` : ""}
         ${(room.room_temp_threshold > 0) ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 15%,transparent);color:var(--primary-text-color)" title="Mindesttemperatur-Schwelle aktiv: heizt immer wenn Raumtemp darunter fällt">🌡 Min ${room.room_temp_threshold}°C</span>` : ""}
         ${room.source === "temp_threshold_override" ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 25%,transparent);color:var(--primary-text-color)" title="Heizung aktiv wegen Mindesttemperatur-Schwelle">🌡 Schwelle aktiv</span>` : ""}
+        ${room.presence_sensor ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${room.pir_presence === false ? "color-mix(in srgb,#ef5350 15%,transparent)" : room.pir_presence === true ? "color-mix(in srgb,#66bb6a 15%,transparent)" : "color-mix(in srgb,#78909c 15%,transparent)"};color:var(--primary-text-color)" title="PIR: ${room.presence_sensor}">${room.pir_presence === false ? "🚶 Niemand da" : room.pir_presence === true ? "🏃 Bewegung" : "👁 PIR konfiguriert"}</span>` : ""}
+        ${room.source === "pir_absence" ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 25%,transparent);color:var(--primary-text-color)" title="Abwesend-Temperatur wegen PIR-Abwesenheit aktiv">🚶 PIR abwesend</span>` : ""}
       </div>
       <div class="tabs" style="margin-bottom:16px">
         <div class="tab ${tab === "schedule" ? "active" : ""}" data-subtab="schedule">📅 Zeitplan</div>
@@ -3451,6 +3453,14 @@ class IHCPanel extends HTMLElement {
               </div>
               <span class="form-hint">Wie lange alle Personen abwesend sein müssen bevor IHC auf Abwesend-Modus schaltet. 0 = sofort.</span>
             </div>
+            <div class="settings-item">
+              <label>Ankunfts-Verzögerung (min)</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" id="s-presence-arrive-delay" min="0" max="30" step="1" value="${a.presence_arrive_delay_minutes ?? 0}" style="flex:1">
+                <span id="s-presence-arrive-delay-val" style="min-width:42px;text-align:right">${a.presence_arrive_delay_minutes ?? 0} min</span>
+              </div>
+              <span class="form-hint">Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-presence-settings">💾 Anwesenheit speichern</button>
@@ -4043,11 +4053,16 @@ class IHCPanel extends HTMLElement {
       content.querySelector("#s-presence-away-delay-val").textContent = e.target.value + " min";
     });
 
+    content.querySelector("#s-presence-arrive-delay")?.addEventListener("input", e => {
+      content.querySelector("#s-presence-arrive-delay-val").textContent = e.target.value + " min";
+    });
+
     content.querySelector("#save-presence-settings").addEventListener("click", () => {
       const checked = [...content.querySelectorAll(".presence-cb:checked")].map(cb => cb.value);
       this._callService("update_global_settings", {
         presence_entities: checked,
         presence_away_delay_minutes: parseInt(content.querySelector("#s-presence-away-delay")?.value ?? "0", 10),
+        presence_arrive_delay_minutes: parseInt(content.querySelector("#s-presence-arrive-delay")?.value ?? "0", 10),
       });
       this._toast("✓ Anwesenheitserkennung gespeichert");
     });
@@ -4632,6 +4647,22 @@ class IHCPanel extends HTMLElement {
         <span class="form-hint">Zimmer wechselt auf Abwesend-Temp wenn niemand da · leer = immer anwesend</span>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Bewegungsmelder (PIR)</label>
+        <input class="form-input" type="text" id="m-presence-sensor"
+          value="" placeholder="binary_sensor.bewegung_wohnzimmer">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIR Einschalt-Verzögerung (s)</label>
+        <input class="form-input" type="number" id="m-presence-sensor-on-delay"
+          min="0" max="3600" step="30" value="300">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIR Ausschalt-Verzögerung (s)</label>
+        <input class="form-input" type="number" id="m-presence-sensor-off-delay"
+          min="0" max="3600" step="30" value="300">
+      </div>
+
       <div class="modal-section">
         <div class="modal-section-title">Energieerfassung</div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
@@ -4801,6 +4832,11 @@ class IHCPanel extends HTMLElement {
             <input type="number" class="form-input" id="m-window-close-delay" value="0" step="5" min="0" max="600">
             <span class="form-hint">Sekunden nach Schließen bis normale Heizung wieder beginnt</span>
           </div>
+          <div class="settings-item">
+            <label>Fenster-Mindesttemperatur (°C)</label>
+            <input type="number" class="form-input" id="m-window-open-temp" min="0" max="22" step="0.5" value="0" placeholder="0 = Frostschutz">
+            <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+          </div>
         </div>
       </div>
 
@@ -4862,6 +4898,7 @@ class IHCPanel extends HTMLElement {
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
         window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
+        window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
@@ -4870,6 +4907,9 @@ class IHCPanel extends HTMLElement {
         co2_threshold_bad:        parseInt(modal.querySelector("#m-co2-threshold-bad")?.value, 10) || 1200,
         room_presence_entities: (modal.querySelector("#m-presence-entities")?.value || "")
                                   .split(",").map(s => s.trim()).filter(Boolean),
+        presence_sensor:        modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
+        presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
+        presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
@@ -5073,11 +5113,17 @@ class IHCPanel extends HTMLElement {
                 value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
               <span class="form-hint">Sekunden nach Schließen bis normale Heizung wieder beginnt</span>
             </div>
+            <div class="settings-item">
+              <label>Fenster-Mindesttemperatur (°C)</label>
+              <input type="number" class="form-input" id="m-window-open-temp"
+                min="0" max="22" step="0.5" value="${room.window_open_temp ?? 0}" placeholder="0 = Frostschutz">
+              <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+            </div>
           </div>
         </div>
       </details>
 
-      <details class="modal-collapsible" ${room.room_presence_entities?.length ? "open" : ""}>
+      <details class="modal-collapsible" ${(room.room_presence_entities?.length || room.presence_sensor) ? "open" : ""}>
         <summary>👤 Zimmer-Anwesenheit</summary>
         <div class="modal-collapsible-body">
           <div class="settings-item">
@@ -5087,6 +5133,21 @@ class IHCPanel extends HTMLElement {
               placeholder="person.max, device_tracker.handy (leer = immer anwesend)"
               data-ep-domains="person,device_tracker,input_boolean,binary_sensor" autocomplete="off">
             <span class="form-hint">Zimmer wechselt auf Abwesend-Temperatur wenn niemand da</span>
+          </div>
+          <div class="settings-item">
+            <label>Bewegungsmelder (PIR)</label>
+            <input class="form-input" type="text" id="m-presence-sensor"
+              value="${room.presence_sensor ?? ''}" placeholder="binary_sensor.bewegung_wohnzimmer">
+          </div>
+          <div class="settings-item">
+            <label>PIR Einschalt-Verzögerung (s)</label>
+            <input class="form-input" type="number" id="m-presence-sensor-on-delay"
+              min="0" max="3600" step="30" value="${room.presence_sensor_on_delay ?? 300}">
+          </div>
+          <div class="settings-item">
+            <label>PIR Ausschalt-Verzögerung (s)</label>
+            <input class="form-input" type="number" id="m-presence-sensor-off-delay"
+              min="0" max="3600" step="30" value="${room.presence_sensor_off_delay ?? 300}">
           </div>
         </div>
       </details>
@@ -5300,6 +5361,7 @@ class IHCPanel extends HTMLElement {
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
         window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
+        window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
@@ -5311,6 +5373,9 @@ class IHCPanel extends HTMLElement {
         hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         room_presence_entities:   (modal.querySelector("#m-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
+        presence_sensor:          modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
+        presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
+        presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
         boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),

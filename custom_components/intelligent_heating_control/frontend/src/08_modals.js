@@ -92,6 +92,22 @@
         <span class="form-hint">Zimmer wechselt auf Abwesend-Temp wenn niemand da · leer = immer anwesend</span>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Bewegungsmelder (PIR)</label>
+        <input class="form-input" type="text" id="m-presence-sensor"
+          value="" placeholder="binary_sensor.bewegung_wohnzimmer">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIR Einschalt-Verzögerung (s)</label>
+        <input class="form-input" type="number" id="m-presence-sensor-on-delay"
+          min="0" max="3600" step="30" value="300">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIR Ausschalt-Verzögerung (s)</label>
+        <input class="form-input" type="number" id="m-presence-sensor-off-delay"
+          min="0" max="3600" step="30" value="300">
+      </div>
+
       <div class="modal-section">
         <div class="modal-section-title">Energieerfassung</div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
@@ -261,6 +277,11 @@
             <input type="number" class="form-input" id="m-window-close-delay" value="0" step="5" min="0" max="600">
             <span class="form-hint">Sekunden nach Schließen bis normale Heizung wieder beginnt</span>
           </div>
+          <div class="settings-item">
+            <label>Fenster-Mindesttemperatur (°C)</label>
+            <input type="number" class="form-input" id="m-window-open-temp" min="0" max="22" step="0.5" value="0" placeholder="0 = Frostschutz">
+            <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+          </div>
         </div>
       </div>
 
@@ -322,6 +343,7 @@
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
         window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
+        window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
@@ -330,6 +352,9 @@
         co2_threshold_bad:        parseInt(modal.querySelector("#m-co2-threshold-bad")?.value, 10) || 1200,
         room_presence_entities: (modal.querySelector("#m-presence-entities")?.value || "")
                                   .split(",").map(s => s.trim()).filter(Boolean),
+        presence_sensor:        modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
+        presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
+        presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
@@ -533,11 +558,17 @@
                 value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
               <span class="form-hint">Sekunden nach Schließen bis normale Heizung wieder beginnt</span>
             </div>
+            <div class="settings-item">
+              <label>Fenster-Mindesttemperatur (°C)</label>
+              <input type="number" class="form-input" id="m-window-open-temp"
+                min="0" max="22" step="0.5" value="${room.window_open_temp ?? 0}" placeholder="0 = Frostschutz">
+              <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+            </div>
           </div>
         </div>
       </details>
 
-      <details class="modal-collapsible" ${room.room_presence_entities?.length ? "open" : ""}>
+      <details class="modal-collapsible" ${(room.room_presence_entities?.length || room.presence_sensor) ? "open" : ""}>
         <summary>👤 Zimmer-Anwesenheit</summary>
         <div class="modal-collapsible-body">
           <div class="settings-item">
@@ -547,6 +578,21 @@
               placeholder="person.max, device_tracker.handy (leer = immer anwesend)"
               data-ep-domains="person,device_tracker,input_boolean,binary_sensor" autocomplete="off">
             <span class="form-hint">Zimmer wechselt auf Abwesend-Temperatur wenn niemand da</span>
+          </div>
+          <div class="settings-item">
+            <label>Bewegungsmelder (PIR)</label>
+            <input class="form-input" type="text" id="m-presence-sensor"
+              value="${room.presence_sensor ?? ''}" placeholder="binary_sensor.bewegung_wohnzimmer">
+          </div>
+          <div class="settings-item">
+            <label>PIR Einschalt-Verzögerung (s)</label>
+            <input class="form-input" type="number" id="m-presence-sensor-on-delay"
+              min="0" max="3600" step="30" value="${room.presence_sensor_on_delay ?? 300}">
+          </div>
+          <div class="settings-item">
+            <label>PIR Ausschalt-Verzögerung (s)</label>
+            <input class="form-input" type="number" id="m-presence-sensor-off-delay"
+              min="0" max="3600" step="30" value="${room.presence_sensor_off_delay ?? 300}">
           </div>
         </div>
       </details>
@@ -760,6 +806,7 @@
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
         window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
+        window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
@@ -771,6 +818,9 @@
         hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         room_presence_entities:   (modal.querySelector("#m-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
+        presence_sensor:          modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
+        presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
+        presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
         boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),

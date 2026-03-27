@@ -270,6 +270,17 @@ class RoomLogicMixin:
                 "away_base": effective_away,
             }
 
+        # --- 1b2. PIR/motion sensor presence override ---
+        # If a per-room PIR sensor is configured and confirms absence, apply away temp.
+        pir_presence = self._check_room_pir_presence(room)
+        if pir_presence is False and room_mode == ROOM_MODE_AUTO:
+            away_temp_room = float(room.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM))
+            effective_pir_away = max(away_temp_room, frost_temp)
+            return min(max_temp, max(min_temp, effective_pir_away)), {
+                "source": "pir_absence", "schedule_active": False,
+                "away_base": effective_pir_away,
+            }
+
         # --- 1c. Room temperature threshold override (Blueprint: input_mode_room_temperature_threshold) ---
         # If current room temp is below threshold, force comfort heating regardless of room mode.
         # Does NOT override system-level OFF/VACATION.

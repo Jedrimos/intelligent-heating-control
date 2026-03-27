@@ -304,6 +304,14 @@
               </div>
               <span class="form-hint">Wie lange alle Personen abwesend sein müssen bevor IHC auf Abwesend-Modus schaltet. 0 = sofort.</span>
             </div>
+            <div class="settings-item">
+              <label>Ankunfts-Verzögerung (min)</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" id="s-presence-arrive-delay" min="0" max="30" step="1" value="${a.presence_arrive_delay_minutes ?? 0}" style="flex:1">
+                <span id="s-presence-arrive-delay-val" style="min-width:42px;text-align:right">${a.presence_arrive_delay_minutes ?? 0} min</span>
+              </div>
+              <span class="form-hint">Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-presence-settings">💾 Anwesenheit speichern</button>
@@ -896,11 +904,16 @@
       content.querySelector("#s-presence-away-delay-val").textContent = e.target.value + " min";
     });
 
+    content.querySelector("#s-presence-arrive-delay")?.addEventListener("input", e => {
+      content.querySelector("#s-presence-arrive-delay-val").textContent = e.target.value + " min";
+    });
+
     content.querySelector("#save-presence-settings").addEventListener("click", () => {
       const checked = [...content.querySelectorAll(".presence-cb:checked")].map(cb => cb.value);
       this._callService("update_global_settings", {
         presence_entities: checked,
         presence_away_delay_minutes: parseInt(content.querySelector("#s-presence-away-delay")?.value ?? "0", 10),
+        presence_arrive_delay_minutes: parseInt(content.querySelector("#s-presence-arrive-delay")?.value ?? "0", 10),
       });
       this._toast("✓ Anwesenheitserkennung gespeichert");
     });
