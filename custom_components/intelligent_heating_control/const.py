@@ -374,6 +374,21 @@ CONF_HEATING_PERIOD_ENTITY: Final = "heating_period_entity"  # input_boolean.* �
 CONF_PRESENCE_AWAY_DELAY_MINUTES: Final = "presence_away_delay_minutes"
 DEFAULT_PRESENCE_AWAY_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompatibel)
 
+# Ankunfts-Verzögerung: Minuten Wartezeit nach Ankunft bevor Komfort-Modus aktiv wird
+CONF_PRESENCE_ARRIVE_DELAY_MINUTES: Final = "presence_arrive_delay_minutes"
+DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompatibel)
+
+# Pro-Zimmer PIR/Bewegungsmelder-Präsenz (unabhängig von person.* Tracking)
+CONF_PRESENCE_SENSOR: Final = "presence_sensor"            # binary_sensor.* für Bewegungserkennung
+CONF_PRESENCE_SENSOR_ON_DELAY: Final = "presence_sensor_on_delay"    # Sekunden bis Komfort (Sensor ON)
+CONF_PRESENCE_SENSOR_OFF_DELAY: Final = "presence_sensor_off_delay"  # Sekunden bis Eco (Sensor OFF)
+DEFAULT_PRESENCE_SENSOR_ON_DELAY: Final = 300   # 5 Minuten – verhindert kurze Bewegungen sofort Komfort
+DEFAULT_PRESENCE_SENSOR_OFF_DELAY: Final = 300  # 5 Minuten – verhindert sofortige Eco bei kurzer Abwesenheit
+
+# Fenster-Mindesttemperatur (pro Zimmer): Statt Frostschutz diese Temp bei offenem Fenster
+CONF_WINDOW_OPEN_TEMP: Final = "window_open_temp"
+DEFAULT_WINDOW_OPEN_TEMP: Final = 0.0  # 0 = Frostschutz-Temp verwenden (Legacy-Verhalten)
+
 # Pro-Zimmer Temperaturschwelle: Heizt immer wenn Raumtemperatur darunter liegt (Blueprint: input_mode_room_temperature_threshold)
 CONF_ROOM_TEMP_THRESHOLD: Final = "room_temp_threshold"  # °C, 0.0 = deaktiviert
 DEFAULT_ROOM_TEMP_THRESHOLD: Final = 0.0

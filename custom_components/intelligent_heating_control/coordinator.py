@@ -81,6 +81,15 @@ from .const import (
     CONF_HEATING_PERIOD_ENTITY,
     CONF_PRESENCE_AWAY_DELAY_MINUTES,
     DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
+    CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
+    DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES,
+    CONF_PRESENCE_SENSOR,
+    CONF_PRESENCE_SENSOR_ON_DELAY,
+    CONF_PRESENCE_SENSOR_OFF_DELAY,
+    DEFAULT_PRESENCE_SENSOR_ON_DELAY,
+    DEFAULT_PRESENCE_SENSOR_OFF_DELAY,
+    CONF_WINDOW_OPEN_TEMP,
+    DEFAULT_WINDOW_OPEN_TEMP,
     CONF_FROST_PROTECTION_TEMP,
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_NIGHT_SETBACK_ENABLED,
@@ -299,6 +308,11 @@ class IHCCoordinator(
         # Presence-based auto-away
         self._presence_away_active: bool = False  # True when auto-away triggered by presence
         self._presence_away_pending_since = None  # datetime when all persons left (for delay)
+        self._presence_arrive_pending_since = None  # datetime when someone arrived (for arrival delay)
+
+        # PIR/motion sensor tracking per room: {room_id: datetime_of_last_motion}
+        self._pir_last_on: Dict[str, Any] = {}   # when PIR last detected motion
+        self._pir_last_off: Dict[str, Any] = {}  # when PIR last saw no motion
 
         # Roadmap 1.2 – Vacation assistant: track auto-vacation mode
         self._vacation_auto_active: bool = False  # True when activated by date range
@@ -457,6 +471,13 @@ class IHCCoordinator(
                 self._presence_away_pending_since = datetime.fromisoformat(pending_str)
             except (ValueError, TypeError):
                 self._presence_away_pending_since = None
+        arrive_str = data.get("presence_arrive_pending_since")
+        if arrive_str:
+            try:
+                from datetime import datetime
+                self._presence_arrive_pending_since = datetime.fromisoformat(arrive_str)
+            except (ValueError, TypeError):
+                self._presence_arrive_pending_since = None
         self._vacation_auto_active = data.get("vacation_auto_active", False)
         self._heating_runtime_today = data.get("heating_runtime_today", 0.0)
         self._heating_runtime_yesterday = data.get("heating_runtime_yesterday", 0.0)
@@ -501,6 +522,7 @@ class IHCCoordinator(
             "room_manual_temps": self._room_manual_temps,
             "presence_away_active": self._presence_away_active,
             "presence_away_pending_since": self._presence_away_pending_since.isoformat() if self._presence_away_pending_since else None,
+            "presence_arrive_pending_since": self._presence_arrive_pending_since.isoformat() if self._presence_arrive_pending_since else None,
             "vacation_auto_active": self._vacation_auto_active,
             "heating_runtime_today": self._heating_runtime_today,
             "heating_runtime_yesterday": self._heating_runtime_yesterday,
@@ -636,6 +658,43 @@ class IHCCoordinator(
         if outdoor_temp is None:
             return False
         return outdoor_temp >= threshold
+
+    def _check_room_pir_presence(self, room: dict) -> Optional[bool]:
+        """Return True=present / False=absent / None=not configured or pending.
+
+        Tracks per-room PIR/motion sensor with configurable on/off delays.
+        The sensor state changes are picked up on every update cycle (60s).
+        """
+        sensor_id = room.get(CONF_PRESENCE_SENSOR, "")
+        if not sensor_id:
+            return None  # feature not configured for this room
+        room_id = room.get("id", sensor_id)
+        state = self.hass.states.get(sensor_id)
+        if state is None:
+            return None  # sensor unavailable → don't influence temp
+
+        on_delay = int(room.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY))
+        off_delay = int(room.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY))
+        now = dt_util.utcnow()
+
+        if state.state in ("on", "home", "detected", "true", "1"):
+            # Motion detected: start or maintain ON timer
+            if self._pir_last_off.get(room_id) is not None:
+                self._pir_last_off[room_id] = None  # cancel off-timer
+            if self._pir_last_on.get(room_id) is None:
+                self._pir_last_on[room_id] = now
+            elapsed = (now - self._pir_last_on[room_id]).total_seconds()
+            return elapsed >= on_delay  # True only after on_delay elapsed
+        else:
+            # No motion: start or maintain OFF timer
+            if self._pir_last_on.get(room_id) is not None:
+                self._pir_last_on[room_id] = None  # cancel on-timer
+            if self._pir_last_off.get(room_id) is None:
+                self._pir_last_off[room_id] = now
+            elapsed = (now - self._pir_last_off[room_id]).total_seconds()
+            if elapsed >= off_delay:
+                return False  # confirmed absent
+            return True  # still within off_delay → treat as present (pending)
 
     def _is_heating_period_active(self) -> bool:
         """Return True if heating is enabled via external entity (Heizperiode)."""
@@ -1194,7 +1253,12 @@ class IHCCoordinator(
                 rdata = room_data[room_id]
                 room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
                 window_open = rdata.get("window_open", False)
-                if window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
+                window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
+                frost_temp = self._get_frost_protection_temp()
+                if window_open and window_open_temp > 0:
+                    # Window open but configured min-temp: hold at that temp (e.g. 15°C) instead of frost
+                    self._set_valve_entities(room, max(window_open_temp, frost_temp))
+                elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn TRV off (or frost-protect if off mode not supported by the device)
                     self._turn_off_valve_entities(room)
                 elif summer_mode or not self._is_heating_period_active():
@@ -1232,7 +1296,11 @@ class IHCCoordinator(
                 rdata = room_data[room_id]
                 room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
                 window_open = rdata.get("window_open", False)
-                if window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
+                window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
+                frost_temp_sw = self._get_frost_protection_temp()
+                if window_open and window_open_temp > 0:
+                    self._set_valve_entities(room, max(window_open_temp, frost_temp_sw))
+                elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn off TRVs when window open, room off, or system off (without frost-protect)
                     self._turn_off_valve_entities(room)
                 else:
