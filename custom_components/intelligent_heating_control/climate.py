@@ -77,6 +77,23 @@ from .const import (
     DEFAULT_RADIATOR_KW,
     DEFAULT_HKV_FACTOR,
     DEFAULT_BOOST_DEFAULT_DURATION,
+    CONF_PRESENCE_SENSOR,
+    CONF_PRESENCE_SENSOR_ON_DELAY,
+    CONF_PRESENCE_SENSOR_OFF_DELAY,
+    DEFAULT_PRESENCE_SENSOR_ON_DELAY,
+    DEFAULT_PRESENCE_SENSOR_OFF_DELAY,
+    CONF_WINDOW_OPEN_TEMP,
+    DEFAULT_WINDOW_OPEN_TEMP,
+    CONF_ROOM_TEMP_THRESHOLD,
+    DEFAULT_ROOM_TEMP_THRESHOLD,
+    CONF_COMFORT_TEMP_ENTITY,
+    CONF_ECO_TEMP_ENTITY,
+    CONF_AGGRESSIVE_MODE_ENABLED,
+    DEFAULT_AGGRESSIVE_MODE_ENABLED,
+    CONF_AGGRESSIVE_MODE_RANGE,
+    DEFAULT_AGGRESSIVE_MODE_RANGE,
+    CONF_AGGRESSIVE_MODE_OFFSET,
+    DEFAULT_AGGRESSIVE_MODE_OFFSET,
 )
 from .coordinator import IHCCoordinator
 
@@ -284,6 +301,22 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             # Presence
             "room_presence_entities": room_cfg.get("room_presence_entities", []),
             "room_presence_active": d.get("room_presence_active"),
+            # PIR sensor presence
+            "presence_sensor": room_cfg.get(CONF_PRESENCE_SENSOR, ""),
+            "presence_sensor_on_delay": room_cfg.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY),
+            "presence_sensor_off_delay": room_cfg.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY),
+            "pir_presence": d.get("pir_presence"),
+            # Window open temperature
+            "window_open_temp": room_cfg.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP),
+            # Room temperature threshold
+            "room_temp_threshold": room_cfg.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD),
+            # Dynamic temperature entities
+            "comfort_temp_entity": room_cfg.get(CONF_COMFORT_TEMP_ENTITY, ""),
+            "eco_temp_entity": room_cfg.get(CONF_ECO_TEMP_ENTITY, ""),
+            # Aggressive mode
+            "aggressive_mode_enabled": room_cfg.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED),
+            "aggressive_mode_range": room_cfg.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE),
+            "aggressive_mode_offset": room_cfg.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET),
             # Boost config
             "boost_default_duration": room_cfg.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION),
             # Ventilation advice + CO2

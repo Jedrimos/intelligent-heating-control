@@ -251,6 +251,12 @@ from .const import (
     DEFAULT_TRV_MIN_SEND_INTERVAL,
     CONF_BOOST_DEFAULT_DURATION,
     DEFAULT_BOOST_DEFAULT_DURATION,
+    CONF_AGGRESSIVE_MODE_ENABLED,
+    DEFAULT_AGGRESSIVE_MODE_ENABLED,
+    CONF_AGGRESSIVE_MODE_RANGE,
+    DEFAULT_AGGRESSIVE_MODE_RANGE,
+    CONF_AGGRESSIVE_MODE_OFFSET,
+    DEFAULT_AGGRESSIVE_MODE_OFFSET,
 )
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
@@ -695,6 +701,39 @@ class IHCCoordinator(
             if elapsed >= off_delay:
                 return False  # confirmed absent
             return True  # still within off_delay → treat as present (pending)
+
+    def _apply_aggressive_mode(
+        self,
+        room: dict,
+        target_temp: float,
+        current_temp: Optional[float],
+    ) -> float:
+        """Apply aggressive mode: overshoot setpoint when room is far from target.
+
+        Only activates when:
+          - aggressive_mode_enabled is True for the room
+          - current_temp is known
+          - current_temp < (target_temp - aggressive_mode_range)
+
+        Returns the (possibly boosted) setpoint. The overshoot is capped
+        by room max_temp so the TRV cannot be commanded above the configured maximum.
+        """
+        if not room.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED):
+            return target_temp
+        if current_temp is None:
+            return target_temp
+        agg_range = float(room.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE))
+        agg_offset = float(room.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET))
+        if current_temp < (target_temp - agg_range):
+            max_temp = float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
+            boosted = min(target_temp + agg_offset, max_temp)
+            room_name = room.get(CONF_ROOM_NAME, room.get(CONF_ROOM_ID, "?"))
+            _LOGGER.debug(
+                "IHC: Aggressive mode active for %s – overshooting to %.1f°C (target %.1f°C, current %.1f°C)",
+                room_name, boosted, target_temp, current_temp,
+            )
+            return boosted
+        return target_temp
 
     def _is_heating_period_active(self) -> bool:
         """Return True if heating is enabled via external entity (Heizperiode)."""
@@ -1193,6 +1232,7 @@ class IHCCoordinator(
                 "next_period": self.get_next_schedule_period(room_id),  # Roadmap 1.1
                 "anomaly": self._detect_sensor_anomaly(room_id),    # Roadmap 1.1
                 "room_presence_active": room_presence_active,       # Roadmap 1.2
+                "pir_presence": self._check_room_pir_presence(room),  # PIR sensor presence state
                 "mold": mold_data,                                  # Roadmap 2.0
                 "felt_temperature": felt_temperature,              # Gefühlte Temperatur
                 # TRV sensor data (optional – all None when not available)
@@ -1275,7 +1315,8 @@ class IHCCoordinator(
                         self._set_valve_entities(room, max_temp)
                 else:
                     # Always send the desired target – TRV decides whether to heat
-                    self._set_valve_entities(room, rdata["target_temp"])
+                    trv_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
+                    self._set_valve_entities(room, trv_target)
             # TRV mode: if a heating_switch is configured, use it to fire the central boiler
             # when any room demands heat. This supports setups with TRVs + central boiler:
             # the boiler must run to supply hot water, while TRVs distribute it per-room.
@@ -1304,7 +1345,8 @@ class IHCCoordinator(
                     # Turn off TRVs when window open, room off, or system off (without frost-protect)
                     self._turn_off_valve_entities(room)
                 else:
-                    self._set_valve_entities(room, rdata["target_temp"])
+                    sw_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
+                    self._set_valve_entities(room, sw_target)
             self._set_heating_switch(should_heat)
 
         if enable_cooling:

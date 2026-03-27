@@ -4663,6 +4663,34 @@ class IHCPanel extends HTMLElement {
           min="0" max="3600" step="30" value="300">
       </div>
 
+      <details class="modal-collapsible">
+        <summary class="modal-section-title">⚡ Aggressiver Modus (für träge TRVs)</summary>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0 10px">
+          Wenn der Raum weit unter dem Sollwert liegt, wird der TRV-Sollwert temporär überhöht um
+          schneller aufzuheizen. Der TRV schließt selbst wenn er die Zieltemperatur erreicht.
+          <strong>Standard: deaktiviert.</strong>
+        </div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="m-aggressive-mode">
+              Aggressiver Modus aktivieren
+            </label>
+            <span class="form-hint">Nur sinnvoll bei TRVs mit eigener Regelung (z.B. Zigbee2MQTT TRVs)</span>
+          </div>
+          <div class="settings-item">
+            <label>Aktivierungsbereich (°C unter Soll)</label>
+            <input type="number" class="form-input" id="m-aggressive-range" value="2" step="0.5" min="0.5" max="5">
+            <span class="form-hint">Modus aktiviert wenn Raumtemp um diesen Wert unter Soll liegt</span>
+          </div>
+          <div class="settings-item">
+            <label>Überhöhung (°C über Soll)</label>
+            <input type="number" class="form-input" id="m-aggressive-offset" value="3" step="0.5" min="0.5" max="8">
+            <span class="form-hint">TRV bekommt Soll + Überhöhung als Setpoint</span>
+          </div>
+        </div>
+      </details>
+
       <div class="modal-section">
         <div class="modal-section-title">Energieerfassung</div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
@@ -4910,6 +4938,9 @@ class IHCPanel extends HTMLElement {
         presence_sensor:        modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
         presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
         presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
+        aggressive_mode_enabled: modal.querySelector("#m-aggressive-mode")?.checked === true,
+        aggressive_mode_range:   parseFloat(modal.querySelector("#m-aggressive-range")?.value ?? "2") || 2.0,
+        aggressive_mode_offset:  parseFloat(modal.querySelector("#m-aggressive-offset")?.value ?? "3") || 3.0,
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
@@ -5152,6 +5183,36 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
+      <details class="modal-collapsible" ${room.aggressive_mode_enabled ? "open" : ""}>
+        <summary>⚡ Aggressiver Modus (für träge TRVs)</summary>
+        <div class="modal-collapsible-body">
+          <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
+            Überhöht den TRV-Sollwert temporär wenn der Raum weit unter dem Zielwert liegt.
+            Der TRV schließt selbst sobald er seine Eigentemperatur erreicht.
+          </p>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="m-aggressive-mode" ${room.aggressive_mode_enabled ? "checked" : ""}>
+                Aggressiver Modus aktivieren
+              </label>
+            </div>
+            <div class="settings-item">
+              <label>Aktivierungsbereich (°C unter Soll)</label>
+              <input type="number" class="form-input" id="m-aggressive-range"
+                value="${room.aggressive_mode_range ?? 2}" step="0.5" min="0.5" max="5">
+              <span class="form-hint">Aktiv wenn Raumtemp um diesen Wert unter Soll liegt</span>
+            </div>
+            <div class="settings-item">
+              <label>Überhöhung (°C über Soll)</label>
+              <input type="number" class="form-input" id="m-aggressive-offset"
+                value="${room.aggressive_mode_offset ?? 3}" step="0.5" min="0.5" max="8">
+              <span class="form-hint">TRV bekommt Soll + Überhöhung als Setpoint</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <details class="modal-collapsible" ${room.humidity_sensor || room.co2_sensor ? "open" : ""}>
         <summary>🌬️ Lüftung &amp; Schimmelschutz</summary>
         <div class="modal-collapsible-body">
@@ -5376,6 +5437,9 @@ class IHCPanel extends HTMLElement {
         presence_sensor:          modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
         presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
         presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
+        aggressive_mode_enabled:  modal.querySelector("#m-aggressive-mode")?.checked === true,
+        aggressive_mode_range:    parseFloat(modal.querySelector("#m-aggressive-range")?.value ?? "2") || 2.0,
+        aggressive_mode_offset:   parseFloat(modal.querySelector("#m-aggressive-offset")?.value ?? "3") || 3.0,
         boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
