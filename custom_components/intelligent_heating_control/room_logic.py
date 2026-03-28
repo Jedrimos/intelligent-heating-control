@@ -382,7 +382,8 @@ class RoomLogicMixin:
 
         # --- 3a. HA schedule entities (external schedule.* entities with optional condition) ---
         # Each entry uses an existing room preset (comfort/eco/sleep/away) – no separate temp needed.
-        # First matching active schedule wins. If schedules are configured but none fires → Eco.
+        # Priority: conditional schedules (condition_entity set) are evaluated BEFORE unconditional
+        # ones so they act as overrides. Within each group, first active wins.
         ha_scheds = room.get(CONF_HA_SCHEDULES, [])
         if ha_scheds:
             mode_to_temp = {
@@ -391,7 +392,9 @@ class RoomLogicMixin:
                 ROOM_MODE_SLEEP:   sleep_base,
                 ROOM_MODE_AWAY:    away_base,
             }
-            for ha_sched in ha_scheds:
+            # Sort: entries with a condition_entity first (priority overrides), then unconditional
+            sorted_scheds = sorted(ha_scheds, key=lambda s: 0 if s.get("condition_entity") else 1)
+            for ha_sched in sorted_scheds:
                 entity_id = ha_sched.get("entity", "")
                 if not entity_id:
                     continue
