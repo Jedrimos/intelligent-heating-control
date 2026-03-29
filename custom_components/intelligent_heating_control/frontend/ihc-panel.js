@@ -2176,6 +2176,89 @@ class IHCPanel extends HTMLElement {
           </div>
         </details>
 
+        <details class="modal-collapsible" ${room.aggressive_mode_enabled ? "open" : ""}>
+          <summary class="modal-section-title">⚡ Aggressiver Modus</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="rs-aggressive-mode" ${room.aggressive_mode_enabled ? "checked" : ""}>
+                Aggressiver Modus aktivieren (für träge TRVs)
+              </label>
+            </div>
+            <div class="settings-item">
+              <label>Aktivierungsbereich (°C unter Soll)</label>
+              <input type="number" class="form-input" id="rs-aggressive-range"
+                value="${room.aggressive_mode_range ?? 2}" step="0.5" min="0.5" max="5">
+            </div>
+            <div class="settings-item">
+              <label>Überhöhung (°C über Soll)</label>
+              <input type="number" class="form-input" id="rs-aggressive-offset"
+                value="${room.aggressive_mode_offset ?? 3}" step="0.5" min="0.5" max="8">
+            </div>
+          </div>
+        </details>
+
+        <details class="modal-collapsible" ${(room.window_open_temp > 0 || room.room_temp_threshold > 0) ? "open" : ""}>
+          <summary class="modal-section-title">🌡️ Temperaturschwellen</summary>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Mindesttemperatur-Schwelle (°C)</label>
+              <input type="number" class="form-input" id="rs-room-temp-threshold"
+                value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+              <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
+            </div>
+            <div class="settings-item">
+              <label>Fenster-Mindesttemperatur (°C)</label>
+              <input type="number" class="form-input" id="rs-window-open-temp"
+                value="${room.window_open_temp ?? 0}" step="0.5" min="0" max="22" placeholder="0 = Frostschutz">
+              <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="modal-collapsible" ${room.presence_sensor ? "open" : ""}>
+          <summary class="modal-section-title">👁 PIR-Sensor (Zimmerpräsenz)</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>PIR-Sensor Entity</label>
+              <input type="text" class="form-input full" id="rs-presence-sensor"
+                value="${room.presence_sensor || ''}" placeholder="binary_sensor.bewegung"
+                data-ep-domains="binary_sensor" autocomplete="off">
+              <span class="form-hint">Bewegungsmelder für Zimmer-Anwesenheit (optional)</span>
+            </div>
+            <div class="settings-item">
+              <label>Einschaltverzögerung (s)</label>
+              <input type="number" class="form-input" id="rs-presence-sensor-on-delay"
+                value="${room.presence_sensor_on_delay ?? 300}" step="30" min="0" max="3600">
+            </div>
+            <div class="settings-item">
+              <label>Ausschaltverzögerung (s)</label>
+              <input type="number" class="form-input" id="rs-presence-sensor-off-delay"
+                value="${room.presence_sensor_off_delay ?? 300}" step="30" min="0" max="3600">
+            </div>
+          </div>
+        </details>
+
+        <details class="modal-collapsible" ${(room.comfort_temp_entity || room.eco_temp_entity) ? "open" : ""}>
+          <summary class="modal-section-title">🔗 Dynamische Sollwert-Entitäten</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Komfort-Sollwert Entity</label>
+              <input type="text" class="form-input full" id="rs-comfort-temp-entity"
+                value="${room.comfort_temp_entity || ''}" placeholder="input_number.komfort_soll"
+                data-ep-domains="input_number,sensor" autocomplete="off">
+              <span class="form-hint">input_number.* oder sensor.* für dynamischen Komfort-Sollwert</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Eco-Sollwert Entity</label>
+              <input type="text" class="form-input full" id="rs-eco-temp-entity"
+                value="${room.eco_temp_entity || ''}" placeholder="input_number.eco_soll"
+                data-ep-domains="input_number,sensor" autocomplete="off">
+              <span class="form-hint">input_number.* oder sensor.* für dynamischen Eco-Sollwert</span>
+            </div>
+          </div>
+        </details>
+
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
         </div>

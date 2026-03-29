@@ -446,6 +446,11 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "startup_grace_seconds",
             # Outdoor temperature smoothing (moving average window)
             "outdoor_temp_smoothing_minutes",
+            # Presence delay timers (away + arrive)
+            "presence_away_delay_minutes",
+            "presence_arrive_delay_minutes",
+            # Heating period entity (Heizperiode input_boolean / binary_sensor)
+            "heating_period_entity",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:
