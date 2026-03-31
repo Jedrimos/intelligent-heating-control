@@ -31,6 +31,12 @@ from .const import (
     DEFAULT_LIMESCALE_TIME,
     CONF_LIMESCALE_DURATION_MINUTES,
     DEFAULT_LIMESCALE_DURATION_MINUTES,
+    CONF_AGGRESSIVE_MODE_ENABLED,
+    DEFAULT_AGGRESSIVE_MODE_ENABLED,
+    CONF_AGGRESSIVE_MODE_RANGE,
+    DEFAULT_AGGRESSIVE_MODE_RANGE,
+    CONF_AGGRESSIVE_MODE_OFFSET,
+    DEFAULT_AGGRESSIVE_MODE_OFFSET,
     ROOM_MODE_OFF,
     ROOM_MODE_MANUAL,
 )
@@ -445,8 +451,12 @@ class TRVControllerMixin:
             sent_at = self._trv_command_sent_at.get(entity_id)
             if sent_at is not None and (now - sent_at) < self._trv_command_grace:
                 continue
-            # If TRV temperature differs significantly from what IHC last sent, user adjusted it
-            if abs(trv_target - last_ihc) >= 0.5:
+            # If TRV temperature differs significantly from what IHC last sent, user adjusted it.
+            # Threshold is 1.0 °C (= TRV_LARGE_CHANGE_THRESHOLD) to avoid false positives from:
+            #   - TRV rounding differences (quantisation to 0.5 °C steps)
+            #   - Single button press on TRV (usually ±0.5 °C per press)
+            # Only a clear intentional adjustment (≥ 1 °C) triggers manual mode.
+            if abs(trv_target - last_ihc) >= TRV_LARGE_CHANGE_THRESHOLD:
                 room_name = room.get(CONF_ROOM_NAME, room_id)
                 _LOGGER.info(
                     "IHC: Manual TRV override detected in %s – TRV set to %.1f°C (IHC had %.1f°C). "

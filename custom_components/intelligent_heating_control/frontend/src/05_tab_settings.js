@@ -143,6 +143,15 @@
               <input type="number" class="form-input" id="summer-threshold" min="10" max="30" step="0.5" value="${a.summer_threshold ?? 18}">
               <span class="form-hint">Ab dieser Außentemperatur wird die Heizung gesperrt (Sommerautomatik muss aktiviert sein).</span>
             </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Heizperiode-Entity
+                ${g.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : g.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
+              </label>
+              <input type="text" class="form-input full" id="s-heating-period-entity"
+                value="${a.heating_period_entity || ''}" placeholder="input_boolean.heizperiode"
+                data-ep-domains="input_boolean,binary_sensor" autocomplete="off">
+              <span class="form-hint">Optional: Entity (input_boolean.* oder binary_sensor.*) die die Heizperiode steuert. OFF = Heizperiode inaktiv → Heizung gesperrt wie im Sommer-Modus.</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-temp-settings">💾 Temperaturen speichern</button>
@@ -295,6 +304,24 @@
             ${this._renderPresenceCheckboxes(a.presence_entities || [])}
           </div>
           <span class="form-hint">Aktuell ${g.presence_away_active ? "🚶 niemand zuhause" : "✓ jemand zuhause"}</span>
+          <div class="settings-grid" style="margin-top:12px">
+            <div class="settings-item">
+              <label>Auto-Away Verzögerung (min)</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" id="s-presence-away-delay" min="0" max="120" step="5" value="${a.presence_away_delay_minutes ?? 0}" style="flex:1">
+                <span id="s-presence-away-delay-val" style="min-width:42px;text-align:right">${a.presence_away_delay_minutes ?? 0} min</span>
+              </div>
+              <span class="form-hint">Wie lange alle Personen abwesend sein müssen bevor IHC auf Abwesend-Modus schaltet. 0 = sofort.</span>
+            </div>
+            <div class="settings-item">
+              <label>Ankunfts-Verzögerung (min)</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" id="s-presence-arrive-delay" min="0" max="30" step="1" value="${a.presence_arrive_delay_minutes ?? 0}" style="flex:1">
+                <span id="s-presence-arrive-delay-val" style="min-width:42px;text-align:right">${a.presence_arrive_delay_minutes ?? 0} min</span>
+              </div>
+              <span class="form-hint">Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).</span>
+            </div>
+          </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-presence-settings">💾 Anwesenheit speichern</button>
           </div>
@@ -833,6 +860,7 @@
         summer_mode_enabled:      content.querySelector("#summer-enabled").value === "true",
         summer_threshold:         sumT,
         off_use_frost_protection: content.querySelector("#off-use-frost").value === "true",
+        heating_period_entity:    content.querySelector("#s-heating-period-entity")?.value.trim() || "",
       });
       this._toast("✓ Temperatur-Einstellungen gespeichert");
     });
@@ -882,9 +910,21 @@
       });
     }
 
+    content.querySelector("#s-presence-away-delay")?.addEventListener("input", e => {
+      content.querySelector("#s-presence-away-delay-val").textContent = e.target.value + " min";
+    });
+
+    content.querySelector("#s-presence-arrive-delay")?.addEventListener("input", e => {
+      content.querySelector("#s-presence-arrive-delay-val").textContent = e.target.value + " min";
+    });
+
     content.querySelector("#save-presence-settings").addEventListener("click", () => {
       const checked = [...content.querySelectorAll(".presence-cb:checked")].map(cb => cb.value);
-      this._callService("update_global_settings", { presence_entities: checked });
+      this._callService("update_global_settings", {
+        presence_entities: checked,
+        presence_away_delay_minutes: parseInt(content.querySelector("#s-presence-away-delay")?.value ?? "0", 10),
+        presence_arrive_delay_minutes: parseInt(content.querySelector("#s-presence-arrive-delay")?.value ?? "0", 10),
+      });
       this._toast("✓ Anwesenheitserkennung gespeichert");
     });
 

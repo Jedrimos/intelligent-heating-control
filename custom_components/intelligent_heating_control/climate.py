@@ -77,6 +77,23 @@ from .const import (
     DEFAULT_RADIATOR_KW,
     DEFAULT_HKV_FACTOR,
     DEFAULT_BOOST_DEFAULT_DURATION,
+    CONF_PRESENCE_SENSOR,
+    CONF_PRESENCE_SENSOR_ON_DELAY,
+    CONF_PRESENCE_SENSOR_OFF_DELAY,
+    DEFAULT_PRESENCE_SENSOR_ON_DELAY,
+    DEFAULT_PRESENCE_SENSOR_OFF_DELAY,
+    CONF_WINDOW_OPEN_TEMP,
+    DEFAULT_WINDOW_OPEN_TEMP,
+    CONF_ROOM_TEMP_THRESHOLD,
+    DEFAULT_ROOM_TEMP_THRESHOLD,
+    CONF_COMFORT_TEMP_ENTITY,
+    CONF_ECO_TEMP_ENTITY,
+    CONF_AGGRESSIVE_MODE_ENABLED,
+    DEFAULT_AGGRESSIVE_MODE_ENABLED,
+    CONF_AGGRESSIVE_MODE_RANGE,
+    DEFAULT_AGGRESSIVE_MODE_RANGE,
+    CONF_AGGRESSIVE_MODE_OFFSET,
+    DEFAULT_AGGRESSIVE_MODE_OFFSET,
 )
 from .coordinator import IHCCoordinator
 
@@ -173,7 +190,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         mode = self.coordinator.get_room_mode(self._room_id)
         if mode == ROOM_MODE_OFF:
             return HVACMode.OFF
-        # Window open → show climate as OFF (no heating while ventilating)
+        # Window open → OFF (heating is disabled while ventilating)
         d = self._room_data
         if d and d.get("window_open"):
             return HVACMode.OFF
@@ -188,23 +205,36 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             return HVACAction.OFF
         if d.get("room_mode") == ROOM_MODE_OFF:
             return HVACAction.OFF
-        # Window open → IDLE (not heating)
+        # Window open → IDLE (heating paused while ventilating)
         if d.get("window_open"):
             return HVACAction.IDLE
+
         demand = d.get("demand", 0)
+        current_temp = d.get("current_temp")
+        target_temp = d.get("target_temp")
         data = self.coordinator.data
         controller_mode = (data or {}).get("controller_mode", "switch")
+
         if controller_mode == "trv":
-            # In TRV mode there is no central heating switch – each TRV heats independently.
-            # Show HEATING whenever the room has active demand (> 0) or a TRV reports heating.
-            if demand > 0 or d.get("trv_any_heating", False):
+            # TRV mode: demand > 0, TRV reports heating action, or valve physically open.
+            # Valve > 8% is the most reliable signal – TRV's own controller has decided to heat.
+            trv_avg_valve = d.get("trv_avg_valve")
+            if (demand > 0
+                    or d.get("trv_any_heating", False)
+                    or (trv_avg_valve is not None and trv_avg_valve > 8)):
                 return HVACAction.HEATING
         else:
-            # Switch mode: show HEATING when the room has demand > 0.
-            # The central heating switch (heating_active) controls the boiler but is a
-            # system-level decision – a room calling for heat should show HEATING even if
-            # the boiler threshold hasn't been reached yet (prevents confusing IDLE display).
+            # Switch mode: show HEATING when the room demands heat.
+            # Also show HEATING when the central boiler is active and the room is still
+            # below its target – the room IS being heated even if demand just dropped to 0
+            # (safety gate: demand=0 when current_temp >= target - deadband).
+            heating_active = bool((data or {}).get("heating_active", False))
             if demand > 0:
+                return HVACAction.HEATING
+            if (heating_active
+                    and current_temp is not None
+                    and target_temp is not None
+                    and current_temp < target_temp):
                 return HVACAction.HEATING
             if data and data.get("cooling_active"):
                 return HVACAction.COOLING
@@ -250,6 +280,8 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "sleep_max_temp": room_cfg.get("sleep_max_temp", 19.0),
             "away_max_temp": room_cfg.get("away_max_temp", 18.0),
             "ha_schedule_off_mode": room_cfg.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE),
+            "ha_schedule_entity": d.get("ha_schedule_entity", ""),
+            "ha_schedule_mode": d.get("ha_schedule_mode", ""),
             # Effective computed temps (from coordinator runtime data)
             "comfort_temp_eff": d.get("comfort_temp_eff"),
             "eco_temp_eff": d.get("eco_temp_eff"),
@@ -284,6 +316,22 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             # Presence
             "room_presence_entities": room_cfg.get("room_presence_entities", []),
             "room_presence_active": d.get("room_presence_active"),
+            # PIR sensor presence
+            "presence_sensor": room_cfg.get(CONF_PRESENCE_SENSOR, ""),
+            "presence_sensor_on_delay": room_cfg.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY),
+            "presence_sensor_off_delay": room_cfg.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY),
+            "pir_presence": d.get("pir_presence"),
+            # Window open temperature
+            "window_open_temp": room_cfg.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP),
+            # Room temperature threshold
+            "room_temp_threshold": room_cfg.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD),
+            # Dynamic temperature entities
+            "comfort_temp_entity": room_cfg.get(CONF_COMFORT_TEMP_ENTITY, ""),
+            "eco_temp_entity": room_cfg.get(CONF_ECO_TEMP_ENTITY, ""),
+            # Aggressive mode
+            "aggressive_mode_enabled": room_cfg.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED),
+            "aggressive_mode_range": room_cfg.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE),
+            "aggressive_mode_offset": room_cfg.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET),
             # Boost config
             "boost_default_duration": room_cfg.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION),
             # Ventilation advice + CO2

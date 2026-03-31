@@ -92,7 +92,24 @@ from .const import (
     CONF_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     CONF_TRV_CALIBRATIONS,
+    CONF_ROOM_TEMP_THRESHOLD,
+    DEFAULT_ROOM_TEMP_THRESHOLD,
+    CONF_COMFORT_TEMP_ENTITY,
+    CONF_ECO_TEMP_ENTITY,
     CONF_MOLD_HUMIDITY_THRESHOLD,
+    CONF_WINDOW_OPEN_TEMP,
+    DEFAULT_WINDOW_OPEN_TEMP,
+    CONF_AGGRESSIVE_MODE_ENABLED,
+    DEFAULT_AGGRESSIVE_MODE_ENABLED,
+    CONF_AGGRESSIVE_MODE_RANGE,
+    DEFAULT_AGGRESSIVE_MODE_RANGE,
+    CONF_AGGRESSIVE_MODE_OFFSET,
+    DEFAULT_AGGRESSIVE_MODE_OFFSET,
+    CONF_PRESENCE_SENSOR,
+    CONF_PRESENCE_SENSOR_ON_DELAY,
+    CONF_PRESENCE_SENSOR_OFF_DELAY,
+    DEFAULT_PRESENCE_SENSOR_ON_DELAY,
+    DEFAULT_PRESENCE_SENSOR_OFF_DELAY,
     DEFAULT_WINDOW_REACTION_TIME,
     DEFAULT_WINDOW_CLOSE_DELAY,
     DEFAULT_ROOM_QM,
@@ -300,6 +317,16 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_TRV_VALVE_DEMAND: bool(call.data.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND)),
             CONF_TRV_MIN_SEND_INTERVAL: int(call.data.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL)),
             CONF_TRV_CALIBRATIONS: call.data.get(CONF_TRV_CALIBRATIONS) or {},
+            CONF_WINDOW_OPEN_TEMP: float(call.data.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP)),
+            CONF_PRESENCE_SENSOR: call.data.get(CONF_PRESENCE_SENSOR, ""),
+            CONF_PRESENCE_SENSOR_ON_DELAY: int(call.data.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY)),
+            CONF_PRESENCE_SENSOR_OFF_DELAY: int(call.data.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY)),
+            CONF_ROOM_TEMP_THRESHOLD: float(call.data.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
+            CONF_COMFORT_TEMP_ENTITY: call.data.get(CONF_COMFORT_TEMP_ENTITY, ""),
+            CONF_ECO_TEMP_ENTITY: call.data.get(CONF_ECO_TEMP_ENTITY, ""),
+            CONF_AGGRESSIVE_MODE_ENABLED: bool(call.data.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED)),
+            CONF_AGGRESSIVE_MODE_RANGE: float(call.data.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE)),
+            CONF_AGGRESSIVE_MODE_OFFSET: float(call.data.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET)),
         }
         await coordinator.async_add_room(room_config)
 
@@ -320,14 +347,16 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_ECO_MAX_TEMP, CONF_SLEEP_MAX_TEMP, CONF_AWAY_MAX_TEMP,
             CONF_MIN_TEMP, CONF_MAX_TEMP, CONF_ABSOLUTE_MIN_TEMP, CONF_ROOM_QM,
             CONF_RADIATOR_KW, CONF_HKV_FACTOR, CONF_MOLD_HUMIDITY_THRESHOLD,
-            CONF_TRV_TEMP_WEIGHT, CONF_TRV_TEMP_OFFSET,
+            CONF_TRV_TEMP_WEIGHT, CONF_TRV_TEMP_OFFSET, CONF_ROOM_TEMP_THRESHOLD,
+            CONF_WINDOW_OPEN_TEMP, CONF_AGGRESSIVE_MODE_RANGE, CONF_AGGRESSIVE_MODE_OFFSET,
         }
         _INT_FIELDS = {
             CONF_WINDOW_REACTION_TIME, CONF_WINDOW_CLOSE_DELAY,
             CONF_ROOM_PREHEAT_MINUTES, CONF_CO2_THRESHOLD_GOOD, CONF_CO2_THRESHOLD_BAD,
             CONF_BOOST_DEFAULT_DURATION, CONF_TRV_MIN_SEND_INTERVAL,
+            CONF_PRESENCE_SENSOR_ON_DELAY, CONF_PRESENCE_SENSOR_OFF_DELAY,
         }
-        _BOOL_FIELDS = {CONF_MOLD_PROTECTION_ENABLED, CONF_TRV_VALVE_DEMAND}
+        _BOOL_FIELDS = {CONF_MOLD_PROTECTION_ENABLED, CONF_TRV_VALVE_DEMAND, CONF_AGGRESSIVE_MODE_ENABLED}
         updates: dict = {}
         for k, v in raw.items():
             try:
@@ -417,6 +446,11 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "startup_grace_seconds",
             # Outdoor temperature smoothing (moving average window)
             "outdoor_temp_smoothing_minutes",
+            # Presence delay timers (away + arrive)
+            "presence_away_delay_minutes",
+            "presence_arrive_delay_minutes",
+            # Heating period entity (Heizperiode input_boolean / binary_sensor)
+            "heating_period_entity",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:

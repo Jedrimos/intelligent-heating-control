@@ -491,21 +491,27 @@
   _makeHaSchedRow(entry = {}) {
     const row = document.createElement("div");
     row.className = "ha-sched-row";
-    row.style.cssText = "display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:6px;align-items:center;margin-bottom:6px";
+    row.style.cssText = "border:1px solid var(--divider-color);border-radius:8px;padding:8px;margin-bottom:8px";
     row.innerHTML = `
-      <input type="text" class="form-input hs-entity" placeholder="schedule.zimmer"
-        data-ep-domains="schedule" autocomplete="off" value="${entry.entity || ''}">
-      <select class="form-select hs-mode" style="min-width:90px">
-        <option value="comfort" ${(entry.mode||'comfort')==='comfort'?'selected':''}>Komfort</option>
-        <option value="eco"     ${entry.mode==='eco'    ?'selected':''}>Eco</option>
-        <option value="sleep"   ${entry.mode==='sleep'  ?'selected':''}>Schlaf</option>
-        <option value="away"    ${entry.mode==='away'   ?'selected':''}>Abwesend</option>
-      </select>
-      <input type="text" class="form-input hs-cond" placeholder="Bedingung (optional)"
-        data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off" value="${entry.condition_entity || ''}">
-      <input type="text" class="form-input hs-cond-state" placeholder="Zustand"
-        style="width:70px" value="${entry.condition_state || 'on'}">
-      <button class="btn btn-danger btn-icon hs-remove" title="Entfernen">✕</button>`;
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input type="text" class="form-input hs-entity" placeholder="schedule.zimmer"
+          data-ep-domains="schedule" autocomplete="off" value="${entry.entity || ''}"
+          style="flex:1;min-width:0">
+        <select class="form-select hs-mode" style="width:110px;flex-shrink:0">
+          <option value="comfort" ${(entry.mode||'comfort')==='comfort'?'selected':''}>☀️ Komfort</option>
+          <option value="eco"     ${entry.mode==='eco'    ?'selected':''}>🌿 Eco</option>
+          <option value="sleep"   ${entry.mode==='sleep'  ?'selected':''}>🌙 Schlaf</option>
+          <option value="away"    ${entry.mode==='away'   ?'selected':''}>🚶 Abwesend</option>
+        </select>
+        <button class="btn btn-danger btn-icon hs-remove" title="Entfernen" style="flex-shrink:0">✕</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" class="form-input hs-cond" placeholder="Bedingung (optional, z.B. binary_sensor.xyz)"
+          data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off"
+          value="${entry.condition_entity || ''}" style="flex:1;min-width:0;font-size:12px">
+        <input type="text" class="form-input hs-cond-state" placeholder="on"
+          style="width:55px;flex-shrink:0;font-size:12px" value="${entry.condition_state || 'on'}">
+      </div>`;
     row.querySelector(".hs-remove").addEventListener("click", () => row.remove());
     // Attach entity pickers after row is appended (caller must ensure DOM is ready)
     setTimeout(() => this._attachEntityPickers(row), 0);

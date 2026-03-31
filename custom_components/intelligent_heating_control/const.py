@@ -367,6 +367,44 @@ DEFAULT_TRV_VALVE_DEMAND: Final = False
 CONF_TRV_MIN_SEND_INTERVAL: Final = "trv_min_send_interval"  # Sekunden
 DEFAULT_TRV_MIN_SEND_INTERVAL: Final = 0  # 0 = nur Temperatur-Hysterese aktiv (compat)
 
+# Blueprint-Kompatibilität: Heizperiode-Steuerung via externe HA-Entität
+CONF_HEATING_PERIOD_ENTITY: Final = "heating_period_entity"  # input_boolean.* → OFF = kein Heizen
+
+# Anwesenheits-Verzögerung: Minuten bis Auto-Away nach Abwesenheit aller Personen
+CONF_PRESENCE_AWAY_DELAY_MINUTES: Final = "presence_away_delay_minutes"
+DEFAULT_PRESENCE_AWAY_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompatibel)
+
+# Ankunfts-Verzögerung: Minuten Wartezeit nach Ankunft bevor Komfort-Modus aktiv wird
+CONF_PRESENCE_ARRIVE_DELAY_MINUTES: Final = "presence_arrive_delay_minutes"
+DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompatibel)
+
+# Pro-Zimmer PIR/Bewegungsmelder-Präsenz (unabhängig von person.* Tracking)
+CONF_PRESENCE_SENSOR: Final = "presence_sensor"            # binary_sensor.* für Bewegungserkennung
+CONF_PRESENCE_SENSOR_ON_DELAY: Final = "presence_sensor_on_delay"    # Sekunden bis Komfort (Sensor ON)
+CONF_PRESENCE_SENSOR_OFF_DELAY: Final = "presence_sensor_off_delay"  # Sekunden bis Eco (Sensor OFF)
+DEFAULT_PRESENCE_SENSOR_ON_DELAY: Final = 300   # 5 Minuten – verhindert kurze Bewegungen sofort Komfort
+DEFAULT_PRESENCE_SENSOR_OFF_DELAY: Final = 300  # 5 Minuten – verhindert sofortige Eco bei kurzer Abwesenheit
+
+# Fenster-Mindesttemperatur (pro Zimmer): Statt Frostschutz diese Temp bei offenem Fenster
+CONF_WINDOW_OPEN_TEMP: Final = "window_open_temp"
+DEFAULT_WINDOW_OPEN_TEMP: Final = 0.0  # 0 = Frostschutz-Temp verwenden (Legacy-Verhalten)
+
+# Aggressiver Modus: Überhitzt TRV-Sollwert wenn Raum weit unter Soll (für träge TRVs)
+CONF_AGGRESSIVE_MODE_ENABLED: Final = "aggressive_mode_enabled"
+DEFAULT_AGGRESSIVE_MODE_ENABLED: Final = False
+CONF_AGGRESSIVE_MODE_RANGE: Final = "aggressive_mode_range"    # °C unter Soll → aktiviert
+DEFAULT_AGGRESSIVE_MODE_RANGE: Final = 2.0
+CONF_AGGRESSIVE_MODE_OFFSET: Final = "aggressive_mode_offset"  # °C Überhöhung über Soll
+DEFAULT_AGGRESSIVE_MODE_OFFSET: Final = 3.0
+
+# Pro-Zimmer Temperaturschwelle: Heizt immer wenn Raumtemperatur darunter liegt (Blueprint: input_mode_room_temperature_threshold)
+CONF_ROOM_TEMP_THRESHOLD: Final = "room_temp_threshold"  # °C, 0.0 = deaktiviert
+DEFAULT_ROOM_TEMP_THRESHOLD: Final = 0.0
+
+# Pro-Zimmer dynamische Temperaturen via HA-Entitäten (Blueprint: input_temperature_comfort/eco)
+CONF_COMFORT_TEMP_ENTITY: Final = "comfort_temp_entity"  # input_number.* für dynamischen Komfort-Sollwert
+CONF_ECO_TEMP_ENTITY: Final = "eco_temp_entity"          # input_number.* für dynamischen Eco-Sollwert
+
 # Per-TRV Kalibrierung (pro Entität, ergänzt den Zimmer-weiten trv_temp_offset)
 # Dict: {"climate.trv_schrank": -2.0, "climate.trv_fenster": 0.5}
 CONF_TRV_CALIBRATIONS: Final = "trv_calibrations"

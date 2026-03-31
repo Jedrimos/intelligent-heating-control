@@ -28,6 +28,18 @@ from .const import (
     CONF_SUMMER_THRESHOLD,
     CONF_SHOW_PANEL,
     CONF_PRESENCE_ENTITIES,
+    CONF_HEATING_PERIOD_ENTITY,
+    CONF_PRESENCE_AWAY_DELAY_MINUTES,
+    DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
+    CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
+    DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES,
+    CONF_PRESENCE_SENSOR,
+    CONF_PRESENCE_SENSOR_ON_DELAY,
+    CONF_PRESENCE_SENSOR_OFF_DELAY,
+    DEFAULT_PRESENCE_SENSOR_ON_DELAY,
+    DEFAULT_PRESENCE_SENSOR_OFF_DELAY,
+    CONF_WINDOW_OPEN_TEMP,
+    DEFAULT_WINDOW_OPEN_TEMP,
     CONF_FROST_PROTECTION_TEMP,
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_NIGHT_SETBACK_ENABLED,
@@ -110,6 +122,10 @@ from .const import (
     CONF_VACATION_CALENDAR_KEYWORD,
     # New features
     CONF_TRV_CALIBRATIONS,
+    CONF_ROOM_TEMP_THRESHOLD,
+    DEFAULT_ROOM_TEMP_THRESHOLD,
+    CONF_COMFORT_TEMP_ENTITY,
+    CONF_ECO_TEMP_ENTITY,
     CONF_STUCK_VALVE_TIMEOUT,
     DEFAULT_STUCK_VALVE_TIMEOUT,
     CONF_LIMESCALE_PROTECTION_ENABLED,
@@ -173,6 +189,12 @@ from .const import (
     DEFAULT_ECO_MAX_TEMP,
     DEFAULT_SLEEP_MAX_TEMP,
     DEFAULT_AWAY_MAX_TEMP,
+    CONF_AGGRESSIVE_MODE_ENABLED,
+    DEFAULT_AGGRESSIVE_MODE_ENABLED,
+    CONF_AGGRESSIVE_MODE_RANGE,
+    DEFAULT_AGGRESSIVE_MODE_RANGE,
+    CONF_AGGRESSIVE_MODE_OFFSET,
+    DEFAULT_AGGRESSIVE_MODE_OFFSET,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -434,6 +456,26 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 default=list(cfg.get(CONF_PRESENCE_ENTITIES, []))
             ): selector.selector({
                 "entity": {"domain": ["person", "device_tracker", "input_boolean"], "multiple": True}
+            }),
+            # --- Heizperiode-Entität ---
+            vol.Optional(
+                CONF_HEATING_PERIOD_ENTITY,
+                default=cfg.get(CONF_HEATING_PERIOD_ENTITY, "")
+            ): selector.selector({
+                "entity": {"domain": ["input_boolean", "binary_sensor", "switch"]}
+            }),
+            # --- Anwesenheits-Verzögerung ---
+            vol.Optional(
+                CONF_PRESENCE_AWAY_DELAY_MINUTES,
+                default=int(cfg.get(CONF_PRESENCE_AWAY_DELAY_MINUTES, DEFAULT_PRESENCE_AWAY_DELAY_MINUTES))
+            ): selector.selector({
+                "number": {"min": 0, "max": 120, "step": 5, "unit_of_measurement": "min", "mode": "slider"}
+            }),
+            vol.Optional(
+                CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
+                default=int(cfg.get(CONF_PRESENCE_ARRIVE_DELAY_MINUTES, DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES))
+            ): selector.selector({
+                "number": {"min": 0, "max": 30, "step": 1, "unit_of_measurement": "min", "mode": "box"}
             }),
             # --- Frost protection ---
             vol.Optional(
@@ -734,6 +776,16 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_TRV_VALVE_DEMAND: bool(user_input.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND)),
                 CONF_TRV_MIN_SEND_INTERVAL: int(user_input.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL)),
                 CONF_TRV_CALIBRATIONS: user_input.get(CONF_TRV_CALIBRATIONS) or {},
+                CONF_WINDOW_OPEN_TEMP: float(user_input.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP)),
+                CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR, ""),
+                CONF_PRESENCE_SENSOR_ON_DELAY: int(user_input.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY)),
+                CONF_PRESENCE_SENSOR_OFF_DELAY: int(user_input.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY)),
+                CONF_ROOM_TEMP_THRESHOLD: float(user_input.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
+                CONF_COMFORT_TEMP_ENTITY: user_input.get(CONF_COMFORT_TEMP_ENTITY, ""),
+                CONF_ECO_TEMP_ENTITY: user_input.get(CONF_ECO_TEMP_ENTITY, ""),
+                CONF_AGGRESSIVE_MODE_ENABLED: bool(user_input.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED)),
+                CONF_AGGRESSIVE_MODE_RANGE: float(user_input.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE)),
+                CONF_AGGRESSIVE_MODE_OFFSET: float(user_input.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET)),
                 CONF_SCHEDULES: [],
                 CONF_HA_SCHEDULES: [],
             }
@@ -801,6 +853,9 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_WINDOW_CLOSE_DELAY, default=DEFAULT_WINDOW_CLOSE_DELAY): selector.selector({
                 "number": {"min": 0, "max": 600, "step": 5, "unit_of_measurement": "s", "mode": "box"}
             }),
+            vol.Optional(CONF_WINDOW_OPEN_TEMP, default=float(DEFAULT_WINDOW_OPEN_TEMP)): selector.selector({
+                "number": {"min": 0, "max": 22, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=DEFAULT_HA_SCHEDULE_OFF_MODE): selector.selector({
                 "select": {"options": ["eco", "sleep", "away"]}
             }),
@@ -839,6 +894,27 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_TRV_CALIBRATIONS, default={}): selector.selector({"object": {}}),
             vol.Optional(CONF_ROOM_PRESENCE_ENTITIES, default=[]): selector.selector({
                 "entity": {"domain": ["person", "device_tracker", "input_boolean", "binary_sensor"], "multiple": True}
+            }),
+            vol.Optional(CONF_PRESENCE_SENSOR, default=""): selector.selector({
+                "entity": {"domain": ["binary_sensor"]}
+            }),
+            vol.Optional(CONF_PRESENCE_SENSOR_ON_DELAY, default=int(DEFAULT_PRESENCE_SENSOR_ON_DELAY)): selector.selector({
+                "number": {"min": 0, "max": 3600, "step": 30, "unit_of_measurement": "s", "mode": "box"}
+            }),
+            vol.Optional(CONF_PRESENCE_SENSOR_OFF_DELAY, default=int(DEFAULT_PRESENCE_SENSOR_OFF_DELAY)): selector.selector({
+                "number": {"min": 0, "max": 3600, "step": 30, "unit_of_measurement": "s", "mode": "box"}
+            }),
+            vol.Optional(CONF_ROOM_TEMP_THRESHOLD, default=DEFAULT_ROOM_TEMP_THRESHOLD): selector.selector({
+                "number": {"min": 0, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
+            vol.Optional(CONF_ECO_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
+            vol.Optional(CONF_AGGRESSIVE_MODE_ENABLED, default=DEFAULT_AGGRESSIVE_MODE_ENABLED): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_AGGRESSIVE_MODE_RANGE, default=float(DEFAULT_AGGRESSIVE_MODE_RANGE)): selector.selector({
+                "number": {"min": 0.5, "max": 5.0, "step": 0.5, "unit_of_measurement": "°C", "mode": "slider"}
+            }),
+            vol.Optional(CONF_AGGRESSIVE_MODE_OFFSET, default=float(DEFAULT_AGGRESSIVE_MODE_OFFSET)): selector.selector({
+                "number": {"min": 0.5, "max": 8.0, "step": 0.5, "unit_of_measurement": "°C", "mode": "slider"}
             }),
         })
         return self.async_show_form(
@@ -943,6 +1019,9 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_WINDOW_CLOSE_DELAY, default=int(room.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY))): selector.selector({
                 "number": {"min": 0, "max": 600, "step": 5, "unit_of_measurement": "s", "mode": "box"}
             }),
+            vol.Optional(CONF_WINDOW_OPEN_TEMP, default=float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))): selector.selector({
+                "number": {"min": 0, "max": 22, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=room.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE)): selector.selector({
                 "select": {"options": ["eco", "sleep", "away"]}
             }),
@@ -981,6 +1060,27 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_TRV_CALIBRATIONS, default=room.get(CONF_TRV_CALIBRATIONS) or {}): selector.selector({"object": {}}),
             vol.Optional(CONF_ROOM_PRESENCE_ENTITIES, default=room.get(CONF_ROOM_PRESENCE_ENTITIES, [])): selector.selector({
                 "entity": {"domain": ["person", "device_tracker", "input_boolean", "binary_sensor"], "multiple": True}
+            }),
+            vol.Optional(CONF_PRESENCE_SENSOR, default=room.get(CONF_PRESENCE_SENSOR, "")): selector.selector({
+                "entity": {"domain": ["binary_sensor"]}
+            }),
+            vol.Optional(CONF_PRESENCE_SENSOR_ON_DELAY, default=int(room.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY))): selector.selector({
+                "number": {"min": 0, "max": 3600, "step": 30, "unit_of_measurement": "s", "mode": "box"}
+            }),
+            vol.Optional(CONF_PRESENCE_SENSOR_OFF_DELAY, default=int(room.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY))): selector.selector({
+                "number": {"min": 0, "max": 3600, "step": 30, "unit_of_measurement": "s", "mode": "box"}
+            }),
+            vol.Optional(CONF_ROOM_TEMP_THRESHOLD, default=float(room.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD))): selector.selector({
+                "number": {"min": 0, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=room.get(CONF_COMFORT_TEMP_ENTITY, "")): selector.selector({"text": {}}),
+            vol.Optional(CONF_ECO_TEMP_ENTITY, default=room.get(CONF_ECO_TEMP_ENTITY, "")): selector.selector({"text": {}}),
+            vol.Optional(CONF_AGGRESSIVE_MODE_ENABLED, default=bool(room.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED))): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_AGGRESSIVE_MODE_RANGE, default=float(room.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE))): selector.selector({
+                "number": {"min": 0.5, "max": 5.0, "step": 0.5, "unit_of_measurement": "°C", "mode": "slider"}
+            }),
+            vol.Optional(CONF_AGGRESSIVE_MODE_OFFSET, default=float(room.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET))): selector.selector({
+                "number": {"min": 0.5, "max": 8.0, "step": 0.5, "unit_of_measurement": "°C", "mode": "slider"}
             }),
         })
         return self.async_show_form(step_id="edit_room_details", data_schema=schema)

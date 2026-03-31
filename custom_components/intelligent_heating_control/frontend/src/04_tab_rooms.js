@@ -81,6 +81,10 @@
         ${room.trv_any_heating ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 15%,transparent);color:var(--primary-text-color)" title="Mindestens ein TRV meldet aktives Heizen">🔥 TRV heizt</span>` : ""}
         ${room.trv_min_battery != null ? (() => { const lw = room.trv_min_battery < 20; const med = room.trv_min_battery < 40; const bg = lw ? "color-mix(in srgb,#ef5350 15%,transparent)" : med ? "color-mix(in srgb,#fb8c00 15%,transparent)" : "color-mix(in srgb,#66bb6a 15%,transparent)"; const ico = lw ? "🪫" : "🔋"; return `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${bg};color:var(--primary-text-color)" title="TRV-Batterie (niedrigster Wert aller TRVs)">${ico} ${room.trv_min_battery}%</span>`; })() : ""}
         ${room.room_mode === "manual" && room.next_period ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#9c27b0 15%,transparent);color:var(--primary-text-color)" title="Automatischer Reset beim nächsten Zeitplan-Eintrag">↩ Reset ${room.next_period.start} Uhr</span>` : ""}
+        ${(room.room_temp_threshold > 0) ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 15%,transparent);color:var(--primary-text-color)" title="Mindesttemperatur-Schwelle aktiv: heizt immer wenn Raumtemp darunter fällt">🌡 Min ${room.room_temp_threshold}°C</span>` : ""}
+        ${room.source === "temp_threshold_override" ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 25%,transparent);color:var(--primary-text-color)" title="Heizung aktiv wegen Mindesttemperatur-Schwelle">🌡 Schwelle aktiv</span>` : ""}
+        ${room.presence_sensor ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${room.pir_presence === false ? "color-mix(in srgb,#ef5350 15%,transparent)" : room.pir_presence === true ? "color-mix(in srgb,#66bb6a 15%,transparent)" : "color-mix(in srgb,#78909c 15%,transparent)"};color:var(--primary-text-color)" title="PIR: ${room.presence_sensor}">${room.pir_presence === false ? "🚶 Niemand da" : room.pir_presence === true ? "🏃 Bewegung" : "👁 PIR konfiguriert"}</span>` : ""}
+        ${room.source === "pir_absence" ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 25%,transparent);color:var(--primary-text-color)" title="Abwesend-Temperatur wegen PIR-Abwesenheit aktiv">🚶 PIR abwesend</span>` : ""}
       </div>
       <div class="tabs" style="margin-bottom:16px">
         <div class="tab ${tab === "schedule" ? "active" : ""}" data-subtab="schedule">📅 Zeitplan</div>
@@ -388,6 +392,89 @@
           </div>
         </details>
 
+        <details class="modal-collapsible" ${room.aggressive_mode_enabled ? "open" : ""}>
+          <summary class="modal-section-title">⚡ Aggressiver Modus</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="rs-aggressive-mode" ${room.aggressive_mode_enabled ? "checked" : ""}>
+                Aggressiver Modus aktivieren (für träge TRVs)
+              </label>
+            </div>
+            <div class="settings-item">
+              <label>Aktivierungsbereich (°C unter Soll)</label>
+              <input type="number" class="form-input" id="rs-aggressive-range"
+                value="${room.aggressive_mode_range ?? 2}" step="0.5" min="0.5" max="5">
+            </div>
+            <div class="settings-item">
+              <label>Überhöhung (°C über Soll)</label>
+              <input type="number" class="form-input" id="rs-aggressive-offset"
+                value="${room.aggressive_mode_offset ?? 3}" step="0.5" min="0.5" max="8">
+            </div>
+          </div>
+        </details>
+
+        <details class="modal-collapsible" ${(room.window_open_temp > 0 || room.room_temp_threshold > 0) ? "open" : ""}>
+          <summary class="modal-section-title">🌡️ Temperaturschwellen</summary>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Mindesttemperatur-Schwelle (°C)</label>
+              <input type="number" class="form-input" id="rs-room-temp-threshold"
+                value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+              <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
+            </div>
+            <div class="settings-item">
+              <label>Fenster-Mindesttemperatur (°C)</label>
+              <input type="number" class="form-input" id="rs-window-open-temp"
+                value="${room.window_open_temp ?? 0}" step="0.5" min="0" max="22" placeholder="0 = Frostschutz">
+              <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="modal-collapsible" ${room.presence_sensor ? "open" : ""}>
+          <summary class="modal-section-title">👁 PIR-Sensor (Zimmerpräsenz)</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>PIR-Sensor Entity</label>
+              <input type="text" class="form-input full" id="rs-presence-sensor"
+                value="${room.presence_sensor || ''}" placeholder="binary_sensor.bewegung"
+                data-ep-domains="binary_sensor" autocomplete="off">
+              <span class="form-hint">Bewegungsmelder für Zimmer-Anwesenheit (optional)</span>
+            </div>
+            <div class="settings-item">
+              <label>Einschaltverzögerung (s)</label>
+              <input type="number" class="form-input" id="rs-presence-sensor-on-delay"
+                value="${room.presence_sensor_on_delay ?? 300}" step="30" min="0" max="3600">
+            </div>
+            <div class="settings-item">
+              <label>Ausschaltverzögerung (s)</label>
+              <input type="number" class="form-input" id="rs-presence-sensor-off-delay"
+                value="${room.presence_sensor_off_delay ?? 300}" step="30" min="0" max="3600">
+            </div>
+          </div>
+        </details>
+
+        <details class="modal-collapsible" ${(room.comfort_temp_entity || room.eco_temp_entity) ? "open" : ""}>
+          <summary class="modal-section-title">🔗 Dynamische Sollwert-Entitäten</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Komfort-Sollwert Entity</label>
+              <input type="text" class="form-input full" id="rs-comfort-temp-entity"
+                value="${room.comfort_temp_entity || ''}" placeholder="input_number.komfort_soll"
+                data-ep-domains="input_number,sensor" autocomplete="off">
+              <span class="form-hint">input_number.* oder sensor.* für dynamischen Komfort-Sollwert</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Eco-Sollwert Entity</label>
+              <input type="text" class="form-input full" id="rs-eco-temp-entity"
+                value="${room.eco_temp_entity || ''}" placeholder="input_number.eco_soll"
+                data-ep-domains="input_number,sensor" autocomplete="off">
+              <span class="form-hint">input_number.* oder sensor.* für dynamischen Eco-Sollwert</span>
+            </div>
+          </div>
+        </details>
+
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
         </div>
@@ -494,6 +581,13 @@
         trv_valve_demand:         container.querySelector("#rs-trv-valve-demand")?.checked === true,
         trv_min_send_interval:    parseInt(container.querySelector("#rs-trv-min-send-interval")?.value, 10) || 0,
         trv_calibrations:         (() => { try { const v = container.querySelector("#rs-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
+        presence_sensor:          container.querySelector("#rs-presence-sensor")?.value.trim() || "",
+        presence_sensor_on_delay: parseInt(container.querySelector("#rs-presence-sensor-on-delay")?.value, 10) || 0,
+        presence_sensor_off_delay: parseInt(container.querySelector("#rs-presence-sensor-off-delay")?.value, 10) || 0,
+        window_open_temp:         parseFloat(container.querySelector("#rs-window-open-temp")?.value) || 0,
+        room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
+        comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
       });
       this._toast(`✓ ${room.name} gespeichert`);
     });
@@ -721,6 +815,55 @@
     });
 
     // ── HA Schedules (schedule.* entities) ────────────────────────────────
+    // Build live status HTML for configured HA schedules
+    const haSchedsConfig = room.ha_schedules || [];
+    const MODE_LABELS = { comfort: "☀️ Komfort", eco: "🌿 Eco", sleep: "🌙 Schlaf", away: "🚶 Abwesend" };
+    const activeSchedEntity = room.ha_schedule_entity || "";  // currently winning schedule entity
+    const currentSource = room.source || "";
+
+    const haStatusRows = haSchedsConfig.map(s => {
+      const schedState = this.hass.states[s.entity];
+      const schedOn = schedState?.state === "on";
+      const condEntity = s.condition_entity || "";
+      const condExpected = s.condition_state || "on";
+      const condMet = !condEntity || (this.hass.states[condEntity]?.state === condExpected);
+      const isWinning = schedOn && condMet && s.entity === activeSchedEntity;
+      const condState = condEntity ? this.hass.states[condEntity]?.state : null;
+
+      const schedDot = schedOn
+        ? `<span style="color:#66bb6a;font-weight:700">● AN</span>`
+        : `<span style="color:#9e9e9e">● AUS</span>`;
+      const condBadge = condEntity
+        ? `<span style="font-size:11px;color:${condMet ? "#66bb6a" : "#ef5350"}">${condMet ? "✅" : "❌"} ${condEntity.split(".")[1]} = ${condExpected} <span style="opacity:.6">(ist: ${condState ?? "?"})</span></span>`
+        : `<span style="font-size:11px;color:var(--secondary-text-color)">Immer aktiv</span>`;
+      const winBadge = isWinning
+        ? `<span style="background:#1b5e20;color:#a5d6a7;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:700;margin-left:6px">▶ AKTIV</span>`
+        : "";
+
+      return `
+        <div style="padding:8px 10px;border-radius:8px;margin-bottom:6px;
+          background:${isWinning ? "rgba(27,94,32,0.15)" : "var(--secondary-background-color)"};
+          border:1px solid ${isWinning ? "#388e3c" : "var(--divider-color)"}">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            ${schedDot}
+            <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.entity}</span>
+            <span style="font-size:11px;color:var(--secondary-text-color);flex-shrink:0">${MODE_LABELS[s.mode] || s.mode}</span>
+            ${winBadge}
+          </div>
+          <div style="margin-top:4px">${condBadge}</div>
+        </div>`;
+    }).join("");
+
+    const haStatusSection = haSchedsConfig.length > 0 ? `
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">📡 Aktueller Status</div>
+        ${haStatusRows}
+        ${currentSource.startsWith("ha_schedule_") ? `
+          <div style="font-size:11px;color:var(--secondary-text-color);padding:6px 10px;background:var(--secondary-background-color);border-radius:6px;margin-top:4px">
+            ⏸ Kein Zeitplan aktiv → Fallback: <strong>${MODE_LABELS[room.ha_schedule_off_mode] || room.ha_schedule_off_mode}</strong>
+          </div>` : ""}
+      </div>` : "";
+
     const haSchedCard = document.createElement("div");
     haSchedCard.className = "card";
     haSchedCard.style.marginTop = "16px";
@@ -730,6 +873,7 @@
         Verbindet <strong>schedule.*</strong>-Helfer mit diesem Zimmer. Wenn aktiv, übernimmt IHC den
         gewählten Temperaturmodus. Erstellen: HA → Einstellungen → Helfer → Zeitplan.
       </p>
+      ${haStatusSection}
       <div class="settings-item" style="margin-bottom:14px">
         <label style="font-weight:600">Fallback wenn kein HA-Zeitplan aktiv</label>
         <select class="form-select" id="rs-ha-sched-off-mode" style="margin-top:4px">
@@ -739,17 +883,21 @@
         </select>
         <span class="form-hint">Modus wenn kein schedule.* gerade eingeschaltet ist</span>
       </div>
-      <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--secondary-text-color)">
-        Verknüpfte Zeitpläne
-      </div>
-      <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:8px;display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:4px;align-items:center">
-        <span>Entität (schedule.*)</span><span>Modus</span><span>Bedingung (optional)</span><span>Zustand</span><span></span>
-      </div>
-      <div id="rs-ha-sched-list"></div>
-      <div class="btn-row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
-        <button class="btn btn-secondary" id="rs-add-ha-sched">+ Zeitplan hinzufügen</button>
-        <button class="btn btn-primary"   id="rs-save-ha-sched">💾 HA Zeitpläne speichern</button>
-      </div>`;
+      <details style="margin-bottom:10px">
+        <summary style="font-size:12px;font-weight:600;cursor:pointer;color:var(--secondary-text-color);padding:4px 0">
+          ⚙️ Zeitpläne bearbeiten (${haSchedsConfig.length} konfiguriert)
+        </summary>
+        <div style="margin-top:10px">
+          <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:6px">
+            Entität (schedule.*) + Modus · Zeile 2: Bedingung + Zustand (optional)
+          </div>
+          <div id="rs-ha-sched-list"></div>
+          <div class="btn-row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+            <button class="btn btn-secondary" id="rs-add-ha-sched">+ Zeitplan hinzufügen</button>
+            <button class="btn btn-primary"   id="rs-save-ha-sched">💾 HA Zeitpläne speichern</button>
+          </div>
+        </div>
+      </details>`;
     container.appendChild(haSchedCard);
 
     // Pre-populate existing HA schedule rows

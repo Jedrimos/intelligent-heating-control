@@ -758,18 +758,21 @@ class IHCPanel extends HTMLElement {
         <span class="topbar-version">v1.4</span>
       `;
       shadow.appendChild(topbar);
-      // Toggle HA sidebar – try several approaches to cover all HA versions
+      // Toggle HA sidebar – single event only (dispatching multiple events causes double-toggle)
       topbar.querySelector("#ihc-menu-btn").addEventListener("click", () => {
-        // 1. Modern HA 2023+ (home-assistant-main listens on window)
+        // Primary: modern HA 2023+ event (home-assistant-main listens on window)
         window.dispatchEvent(new CustomEvent("hass-toggle-menu"));
-        // 2. Legacy event name (pre-2023)
-        window.dispatchEvent(new CustomEvent("hass-open-menu"));
-        // 3. Direct DOM: click HA's own hidden menu button if present
+        // Fallback: if hass-toggle-menu had no effect (desktop wide-mode),
+        // try direct drawer manipulation.
         try {
           const haEl = document.querySelector("home-assistant");
-          const main = haEl?.shadowRoot?.querySelector("home-assistant-main");
-          const menuBtn = main?.shadowRoot?.querySelector("ha-menu-button");
-          if (menuBtn) menuBtn.click();
+          const haMain = haEl?.shadowRoot?.querySelector("home-assistant-main");
+          if (haMain) {
+            const drawer = haMain.shadowRoot?.querySelector("ha-drawer");
+            if (drawer && typeof drawer.open !== "undefined") {
+              drawer.open = !drawer.open;
+            }
+          }
         } catch (_) { /* ignore */ }
       });
     }
@@ -1347,21 +1350,27 @@ class IHCPanel extends HTMLElement {
   _makeHaSchedRow(entry = {}) {
     const row = document.createElement("div");
     row.className = "ha-sched-row";
-    row.style.cssText = "display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:6px;align-items:center;margin-bottom:6px";
+    row.style.cssText = "border:1px solid var(--divider-color);border-radius:8px;padding:8px;margin-bottom:8px";
     row.innerHTML = `
-      <input type="text" class="form-input hs-entity" placeholder="schedule.zimmer"
-        data-ep-domains="schedule" autocomplete="off" value="${entry.entity || ''}">
-      <select class="form-select hs-mode" style="min-width:90px">
-        <option value="comfort" ${(entry.mode||'comfort')==='comfort'?'selected':''}>Komfort</option>
-        <option value="eco"     ${entry.mode==='eco'    ?'selected':''}>Eco</option>
-        <option value="sleep"   ${entry.mode==='sleep'  ?'selected':''}>Schlaf</option>
-        <option value="away"    ${entry.mode==='away'   ?'selected':''}>Abwesend</option>
-      </select>
-      <input type="text" class="form-input hs-cond" placeholder="Bedingung (optional)"
-        data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off" value="${entry.condition_entity || ''}">
-      <input type="text" class="form-input hs-cond-state" placeholder="Zustand"
-        style="width:70px" value="${entry.condition_state || 'on'}">
-      <button class="btn btn-danger btn-icon hs-remove" title="Entfernen">✕</button>`;
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input type="text" class="form-input hs-entity" placeholder="schedule.zimmer"
+          data-ep-domains="schedule" autocomplete="off" value="${entry.entity || ''}"
+          style="flex:1;min-width:0">
+        <select class="form-select hs-mode" style="width:110px;flex-shrink:0">
+          <option value="comfort" ${(entry.mode||'comfort')==='comfort'?'selected':''}>☀️ Komfort</option>
+          <option value="eco"     ${entry.mode==='eco'    ?'selected':''}>🌿 Eco</option>
+          <option value="sleep"   ${entry.mode==='sleep'  ?'selected':''}>🌙 Schlaf</option>
+          <option value="away"    ${entry.mode==='away'   ?'selected':''}>🚶 Abwesend</option>
+        </select>
+        <button class="btn btn-danger btn-icon hs-remove" title="Entfernen" style="flex-shrink:0">✕</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" class="form-input hs-cond" placeholder="Bedingung (optional, z.B. binary_sensor.xyz)"
+          data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off"
+          value="${entry.condition_entity || ''}" style="flex:1;min-width:0;font-size:12px">
+        <input type="text" class="form-input hs-cond-state" placeholder="on"
+          style="width:55px;flex-shrink:0;font-size:12px" value="${entry.condition_state || 'on'}">
+      </div>`;
     row.querySelector(".hs-remove").addEventListener("click", () => row.remove());
     // Attach entity pickers after row is appended (caller must ensure DOM is ready)
     setTimeout(() => this._attachEntityPickers(row), 0);
@@ -1496,7 +1505,7 @@ class IHCPanel extends HTMLElement {
       if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
       if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
       if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);
-      if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery}%) – bitte tauschen</div>`);
+      if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
       const v = room.ventilation;
       if (v && v.level !== "none") {
         const icons = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };
@@ -1856,6 +1865,10 @@ class IHCPanel extends HTMLElement {
         ${room.trv_any_heating ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 15%,transparent);color:var(--primary-text-color)" title="Mindestens ein TRV meldet aktives Heizen">🔥 TRV heizt</span>` : ""}
         ${room.trv_min_battery != null ? (() => { const lw = room.trv_min_battery < 20; const med = room.trv_min_battery < 40; const bg = lw ? "color-mix(in srgb,#ef5350 15%,transparent)" : med ? "color-mix(in srgb,#fb8c00 15%,transparent)" : "color-mix(in srgb,#66bb6a 15%,transparent)"; const ico = lw ? "🪫" : "🔋"; return `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${bg};color:var(--primary-text-color)" title="TRV-Batterie (niedrigster Wert aller TRVs)">${ico} ${room.trv_min_battery}%</span>`; })() : ""}
         ${room.room_mode === "manual" && room.next_period ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#9c27b0 15%,transparent);color:var(--primary-text-color)" title="Automatischer Reset beim nächsten Zeitplan-Eintrag">↩ Reset ${room.next_period.start} Uhr</span>` : ""}
+        ${(room.room_temp_threshold > 0) ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 15%,transparent);color:var(--primary-text-color)" title="Mindesttemperatur-Schwelle aktiv: heizt immer wenn Raumtemp darunter fällt">🌡 Min ${room.room_temp_threshold}°C</span>` : ""}
+        ${room.source === "temp_threshold_override" ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 25%,transparent);color:var(--primary-text-color)" title="Heizung aktiv wegen Mindesttemperatur-Schwelle">🌡 Schwelle aktiv</span>` : ""}
+        ${room.presence_sensor ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${room.pir_presence === false ? "color-mix(in srgb,#ef5350 15%,transparent)" : room.pir_presence === true ? "color-mix(in srgb,#66bb6a 15%,transparent)" : "color-mix(in srgb,#78909c 15%,transparent)"};color:var(--primary-text-color)" title="PIR: ${room.presence_sensor}">${room.pir_presence === false ? "🚶 Niemand da" : room.pir_presence === true ? "🏃 Bewegung" : "👁 PIR konfiguriert"}</span>` : ""}
+        ${room.source === "pir_absence" ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 25%,transparent);color:var(--primary-text-color)" title="Abwesend-Temperatur wegen PIR-Abwesenheit aktiv">🚶 PIR abwesend</span>` : ""}
       </div>
       <div class="tabs" style="margin-bottom:16px">
         <div class="tab ${tab === "schedule" ? "active" : ""}" data-subtab="schedule">📅 Zeitplan</div>
@@ -2163,6 +2176,89 @@ class IHCPanel extends HTMLElement {
           </div>
         </details>
 
+        <details class="modal-collapsible" ${room.aggressive_mode_enabled ? "open" : ""}>
+          <summary class="modal-section-title">⚡ Aggressiver Modus</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="rs-aggressive-mode" ${room.aggressive_mode_enabled ? "checked" : ""}>
+                Aggressiver Modus aktivieren (für träge TRVs)
+              </label>
+            </div>
+            <div class="settings-item">
+              <label>Aktivierungsbereich (°C unter Soll)</label>
+              <input type="number" class="form-input" id="rs-aggressive-range"
+                value="${room.aggressive_mode_range ?? 2}" step="0.5" min="0.5" max="5">
+            </div>
+            <div class="settings-item">
+              <label>Überhöhung (°C über Soll)</label>
+              <input type="number" class="form-input" id="rs-aggressive-offset"
+                value="${room.aggressive_mode_offset ?? 3}" step="0.5" min="0.5" max="8">
+            </div>
+          </div>
+        </details>
+
+        <details class="modal-collapsible" ${(room.window_open_temp > 0 || room.room_temp_threshold > 0) ? "open" : ""}>
+          <summary class="modal-section-title">🌡️ Temperaturschwellen</summary>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Mindesttemperatur-Schwelle (°C)</label>
+              <input type="number" class="form-input" id="rs-room-temp-threshold"
+                value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+              <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
+            </div>
+            <div class="settings-item">
+              <label>Fenster-Mindesttemperatur (°C)</label>
+              <input type="number" class="form-input" id="rs-window-open-temp"
+                value="${room.window_open_temp ?? 0}" step="0.5" min="0" max="22" placeholder="0 = Frostschutz">
+              <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="modal-collapsible" ${room.presence_sensor ? "open" : ""}>
+          <summary class="modal-section-title">👁 PIR-Sensor (Zimmerpräsenz)</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>PIR-Sensor Entity</label>
+              <input type="text" class="form-input full" id="rs-presence-sensor"
+                value="${room.presence_sensor || ''}" placeholder="binary_sensor.bewegung"
+                data-ep-domains="binary_sensor" autocomplete="off">
+              <span class="form-hint">Bewegungsmelder für Zimmer-Anwesenheit (optional)</span>
+            </div>
+            <div class="settings-item">
+              <label>Einschaltverzögerung (s)</label>
+              <input type="number" class="form-input" id="rs-presence-sensor-on-delay"
+                value="${room.presence_sensor_on_delay ?? 300}" step="30" min="0" max="3600">
+            </div>
+            <div class="settings-item">
+              <label>Ausschaltverzögerung (s)</label>
+              <input type="number" class="form-input" id="rs-presence-sensor-off-delay"
+                value="${room.presence_sensor_off_delay ?? 300}" step="30" min="0" max="3600">
+            </div>
+          </div>
+        </details>
+
+        <details class="modal-collapsible" ${(room.comfort_temp_entity || room.eco_temp_entity) ? "open" : ""}>
+          <summary class="modal-section-title">🔗 Dynamische Sollwert-Entitäten</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Komfort-Sollwert Entity</label>
+              <input type="text" class="form-input full" id="rs-comfort-temp-entity"
+                value="${room.comfort_temp_entity || ''}" placeholder="input_number.komfort_soll"
+                data-ep-domains="input_number,sensor" autocomplete="off">
+              <span class="form-hint">input_number.* oder sensor.* für dynamischen Komfort-Sollwert</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Eco-Sollwert Entity</label>
+              <input type="text" class="form-input full" id="rs-eco-temp-entity"
+                value="${room.eco_temp_entity || ''}" placeholder="input_number.eco_soll"
+                data-ep-domains="input_number,sensor" autocomplete="off">
+              <span class="form-hint">input_number.* oder sensor.* für dynamischen Eco-Sollwert</span>
+            </div>
+          </div>
+        </details>
+
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
         </div>
@@ -2269,6 +2365,13 @@ class IHCPanel extends HTMLElement {
         trv_valve_demand:         container.querySelector("#rs-trv-valve-demand")?.checked === true,
         trv_min_send_interval:    parseInt(container.querySelector("#rs-trv-min-send-interval")?.value, 10) || 0,
         trv_calibrations:         (() => { try { const v = container.querySelector("#rs-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
+        presence_sensor:          container.querySelector("#rs-presence-sensor")?.value.trim() || "",
+        presence_sensor_on_delay: parseInt(container.querySelector("#rs-presence-sensor-on-delay")?.value, 10) || 0,
+        presence_sensor_off_delay: parseInt(container.querySelector("#rs-presence-sensor-off-delay")?.value, 10) || 0,
+        window_open_temp:         parseFloat(container.querySelector("#rs-window-open-temp")?.value) || 0,
+        room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
+        comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
       });
       this._toast(`✓ ${room.name} gespeichert`);
     });
@@ -2496,6 +2599,55 @@ class IHCPanel extends HTMLElement {
     });
 
     // ── HA Schedules (schedule.* entities) ────────────────────────────────
+    // Build live status HTML for configured HA schedules
+    const haSchedsConfig = room.ha_schedules || [];
+    const MODE_LABELS = { comfort: "☀️ Komfort", eco: "🌿 Eco", sleep: "🌙 Schlaf", away: "🚶 Abwesend" };
+    const activeSchedEntity = room.ha_schedule_entity || "";  // currently winning schedule entity
+    const currentSource = room.source || "";
+
+    const haStatusRows = haSchedsConfig.map(s => {
+      const schedState = this.hass.states[s.entity];
+      const schedOn = schedState?.state === "on";
+      const condEntity = s.condition_entity || "";
+      const condExpected = s.condition_state || "on";
+      const condMet = !condEntity || (this.hass.states[condEntity]?.state === condExpected);
+      const isWinning = schedOn && condMet && s.entity === activeSchedEntity;
+      const condState = condEntity ? this.hass.states[condEntity]?.state : null;
+
+      const schedDot = schedOn
+        ? `<span style="color:#66bb6a;font-weight:700">● AN</span>`
+        : `<span style="color:#9e9e9e">● AUS</span>`;
+      const condBadge = condEntity
+        ? `<span style="font-size:11px;color:${condMet ? "#66bb6a" : "#ef5350"}">${condMet ? "✅" : "❌"} ${condEntity.split(".")[1]} = ${condExpected} <span style="opacity:.6">(ist: ${condState ?? "?"})</span></span>`
+        : `<span style="font-size:11px;color:var(--secondary-text-color)">Immer aktiv</span>`;
+      const winBadge = isWinning
+        ? `<span style="background:#1b5e20;color:#a5d6a7;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:700;margin-left:6px">▶ AKTIV</span>`
+        : "";
+
+      return `
+        <div style="padding:8px 10px;border-radius:8px;margin-bottom:6px;
+          background:${isWinning ? "rgba(27,94,32,0.15)" : "var(--secondary-background-color)"};
+          border:1px solid ${isWinning ? "#388e3c" : "var(--divider-color)"}">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            ${schedDot}
+            <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.entity}</span>
+            <span style="font-size:11px;color:var(--secondary-text-color);flex-shrink:0">${MODE_LABELS[s.mode] || s.mode}</span>
+            ${winBadge}
+          </div>
+          <div style="margin-top:4px">${condBadge}</div>
+        </div>`;
+    }).join("");
+
+    const haStatusSection = haSchedsConfig.length > 0 ? `
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">📡 Aktueller Status</div>
+        ${haStatusRows}
+        ${currentSource.startsWith("ha_schedule_") ? `
+          <div style="font-size:11px;color:var(--secondary-text-color);padding:6px 10px;background:var(--secondary-background-color);border-radius:6px;margin-top:4px">
+            ⏸ Kein Zeitplan aktiv → Fallback: <strong>${MODE_LABELS[room.ha_schedule_off_mode] || room.ha_schedule_off_mode}</strong>
+          </div>` : ""}
+      </div>` : "";
+
     const haSchedCard = document.createElement("div");
     haSchedCard.className = "card";
     haSchedCard.style.marginTop = "16px";
@@ -2505,6 +2657,7 @@ class IHCPanel extends HTMLElement {
         Verbindet <strong>schedule.*</strong>-Helfer mit diesem Zimmer. Wenn aktiv, übernimmt IHC den
         gewählten Temperaturmodus. Erstellen: HA → Einstellungen → Helfer → Zeitplan.
       </p>
+      ${haStatusSection}
       <div class="settings-item" style="margin-bottom:14px">
         <label style="font-weight:600">Fallback wenn kein HA-Zeitplan aktiv</label>
         <select class="form-select" id="rs-ha-sched-off-mode" style="margin-top:4px">
@@ -2514,17 +2667,21 @@ class IHCPanel extends HTMLElement {
         </select>
         <span class="form-hint">Modus wenn kein schedule.* gerade eingeschaltet ist</span>
       </div>
-      <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--secondary-text-color)">
-        Verknüpfte Zeitpläne
-      </div>
-      <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:8px;display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:4px;align-items:center">
-        <span>Entität (schedule.*)</span><span>Modus</span><span>Bedingung (optional)</span><span>Zustand</span><span></span>
-      </div>
-      <div id="rs-ha-sched-list"></div>
-      <div class="btn-row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
-        <button class="btn btn-secondary" id="rs-add-ha-sched">+ Zeitplan hinzufügen</button>
-        <button class="btn btn-primary"   id="rs-save-ha-sched">💾 HA Zeitpläne speichern</button>
-      </div>`;
+      <details style="margin-bottom:10px">
+        <summary style="font-size:12px;font-weight:600;cursor:pointer;color:var(--secondary-text-color);padding:4px 0">
+          ⚙️ Zeitpläne bearbeiten (${haSchedsConfig.length} konfiguriert)
+        </summary>
+        <div style="margin-top:10px">
+          <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:6px">
+            Entität (schedule.*) + Modus · Zeile 2: Bedingung + Zustand (optional)
+          </div>
+          <div id="rs-ha-sched-list"></div>
+          <div class="btn-row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+            <button class="btn btn-secondary" id="rs-add-ha-sched">+ Zeitplan hinzufügen</button>
+            <button class="btn btn-primary"   id="rs-save-ha-sched">💾 HA Zeitpläne speichern</button>
+          </div>
+        </div>
+      </details>`;
     container.appendChild(haSchedCard);
 
     // Pre-populate existing HA schedule rows
@@ -3288,6 +3445,15 @@ class IHCPanel extends HTMLElement {
               <input type="number" class="form-input" id="summer-threshold" min="10" max="30" step="0.5" value="${a.summer_threshold ?? 18}">
               <span class="form-hint">Ab dieser Außentemperatur wird die Heizung gesperrt (Sommerautomatik muss aktiviert sein).</span>
             </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Heizperiode-Entity
+                ${g.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : g.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
+              </label>
+              <input type="text" class="form-input full" id="s-heating-period-entity"
+                value="${a.heating_period_entity || ''}" placeholder="input_boolean.heizperiode"
+                data-ep-domains="input_boolean,binary_sensor" autocomplete="off">
+              <span class="form-hint">Optional: Entity (input_boolean.* oder binary_sensor.*) die die Heizperiode steuert. OFF = Heizperiode inaktiv → Heizung gesperrt wie im Sommer-Modus.</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-temp-settings">💾 Temperaturen speichern</button>
@@ -3440,6 +3606,24 @@ class IHCPanel extends HTMLElement {
             ${this._renderPresenceCheckboxes(a.presence_entities || [])}
           </div>
           <span class="form-hint">Aktuell ${g.presence_away_active ? "🚶 niemand zuhause" : "✓ jemand zuhause"}</span>
+          <div class="settings-grid" style="margin-top:12px">
+            <div class="settings-item">
+              <label>Auto-Away Verzögerung (min)</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" id="s-presence-away-delay" min="0" max="120" step="5" value="${a.presence_away_delay_minutes ?? 0}" style="flex:1">
+                <span id="s-presence-away-delay-val" style="min-width:42px;text-align:right">${a.presence_away_delay_minutes ?? 0} min</span>
+              </div>
+              <span class="form-hint">Wie lange alle Personen abwesend sein müssen bevor IHC auf Abwesend-Modus schaltet. 0 = sofort.</span>
+            </div>
+            <div class="settings-item">
+              <label>Ankunfts-Verzögerung (min)</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" id="s-presence-arrive-delay" min="0" max="30" step="1" value="${a.presence_arrive_delay_minutes ?? 0}" style="flex:1">
+                <span id="s-presence-arrive-delay-val" style="min-width:42px;text-align:right">${a.presence_arrive_delay_minutes ?? 0} min</span>
+              </div>
+              <span class="form-hint">Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).</span>
+            </div>
+          </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-presence-settings">💾 Anwesenheit speichern</button>
           </div>
@@ -3978,6 +4162,7 @@ class IHCPanel extends HTMLElement {
         summer_mode_enabled:      content.querySelector("#summer-enabled").value === "true",
         summer_threshold:         sumT,
         off_use_frost_protection: content.querySelector("#off-use-frost").value === "true",
+        heating_period_entity:    content.querySelector("#s-heating-period-entity")?.value.trim() || "",
       });
       this._toast("✓ Temperatur-Einstellungen gespeichert");
     });
@@ -4027,9 +4212,21 @@ class IHCPanel extends HTMLElement {
       });
     }
 
+    content.querySelector("#s-presence-away-delay")?.addEventListener("input", e => {
+      content.querySelector("#s-presence-away-delay-val").textContent = e.target.value + " min";
+    });
+
+    content.querySelector("#s-presence-arrive-delay")?.addEventListener("input", e => {
+      content.querySelector("#s-presence-arrive-delay-val").textContent = e.target.value + " min";
+    });
+
     content.querySelector("#save-presence-settings").addEventListener("click", () => {
       const checked = [...content.querySelectorAll(".presence-cb:checked")].map(cb => cb.value);
-      this._callService("update_global_settings", { presence_entities: checked });
+      this._callService("update_global_settings", {
+        presence_entities: checked,
+        presence_away_delay_minutes: parseInt(content.querySelector("#s-presence-away-delay")?.value ?? "0", 10),
+        presence_arrive_delay_minutes: parseInt(content.querySelector("#s-presence-arrive-delay")?.value ?? "0", 10),
+      });
       this._toast("✓ Anwesenheitserkennung gespeichert");
     });
 
@@ -4613,6 +4810,50 @@ class IHCPanel extends HTMLElement {
         <span class="form-hint">Zimmer wechselt auf Abwesend-Temp wenn niemand da · leer = immer anwesend</span>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Bewegungsmelder (PIR)</label>
+        <input class="form-input" type="text" id="m-presence-sensor"
+          value="" placeholder="binary_sensor.bewegung_wohnzimmer">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIR Einschalt-Verzögerung (s)</label>
+        <input class="form-input" type="number" id="m-presence-sensor-on-delay"
+          min="0" max="3600" step="30" value="300">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIR Ausschalt-Verzögerung (s)</label>
+        <input class="form-input" type="number" id="m-presence-sensor-off-delay"
+          min="0" max="3600" step="30" value="300">
+      </div>
+
+      <details class="modal-collapsible">
+        <summary class="modal-section-title">⚡ Aggressiver Modus (für träge TRVs)</summary>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0 10px">
+          Wenn der Raum weit unter dem Sollwert liegt, wird der TRV-Sollwert temporär überhöht um
+          schneller aufzuheizen. Der TRV schließt selbst wenn er die Zieltemperatur erreicht.
+          <strong>Standard: deaktiviert.</strong>
+        </div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="m-aggressive-mode">
+              Aggressiver Modus aktivieren
+            </label>
+            <span class="form-hint">Nur sinnvoll bei TRVs mit eigener Regelung (z.B. Zigbee2MQTT TRVs)</span>
+          </div>
+          <div class="settings-item">
+            <label>Aktivierungsbereich (°C unter Soll)</label>
+            <input type="number" class="form-input" id="m-aggressive-range" value="2" step="0.5" min="0.5" max="5">
+            <span class="form-hint">Modus aktiviert wenn Raumtemp um diesen Wert unter Soll liegt</span>
+          </div>
+          <div class="settings-item">
+            <label>Überhöhung (°C über Soll)</label>
+            <input type="number" class="form-input" id="m-aggressive-offset" value="3" step="0.5" min="0.5" max="8">
+            <span class="form-hint">TRV bekommt Soll + Überhöhung als Setpoint</span>
+          </div>
+        </div>
+      </details>
+
       <div class="modal-section">
         <div class="modal-section-title">Energieerfassung</div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
@@ -4758,6 +4999,11 @@ class IHCPanel extends HTMLElement {
             <span class="form-hint">Soll-Temperatur fällt nie unter diesen Wert (auch bei Eco/Away/Schlaf)</span>
           </div>
           <div class="settings-item">
+            <label>Mindesttemperatur-Schwelle (°C)</label>
+            <input type="number" class="form-input" id="m-room-temp-threshold" value="0" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+            <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
+          </div>
+          <div class="settings-item">
             <label>Zimmergröße (m²)</label>
             <input type="number" class="form-input" id="m-room-qm" value="0" step="1" min="0" max="200">
             <span class="form-hint">0 = nicht gesetzt · wird für Vorheizzeit, Gewichtung &amp; Energieberechnung genutzt</span>
@@ -4776,6 +5022,31 @@ class IHCPanel extends HTMLElement {
             <label>Wiederaufnahme nach Fenster-zu (s)</label>
             <input type="number" class="form-input" id="m-window-close-delay" value="0" step="5" min="0" max="600">
             <span class="form-hint">Sekunden nach Schließen bis normale Heizung wieder beginnt</span>
+          </div>
+          <div class="settings-item">
+            <label>Fenster-Mindesttemperatur (°C)</label>
+            <input type="number" class="form-input" id="m-window-open-temp" min="0" max="22" step="0.5" value="0" placeholder="0 = Frostschutz">
+            <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-title">🔗 Dynamische Sollwert-Entitäten <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Komfort-Sollwert Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-temp-entity"
+              placeholder="input_number.komfort_soll"
+              data-ep-domains="input_number,sensor" autocomplete="off">
+            <span class="form-hint">Überschreibt die Heizkurve als Komfort-Sollwert (optional)</span>
+          </div>
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Eco-Sollwert Entity</label>
+            <input type="text" class="form-input full" id="m-eco-temp-entity"
+              placeholder="input_number.eco_soll"
+              data-ep-domains="input_number,sensor" autocomplete="off">
+            <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
           </div>
         </div>
       </div>
@@ -4833,10 +5104,12 @@ class IHCPanel extends HTMLElement {
         deadband:               parseFloat(modal.querySelector("#m-deadband")?.value) || 0.5,
         weight:                 parseFloat(modal.querySelector("#m-weight")?.value) || 1.0,
         absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15.0,
+        room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
         window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
+        window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
@@ -4845,6 +5118,12 @@ class IHCPanel extends HTMLElement {
         co2_threshold_bad:        parseInt(modal.querySelector("#m-co2-threshold-bad")?.value, 10) || 1200,
         room_presence_entities: (modal.querySelector("#m-presence-entities")?.value || "")
                                   .split(",").map(s => s.trim()).filter(Boolean),
+        presence_sensor:        modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
+        presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
+        presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
+        aggressive_mode_enabled: modal.querySelector("#m-aggressive-mode")?.checked === true,
+        aggressive_mode_range:   parseFloat(modal.querySelector("#m-aggressive-range")?.value ?? "2") || 2.0,
+        aggressive_mode_offset:  parseFloat(modal.querySelector("#m-aggressive-offset")?.value ?? "3") || 3.0,
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
@@ -4853,6 +5132,8 @@ class IHCPanel extends HTMLElement {
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
+        comfort_temp_entity:    modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:        modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
         ha_schedules,
       });
       this._closeModal();
@@ -5008,7 +5289,7 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
-      <details class="modal-collapsible" ${(room.room_qm > 0 || room.absolute_min_temp !== 15) ? "open" : ""}>
+      <details class="modal-collapsible" ${(room.room_qm > 0 || room.absolute_min_temp !== 15 || room.room_temp_threshold > 0) ? "open" : ""}>
         <summary>🌡️ Temperaturgrenzen &amp; Zeiten</summary>
         <div class="modal-collapsible-body">
           <div class="settings-grid">
@@ -5017,6 +5298,12 @@ class IHCPanel extends HTMLElement {
               <input type="number" class="form-input" id="m-absolute-min-temp"
                 value="${room.absolute_min_temp ?? 15}" step="0.5" min="5" max="25">
               <span class="form-hint">Setpoint fällt nie unter diesen Wert (auch bei Eco/Away/Schlaf)</span>
+            </div>
+            <div class="settings-item">
+              <label>Mindesttemperatur-Schwelle (°C)</label>
+              <input type="number" class="form-input" id="m-room-temp-threshold"
+                value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+              <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
             </div>
             <div class="settings-item">
               <label>Zimmergröße (m²)</label>
@@ -5042,11 +5329,17 @@ class IHCPanel extends HTMLElement {
                 value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
               <span class="form-hint">Sekunden nach Schließen bis normale Heizung wieder beginnt</span>
             </div>
+            <div class="settings-item">
+              <label>Fenster-Mindesttemperatur (°C)</label>
+              <input type="number" class="form-input" id="m-window-open-temp"
+                min="0" max="22" step="0.5" value="${room.window_open_temp ?? 0}" placeholder="0 = Frostschutz">
+              <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+            </div>
           </div>
         </div>
       </details>
 
-      <details class="modal-collapsible" ${room.room_presence_entities?.length ? "open" : ""}>
+      <details class="modal-collapsible" ${(room.room_presence_entities?.length || room.presence_sensor) ? "open" : ""}>
         <summary>👤 Zimmer-Anwesenheit</summary>
         <div class="modal-collapsible-body">
           <div class="settings-item">
@@ -5056,6 +5349,51 @@ class IHCPanel extends HTMLElement {
               placeholder="person.max, device_tracker.handy (leer = immer anwesend)"
               data-ep-domains="person,device_tracker,input_boolean,binary_sensor" autocomplete="off">
             <span class="form-hint">Zimmer wechselt auf Abwesend-Temperatur wenn niemand da</span>
+          </div>
+          <div class="settings-item">
+            <label>Bewegungsmelder (PIR)</label>
+            <input class="form-input" type="text" id="m-presence-sensor"
+              value="${room.presence_sensor ?? ''}" placeholder="binary_sensor.bewegung_wohnzimmer">
+          </div>
+          <div class="settings-item">
+            <label>PIR Einschalt-Verzögerung (s)</label>
+            <input class="form-input" type="number" id="m-presence-sensor-on-delay"
+              min="0" max="3600" step="30" value="${room.presence_sensor_on_delay ?? 300}">
+          </div>
+          <div class="settings-item">
+            <label>PIR Ausschalt-Verzögerung (s)</label>
+            <input class="form-input" type="number" id="m-presence-sensor-off-delay"
+              min="0" max="3600" step="30" value="${room.presence_sensor_off_delay ?? 300}">
+          </div>
+        </div>
+      </details>
+
+      <details class="modal-collapsible" ${room.aggressive_mode_enabled ? "open" : ""}>
+        <summary>⚡ Aggressiver Modus (für träge TRVs)</summary>
+        <div class="modal-collapsible-body">
+          <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
+            Überhöht den TRV-Sollwert temporär wenn der Raum weit unter dem Zielwert liegt.
+            Der TRV schließt selbst sobald er seine Eigentemperatur erreicht.
+          </p>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="m-aggressive-mode" ${room.aggressive_mode_enabled ? "checked" : ""}>
+                Aggressiver Modus aktivieren
+              </label>
+            </div>
+            <div class="settings-item">
+              <label>Aktivierungsbereich (°C unter Soll)</label>
+              <input type="number" class="form-input" id="m-aggressive-range"
+                value="${room.aggressive_mode_range ?? 2}" step="0.5" min="0.5" max="5">
+              <span class="form-hint">Aktiv wenn Raumtemp um diesen Wert unter Soll liegt</span>
+            </div>
+            <div class="settings-item">
+              <label>Überhöhung (°C über Soll)</label>
+              <input type="number" class="form-input" id="m-aggressive-offset"
+                value="${room.aggressive_mode_offset ?? 3}" step="0.5" min="0.5" max="8">
+              <span class="form-hint">TRV bekommt Soll + Überhöhung als Setpoint</span>
+            </div>
           </div>
         </div>
       </details>
@@ -5264,10 +5602,12 @@ class IHCPanel extends HTMLElement {
         deadband:       parseFloat(modal.querySelector("#m-deadband").value),
         weight:         parseFloat(modal.querySelector("#m-weight").value),
         absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15,
+        room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
         window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
+        window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
@@ -5279,6 +5619,12 @@ class IHCPanel extends HTMLElement {
         hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         room_presence_entities:   (modal.querySelector("#m-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
+        presence_sensor:          modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
+        presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
+        presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
+        aggressive_mode_enabled:  modal.querySelector("#m-aggressive-mode")?.checked === true,
+        aggressive_mode_range:    parseFloat(modal.querySelector("#m-aggressive-range")?.value ?? "2") || 2.0,
+        aggressive_mode_offset:   parseFloat(modal.querySelector("#m-aggressive-offset")?.value ?? "3") || 3.0,
         boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),

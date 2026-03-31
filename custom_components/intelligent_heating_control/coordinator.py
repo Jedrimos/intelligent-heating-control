@@ -78,6 +78,18 @@ from .const import (
     CONF_SUMMER_MODE_ENABLED,
     CONF_SUMMER_THRESHOLD,
     CONF_PRESENCE_ENTITIES,
+    CONF_HEATING_PERIOD_ENTITY,
+    CONF_PRESENCE_AWAY_DELAY_MINUTES,
+    DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
+    CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
+    DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES,
+    CONF_PRESENCE_SENSOR,
+    CONF_PRESENCE_SENSOR_ON_DELAY,
+    CONF_PRESENCE_SENSOR_OFF_DELAY,
+    DEFAULT_PRESENCE_SENSOR_ON_DELAY,
+    DEFAULT_PRESENCE_SENSOR_OFF_DELAY,
+    CONF_WINDOW_OPEN_TEMP,
+    DEFAULT_WINDOW_OPEN_TEMP,
     CONF_FROST_PROTECTION_TEMP,
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_NIGHT_SETBACK_ENABLED,
@@ -239,6 +251,12 @@ from .const import (
     DEFAULT_TRV_MIN_SEND_INTERVAL,
     CONF_BOOST_DEFAULT_DURATION,
     DEFAULT_BOOST_DEFAULT_DURATION,
+    CONF_AGGRESSIVE_MODE_ENABLED,
+    DEFAULT_AGGRESSIVE_MODE_ENABLED,
+    CONF_AGGRESSIVE_MODE_RANGE,
+    DEFAULT_AGGRESSIVE_MODE_RANGE,
+    CONF_AGGRESSIVE_MODE_OFFSET,
+    DEFAULT_AGGRESSIVE_MODE_OFFSET,
 )
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
@@ -295,6 +313,12 @@ class IHCCoordinator(
 
         # Presence-based auto-away
         self._presence_away_active: bool = False  # True when auto-away triggered by presence
+        self._presence_away_pending_since = None  # datetime when all persons left (for delay)
+        self._presence_arrive_pending_since = None  # datetime when someone arrived (for arrival delay)
+
+        # PIR/motion sensor tracking per room: {room_id: datetime_of_last_motion}
+        self._pir_last_on: Dict[str, Any] = {}   # when PIR last detected motion
+        self._pir_last_off: Dict[str, Any] = {}  # when PIR last saw no motion
 
         # Roadmap 1.2 – Vacation assistant: track auto-vacation mode
         self._vacation_auto_active: bool = False  # True when activated by date range
@@ -382,6 +406,11 @@ class IHCCoordinator(
         self._window_listener_sensors: set = set()           # currently subscribed sensors
         self._window_sensor_last_known: Dict[str, bool] = {}  # entity_id → last real state
 
+        # Event-driven HA schedule / condition detection: triggers immediate refresh when
+        # a schedule entity or condition_entity (input_boolean, etc.) changes state.
+        self._ha_sched_listener_unsub: Optional[Any] = None
+        self._ha_sched_listener_entities: set = set()
+
         # Outdoor temperature smoothing: rolling buffer of raw readings (one per cycle = 1/min).
         # Moving average over the last N minutes filters out fast sun/cloud transitions that would
         # otherwise cause the heating curve to oscillate and the boiler to hunt.
@@ -430,6 +459,7 @@ class IHCCoordinator(
         # _setup_window_listeners() is a no-op when the sensor set hasn't changed.
         if self.hass is not None:
             self._setup_window_listeners()
+            self._setup_ha_schedule_listeners()
 
     async def async_load_runtime_state(self) -> None:
         """Load persisted runtime state from Store."""
@@ -446,6 +476,20 @@ class IHCCoordinator(
             if mode == ROOM_MODE_MANUAL and room_id not in self._room_manual_since:
                 self._room_manual_since[room_id] = dt_util.utcnow()
         self._presence_away_active = data.get("presence_away_active", False)
+        pending_str = data.get("presence_away_pending_since")
+        if pending_str:
+            try:
+                from datetime import datetime
+                self._presence_away_pending_since = datetime.fromisoformat(pending_str)
+            except (ValueError, TypeError):
+                self._presence_away_pending_since = None
+        arrive_str = data.get("presence_arrive_pending_since")
+        if arrive_str:
+            try:
+                from datetime import datetime
+                self._presence_arrive_pending_since = datetime.fromisoformat(arrive_str)
+            except (ValueError, TypeError):
+                self._presence_arrive_pending_since = None
         self._vacation_auto_active = data.get("vacation_auto_active", False)
         self._heating_runtime_today = data.get("heating_runtime_today", 0.0)
         self._heating_runtime_yesterday = data.get("heating_runtime_yesterday", 0.0)
@@ -489,6 +533,8 @@ class IHCCoordinator(
             "room_modes": self._room_modes,
             "room_manual_temps": self._room_manual_temps,
             "presence_away_active": self._presence_away_active,
+            "presence_away_pending_since": self._presence_away_pending_since.isoformat() if self._presence_away_pending_since else None,
+            "presence_arrive_pending_since": self._presence_arrive_pending_since.isoformat() if self._presence_arrive_pending_since else None,
             "vacation_auto_active": self._vacation_auto_active,
             "heating_runtime_today": self._heating_runtime_today,
             "heating_runtime_yesterday": self._heating_runtime_yesterday,
@@ -624,6 +670,142 @@ class IHCCoordinator(
         if outdoor_temp is None:
             return False
         return outdoor_temp >= threshold
+
+    def _check_room_pir_presence(self, room: dict) -> Optional[bool]:
+        """Return True=present / False=absent / None=not configured or pending.
+
+        Tracks per-room PIR/motion sensor with configurable on/off delays.
+        The sensor state changes are picked up on every update cycle (60s).
+        """
+        sensor_id = room.get(CONF_PRESENCE_SENSOR, "")
+        if not sensor_id:
+            return None  # feature not configured for this room
+        room_id = room.get("id", sensor_id)
+        state = self.hass.states.get(sensor_id)
+        if state is None:
+            return None  # sensor unavailable → don't influence temp
+
+        on_delay = int(room.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY))
+        off_delay = int(room.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY))
+        now = dt_util.utcnow()
+
+        if state.state in ("on", "home", "detected", "true", "1"):
+            # Motion detected: start or maintain ON timer
+            if self._pir_last_off.get(room_id) is not None:
+                self._pir_last_off[room_id] = None  # cancel off-timer
+            if self._pir_last_on.get(room_id) is None:
+                self._pir_last_on[room_id] = now
+            elapsed = (now - self._pir_last_on[room_id]).total_seconds()
+            return elapsed >= on_delay  # True only after on_delay elapsed
+        else:
+            # No motion: start or maintain OFF timer
+            if self._pir_last_on.get(room_id) is not None:
+                self._pir_last_on[room_id] = None  # cancel on-timer
+            if self._pir_last_off.get(room_id) is None:
+                self._pir_last_off[room_id] = now
+            elapsed = (now - self._pir_last_off[room_id]).total_seconds()
+            if elapsed >= off_delay:
+                return False  # confirmed absent
+            return True  # still within off_delay → treat as present (pending)
+
+    def _apply_aggressive_mode(
+        self,
+        room: dict,
+        target_temp: float,
+        current_temp: Optional[float],
+    ) -> float:
+        """Apply aggressive mode: overshoot setpoint when room is far from target.
+
+        Only activates when:
+          - aggressive_mode_enabled is True for the room
+          - current_temp is known
+          - current_temp < (target_temp - aggressive_mode_range)
+
+        Returns the (possibly boosted) setpoint. The overshoot is capped
+        by room max_temp so the TRV cannot be commanded above the configured maximum.
+        """
+        if not room.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED):
+            return target_temp
+        if current_temp is None:
+            return target_temp
+        agg_range = float(room.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE))
+        agg_offset = float(room.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET))
+        if current_temp < (target_temp - agg_range):
+            max_temp = float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
+            boosted = min(target_temp + agg_offset, max_temp)
+            room_name = room.get(CONF_ROOM_NAME, room.get(CONF_ROOM_ID, "?"))
+            _LOGGER.debug(
+                "IHC: Aggressive mode active for %s – overshooting to %.1f°C (target %.1f°C, current %.1f°C)",
+                room_name, boosted, target_temp, current_temp,
+            )
+            return boosted
+        return target_temp
+
+    def _is_heating_period_active(self) -> bool:
+        """Return True if heating is enabled via external entity (Heizperiode)."""
+        cfg = self.get_config()
+        entity_id = cfg.get(CONF_HEATING_PERIOD_ENTITY, "")
+        if not entity_id:
+            return True  # no entity configured → always enabled
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return True  # entity unavailable → assume enabled
+        return state.state.lower() not in ("off", "false", "0", "no")
+
+    def _setup_ha_schedule_listeners(self) -> None:
+        """Subscribe to state changes of all HA schedule entities and condition entities.
+
+        When a schedule.* entity or a condition_entity (input_boolean etc.) changes state,
+        trigger an immediate coordinator refresh so the heating reacts without waiting up
+        to 60 seconds for the next regular poll cycle.
+
+        Example: Plan 1 (no condition) ends at 18:00. User switches boolean ON at 18:30.
+        Plan 2 (condition: boolean=on, active until 20:00) should immediately start heating.
+        """
+        entity_ids: set[str] = set()
+        for room in self.get_rooms():
+            for ha_sched in room.get(CONF_HA_SCHEDULES, []):
+                sched_entity = ha_sched.get("entity", "")
+                if sched_entity:
+                    entity_ids.add(sched_entity)
+                cond_entity = ha_sched.get("condition_entity", "")
+                if cond_entity:
+                    entity_ids.add(cond_entity)
+
+        # No-op if entity set hasn't changed
+        if entity_ids == self._ha_sched_listener_entities:
+            return
+
+        # Cancel old subscription
+        if self._ha_sched_listener_unsub is not None:
+            self._ha_sched_listener_unsub()
+            self._ha_sched_listener_unsub = None
+
+        self._ha_sched_listener_entities = entity_ids
+
+        if not entity_ids:
+            return
+
+        @callback
+        def _on_ha_sched_change(event: Event) -> None:
+            """Trigger immediate coordinator refresh on schedule/condition state change."""
+            new_state = event.data.get("new_state")
+            old_state = event.data.get("old_state")
+            new_s = new_state.state if new_state else None
+            old_s = old_state.state if old_state else None
+            if new_s == old_s:
+                return  # attribute-only update, ignore
+            entity_id = event.data.get("entity_id")
+            _LOGGER.debug(
+                "IHC: HA schedule/condition entity %s changed %s→%s, triggering refresh",
+                entity_id, old_s, new_s,
+            )
+            self.hass.async_create_task(self.async_request_refresh())
+
+        self._ha_sched_listener_unsub = async_track_state_change_event(
+            self.hass, list(entity_ids), _on_ha_sched_change
+        )
+        _LOGGER.debug("IHC: Registered HA schedule listeners for %d entities", len(entity_ids))
 
     # ------------------------------------------------------------------
     # Roadmap 1.2 – Vacation assistant
@@ -869,6 +1051,7 @@ class IHCCoordinator(
             self._prefill_window_states()
             self._prefill_last_sent_temps()
             self._setup_window_listeners()
+            self._setup_ha_schedule_listeners()
             await self._async_startup_presence_sync()
 
         # Expire any boost timers
@@ -1111,6 +1294,7 @@ class IHCCoordinator(
                 "next_period": self.get_next_schedule_period(room_id),  # Roadmap 1.1
                 "anomaly": self._detect_sensor_anomaly(room_id),    # Roadmap 1.1
                 "room_presence_active": room_presence_active,       # Roadmap 1.2
+                "pir_presence": self._check_room_pir_presence(room),  # PIR sensor presence state
                 "mold": mold_data,                                  # Roadmap 2.0
                 "felt_temperature": felt_temperature,              # Gefühlte Temperatur
                 # TRV sensor data (optional – all None when not available)
@@ -1138,8 +1322,9 @@ class IHCCoordinator(
         cfg = self.get_config()
         enable_cooling = bool(cfg.get(CONF_ENABLE_COOLING, False))
         controller_mode = cfg.get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
-        # Sommerautomatik: block heating if outdoor temp exceeds threshold
-        should_heat = False if summer_mode else self._controller.should_heat(self._system_mode)
+        # Sommerautomatik / Heizperiode: block heating if outdoor temp exceeds threshold or period inactive
+        heating_period_active = self._is_heating_period_active()
+        should_heat = False if (summer_mode or not heating_period_active) else self._controller.should_heat(self._system_mode)
         should_cool = self._controller.should_cool(self._system_mode) if enable_cooling else False
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
@@ -1170,11 +1355,16 @@ class IHCCoordinator(
                 rdata = room_data[room_id]
                 room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
                 window_open = rdata.get("window_open", False)
-                if window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
+                window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
+                frost_temp = self._get_frost_protection_temp()
+                if window_open and window_open_temp > 0:
+                    # Window open but configured min-temp: hold at that temp (e.g. 15°C) instead of frost
+                    self._set_valve_entities(room, max(window_open_temp, frost_temp))
+                elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn TRV off (or frost-protect if off mode not supported by the device)
                     self._turn_off_valve_entities(room)
-                elif summer_mode:
-                    # Sommerautomatik: send frost protection temp to close TRV valves.
+                elif summer_mode or not self._is_heating_period_active():
+                    # Sommerautomatik or heating period disabled: send frost protection temp to close TRV valves.
                     # (The TRV's internal thermostat would otherwise try to heat if room cools at night)
                     frost_temp = self._get_frost_protection_temp()
                     self._set_valve_entities(room, frost_temp)
@@ -1187,11 +1377,12 @@ class IHCCoordinator(
                         self._set_valve_entities(room, max_temp)
                 else:
                     # Always send the desired target – TRV decides whether to heat
-                    self._set_valve_entities(room, rdata["target_temp"])
+                    trv_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
+                    self._set_valve_entities(room, trv_target)
             # TRV mode: if a heating_switch is configured, use it to fire the central boiler
             # when any room demands heat. This supports setups with TRVs + central boiler:
             # the boiler must run to supply hot water, while TRVs distribute it per-room.
-            if cfg.get(CONF_HEATING_SWITCH) and not summer_mode:
+            if cfg.get(CONF_HEATING_SWITCH) and not summer_mode and self._is_heating_period_active():
                 trv_heat_needed = any(
                     rd.get("demand", 0) > 0
                     and not rd.get("window_open", False)
@@ -1208,11 +1399,16 @@ class IHCCoordinator(
                 rdata = room_data[room_id]
                 room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
                 window_open = rdata.get("window_open", False)
-                if window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
+                window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
+                frost_temp_sw = self._get_frost_protection_temp()
+                if window_open and window_open_temp > 0:
+                    self._set_valve_entities(room, max(window_open_temp, frost_temp_sw))
+                elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn off TRVs when window open, room off, or system off (without frost-protect)
                     self._turn_off_valve_entities(room)
                 else:
-                    self._set_valve_entities(room, rdata["target_temp"])
+                    sw_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
+                    self._set_valve_entities(room, sw_target)
             self._set_heating_switch(should_heat)
 
         if enable_cooling:
@@ -1300,6 +1496,7 @@ class IHCCoordinator(
             "heating_active": should_heat,
             "cooling_active": should_cool,
             "summer_mode": summer_mode,
+            "heating_period_active": heating_period_active,
             "night_setback_active": night_setback_active,
             "presence_away_active": self._presence_away_active,
             "vacation_auto_active": self._vacation_auto_active,

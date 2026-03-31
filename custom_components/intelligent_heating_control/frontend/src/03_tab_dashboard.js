@@ -95,7 +95,7 @@
       if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
       if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
       if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);
-      if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery}%) – bitte tauschen</div>`);
+      if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
       const v = room.ventilation;
       if (v && v.level !== "none") {
         const icons = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };

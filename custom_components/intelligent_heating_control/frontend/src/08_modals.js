@@ -92,6 +92,50 @@
         <span class="form-hint">Zimmer wechselt auf Abwesend-Temp wenn niemand da · leer = immer anwesend</span>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Bewegungsmelder (PIR)</label>
+        <input class="form-input" type="text" id="m-presence-sensor"
+          value="" placeholder="binary_sensor.bewegung_wohnzimmer">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIR Einschalt-Verzögerung (s)</label>
+        <input class="form-input" type="number" id="m-presence-sensor-on-delay"
+          min="0" max="3600" step="30" value="300">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIR Ausschalt-Verzögerung (s)</label>
+        <input class="form-input" type="number" id="m-presence-sensor-off-delay"
+          min="0" max="3600" step="30" value="300">
+      </div>
+
+      <details class="modal-collapsible">
+        <summary class="modal-section-title">⚡ Aggressiver Modus (für träge TRVs)</summary>
+        <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0 10px">
+          Wenn der Raum weit unter dem Sollwert liegt, wird der TRV-Sollwert temporär überhöht um
+          schneller aufzuheizen. Der TRV schließt selbst wenn er die Zieltemperatur erreicht.
+          <strong>Standard: deaktiviert.</strong>
+        </div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="m-aggressive-mode">
+              Aggressiver Modus aktivieren
+            </label>
+            <span class="form-hint">Nur sinnvoll bei TRVs mit eigener Regelung (z.B. Zigbee2MQTT TRVs)</span>
+          </div>
+          <div class="settings-item">
+            <label>Aktivierungsbereich (°C unter Soll)</label>
+            <input type="number" class="form-input" id="m-aggressive-range" value="2" step="0.5" min="0.5" max="5">
+            <span class="form-hint">Modus aktiviert wenn Raumtemp um diesen Wert unter Soll liegt</span>
+          </div>
+          <div class="settings-item">
+            <label>Überhöhung (°C über Soll)</label>
+            <input type="number" class="form-input" id="m-aggressive-offset" value="3" step="0.5" min="0.5" max="8">
+            <span class="form-hint">TRV bekommt Soll + Überhöhung als Setpoint</span>
+          </div>
+        </div>
+      </details>
+
       <div class="modal-section">
         <div class="modal-section-title">Energieerfassung</div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
@@ -237,6 +281,11 @@
             <span class="form-hint">Soll-Temperatur fällt nie unter diesen Wert (auch bei Eco/Away/Schlaf)</span>
           </div>
           <div class="settings-item">
+            <label>Mindesttemperatur-Schwelle (°C)</label>
+            <input type="number" class="form-input" id="m-room-temp-threshold" value="0" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+            <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
+          </div>
+          <div class="settings-item">
             <label>Zimmergröße (m²)</label>
             <input type="number" class="form-input" id="m-room-qm" value="0" step="1" min="0" max="200">
             <span class="form-hint">0 = nicht gesetzt · wird für Vorheizzeit, Gewichtung &amp; Energieberechnung genutzt</span>
@@ -255,6 +304,31 @@
             <label>Wiederaufnahme nach Fenster-zu (s)</label>
             <input type="number" class="form-input" id="m-window-close-delay" value="0" step="5" min="0" max="600">
             <span class="form-hint">Sekunden nach Schließen bis normale Heizung wieder beginnt</span>
+          </div>
+          <div class="settings-item">
+            <label>Fenster-Mindesttemperatur (°C)</label>
+            <input type="number" class="form-input" id="m-window-open-temp" min="0" max="22" step="0.5" value="0" placeholder="0 = Frostschutz">
+            <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-title">🔗 Dynamische Sollwert-Entitäten <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Komfort-Sollwert Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-temp-entity"
+              placeholder="input_number.komfort_soll"
+              data-ep-domains="input_number,sensor" autocomplete="off">
+            <span class="form-hint">Überschreibt die Heizkurve als Komfort-Sollwert (optional)</span>
+          </div>
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Eco-Sollwert Entity</label>
+            <input type="text" class="form-input full" id="m-eco-temp-entity"
+              placeholder="input_number.eco_soll"
+              data-ep-domains="input_number,sensor" autocomplete="off">
+            <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
           </div>
         </div>
       </div>
@@ -312,10 +386,12 @@
         deadband:               parseFloat(modal.querySelector("#m-deadband")?.value) || 0.5,
         weight:                 parseFloat(modal.querySelector("#m-weight")?.value) || 1.0,
         absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15.0,
+        room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
         window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
+        window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
@@ -324,6 +400,12 @@
         co2_threshold_bad:        parseInt(modal.querySelector("#m-co2-threshold-bad")?.value, 10) || 1200,
         room_presence_entities: (modal.querySelector("#m-presence-entities")?.value || "")
                                   .split(",").map(s => s.trim()).filter(Boolean),
+        presence_sensor:        modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
+        presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
+        presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
+        aggressive_mode_enabled: modal.querySelector("#m-aggressive-mode")?.checked === true,
+        aggressive_mode_range:   parseFloat(modal.querySelector("#m-aggressive-range")?.value ?? "2") || 2.0,
+        aggressive_mode_offset:  parseFloat(modal.querySelector("#m-aggressive-offset")?.value ?? "3") || 3.0,
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
@@ -332,6 +414,8 @@
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
+        comfort_temp_entity:    modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:        modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
         ha_schedules,
       });
       this._closeModal();
@@ -487,7 +571,7 @@
         </div>
       </details>
 
-      <details class="modal-collapsible" ${(room.room_qm > 0 || room.absolute_min_temp !== 15) ? "open" : ""}>
+      <details class="modal-collapsible" ${(room.room_qm > 0 || room.absolute_min_temp !== 15 || room.room_temp_threshold > 0) ? "open" : ""}>
         <summary>🌡️ Temperaturgrenzen &amp; Zeiten</summary>
         <div class="modal-collapsible-body">
           <div class="settings-grid">
@@ -496,6 +580,12 @@
               <input type="number" class="form-input" id="m-absolute-min-temp"
                 value="${room.absolute_min_temp ?? 15}" step="0.5" min="5" max="25">
               <span class="form-hint">Setpoint fällt nie unter diesen Wert (auch bei Eco/Away/Schlaf)</span>
+            </div>
+            <div class="settings-item">
+              <label>Mindesttemperatur-Schwelle (°C)</label>
+              <input type="number" class="form-input" id="m-room-temp-threshold"
+                value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+              <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
             </div>
             <div class="settings-item">
               <label>Zimmergröße (m²)</label>
@@ -521,11 +611,17 @@
                 value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
               <span class="form-hint">Sekunden nach Schließen bis normale Heizung wieder beginnt</span>
             </div>
+            <div class="settings-item">
+              <label>Fenster-Mindesttemperatur (°C)</label>
+              <input type="number" class="form-input" id="m-window-open-temp"
+                min="0" max="22" step="0.5" value="${room.window_open_temp ?? 0}" placeholder="0 = Frostschutz">
+              <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+            </div>
           </div>
         </div>
       </details>
 
-      <details class="modal-collapsible" ${room.room_presence_entities?.length ? "open" : ""}>
+      <details class="modal-collapsible" ${(room.room_presence_entities?.length || room.presence_sensor) ? "open" : ""}>
         <summary>👤 Zimmer-Anwesenheit</summary>
         <div class="modal-collapsible-body">
           <div class="settings-item">
@@ -535,6 +631,51 @@
               placeholder="person.max, device_tracker.handy (leer = immer anwesend)"
               data-ep-domains="person,device_tracker,input_boolean,binary_sensor" autocomplete="off">
             <span class="form-hint">Zimmer wechselt auf Abwesend-Temperatur wenn niemand da</span>
+          </div>
+          <div class="settings-item">
+            <label>Bewegungsmelder (PIR)</label>
+            <input class="form-input" type="text" id="m-presence-sensor"
+              value="${room.presence_sensor ?? ''}" placeholder="binary_sensor.bewegung_wohnzimmer">
+          </div>
+          <div class="settings-item">
+            <label>PIR Einschalt-Verzögerung (s)</label>
+            <input class="form-input" type="number" id="m-presence-sensor-on-delay"
+              min="0" max="3600" step="30" value="${room.presence_sensor_on_delay ?? 300}">
+          </div>
+          <div class="settings-item">
+            <label>PIR Ausschalt-Verzögerung (s)</label>
+            <input class="form-input" type="number" id="m-presence-sensor-off-delay"
+              min="0" max="3600" step="30" value="${room.presence_sensor_off_delay ?? 300}">
+          </div>
+        </div>
+      </details>
+
+      <details class="modal-collapsible" ${room.aggressive_mode_enabled ? "open" : ""}>
+        <summary>⚡ Aggressiver Modus (für träge TRVs)</summary>
+        <div class="modal-collapsible-body">
+          <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
+            Überhöht den TRV-Sollwert temporär wenn der Raum weit unter dem Zielwert liegt.
+            Der TRV schließt selbst sobald er seine Eigentemperatur erreicht.
+          </p>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="m-aggressive-mode" ${room.aggressive_mode_enabled ? "checked" : ""}>
+                Aggressiver Modus aktivieren
+              </label>
+            </div>
+            <div class="settings-item">
+              <label>Aktivierungsbereich (°C unter Soll)</label>
+              <input type="number" class="form-input" id="m-aggressive-range"
+                value="${room.aggressive_mode_range ?? 2}" step="0.5" min="0.5" max="5">
+              <span class="form-hint">Aktiv wenn Raumtemp um diesen Wert unter Soll liegt</span>
+            </div>
+            <div class="settings-item">
+              <label>Überhöhung (°C über Soll)</label>
+              <input type="number" class="form-input" id="m-aggressive-offset"
+                value="${room.aggressive_mode_offset ?? 3}" step="0.5" min="0.5" max="8">
+              <span class="form-hint">TRV bekommt Soll + Überhöhung als Setpoint</span>
+            </div>
           </div>
         </div>
       </details>
@@ -743,10 +884,12 @@
         deadband:       parseFloat(modal.querySelector("#m-deadband").value),
         weight:         parseFloat(modal.querySelector("#m-weight").value),
         absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15,
+        room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
         window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
+        window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
@@ -758,6 +901,12 @@
         hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
         room_presence_entities:   (modal.querySelector("#m-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
+        presence_sensor:          modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
+        presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
+        presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
+        aggressive_mode_enabled:  modal.querySelector("#m-aggressive-mode")?.checked === true,
+        aggressive_mode_range:    parseFloat(modal.querySelector("#m-aggressive-range")?.value ?? "2") || 2.0,
+        aggressive_mode_offset:   parseFloat(modal.querySelector("#m-aggressive-offset")?.value ?? "3") || 3.0,
         boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
