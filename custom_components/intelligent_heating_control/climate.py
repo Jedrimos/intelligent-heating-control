@@ -190,8 +190,10 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         mode = self.coordinator.get_room_mode(self._room_id)
         if mode == ROOM_MODE_OFF:
             return HVACMode.OFF
-        # Window open → keep HEAT mode (OFF would look identical to "room disabled").
-        # Window state is shown via hvac_action=IDLE + window_open attribute.
+        # Window open → OFF (heating is disabled while ventilating)
+        d = self._room_data
+        if d and d.get("window_open"):
+            return HVACMode.OFF
         return HVACMode.HEAT
 
     @property

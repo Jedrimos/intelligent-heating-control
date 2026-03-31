@@ -5032,6 +5032,26 @@ class IHCPanel extends HTMLElement {
       </div>
 
       <div class="modal-section">
+        <div class="modal-section-title">🔗 Dynamische Sollwert-Entitäten <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Komfort-Sollwert Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-temp-entity"
+              placeholder="input_number.komfort_soll"
+              data-ep-domains="input_number,sensor" autocomplete="off">
+            <span class="form-hint">Überschreibt die Heizkurve als Komfort-Sollwert (optional)</span>
+          </div>
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Eco-Sollwert Entity</label>
+            <input type="text" class="form-input full" id="m-eco-temp-entity"
+              placeholder="input_number.eco_soll"
+              data-ep-domains="input_number,sensor" autocomplete="off">
+            <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
         <div class="modal-section-title">📅 HA Zeitpläne <span style="font-weight:400;font-size:10px">(optional)</span></div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
           Verbindet bestehende HA <code>schedule.*</code>-Entitäten mit diesem Zimmer.
@@ -5112,6 +5132,8 @@ class IHCPanel extends HTMLElement {
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
+        comfort_temp_entity:    modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:        modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
         ha_schedules,
       });
       this._closeModal();
