@@ -257,6 +257,11 @@ from .const import (
     DEFAULT_AGGRESSIVE_MODE_RANGE,
     CONF_AGGRESSIVE_MODE_OFFSET,
     DEFAULT_AGGRESSIVE_MODE_OFFSET,
+    # v1.7 – Heizgruppen
+    CONF_GROUPS,
+    CONF_GROUP_ID,
+    CONF_GROUP_NAME,
+    CONF_GROUP_ROOMS,
 )
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
@@ -416,6 +421,11 @@ class IHCCoordinator(
         # otherwise cause the heating curve to oscillate and the boiler to hunt.
         self._outdoor_temp_buffer: deque = deque(maxlen=60)  # max 60 readings = 60 min history
 
+        # v1.6 – Anforderungs-Heatmap: 7-day × 24-hour EMA grid per room
+        # Index [weekday 0=Mon…6][hour 0…23] → smoothed demand 0-100
+        # Updated each cycle: new = 0.9 × old + 0.1 × current_demand
+        self._demand_heatmap: Dict[str, List[List[float]]] = {}
+
         # Build sub-components from config
         self._rebuild_from_config()
 
@@ -525,6 +535,10 @@ class IHCCoordinator(
         self._warmup_history = data.get("warmup_history", {})
         # Restore adaptive curve state
         self._curve_adaptation_delta = float(data.get("curve_adaptation_delta", 0.0))
+        # Restore demand heatmap (v1.6)
+        for room_id, grid in data.get("demand_heatmap", {}).items():
+            if isinstance(grid, list) and len(grid) == 7:
+                self._demand_heatmap[room_id] = grid
 
     async def _async_save_runtime_state(self) -> None:
         """Persist current runtime state to Store."""
@@ -554,6 +568,8 @@ class IHCCoordinator(
             "warmup_history": self._warmup_history,
             # Persist adaptive curve state
             "curve_adaptation_delta": self._curve_adaptation_delta,
+            # Persist demand heatmap (v1.6)
+            "demand_heatmap": self._demand_heatmap,
         })
 
     def get_config(self) -> dict:
@@ -567,6 +583,61 @@ class IHCCoordinator(
 
     def get_room_config(self, room_id: str) -> Optional[dict]:
         return next((r for r in self.get_rooms() if r.get(CONF_ROOM_ID) == room_id), None)
+
+    # ------------------------------------------------------------------
+    # v1.7 – Group management
+    # ------------------------------------------------------------------
+
+    def get_groups(self) -> list:
+        return self.get_config().get(CONF_GROUPS, [])
+
+    def get_group_config(self, group_id: str) -> Optional[dict]:
+        return next((g for g in self.get_groups() if g.get(CONF_GROUP_ID) == group_id), None)
+
+    async def async_add_group(self, name: str, room_ids: list) -> None:
+        """Add a new room group and persist."""
+        new_group = {
+            CONF_GROUP_ID: str(uuid.uuid4()),
+            CONF_GROUP_NAME: name,
+            CONF_GROUP_ROOMS: room_ids,
+        }
+        opts = dict(self._config_entry.options)
+        opts[CONF_GROUPS] = self.get_groups() + [new_group]
+        self._suppress_reload = True
+        self.hass.config_entries.async_update_entry(self._config_entry, options=opts)
+        await self.async_request_refresh()
+
+    async def async_remove_group(self, group_id: str) -> None:
+        """Remove a group by ID and persist."""
+        opts = dict(self._config_entry.options)
+        opts[CONF_GROUPS] = [g for g in self.get_groups() if g.get(CONF_GROUP_ID) != group_id]
+        self._suppress_reload = True
+        self.hass.config_entries.async_update_entry(self._config_entry, options=opts)
+        await self.async_request_refresh()
+
+    async def async_update_group(self, group_id: str, **kwargs) -> None:
+        """Update group name or room_ids and persist."""
+        groups = list(self.get_groups())
+        for i, g in enumerate(groups):
+            if g.get(CONF_GROUP_ID) == group_id:
+                groups[i] = {**g, **{k: v for k, v in kwargs.items() if v is not None}}
+                break
+        opts = dict(self._config_entry.options)
+        opts[CONF_GROUPS] = groups
+        self._suppress_reload = True
+        self.hass.config_entries.async_update_entry(self._config_entry, options=opts)
+        await self.async_request_refresh()
+
+    async def async_set_group_mode(self, group_id: str, mode: str) -> None:
+        """Set room mode for all rooms in a group."""
+        group = self.get_group_config(group_id)
+        if not group:
+            _LOGGER.warning("IHC: set_group_mode – group %s not found", group_id)
+            return
+        for room_id in group.get(CONF_GROUP_ROOMS, []):
+            self._room_modes[room_id] = mode
+        await self._async_save_runtime_state()
+        await self.async_request_refresh()
 
     # ------------------------------------------------------------------
     # Room / system mode management
@@ -1336,6 +1407,18 @@ class IHCCoordinator(
         for room_id in room_data:
             room_data[room_id]["runtime_today_minutes"] = self.get_room_runtime_today_minutes(room_id)
 
+        # v1.6 – Anforderungs-Heatmap: update EMA for current weekday + hour
+        _now = dt_util.now()
+        _weekday = _now.weekday()   # 0 = Monday … 6 = Sunday
+        _hour = _now.hour
+        for room_id, rdata in room_data.items():
+            if room_id not in self._demand_heatmap:
+                self._demand_heatmap[room_id] = [[0.0] * 24 for _ in range(7)]
+            demand_now = float(rdata.get("demand", 0) or 0)
+            old = self._demand_heatmap[room_id][_weekday][_hour]
+            self._demand_heatmap[room_id][_weekday][_hour] = round(0.9 * old + 0.1 * demand_now, 1)
+            rdata["demand_heatmap"] = [list(day) for day in self._demand_heatmap[room_id]]
+
         # Determine if system OFF should turn valves off completely or frost-protect
         off_use_frost = bool(cfg.get(CONF_OFF_USE_FROST_PROTECTION, DEFAULT_OFF_USE_FROST_PROTECTION))
         system_is_off = (self._system_mode == SYSTEM_MODE_OFF)
@@ -1523,6 +1606,7 @@ class IHCCoordinator(
             "curve_adaptation_enabled": cfg.get(CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED),
             "outdoor_humidity": outdoor_humidity_out,
             "rooms": room_data,
+            "groups": self.get_groups(),
             "debug": self._controller.get_debug_info(),
         }
 

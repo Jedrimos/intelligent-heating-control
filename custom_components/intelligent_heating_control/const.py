@@ -423,3 +423,16 @@ CONF_LIMESCALE_TIME: Final = "limescale_time"
 DEFAULT_LIMESCALE_TIME: Final = "10:00"      # Uhrzeit für Kalkschutz-Übung
 CONF_LIMESCALE_DURATION_MINUTES: Final = "limescale_duration_minutes"
 DEFAULT_LIMESCALE_DURATION_MINUTES: Final = 5  # Minuten vollständig geöffnet
+
+
+# v1.7 – Heizgruppen: Zusammenfassen von Zimmern zu gemeinsam steuerbaren Gruppen
+CONF_GROUPS: Final = "groups"           # Liste aller Gruppen-Konfigurationen
+CONF_GROUP_ID: Final = "group_id"       # Interne Gruppen-ID (uuid)
+CONF_GROUP_NAME: Final = "group_name"   # Anzeigename der Gruppe
+CONF_GROUP_ROOMS: Final = "group_rooms" # Liste von room_ids die zu dieser Gruppe gehören
+
+# Services (v1.7)
+SERVICE_ADD_GROUP: Final = "add_group"
+SERVICE_REMOVE_GROUP: Final = "remove_group"
+SERVICE_UPDATE_GROUP: Final = "update_group"
+SERVICE_SET_GROUP_MODE: Final = "set_group_mode"

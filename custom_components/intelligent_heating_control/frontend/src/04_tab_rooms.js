@@ -588,6 +588,9 @@
         room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
         comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
+        aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
+        aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
+        aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,
       });
       this._toast(`✓ ${room.name} gespeichert`);
     });
@@ -822,13 +825,13 @@
     const currentSource = room.source || "";
 
     const haStatusRows = haSchedsConfig.map(s => {
-      const schedState = this.hass.states[s.entity];
+      const schedState = this._hass?.states[s.entity];
       const schedOn = schedState?.state === "on";
       const condEntity = s.condition_entity || "";
       const condExpected = s.condition_state || "on";
-      const condMet = !condEntity || (this.hass.states[condEntity]?.state === condExpected);
+      const condMet = !condEntity || (this._hass?.states[condEntity]?.state === condExpected);
       const isWinning = schedOn && condMet && s.entity === activeSchedEntity;
-      const condState = condEntity ? this.hass.states[condEntity]?.state : null;
+      const condState = condEntity ? this._hass?.states[condEntity]?.state : null;
 
       const schedDot = schedOn
         ? `<span style="color:#66bb6a;font-weight:700">● AN</span>`
@@ -947,7 +950,7 @@
     const isGroupActive = (sched) => {
       const condEntity = sched.condition_entity || "";
       if (!condEntity) return true;
-      const state = this.hass.states[condEntity];
+      const state = this._hass?.states[condEntity];
       const expected = sched.condition_state || "on";
       return state && state.state === expected;
     };
@@ -1223,5 +1226,21 @@
         </div>
         <div style="font-size:11px;color:var(--secondary-text-color);padding-top:4px">Stündliche Messung · max. 7 Tage Verlauf · Ziel-Linie orange gestrichelt</div>
       </div>`;
+
+    // v1.6 – Anforderungs-Heatmap pro Zimmer
+    if (room.demand_heatmap && room.demand_heatmap.length === 7) {
+      const heatmapCard = document.createElement("div");
+      heatmapCard.className = "card";
+      heatmapCard.style.marginTop = "16px";
+      heatmapCard.innerHTML = `
+        <div class="card-title">🔥 Anforderungs-Heatmap</div>
+        <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+          Gleitender Durchschnitt der Heizanforderung nach Wochentag und Uhrzeit (EMA, lernt über mehrere Wochen).
+        </div>
+        <div id="hm-${room.room_id}"></div>`;
+      container.appendChild(heatmapCard);
+      const gridContainer = heatmapCard.querySelector(`#hm-${room.room_id}`);
+      gridContainer.innerHTML = this._renderDemandHeatmapGrid(room.demand_heatmap);
+    }
   }
 

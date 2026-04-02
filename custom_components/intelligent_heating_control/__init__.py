@@ -28,6 +28,14 @@ from .const import (
     SERVICE_ACTIVATE_GUEST_MODE,
     SERVICE_DEACTIVATE_GUEST_MODE,
     SERVICE_RESET_STATS,
+    # v1.7 – Heizgruppen
+    SERVICE_ADD_GROUP,
+    SERVICE_REMOVE_GROUP,
+    SERVICE_UPDATE_GROUP,
+    SERVICE_SET_GROUP_MODE,
+    CONF_GROUP_ID,
+    CONF_GROUP_NAME,
+    CONF_GROUP_ROOMS,
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
     CONF_TEMP_SENSOR,
@@ -488,6 +496,33 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             coordinator.reset_curve_adaptation()
         await coordinator.async_request_refresh()
 
+    # v1.7 – Heizgruppen
+    async def handle_add_group(call: ServiceCall) -> None:
+        name = call.data.get(CONF_GROUP_NAME, "Neue Gruppe")
+        room_ids = call.data.get(CONF_GROUP_ROOMS, [])
+        await coordinator.async_add_group(name=name, room_ids=room_ids)
+
+    async def handle_remove_group(call: ServiceCall) -> None:
+        group_id = call.data.get(CONF_GROUP_ID)
+        if group_id:
+            await coordinator.async_remove_group(group_id=group_id)
+
+    async def handle_update_group(call: ServiceCall) -> None:
+        group_id = call.data.get(CONF_GROUP_ID)
+        if not group_id:
+            return
+        await coordinator.async_update_group(
+            group_id=group_id,
+            group_name=call.data.get(CONF_GROUP_NAME),
+            group_rooms=call.data.get(CONF_GROUP_ROOMS),
+        )
+
+    async def handle_set_group_mode(call: ServiceCall) -> None:
+        group_id = call.data.get(CONF_GROUP_ID)
+        mode = call.data.get("mode", "auto")
+        if group_id:
+            await coordinator.async_set_group_mode(group_id=group_id, mode=mode)
+
     hass.services.async_register(DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
     hass.services.async_register(DOMAIN, SERVICE_REMOVE_ROOM, handle_remove_room)
     hass.services.async_register(DOMAIN, SERVICE_UPDATE_ROOM, handle_update_room)
@@ -500,3 +535,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_GUEST_MODE, handle_activate_guest_mode)
     hass.services.async_register(DOMAIN, SERVICE_DEACTIVATE_GUEST_MODE, handle_deactivate_guest_mode)
     hass.services.async_register(DOMAIN, SERVICE_RESET_STATS, handle_reset_stats)
+    # v1.7 – Heizgruppen
+    hass.services.async_register(DOMAIN, SERVICE_ADD_GROUP, handle_add_group)
+    hass.services.async_register(DOMAIN, SERVICE_REMOVE_GROUP, handle_remove_group)
+    hass.services.async_register(DOMAIN, SERVICE_UPDATE_GROUP, handle_update_group)
+    hass.services.async_register(DOMAIN, SERVICE_SET_GROUP_MODE, handle_set_group_mode)

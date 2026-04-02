@@ -77,6 +77,71 @@
     });
 
     this._drawCurve(content);
+
+    // ── v1.7 Heizkurven-Simulation ─────────────────────────────────────────
+    const simCard = document.createElement("div");
+    simCard.className = "card";
+    simCard.style.marginTop = "16px";
+    simCard.innerHTML = `
+      <div class="card-title">🔬 Simulation – Was-Wenn?</div>
+      <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 12px">
+        Schieberegler für Außentemperatur → zeigt die berechnete Ziel-Temperatur laut aktueller Heizkurve.
+      </p>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px">
+        <label style="font-size:13px;font-weight:600;min-width:120px">Außentemp:</label>
+        <input type="range" id="sim-outdoor" min="-20" max="25" step="0.5" value="0"
+          style="flex:1;min-width:160px;accent-color:var(--primary-color)">
+        <span id="sim-outdoor-val" style="font-size:15px;font-weight:700;min-width:50px;text-align:right">0 °C</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:8px">
+        <label style="font-size:13px;color:var(--secondary-text-color);min-width:120px">Ziel-Temperatur:</label>
+        <span id="sim-target-val" style="font-size:26px;font-weight:700;color:var(--primary-color)">—</span>
+      </div>
+      <div id="sim-room-offsets" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"></div>`;
+    content.appendChild(simCard);
+
+    const rooms = this._getRoomData();
+    const roomList = Object.values(rooms);
+
+    const calcCurveTemp = (outdoorTemp) => {
+      const pts = this._collectCurvePoints(content);
+      if (pts.length < 2) return null;
+      // Clamp to range
+      if (outdoorTemp <= pts[0].outdoor_temp) return pts[0].target_temp;
+      if (outdoorTemp >= pts[pts.length - 1].outdoor_temp) return pts[pts.length - 1].target_temp;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const lo = pts[i], hi = pts[i + 1];
+        if (outdoorTemp >= lo.outdoor_temp && outdoorTemp <= hi.outdoor_temp) {
+          const t = (outdoorTemp - lo.outdoor_temp) / (hi.outdoor_temp - lo.outdoor_temp);
+          return lo.target_temp + t * (hi.target_temp - lo.target_temp);
+        }
+      }
+      return null;
+    };
+
+    const updateSim = () => {
+      const outdoorVal = parseFloat(simCard.querySelector("#sim-outdoor").value);
+      simCard.querySelector("#sim-outdoor-val").textContent = outdoorVal.toFixed(1) + " °C";
+      const base = calcCurveTemp(outdoorVal);
+      if (base == null) { simCard.querySelector("#sim-target-val").textContent = "—"; return; }
+      simCard.querySelector("#sim-target-val").textContent = base.toFixed(1) + " °C";
+      // Show per-room effective target
+      const offsets = simCard.querySelector("#sim-room-offsets");
+      offsets.innerHTML = roomList.map(r => {
+        const offset = parseFloat(r.room_offset ?? 0);
+        const eff = (base + offset).toFixed(1);
+        return `<span style="font-size:11px;padding:3px 8px;border-radius:8px;background:var(--secondary-background-color);border:1px solid var(--divider-color)">
+          ${r.name}: <strong>${eff} °C</strong>${offset !== 0 ? ` <span style="color:var(--secondary-text-color)">(${offset > 0 ? "+" : ""}${offset})</span>` : ""}
+        </span>`;
+      }).join("");
+    };
+
+    simCard.querySelector("#sim-outdoor").addEventListener("input", updateSim);
+    // Recompute when curve points change
+    content.querySelectorAll(".curve-outdoor,.curve-target").forEach(inp =>
+      inp.addEventListener("input", updateSim)
+    );
+    updateSim();
   }
 
   _collectCurvePoints(content) {

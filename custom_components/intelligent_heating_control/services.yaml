@@ -548,3 +548,82 @@ reset_stats:
       default: false
       selector:
         boolean:
+
+# ── v1.7 Heizgruppen ──────────────────────────────────────────────────────────
+
+add_group:
+  name: Gruppe hinzufügen
+  description: Erstellt eine neue Heizgruppe mit den angegebenen Zimmern.
+  fields:
+    group_name:
+      name: Gruppenname
+      description: Anzeigename der Gruppe
+      required: true
+      selector:
+        text:
+    group_rooms:
+      name: Zimmer-IDs
+      description: Liste der room_ids die zur Gruppe gehören
+      required: false
+      default: []
+      selector:
+        object:
+
+remove_group:
+  name: Gruppe entfernen
+  description: Entfernt eine Heizgruppe (Zimmer werden nicht gelöscht).
+  fields:
+    group_id:
+      name: Gruppen-ID
+      description: Interne ID der zu entfernenden Gruppe
+      required: true
+      selector:
+        text:
+
+update_group:
+  name: Gruppe aktualisieren
+  description: Ändert Name oder Zimmer-Zuordnung einer Heizgruppe.
+  fields:
+    group_id:
+      name: Gruppen-ID
+      description: Interne ID der Gruppe
+      required: true
+      selector:
+        text:
+    group_name:
+      name: Gruppenname
+      description: Neuer Anzeigename (optional)
+      required: false
+      selector:
+        text:
+    group_rooms:
+      name: Zimmer-IDs
+      description: Neue Liste der room_ids (optional)
+      required: false
+      selector:
+        object:
+
+set_group_mode:
+  name: Gruppen-Modus setzen
+  description: Setzt den Betriebsmodus für alle Zimmer einer Gruppe gleichzeitig.
+  fields:
+    group_id:
+      name: Gruppen-ID
+      description: Interne ID der Gruppe
+      required: true
+      selector:
+        text:
+    mode:
+      name: Modus
+      description: Zimmer-Betriebsmodus für alle Räume der Gruppe
+      required: true
+      default: auto
+      selector:
+        select:
+          options:
+            - auto
+            - comfort
+            - eco
+            - sleep
+            - away
+            - "off"

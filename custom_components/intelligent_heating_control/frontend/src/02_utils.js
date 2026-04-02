@@ -191,6 +191,7 @@
       outdoor_humidity:          a.outdoor_humidity != null ? parseFloat(a.outdoor_humidity) : null,
       static_energy_price:       a.static_energy_price != null ? parseFloat(a.static_energy_price) : null,
       boiler_kw:                 a.boiler_kw != null ? parseFloat(a.boiler_kw) : null,
+      groups:                    a.groups || [],
     };
   }
 
@@ -485,64 +486,48 @@
     }, 30);
   }
 
-  // ── HA Schedule row helpers ─────────────────────────────────────────────
+  // ── v1.6 Anforderungs-Heatmap helper ──────────────────────────────────────
 
-  /** Renders a single HA schedule row and returns its element. */
-  _makeHaSchedRow(entry = {}) {
-    const row = document.createElement("div");
-    row.className = "ha-sched-row";
-    row.style.cssText = "border:1px solid var(--divider-color);border-radius:8px;padding:8px;margin-bottom:8px";
-    row.innerHTML = `
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-        <input type="text" class="form-input hs-entity" placeholder="schedule.zimmer"
-          data-ep-domains="schedule" autocomplete="off" value="${entry.entity || ''}"
-          style="flex:1;min-width:0">
-        <select class="form-select hs-mode" style="width:110px;flex-shrink:0">
-          <option value="comfort" ${(entry.mode||'comfort')==='comfort'?'selected':''}>☀️ Komfort</option>
-          <option value="eco"     ${entry.mode==='eco'    ?'selected':''}>🌿 Eco</option>
-          <option value="sleep"   ${entry.mode==='sleep'  ?'selected':''}>🌙 Schlaf</option>
-          <option value="away"    ${entry.mode==='away'   ?'selected':''}>🚶 Abwesend</option>
-        </select>
-        <button class="btn btn-danger btn-icon hs-remove" title="Entfernen" style="flex-shrink:0">✕</button>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="text" class="form-input hs-cond" placeholder="Bedingung (optional, z.B. binary_sensor.xyz)"
-          data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off"
-          value="${entry.condition_entity || ''}" style="flex:1;min-width:0;font-size:12px">
-        <input type="text" class="form-input hs-cond-state" placeholder="on"
-          style="width:55px;flex-shrink:0;font-size:12px" value="${entry.condition_state || 'on'}">
+  /**
+   * Renders a 7×24 demand heatmap grid.
+   * @param {Array} heatmap  7×24 float grid (weekday × hour, 0-100)
+   * @param {string} title   optional heading
+   * @returns {string} HTML string
+   */
+  _renderDemandHeatmapGrid(heatmap, title = "") {
+    if (!heatmap || heatmap.length !== 7) return "";
+    const WDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+    const demColor = v => {
+      if (!v || v < 1) return "var(--secondary-background-color,#f5f5f5)";
+      const t = Math.min(1, v / 100);
+      const r = Math.round(30  + t * 200);
+      const g = Math.round(100 - t * 60);
+      const b = Math.round(200 - t * 180);
+      return `rgb(${r},${g},${b})`;
+    };
+    const hourHeaders = Array.from({length: 24}, (_, h) =>
+      `<div style="font-size:8px;text-align:center;color:var(--secondary-text-color);flex:1;min-width:0">${h % 3 === 0 ? h + "" : ""}</div>`
+    ).join("");
+    const rows = heatmap.map((day, di) => {
+      const cells = day.map((v, h) =>
+        `<div title="${WDAYS[di]} ${h}:00 – ${Math.round(v)}%" style="flex:1;height:18px;background:${demColor(v)};border-radius:2px;margin:1px;min-width:0"></div>`
+      ).join("");
+      return `<div style="display:flex;align-items:center;gap:0;margin-bottom:1px">
+        <div style="width:22px;font-size:9px;color:var(--secondary-text-color);flex-shrink:0">${WDAYS[di]}</div>
+        <div style="display:flex;flex:1;gap:0">${cells}</div>
       </div>`;
-    row.querySelector(".hs-remove").addEventListener("click", () => row.remove());
-    // Attach entity pickers after row is appended (caller must ensure DOM is ready)
-    setTimeout(() => this._attachEntityPickers(row), 0);
-    return row;
+    }).join("");
+    return `
+      ${title ? `<div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--secondary-text-color)">${title}</div>` : ""}
+      <div style="display:flex;margin-left:22px;margin-bottom:2px">${hourHeaders}</div>
+      ${rows}
+      <div style="margin-top:4px;display:flex;gap:6px;align-items:center;font-size:10px;color:var(--secondary-text-color)">
+        <span>0%</span>
+        <div style="flex:1;height:5px;border-radius:3px;background:linear-gradient(to right,rgb(30,100,200),rgb(200,80,20),rgb(230,40,20))"></div>
+        <span>100%</span>
+      </div>`;
   }
 
-  /** Attaches the "add" button for HA schedule rows. Call after modal renders. */
-  _bindHaSchedAdder(existingEntries, listId, addBtnId) {
-    setTimeout(() => {
-      const list = this.shadowRoot.querySelector(`#${listId}`);
-      if (!list) return;
-      // Render pre-existing entries
-      existingEntries.forEach(entry => list.appendChild(this._makeHaSchedRow(entry)));
-      const btn = this.shadowRoot.querySelector(`#${addBtnId}`);
-      if (btn) btn.addEventListener("click", () => list.appendChild(this._makeHaSchedRow()));
-    }, 50);
-  }
-
-  /** Collects HA schedule rows from a modal container into an array. */
-  _collectHaScheduleRows(modal) {
-    return [...modal.querySelectorAll(".ha-sched-row")]
-      .map(row => {
-        const entity = row.querySelector(".hs-entity").value.trim();
-        if (!entity) return null;
-        const entry = { entity, mode: row.querySelector(".hs-mode").value };
-        const cond = row.querySelector(".hs-cond").value.trim();
-        if (cond) {
-          entry.condition_entity = cond;
-          entry.condition_state  = row.querySelector(".hs-cond-state").value.trim() || "on";
-        }
-        return entry;
-      })
-      .filter(Boolean);
-  }
+  // ── HA Schedule row helpers ─────────────────────────────────────────────
+  // NOTE: _makeHaSchedRow, _bindHaSchedAdder, _collectHaScheduleRows are
+  // defined in 08_modals.js (authoritative versions). Do not duplicate here.

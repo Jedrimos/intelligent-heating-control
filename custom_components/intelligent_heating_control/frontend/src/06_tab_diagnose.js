@@ -249,6 +249,27 @@
       </details>` : ""}
     `;
 
+    // ── v1.6 Anforderungs-Heatmap (alle Zimmer) ────────────────────────────
+    const roomsWithHeatmap = roomList.filter(r => r.demand_heatmap && r.demand_heatmap.length === 7);
+    if (roomsWithHeatmap.length > 0) {
+      const heatmapCard = document.createElement("details");
+      heatmapCard.className = "ihc-card";
+      heatmapCard.innerHTML = `
+        <summary><span class="ihc-card-title">🔥 Anforderungs-Heatmap</span></summary>
+        <div class="ihc-card-body">
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 12px">
+            Zeitbasiertes Heizprofil pro Zimmer – gleitender Durchschnitt (EMA) über mehrere Wochen.
+            Blau = niedrige, Rot = hohe Anforderung.
+          </p>
+          ${roomsWithHeatmap.map(r =>
+            `<div style="margin-bottom:16px">
+              ${this._renderDemandHeatmapGrid(r.demand_heatmap, r.name)}
+            </div>`
+          ).join("")}
+        </div>`;
+      content.appendChild(heatmapCard);
+    }
+
     const setSystemModeBtn = content.querySelector("#diag-set-system-mode");
     if (setSystemModeBtn) {
       setSystemModeBtn.addEventListener("click", () => {

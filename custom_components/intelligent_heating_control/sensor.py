@@ -163,6 +163,8 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "guest_remaining_minutes":     d.get("guest_remaining_minutes"),
             "weather_forecast":            d.get("weather_forecast"),
             "outdoor_humidity":            d.get("outdoor_humidity"),
+            # v1.7 – Heizgruppen (read by frontend panel)
+            "groups":                      d.get("groups", []),
             # Controller settings (read by frontend panel)
             "demand_threshold":     debug.get("demand_threshold"),
             "demand_hysteresis":    debug.get("demand_hysteresis"),

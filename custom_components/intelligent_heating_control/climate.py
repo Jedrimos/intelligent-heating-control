@@ -353,6 +353,8 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "trv_min_battery": d.get("trv_min_battery"),
             "trv_low_battery": d.get("trv_low_battery", False),
             "trv_stuck_valves": d.get("trv_stuck_valves", []),
+            # Demand heatmap (7 days × 24 hours EMA)
+            "demand_heatmap": d.get("demand_heatmap", []),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
