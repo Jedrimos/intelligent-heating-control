@@ -2244,6 +2244,26 @@ class IHCPanel extends HTMLElement {
           </div>
         </details>
 
+        <details class="modal-collapsible" ${room.comfort_extend_entity ? "open" : ""}>
+          <summary class="modal-section-title">⏱️ Komfort-Verlängerung${room.comfort_extend_active ? ' <span style="color:#43a047;font-size:11px">● aktiv</span>' : ''}</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Verlängerungs-Entity</label>
+              <input type="text" class="form-input full" id="rs-comfort-extend-entity"
+                value="${room.comfort_extend_entity || ''}"
+                placeholder="media_player.tv · switch.tv · binary_sensor.bewegung"
+                data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
+              <span class="form-hint">Wenn aktiv → Zeitplan-Downgrade (Komfort→Eco/Schlaf) wird blockiert</span>
+            </div>
+            <div class="settings-item">
+              <label>Auslöse-Zustand</label>
+              <input type="text" class="form-input" id="rs-comfort-extend-state"
+                value="${room.comfort_extend_state || 'on'}" placeholder="on / playing / home">
+              <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+            </div>
+          </div>
+        </details>
+
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
         </div>
@@ -2357,6 +2377,8 @@ class IHCPanel extends HTMLElement {
         room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
         comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
+        comfort_extend_entity:    container.querySelector("#rs-comfort-extend-entity")?.value.trim() || "",
+        comfort_extend_state:     container.querySelector("#rs-comfort-extend-state")?.value.trim() || "on",
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,
@@ -5283,6 +5305,22 @@ class IHCPanel extends HTMLElement {
             <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
           </div>
         </div>
+        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Verlängerungs-Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-extend-entity"
+              placeholder="media_player.tv oder switch.tv"
+              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
+            <span class="form-hint">Wenn diese Entity aktiv ist, bleibt die Komforttemperatur trotz Zeitplan erhalten (z.B. TV läuft → kein Eco um 22 Uhr)</span>
+          </div>
+          <div class="settings-item">
+            <label>Auslöse-Zustand</label>
+            <input type="text" class="form-input" id="m-comfort-extend-state" value="on"
+              placeholder="on / playing / home">
+            <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+          </div>
+        </div>
       </div>
 
       <div class="modal-section">
@@ -5367,8 +5405,10 @@ class IHCPanel extends HTMLElement {
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
-        comfort_temp_entity:    modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
-        eco_temp_entity:        modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
+        comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
+        comfort_extend_entity:    modal.querySelector("#m-comfort-extend-entity")?.value.trim() || "",
+        comfort_extend_state:     modal.querySelector("#m-comfort-extend-state")?.value.trim() || "on",
         ha_schedules,
       });
       this._closeModal();

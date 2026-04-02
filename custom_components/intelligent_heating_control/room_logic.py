@@ -20,6 +20,9 @@ from .const import (
     CONF_COMFORT_TEMP,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
+    CONF_COMFORT_EXTEND_ENTITY,
+    CONF_COMFORT_EXTEND_STATE,
+    DEFAULT_COMFORT_EXTEND_STATE,
     CONF_AWAY_TEMP_ROOM,
     CONF_ROOM_TEMP_THRESHOLD,
     DEFAULT_ROOM_TEMP_THRESHOLD,
@@ -203,6 +206,15 @@ class RoomLogicMixin:
         away_base    = min(away_max, min(max_temp, max(effective_floor, comfort_base - away_offset)))
 
         return comfort_base, eco_base, sleep_base, away_base
+
+    def _comfort_extend_active(self, room: dict) -> bool:
+        """Return True if the comfort extension condition is currently met."""
+        entity = room.get(CONF_COMFORT_EXTEND_ENTITY, "")
+        if not entity:
+            return False
+        expected = room.get(CONF_COMFORT_EXTEND_STATE, DEFAULT_COMFORT_EXTEND_STATE)
+        state = self.hass.states.get(entity)
+        return state is not None and state.state == expected
 
     def _calculate_target_temp(self, room: dict, outdoor_temp: Optional[float]) -> tuple[float, dict]:
         """
@@ -411,22 +423,38 @@ class RoomLogicMixin:
                     sched_mode = ha_sched.get("mode", ROOM_MODE_COMFORT)
                     ha_temp = mode_to_temp.get(sched_mode, mode_to_temp[ROOM_MODE_COMFORT])
                     target = min(max_temp, max(min_temp, ha_temp + room_offset - night_setback))
+                    # Comfort extend: if condition entity is active, don't drop below comfort
+                    extend = False
+                    if self._comfort_extend_active(room):
+                        comfort_floor = min(max_temp, max(min_temp, comfort_base + room_offset - night_setback))
+                        if target < comfort_floor:
+                            target = comfort_floor
+                            extend = True
                     return target, {
-                        "source": "ha_schedule",
+                        "source": "comfort_extended" if extend else "ha_schedule",
                         "schedule_active": True,
                         "ha_schedule_entity": entity_id,
                         "ha_schedule_mode": sched_mode,
                         "night_setback": night_setback,
+                        "comfort_extend_active": extend,
                     }
             # Schedules configured but none active → use configured off-mode (eco or sleep)
             off_mode = room.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE)
             off_base = sleep_base if off_mode == ROOM_MODE_SLEEP else eco_base
             target = min(max_temp, max(min_temp, off_base + room_offset - night_setback))
+            # Comfort extend
+            extend = False
+            if self._comfort_extend_active(room):
+                comfort_floor = min(max_temp, max(min_temp, comfort_base + room_offset - night_setback))
+                if target < comfort_floor:
+                    target = comfort_floor
+                    extend = True
             return target, {
-                "source": f"ha_schedule_{off_mode}",
+                "source": "comfort_extended" if extend else f"ha_schedule_{off_mode}",
                 "schedule_active": False,
                 "ha_schedule_off_mode": off_mode,
                 "night_setback": night_setback,
+                "comfort_extend_active": extend,
             }
 
         # --- 3b. Active internal schedule or upcoming pre-heat period ---
@@ -465,8 +493,15 @@ class RoomLogicMixin:
                 # Schedule temp + per-period offset + room offset - night setback
                 target = sched_temp + sched_offset + room_offset - night_setback
                 target = min(max_temp, max(min_temp, target))
+                # Comfort extend: if condition entity is active, don't drop below comfort
+                extend = False
+                if self._comfort_extend_active(room):
+                    comfort_floor = min(max_temp, max(min_temp, comfort_base + room_offset - night_setback))
+                    if target < comfort_floor:
+                        target = comfort_floor
+                        extend = True
                 return target, {
-                    "source": source_tag,
+                    "source": "comfort_extended" if extend else source_tag,
                     "schedule_active": True,
                     "period_start": active_period["start"],
                     "period_end": active_period["end"],
@@ -474,6 +509,7 @@ class RoomLogicMixin:
                     "schedule_base": sched_temp,
                     "schedule_offset": sched_offset,
                     "night_setback": night_setback,
+                    "comfort_extend_active": extend,
                 }
 
         # --- 4. Heating curve + room offset (default / outside schedule) ---

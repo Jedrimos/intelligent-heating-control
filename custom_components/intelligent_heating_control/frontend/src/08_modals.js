@@ -331,6 +331,22 @@
             <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
           </div>
         </div>
+        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Verlängerungs-Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-extend-entity"
+              placeholder="media_player.tv oder switch.tv"
+              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
+            <span class="form-hint">Wenn diese Entity aktiv ist, bleibt die Komforttemperatur trotz Zeitplan erhalten (z.B. TV läuft → kein Eco um 22 Uhr)</span>
+          </div>
+          <div class="settings-item">
+            <label>Auslöse-Zustand</label>
+            <input type="text" class="form-input" id="m-comfort-extend-state" value="on"
+              placeholder="on / playing / home">
+            <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+          </div>
+        </div>
       </div>
 
       <div class="modal-section">
@@ -415,8 +431,10 @@
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
-        comfort_temp_entity:    modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
-        eco_temp_entity:        modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
+        comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
+        comfort_extend_entity:    modal.querySelector("#m-comfort-extend-entity")?.value.trim() || "",
+        comfort_extend_state:     modal.querySelector("#m-comfort-extend-state")?.value.trim() || "on",
         ha_schedules,
       });
       this._closeModal();
