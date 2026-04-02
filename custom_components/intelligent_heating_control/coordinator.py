@@ -1442,9 +1442,13 @@ class IHCCoordinator(
                 frost_temp = self._get_frost_protection_temp()
                 if window_open and window_open_temp > 0:
                     # Window open but configured min-temp: hold at that temp (e.g. 15°C) instead of frost
-                    self._set_valve_entities(room, max(window_open_temp, frost_temp))
+                    actual = max(window_open_temp, frost_temp)
+                    rdata["target_temp"] = actual
+                    self._set_valve_entities(room, actual)
                 elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn TRV off (or frost-protect if off mode not supported by the device)
+                    if window_open:
+                        rdata["target_temp"] = frost_temp
                     self._turn_off_valve_entities(room)
                 elif summer_mode or not self._is_heating_period_active():
                     # Sommerautomatik or heating period disabled: send frost protection temp to close TRV valves.
@@ -1485,9 +1489,13 @@ class IHCCoordinator(
                 window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
                 frost_temp_sw = self._get_frost_protection_temp()
                 if window_open and window_open_temp > 0:
-                    self._set_valve_entities(room, max(window_open_temp, frost_temp_sw))
+                    actual_sw = max(window_open_temp, frost_temp_sw)
+                    rdata["target_temp"] = actual_sw
+                    self._set_valve_entities(room, actual_sw)
                 elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn off TRVs when window open, room off, or system off (without frost-protect)
+                    if window_open:
+                        rdata["target_temp"] = frost_temp_sw
                     self._turn_off_valve_entities(room)
                 else:
                     sw_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
