@@ -1404,6 +1404,7 @@ class IHCPanel extends HTMLElement {
   _renderOverview(content) {
     const g = this._getGlobal();
     const rooms = this._getRoomData();
+    const isTrv = (g.controller_mode || 'switch') === 'trv';
 
     // Sort rooms: heating → window open → demanding → satisfied → off
     const sortedRooms = Object.values(rooms).sort((a, b) => {
@@ -1441,7 +1442,11 @@ class IHCPanel extends HTMLElement {
       : null;
 
     const roomCards = sortedRooms.map(room => {
-      const isHeating  = room.demand > 0 && g.heating_active;
+      // In TRV mode g.heating_active reflects the (optional) boiler switch and is
+      // usually false → use trv_any_heating as the "room is actively heating" signal.
+      const isHeating  = isTrv
+        ? (room.trv_any_heating === true)
+        : (room.demand > 0 && g.heating_active);
       const isWindow   = room.window_open;
       const isOff      = room.room_mode === "off";
       const isSat      = !isOff && !isWindow && room.demand === 0;
@@ -1605,8 +1610,17 @@ class IHCPanel extends HTMLElement {
     ].filter(Boolean).join("");
 
     // Hero section
-    const heatingState = g.heating_active ? "🔥 Heizt" : "✓ Bereit";
-    const heatingCls   = g.heating_active ? "heating" : "ok";
+    // In TRV mode there is no central boiler, so g.heating_active is always false
+    // (unless a boiler switch is also configured). Use rooms_demanding as indicator.
+    let heatingState, heatingCls;
+    if (isTrv) {
+      const trvActive = (g.rooms_demanding || 0) > 0;
+      heatingState = trvActive ? "🌡️ TRVs aktiv" : "✓ Bereit";
+      heatingCls   = trvActive ? "heating" : "ok";
+    } else {
+      heatingState = g.heating_active ? "🔥 Heizt" : "✓ Bereit";
+      heatingCls   = g.heating_active ? "heating" : "ok";
+    }
     const demandNum    = g.total_demand != null ? `${g.total_demand} %` : "—";
     const demandCls    = (g.total_demand || 0) > 0 ? "warn" : "ok";
 
@@ -1620,7 +1634,7 @@ class IHCPanel extends HTMLElement {
     const heroSection = `
       <div class="overview-hero">
         <div class="hero-card">
-          <div class="hero-label">Heizung</div>
+          <div class="hero-label">${isTrv ? "TRV-Modus" : "Heizung"}</div>
           <div class="hero-value ${heatingCls}">${heatingState}</div>
           <div class="hero-sub">${g.rooms_demanding} Zimmer mit Anforderung</div>
         </div>
@@ -1638,12 +1652,12 @@ class IHCPanel extends HTMLElement {
           })()}
         </div>
         <div class="hero-card">
-          <div class="hero-label">Außen / Vorlauf</div>
+          <div class="hero-label">${isTrv ? "Außen" : "Außen / Vorlauf"}</div>
           <div class="hero-value" style="font-size:20px">
             ${g.outdoor_temp != null ? g.outdoor_temp + " °C" : "—"}
-            ${g.curve_target != null ? `<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color);margin-left:4px">→ ${g.curve_target.toFixed(1)} °C</span>` : ""}
+            ${g.curve_target != null ? `<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color);margin-left:4px" title="${isTrv ? 'Heizkurven-Sollwert (→ TRV-Setpoint)' : 'Heizkurven-Vorlauf-Soll'}">→ ${g.curve_target.toFixed(1)} °C</span>` : ""}
           </div>
-          ${g.flow_temp != null ? `<div class="hero-sub">Vorlauf: ${g.flow_temp.toFixed(1)} °C</div>` : ""}
+          ${!isTrv && g.flow_temp != null ? `<div class="hero-sub">Vorlauf: ${g.flow_temp.toFixed(1)} °C</div>` : ""}
           ${g.efficiency_score != null ? `<div class="hero-sub">Effizienz: <strong style="color:${g.efficiency_score >= 80 ? "#66bb6a" : g.efficiency_score >= 50 ? "#ffa726" : "#ef5350"}">${g.efficiency_score.toFixed(0)} %</strong></div>` : ""}
         </div>
       </div>
