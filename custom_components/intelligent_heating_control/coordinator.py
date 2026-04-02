@@ -405,6 +405,9 @@ class IHCCoordinator(
         # Window timing: track when window was first seen open/closed (timestamp)
         self._window_open_since: Dict[str, Optional[float]] = {}   # room_id → epoch when opened
         self._window_closed_since: Dict[str, Optional[float]] = {} # room_id → epoch when closed
+        # Brief-reopen guard: saves opening time when window closes, restored on quick reopen
+        self._window_prev_open_since: Dict[str, Optional[float]] = {}
+        self._window_closed_at: Dict[str, Optional[float]] = {}    # always set when window closes
 
         # Event-driven window detection: single subscription for all window sensors.
         # Using one subscription (not per-sensor) avoids a bug where removing one sensor
