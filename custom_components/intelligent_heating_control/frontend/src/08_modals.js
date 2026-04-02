@@ -7,6 +7,7 @@
  */
 
   _showAddRoomModal() {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     this._showModal(`
       <div class="modal-title">+ Zimmer hinzufügen</div>
 
@@ -264,10 +265,10 @@
             <label>Totband (°C)</label>
             <input type="number" class="form-input" id="m-deadband" value="0.5" step="0.1" min="0.1" max="2">
           </div>
-          <div class="settings-item">
+          <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
             <label>Gewichtung</label>
             <input type="number" class="form-input" id="m-weight" value="1.0" step="0.1" min="0.1" max="5">
-            <span class="form-hint">Automatisch aus qm berechnet wenn 1.0 &amp; qm gesetzt</span>
+            <span class="form-hint">Nur im Heizungsschalter-Modus relevant (Einfluss auf Kessel-Anforderung)</span>
           </div>
         </div>
       </div>
@@ -446,6 +447,7 @@
   }
 
   _showEditRoomModal(entityId) {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     const rooms = this._getRoomData();
     const room  = rooms[entityId];
     if (!room) return;
@@ -581,10 +583,10 @@
               <label>Totband (°C)</label>
               <input type="number" class="form-input" id="m-deadband" value="${room.deadband}" step="0.1" min="0.1" max="2">
             </div>
-            <div class="settings-item">
+            <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
               <label>Gewichtung</label>
               <input type="number" class="form-input" id="m-weight" value="${room.weight}" step="0.1" min="0.1" max="5">
-              <span class="form-hint">Auto aus qm wenn 1.0 &amp; qm gesetzt${room.effective_weight && room.effective_weight !== room.weight ? ` · aktuell: ${room.effective_weight}` : ""}</span>
+              <span class="form-hint">Nur im Heizungsschalter-Modus relevant · Auto aus qm wenn 1.0 &amp; qm gesetzt${room.effective_weight && room.effective_weight !== room.weight ? ` · aktuell: ${room.effective_weight}` : ""}</span>
             </div>
           </div>
         </div>

@@ -1882,6 +1882,7 @@ class IHCPanel extends HTMLElement {
   }
 
   _renderRoomDetailSettings(room, container, fullContent) {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     const valveRows = room.valve_entities && room.valve_entities.length > 0
       ? room.valve_entities.map((e, i) => `
           <div class="entity-row">
@@ -2013,10 +2014,11 @@ class IHCPanel extends HTMLElement {
               <input type="number" class="form-input" id="rs-deadband"
                 value="${room.deadband ?? 0.5}" step="0.1" min="0.1" max="2">
             </div>
-            <div class="settings-item">
+            <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
               <label>Gewichtung</label>
               <input type="number" class="form-input" id="rs-weight"
                 value="${room.weight ?? 1.0}" step="0.1" min="0.1" max="5">
+              <span class="form-hint">Nur im Heizungsschalter-Modus: wie stark dieses Zimmer die Kessel-Anforderung beeinflusst</span>
             </div>
             <div class="settings-item">
               <label>Absolute Mindesttemperatur (°C)</label>
@@ -4987,6 +4989,7 @@ class IHCPanel extends HTMLElement {
  */
 
   _showAddRoomModal() {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     this._showModal(`
       <div class="modal-title">+ Zimmer hinzufügen</div>
 
@@ -5244,10 +5247,10 @@ class IHCPanel extends HTMLElement {
             <label>Totband (°C)</label>
             <input type="number" class="form-input" id="m-deadband" value="0.5" step="0.1" min="0.1" max="2">
           </div>
-          <div class="settings-item">
+          <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
             <label>Gewichtung</label>
             <input type="number" class="form-input" id="m-weight" value="1.0" step="0.1" min="0.1" max="5">
-            <span class="form-hint">Automatisch aus qm berechnet wenn 1.0 &amp; qm gesetzt</span>
+            <span class="form-hint">Nur im Heizungsschalter-Modus relevant (Einfluss auf Kessel-Anforderung)</span>
           </div>
         </div>
       </div>
@@ -5426,6 +5429,7 @@ class IHCPanel extends HTMLElement {
   }
 
   _showEditRoomModal(entityId) {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     const rooms = this._getRoomData();
     const room  = rooms[entityId];
     if (!room) return;
@@ -5561,10 +5565,10 @@ class IHCPanel extends HTMLElement {
               <label>Totband (°C)</label>
               <input type="number" class="form-input" id="m-deadband" value="${room.deadband}" step="0.1" min="0.1" max="2">
             </div>
-            <div class="settings-item">
+            <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
               <label>Gewichtung</label>
               <input type="number" class="form-input" id="m-weight" value="${room.weight}" step="0.1" min="0.1" max="5">
-              <span class="form-hint">Auto aus qm wenn 1.0 &amp; qm gesetzt${room.effective_weight && room.effective_weight !== room.weight ? ` · aktuell: ${room.effective_weight}` : ""}</span>
+              <span class="form-hint">Nur im Heizungsschalter-Modus relevant · Auto aus qm wenn 1.0 &amp; qm gesetzt${room.effective_weight && room.effective_weight !== room.weight ? ` · aktuell: ${room.effective_weight}` : ""}</span>
             </div>
           </div>
         </div>
