@@ -1448,7 +1448,7 @@ class IHCCoordinator(
                 elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn TRV off (or frost-protect if off mode not supported by the device)
                     if window_open:
-                        rdata["target_temp"] = frost_temp
+                        rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
                     self._turn_off_valve_entities(room)
                 elif summer_mode or not self._is_heating_period_active():
                     # Sommerautomatik or heating period disabled: send frost protection temp to close TRV valves.
@@ -1495,7 +1495,7 @@ class IHCCoordinator(
                 elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn off TRVs when window open, room off, or system off (without frost-protect)
                     if window_open:
-                        rdata["target_temp"] = frost_temp_sw
+                        rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
                     self._turn_off_valve_entities(room)
                 else:
                     sw_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
