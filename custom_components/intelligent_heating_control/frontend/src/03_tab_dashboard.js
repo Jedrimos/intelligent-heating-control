@@ -364,7 +364,7 @@
           this._callService("boost_room", { id: roomId, duration_minutes: dur }).then(() => {
             setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
           });
-          this._toast(`⚡ Boost aktiviert (${dur} min${temp ? ` → ${temp}°C` : ""})`);
+          this._toast(`⚡ Boost aktiviert (${dur} min)`);
         }
       });
     });

@@ -388,6 +388,8 @@ class IHCCoordinator(
 
         # Manual TRV override detection: track last IHC-set temperature per room
         self._last_ihc_set_temps: Dict[str, float] = {}  # room_id → last temp IHC intentionally set
+        # Reconnect guard: entities that were unavailable/unknown last cycle → skip override detection
+        self._trv_unavailable_entities: set = set()
 
         # Stuck-valve detection: entity_id → monotonic time when stuck condition first appeared
         self._trv_stuck_since: Dict[str, float] = {}
@@ -751,7 +753,9 @@ class IHCCoordinator(
         sensor_id = room.get(CONF_PRESENCE_SENSOR, "")
         if not sensor_id:
             return None  # feature not configured for this room
-        room_id = room.get("id", sensor_id)
+        room_id = room.get(CONF_ROOM_ID, "")
+        if not room_id:
+            return None
         state = self.hass.states.get(sensor_id)
         if state is None:
             return None  # sensor unavailable → don't influence temp
@@ -1442,9 +1446,13 @@ class IHCCoordinator(
                 frost_temp = self._get_frost_protection_temp()
                 if window_open and window_open_temp > 0:
                     # Window open but configured min-temp: hold at that temp (e.g. 15°C) instead of frost
-                    self._set_valve_entities(room, max(window_open_temp, frost_temp))
+                    actual = max(window_open_temp, frost_temp)
+                    rdata["target_temp"] = actual
+                    self._set_valve_entities(room, actual)
                 elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn TRV off (or frost-protect if off mode not supported by the device)
+                    if window_open:
+                        rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
                     self._turn_off_valve_entities(room)
                 elif summer_mode or not self._is_heating_period_active():
                     # Sommerautomatik or heating period disabled: send frost protection temp to close TRV valves.
@@ -1485,9 +1493,13 @@ class IHCCoordinator(
                 window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
                 frost_temp_sw = self._get_frost_protection_temp()
                 if window_open and window_open_temp > 0:
-                    self._set_valve_entities(room, max(window_open_temp, frost_temp_sw))
+                    actual_sw = max(window_open_temp, frost_temp_sw)
+                    rdata["target_temp"] = actual_sw
+                    self._set_valve_entities(room, actual_sw)
                 elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
                     # Turn off TRVs when window open, room off, or system off (without frost-protect)
+                    if window_open:
+                        rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
                     self._turn_off_valve_entities(room)
                 else:
                     sw_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))

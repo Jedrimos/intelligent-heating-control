@@ -436,6 +436,25 @@ class TRVControllerMixin:
                 continue
             state = self.hass.states.get(entity_id)
             if state is None:
+                self._trv_unavailable_entities.add(entity_id)
+                continue
+            # Track unavailable/unknown transitions
+            is_unavailable = state.state in ("unavailable", "unknown")
+            was_unavailable = entity_id in self._trv_unavailable_entities
+            if is_unavailable:
+                self._trv_unavailable_entities.add(entity_id)
+                continue
+            if was_unavailable:
+                # TRV just reconnected – reset baseline to avoid false override detection.
+                # The TRV may have lost its setpoint during power loss/reconnect.
+                self._trv_unavailable_entities.discard(entity_id)
+                trv_target_now = state.attributes.get("temperature")
+                if trv_target_now is not None:
+                    self._last_sent_temps[entity_id] = float(trv_target_now)
+                _LOGGER.debug(
+                    "IHC: %s reconnected – baseline reset, override detection skipped this cycle.",
+                    entity_id,
+                )
                 continue
             trv_target = state.attributes.get("temperature")
             if trv_target is None:
