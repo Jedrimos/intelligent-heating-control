@@ -1630,6 +1630,12 @@ class IHCCoordinator(
             "heating_period_active": heating_period_active,
             "night_setback_active": night_setback_active,
             "presence_away_active": self._presence_away_active,
+            "presence_away_pending": self._presence_away_pending_since is not None,
+            "presence_away_pending_minutes_remaining": (
+                max(0.0, int(cfg.get(CONF_PRESENCE_AWAY_DELAY_MINUTES, DEFAULT_PRESENCE_AWAY_DELAY_MINUTES))
+                    - (dt_util.utcnow() - self._presence_away_pending_since).total_seconds() / 60)
+                if self._presence_away_pending_since is not None else None
+            ),
             "vacation_auto_active": self._vacation_auto_active,
             "vacation_range": self.get_vacation_range(),
             "return_preheat_active": self._return_preheat_active,

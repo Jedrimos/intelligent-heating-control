@@ -118,6 +118,8 @@ from .const import (
     CONF_ADAPTIVE_CURVE_ENABLED,
     CONF_ADAPTIVE_PREHEAT_ENABLED,
     CONF_ETA_PREHEAT_ENABLED,
+    CONF_ETA_PREHEAT_THRESHOLD_MINUTES,
+    DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES,
     CONF_VACATION_CALENDAR,
     CONF_VACATION_CALENDAR_KEYWORD,
     # New features
@@ -618,6 +620,12 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_ETA_PREHEAT_ENABLED,
                 default=bool(cfg.get(CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED))
             ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_ETA_PREHEAT_THRESHOLD_MINUTES,
+                default=int(cfg.get(CONF_ETA_PREHEAT_THRESHOLD_MINUTES, DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES))
+            ): selector.selector({
+                "number": {"min": 10, "max": 240, "step": 5, "unit_of_measurement": "min", "mode": "slider"}
+            }),
             # --- Vacation calendar ---
             vol.Optional(
                 CONF_VACATION_CALENDAR,

@@ -11,9 +11,9 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `1.2.0`
+- **Version:** `1.6.2`
 - **Repository:** https://github.com/Jedrimos/intelligent-heatingcontroll
-- **Aktiver Entwicklungs-Branch:** `claude/review-homeassistant-repo-PL7tn`
+- **Aktiver Entwicklungs-Branch:** `claude/fix-heating-control-bugs-I9DSg`
 - **Dateipfad:** `/home/user/intelligent-heatingcontrol/`
 - **Integration-Pfad:** `custom_components/intelligent_heating_control/`
 
@@ -1103,6 +1103,30 @@ Pro Heizkreis: Energie-Anteil = (Spreizung × Durchfluss × Laufzeit) / Gesamt.
 
 ## 11. Bekannte offene Punkte / Roadmap (aktualisiert)
 
+### Implementiert (✅) – Release 1.6.2 (2026-04-03)
+- **Bestätigungs-basierte TRV Override-Erkennung:** Kein falsches „manuell" nach Zeitplanwechsel
+  - `_trv_cmd_pending[entity_id]` verfolgt gesendete Sollwerte
+  - Override erst detektiert wenn TRV den Wert zurückmeldet (oder nach 600s Timeout)
+  - Zigbee2MQTT, Z-Wave, Homematic: alle langsamen TRVs korrekt behandelt
+- **ETA-Vorheizen vollständig:** Nicht nur Zeitplanfenster-Verlängerung, sondern auch:
+  - HA-Schedule Off-Mode Fallback: heizt auf Komfort vor wenn Ankunft < Schwelle
+  - IHC-Schedule kein-nächster-Period Fallback: gleiches Verhalten
+  - Konfigurierbar via `CONF_ETA_PREHEAT_THRESHOLD_MINUTES` (Standard 90 min)
+  - UI: In Anwesenheitserkennung als eingeklappte Details-Card
+  - Diagnose-Tab: Live-ETA-Status mit Ankunfts-Tabelle
+- **Solltemperatur-Verlauf im Chart:** `target_history` parallel zu `temp_history`
+  - Gleicher 55-Minuten-Takt, gleiche 168-Einträge Ringpuffer
+  - Persitenz in runtime state (überlebt HA-Neustart)
+  - Frontend: Oranger Stufenlinienzug im Verlauf-Tab (passend für Zeitplan-Sprünge)
+  - Legende mit blauen/orangen SVG-Linienproben
+- **Presence Away Pending Status:** Neues Attribut in sensor.ihc_gesamtanforderung
+  - `presence_away_pending` (bool) + `presence_away_pending_minutes_remaining` (float)
+  - Sichtbar im Settings-Tab wenn Delay aktiv
+- **services.yaml vollständig:** Alle bisher fehlenden Felder ergänzt
+  - update_room: trv_*, window_*, room_temp_threshold, comfort_temp_entity, eco_temp_entity, boost_temp, aggressive_mode_*
+  - update_global_settings: presence_*, eta_preheat_*, heating_period_entity, startup_grace_seconds
+- **target_history in sensor.py:** Wird aus coordinator room_data exponiert, frontend liest es
+
 ### Implementiert (✅) – Release 1.3.0 (2026-03-22)
 - **Pro-Zimmer HA-Geräte:** Jedes Zimmer erscheint als eigenes Gerät in HA
   - `device_info` mit `via_device` → Hub verlinkt alle Zimmer-Geräte
@@ -1147,30 +1171,30 @@ Abgleich mit dem Blueprint `panhans/advanced_heating_control.yaml` ergab folgend
 
 | Blueprint-Parameter | IHC-Status | Priorität | Aufwand |
 |---|---|---|---|
-| `input_mode_winter: input_boolean.heizperiode` | ⚠️ Konstante + Backend **teilweise** (const.py, coordinator.py) – config_flow + Frontend fehlt | Hoch | S |
-| `input_presence_reaction_off_time` (30min Delay) | ⚠️ Konstante + Backend **teilweise** – config_flow + Frontend fehlt | Hoch | S |
-| `input_mode_room_temperature_threshold: 16` | ⚠️ Konstante **definiert** – room_logic.py, config_flow, __init__.py, Frontend fehlt | Hoch | M |
-| `input_temperature_comfort: input_number.*` | ⚠️ Konstante **definiert** – room_logic.py-Nutzung, config_flow, __init__.py, Frontend fehlt | Mittel | M |
-| `input_temperature_eco: input_number.*` | ⚠️ Konstante **definiert** – room_logic.py-Nutzung, config_flow, __init__.py, Frontend fehlt | Mittel | M |
+| `input_mode_winter: input_boolean.heizperiode` | ✅ Vollständig: const.py, coordinator.py, config_flow.py, sensor.py (via `a.heating_period_active`), Frontend 05_tab_settings.js | Hoch | S |
+| `input_presence_reaction_off_time` (30min Delay) | ✅ Vollständig: const.py, presence_manager.py, coordinator.py, config_flow.py, sensor.py + Frontend 05_tab_settings.js | Hoch | S |
+| `input_mode_room_temperature_threshold: 16` | ⚠️ Backend: const.py, room_logic.py, config_flow.py, __init__.py ✅ – Frontend Add/Edit-Modal fehlt noch | Hoch | M |
+| `input_temperature_comfort: input_number.*` | ⚠️ Backend: const.py, room_logic.py, config_flow.py, __init__.py ✅ – Frontend Add/Edit-Modal fehlt noch | Mittel | M |
+| `input_temperature_eco: input_number.*` | ⚠️ Backend: const.py, room_logic.py, config_flow.py, __init__.py ✅ – Frontend Add/Edit-Modal fehlt noch | Mittel | M |
 | `input_mode_room_temperature` (sensor vs. TRV Priorität) | ⚠️ Bereits via `CONF_TRV_TEMP_WEIGHT` (0.0–1.0) – Dokumentation verbessern | Niedrig | XS |
 | `input_window_legacy_restore` (Sollwert nach Fenster wiederherstellen) | ❌ Fehlt komplett | Niedrig | S |
 
 **Noch auszuführende Implementierungsschritte (je Feature vollständige Checkliste):**
 
-##### `CONF_HEATING_PERIOD_ENTITY` – Heizperiode-Entity
+##### `CONF_HEATING_PERIOD_ENTITY` – Heizperiode-Entity ✅ Vollständig
 - [x] `const.py` – `CONF_HEATING_PERIOD_ENTITY` definiert
 - [x] `coordinator.py` – `_is_heating_period_active()` + Einbindung in Heizlogik (should_heat, TRV-Branch, Heizschalter)
 - [x] `config_flow.py` – Entity-Selector (input_boolean, binary_sensor) in `async_step_global_settings()`
-- [ ] `climate.py` – `extra_state_attributes` → `"heating_period_active"` (Wert kommt von coordinator data)
-- [ ] Frontend `05_tab_settings.js` – Status-Anzeige in Globaleinstellungen
+- [x] `sensor.py` – `"heating_period_active"` in IHCGesamtanforderung.extra_state_attributes
+- [x] Frontend `05_tab_settings.js` – Status-Badge ✓ Aktiv / ⏸ Inaktiv in Globaleinstellungen (via `a.heating_period_active`)
 
-##### `CONF_PRESENCE_AWAY_DELAY_MINUTES` – Anwesenheits-Verzögerung
+##### `CONF_PRESENCE_AWAY_DELAY_MINUTES` – Anwesenheits-Verzögerung ✅ Vollständig
 - [x] `const.py` – `CONF_PRESENCE_AWAY_DELAY_MINUTES`, `DEFAULT_PRESENCE_AWAY_DELAY_MINUTES = 0`
 - [x] `presence_manager.py` – Delay-Timer in `_update_presence_auto_away()` (mit `_presence_away_pending_since`)
 - [x] `coordinator.py` – `_presence_away_pending_since = None` initialisiert + Import
 - [x] `config_flow.py` – Number-Selector 0–120 min in `async_step_global_settings()` nahe Presence-Sektion
-- [ ] `coordinator.py` – Persistenz: `_presence_away_pending_since` als ISO-String in `_async_save_runtime_state()` / `async_load_runtime_state()` speichern – sonst geht Timer nach HA-Neustart verloren
-- [ ] Frontend `05_tab_settings.js` – Slider anzeigen + Status-Badge wenn Delay aktiv
+- [x] `coordinator.py` – Persistenz: `_presence_away_pending_since` ISO-String in `_async_save_runtime_state()` / `async_load_runtime_state()` ✓
+- [x] Frontend `05_tab_settings.js` – Slider (0–120 min) + Status via `sensor.ihc_gesamtanforderung.presence_away_pending*`
 
 ##### `CONF_ROOM_TEMP_THRESHOLD` – Temperaturschwelle pro Zimmer
 - [x] `const.py` – `CONF_ROOM_TEMP_THRESHOLD`, `DEFAULT_ROOM_TEMP_THRESHOLD = 0.0`

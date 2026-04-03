@@ -152,6 +152,8 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "heating_period_active":  d.get("heating_period_active", True),
             "night_setback_active":   d.get("night_setback_active", False),
             "presence_away_active":   d.get("presence_away_active", False),
+            "presence_away_pending":  d.get("presence_away_pending", False),
+            "presence_away_pending_minutes_remaining": d.get("presence_away_pending_minutes_remaining"),
             "vacation_auto_active":        d.get("vacation_auto_active", False),
             "vacation_range":              d.get("vacation_range", {}),
             "efficiency_score":            d.get("efficiency_score"),
@@ -335,7 +337,8 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
                 "room_mode": room.get("room_mode", "auto"),
                 "source": room.get("source", ""),
                 "night_setback": room.get("night_setback", 0.0),
-                "temp_history": room.get("temp_history", []),          # Roadmap 1.1
+                "temp_history":   room.get("temp_history", []),          # Roadmap 1.1
+                "target_history": room.get("target_history", []),       # v1.6.2
                 "avg_warmup_minutes": room.get("avg_warmup_minutes"),  # Roadmap 1.1
                 "anomaly": room.get("anomaly"),                        # Roadmap 1.1
                 "room_presence_active": room.get("room_presence_active"),  # Roadmap 1.2

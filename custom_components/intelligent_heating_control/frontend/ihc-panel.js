@@ -907,6 +907,7 @@ class IHCPanel extends HTMLElement {
         night_setback: state.attributes.night_setback || 0,
         runtime_today_minutes: 0,
         temp_history: [],
+        target_history: [],
         avg_warmup_minutes: null,
         // Room config (from climate entity extra_state_attributes)
         temp_sensor: state.attributes.temp_sensor || "",
@@ -984,6 +985,8 @@ class IHCPanel extends HTMLElement {
           rooms[climateId].night_setback = state.attributes.night_setback;
         if (state.attributes.temp_history !== undefined)
           rooms[climateId].temp_history = state.attributes.temp_history;
+        if (state.attributes.target_history !== undefined)
+          rooms[climateId].target_history = state.attributes.target_history;
         if (state.attributes.avg_warmup_minutes !== undefined)
           rooms[climateId].avg_warmup_minutes = state.attributes.avg_warmup_minutes;
         if (state.attributes.room_presence_active !== undefined)
