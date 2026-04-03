@@ -269,8 +269,9 @@ class TRVControllerMixin:
 
             self._last_sent_temps[valve_entity] = target_temp
             self._last_sent_times[valve_entity] = now
-            # Record command timestamp so manual-override detector skips grace period
             self._trv_command_sent_at[valve_entity] = now
+            # Mark as pending: suppress override detection until TRV confirms this setpoint
+            self._trv_cmd_pending[valve_entity] = target_temp
             self.hass.async_create_task(
                 self.hass.services.async_call(
                     "climate",
@@ -448,6 +449,7 @@ class TRVControllerMixin:
                 # TRV just reconnected – reset baseline to avoid false override detection.
                 # The TRV may have lost its setpoint during power loss/reconnect.
                 self._trv_unavailable_entities.discard(entity_id)
+                self._trv_cmd_pending.pop(entity_id, None)  # discard any stale pending command
                 trv_target_now = state.attributes.get("temperature")
                 if trv_target_now is not None:
                     self._last_sent_temps[entity_id] = float(trv_target_now)
@@ -462,14 +464,37 @@ class TRVControllerMixin:
             trv_target = float(trv_target)
             last_ihc = self._last_sent_temps.get(entity_id)
             if last_ihc is None:
-                # First cycle – record current TRV temp as baseline
+                # First cycle – record current TRV temp as baseline, no detection yet
                 self._last_ihc_set_temps[room_id] = trv_target
                 continue
-            # Grace period: IHC just sent a command – TRV may not have reported new state yet.
-            # Skip detection until TRV has had time to update its reported setpoint.
-            sent_at = self._trv_command_sent_at.get(entity_id)
-            if sent_at is not None and (now - sent_at) < self._trv_command_grace:
-                continue
+
+            # Confirmation-based pending check (replaces time-based grace):
+            # After IHC sends a new setpoint, we wait until the TRV *reports back* that value
+            # before re-enabling override detection.  This correctly handles slow TRVs (e.g.
+            # Homematic duty cycle, Z-Wave wake-up intervals) that may take many minutes to
+            # reflect a new setpoint – a window far beyond the old 3-minute fixed grace.
+            pending = self._trv_cmd_pending.get(entity_id)
+            if pending is not None:
+                if abs(trv_target - pending) < TRV_TEMP_HYSTERESIS:
+                    # TRV confirmed our command → remove pending, detection resumes next cycle
+                    del self._trv_cmd_pending[entity_id]
+                    self._last_sent_temps[entity_id] = trv_target  # sync baseline to confirmed value
+                else:
+                    # TRV hasn't confirmed yet.  Check for stale pending (connectivity issue):
+                    # if the TRV never reports back within _trv_confirm_timeout, give up waiting
+                    # and reset the baseline so we don't permanently suppress detection.
+                    sent_at = self._trv_command_sent_at.get(entity_id)
+                    if sent_at is not None and (now - sent_at) > self._trv_confirm_timeout:
+                        _LOGGER.debug(
+                            "IHC: %s – pending setpoint %.1f°C unconfirmed after %ds, "
+                            "resetting baseline to TRV value %.1f°C.",
+                            entity_id, pending, self._trv_confirm_timeout, trv_target,
+                        )
+                        del self._trv_cmd_pending[entity_id]
+                        self._last_sent_temps[entity_id] = trv_target
+                    # Either way: skip override detection while a pending command exists
+                    continue
+
             # If TRV temperature differs significantly from what IHC last sent, user adjusted it.
             # Threshold is 1.0 °C (= TRV_LARGE_CHANGE_THRESHOLD) to avoid false positives from:
             #   - TRV rounding differences (quantisation to 0.5 °C steps)

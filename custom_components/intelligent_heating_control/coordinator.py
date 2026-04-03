@@ -375,13 +375,17 @@ class IHCCoordinator(
         self._last_sent_temps: Dict[str, float] = {}  # entity_id → last sent temperature
         # TRV battery save: track timestamp of last actual send per entity (for time throttle)
         self._last_sent_times: Dict[str, float] = {}  # entity_id → monotonic time of last send
-        # Manual override detection: grace period after IHC sends a command.
-        # Prevents false "manually set" alerts while TRV has not yet reported the new setpoint back.
-        # Key = entity_id, value = monotonic time of last command send.
+        # Manual override detection: track timestamp of last send per entity (for fallback timeout)
         self._trv_command_sent_at: Dict[str, float] = {}
-        # TRV_COMMAND_GRACE = how long (seconds) after sending to suppress override detection
-        # Must be longer than the slowest TRV radio update cycle (~2-5 min for Z-Wave/Zigbee)
-        self._trv_command_grace: int = 180  # 3 minutes
+        # Confirmation-based override guard: when IHC sends a new setpoint, suppress override
+        # detection until the TRV *confirms* the command by reporting back the expected value.
+        # This replaces the old time-based grace period and handles slow TRVs correctly
+        # (e.g. Homematic TRVs that only update every 5–10 min via duty cycle).
+        # Key = entity_id, value = the setpoint IHC sent that we're waiting to be confirmed.
+        self._trv_cmd_pending: Dict[str, float] = {}
+        # Fallback: if TRV never confirms within this many seconds (connectivity issue), give up
+        # waiting and reset the baseline to the TRV's current reported value.
+        self._trv_confirm_timeout: int = 600  # 10 minutes
         # On startup skip one cycle so _last_sent_temps can be pre-populated from TRV states
         # before the manual-override detector runs (prevents false "manual override" alerts)
         self._startup_cycles_remaining: int = 1
