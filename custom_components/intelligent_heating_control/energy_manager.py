@@ -141,7 +141,15 @@ class EnergyManagerMixin:
                         # First reading of the day – store as baseline
                         self._hkv_day_start[room_id] = current_val
                         return 0.0
-                    delta = max(0.0, current_val - day_start)
+                    if current_val < day_start:
+                        # Counter went backwards (sensor reset / replacement) – recalibrate
+                        _LOGGER.warning(
+                            "IHC: HKV counter reset for room %s (was %.1f, now %.1f) – recalibrating baseline",
+                            room_id, day_start, current_val,
+                        )
+                        self._hkv_day_start[room_id] = current_val
+                        return 0.0
+                    delta = current_val - day_start
                     return round(delta * hkv_factor, 3)
                 except (ValueError, TypeError):
                     pass  # fall through to runtime estimate

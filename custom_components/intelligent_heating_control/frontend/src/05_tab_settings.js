@@ -14,6 +14,14 @@
     const hasEnergy = !!(a.solar_entity || a.energy_price_entity || a.flow_temp_entity || a.smart_meter_entity);
 
     content.innerHTML = `
+      <!-- ── TRV-Modus Info-Banner ─────────────────────────── -->
+      <div id="sec-trv-info" class="info-box" style="${(g.controller_mode || 'switch') === 'trv' ? '' : 'display:none'};background:#e3f2fd;border-color:#1565c0;margin-bottom:12px">
+        ℹ️ <strong>TRV-Modus aktiv:</strong> IHC steuert die Thermostatventile direkt.
+        Einstellungen für zentrale Heizungsregelung (Kesselschalter, Schwelle, Hysterese, Solar, Vorlauf-PID) sind ausgeblendet.<br>
+        Falls du einen zentralen Kessel hast (Hybrid-Setup: Brenner + TRVs), trage den Kessel-Schalter unter
+        <em>Hardware &amp; Steuerung → Heizungsschalter</em> ein.
+      </div>
+
       <!-- ── System-Hardware ─────────────────────────────── -->
       <details class="ihc-card" open>
         <summary>
@@ -145,7 +153,7 @@
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label>Heizperiode-Entity
-                ${g.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : g.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
+                ${a.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : a.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
               </label>
               <input type="text" class="form-input full" id="s-heating-period-entity"
                 value="${a.heating_period_entity || ''}" placeholder="input_boolean.heizperiode"
@@ -201,17 +209,6 @@
 
       <!-- ── Regelung ──────────────────────────────────── -->
 
-      <!-- ── TRV-Modus Info ─────────────────────────────────── -->
-      <details id="sec-trv-info" class="ihc-card" style="${(g.controller_mode || 'switch') !== 'trv' ? 'display:none' : ''}">
-        <summary><span class="ihc-card-title">ℹ️ TRV-Modus aktiv</span></summary>
-        <div class="ihc-card-body">
-          <div class="info-box">
-            Im <strong>TRV-Modus</strong> steuert IHC die Thermostatventile direkt. Die zentrale Heizungsregelung (Kesselschalter, Schwelle, Hysterese) wird nicht benötigt.<br><br>
-            Wenn du einen zentralen Kessel hast der eingeschaltet werden muss (Hybrid-Setup: Gas-Brenner + TRVs), trage den Kessel-Schalter unter <em>Hardware &amp; Steuerung → Heizungsschalter</em> ein.
-          </div>
-        </div>
-      </details>
-
       <!-- ── Wärmeerzeuger WIP ──────────────────────────────── -->
       <details id="sec-hg" class="ihc-card" style="${(g.controller_mode || 'switch') !== 'hg' ? 'display:none' : ''}">
         <summary>
@@ -243,10 +240,8 @@
         </div>
       </details>
 
-      <details id="sec-boiler-demand" class="ihc-card" ${g.controller_mode !== "trv" ? "open" : ""}>
-        <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese
-          ${g.controller_mode === "trv" ? `<span style="opacity:0.6;font-weight:400;font-size:11px"> – Kessel-Schutz</span>` : ""}
-        </span></summary>
+      <details id="sec-boiler-demand" class="ihc-card" ${g.controller_mode === "switch" || g.controller_mode === "hg" ? "open" : ""} style="${(g.controller_mode || 'switch') === 'trv' ? 'display:none' : ''}">
+        <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese</span></summary>
         <div class="ihc-card-body">
           <div class="info-box">
             Die <strong>Anforderung</strong> ist ein Prozentwert der angibt wie dringend ein Zimmer Wärme braucht (0–100 %).
@@ -455,7 +450,7 @@
       </details>
 
       <!-- ── Energie & Solar ────────────────────────────── -->
-      <details class="ihc-card" id="energie-details" ${hasEnergy ? "open" : ""}>
+      <details class="ihc-card" id="energie-details" ${hasEnergy ? "open" : ""} style="${(g.controller_mode || 'switch') === 'trv' ? 'display:none' : ''}">
         <summary>
           <span class="ihc-card-title">⚡ Energie, Solar &amp; Vorlauftemperatur
             ${g.solar_boost > 0 ? activeBadge("☀️ Solar-Boost") : ""}
@@ -689,6 +684,23 @@
                 Diese liest die geschätzte Ankunftszeit (<code>estimated_arrival_time</code>) aus <code>person.*</code>-Entitäten aus und heizt automatisch vor wenn die Ankunft ≤ 90 Minuten bevorsteht.<br>
                 Funktioniert <em>nicht</em> direkt mit der Companion App oder Google Maps – du brauchst die HA-Integration.
               </span>
+              ${a.eta_preheat_enabled ? (() => {
+                const entities = a.presence_entities || [];
+                const arrivals = entities.map(eid => {
+                  const st = this._hass?.states[eid];
+                  if (!st) return null;
+                  const t = st.attributes?.estimated_arrival_time;
+                  if (!t) return null;
+                  const arrival = new Date(t);
+                  const mins = Math.round((arrival - new Date()) / 60000);
+                  if (mins < 0 || mins > 120) return null;
+                  const name = st.attributes?.friendly_name || eid;
+                  const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+                  return `<div style="font-size:11px;color:#1565c0">⏱ ${name}: ~${mins} min (${time} Uhr)</div>`;
+                }).filter(Boolean);
+                if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt (0–120 min Fenster)</div>`;
+                return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;
+              })() : ""}
             </div>
             <div class="settings-item">
               <label>Urlaubs-Kalender</label>
@@ -1239,21 +1251,32 @@
     const _updateModeVisibility = (newMode) => {
       const isTrv    = newMode === "trv";
       const isHg     = newMode === "hg";
-      const isBoiler = !isTrv;
-      const hs = content.querySelector("#heating-switch-item");
-      if (hs) hs.style.display = isBoiler ? "" : "none";
-      const cs = content.querySelector("#cooling-section");
-      if (cs) cs.style.display = isBoiler ? "" : "none";
-      const sbd = content.querySelector("#sec-boiler-demand");
-      if (sbd) sbd.style.display = (isBoiler || a.heating_switch) ? "" : "none";
+      const isBoiler = !isTrv && !isHg;
+      const isSwitch = newMode === "switch" || !newMode;
+      // TRV-Modus info banner (top)
       const sti = content.querySelector("#sec-trv-info");
       if (sti) sti.style.display = isTrv ? "" : "none";
+      // Heizungsschalter + Kühlung: nur in Heizungsschalter- und HG-Modus
+      const hs = content.querySelector("#heating-switch-item");
+      if (hs) hs.style.display = !isTrv ? "" : "none";
+      const cs = content.querySelector("#cooling-section");
+      if (cs) cs.style.display = !isTrv ? "" : "none";
+      // Wärmeerzeuger-WIP-Karte
       const shg = content.querySelector("#sec-hg");
       if (shg) shg.style.display = isHg ? "" : "none";
+      // Heizungsregelung & Hysterese: nur in Switch/HG-Modus sichtbar
+      const sbd = content.querySelector("#sec-boiler-demand");
+      if (sbd) sbd.style.display = isTrv ? "none" : "";
+      // Energie, Solar & Vorlauf: nur in Switch/HG-Modus
+      const ed = content.querySelector("#energie-details");
+      if (ed) ed.style.display = isTrv ? "none" : "";
+      // Flow/PID: nur in Switch/HG-Modus
       const sfl = content.querySelector("#sec-flow-pid");
-      if (sfl) sfl.style.display = isBoiler ? "" : "none";
+      if (sfl) sfl.style.display = isTrv ? "none" : "";
+      // Kalibrierungs-Assistent: nicht im TRV-Modus
       const scal = content.querySelector("#sec-calibration");
       if (scal) scal.style.display = isTrv ? "none" : "";
+      // Adaptive Heizkurve: nicht im TRV-Modus
       const acd = content.querySelector("#adaptive-curve-max-delta-item");
       if (acd) acd.style.display = isTrv ? "none" : "";
       const ace = content.querySelector("#adaptive-curve-enabled")?.closest(".settings-item");

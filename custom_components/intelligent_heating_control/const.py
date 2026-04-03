@@ -405,6 +405,12 @@ DEFAULT_ROOM_TEMP_THRESHOLD: Final = 0.0
 CONF_COMFORT_TEMP_ENTITY: Final = "comfort_temp_entity"  # input_number.* für dynamischen Komfort-Sollwert
 CONF_ECO_TEMP_ENTITY: Final = "eco_temp_entity"          # input_number.* für dynamischen Eco-Sollwert
 
+# Komfort-Verlängerung: Wenn eine Entity im gewünschten Zustand ist, wird ein Zeitplan-Downgrade
+# (Komfort → Eco/Schlaf) blockiert und die Komforttemperatur beibehalten.
+CONF_COMFORT_EXTEND_ENTITY: Final = "comfort_extend_entity"  # entity_id (z.B. media_player.tv)
+CONF_COMFORT_EXTEND_STATE: Final = "comfort_extend_state"    # Zustand der Verlängerung auslöst
+DEFAULT_COMFORT_EXTEND_STATE: Final = "on"
+
 # Per-TRV Kalibrierung (pro Entität, ergänzt den Zimmer-weiten trv_temp_offset)
 # Dict: {"climate.trv_schrank": -2.0, "climate.trv_fenster": 0.5}
 CONF_TRV_CALIBRATIONS: Final = "trv_calibrations"

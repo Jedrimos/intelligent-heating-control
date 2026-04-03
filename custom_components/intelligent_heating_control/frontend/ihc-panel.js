@@ -1404,6 +1404,7 @@ class IHCPanel extends HTMLElement {
   _renderOverview(content) {
     const g = this._getGlobal();
     const rooms = this._getRoomData();
+    const isTrv = (g.controller_mode || 'switch') === 'trv';
 
     // Sort rooms: heating → window open → demanding → satisfied → off
     const sortedRooms = Object.values(rooms).sort((a, b) => {
@@ -1441,7 +1442,11 @@ class IHCPanel extends HTMLElement {
       : null;
 
     const roomCards = sortedRooms.map(room => {
-      const isHeating  = room.demand > 0 && g.heating_active;
+      // In TRV mode g.heating_active reflects the (optional) boiler switch and is
+      // usually false → use trv_any_heating as the "room is actively heating" signal.
+      const isHeating  = isTrv
+        ? (room.trv_any_heating === true)
+        : (room.demand > 0 && g.heating_active);
       const isWindow   = room.window_open;
       const isOff      = room.room_mode === "off";
       const isSat      = !isOff && !isWindow && room.demand === 0;
@@ -1605,8 +1610,17 @@ class IHCPanel extends HTMLElement {
     ].filter(Boolean).join("");
 
     // Hero section
-    const heatingState = g.heating_active ? "🔥 Heizt" : "✓ Bereit";
-    const heatingCls   = g.heating_active ? "heating" : "ok";
+    // In TRV mode there is no central boiler, so g.heating_active is always false
+    // (unless a boiler switch is also configured). Use rooms_demanding as indicator.
+    let heatingState, heatingCls;
+    if (isTrv) {
+      const trvActive = (g.rooms_demanding || 0) > 0;
+      heatingState = trvActive ? "🌡️ TRVs aktiv" : "✓ Bereit";
+      heatingCls   = trvActive ? "heating" : "ok";
+    } else {
+      heatingState = g.heating_active ? "🔥 Heizt" : "✓ Bereit";
+      heatingCls   = g.heating_active ? "heating" : "ok";
+    }
     const demandNum    = g.total_demand != null ? `${g.total_demand} %` : "—";
     const demandCls    = (g.total_demand || 0) > 0 ? "warn" : "ok";
 
@@ -1620,7 +1634,7 @@ class IHCPanel extends HTMLElement {
     const heroSection = `
       <div class="overview-hero">
         <div class="hero-card">
-          <div class="hero-label">Heizung</div>
+          <div class="hero-label">${isTrv ? "TRV-Modus" : "Heizung"}</div>
           <div class="hero-value ${heatingCls}">${heatingState}</div>
           <div class="hero-sub">${g.rooms_demanding} Zimmer mit Anforderung</div>
         </div>
@@ -1638,12 +1652,12 @@ class IHCPanel extends HTMLElement {
           })()}
         </div>
         <div class="hero-card">
-          <div class="hero-label">Außen / Vorlauf</div>
+          <div class="hero-label">${isTrv ? "Außen" : "Außen / Vorlauf"}</div>
           <div class="hero-value" style="font-size:20px">
             ${g.outdoor_temp != null ? g.outdoor_temp + " °C" : "—"}
-            ${g.curve_target != null ? `<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color);margin-left:4px">→ ${g.curve_target.toFixed(1)} °C</span>` : ""}
+            ${g.curve_target != null ? `<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color);margin-left:4px" title="${isTrv ? 'Heizkurven-Sollwert (→ TRV-Setpoint)' : 'Heizkurven-Vorlauf-Soll'}">→ ${g.curve_target.toFixed(1)} °C</span>` : ""}
           </div>
-          ${g.flow_temp != null ? `<div class="hero-sub">Vorlauf: ${g.flow_temp.toFixed(1)} °C</div>` : ""}
+          ${!isTrv && g.flow_temp != null ? `<div class="hero-sub">Vorlauf: ${g.flow_temp.toFixed(1)} °C</div>` : ""}
           ${g.efficiency_score != null ? `<div class="hero-sub">Effizienz: <strong style="color:${g.efficiency_score >= 80 ? "#66bb6a" : g.efficiency_score >= 50 ? "#ffa726" : "#ef5350"}">${g.efficiency_score.toFixed(0)} %</strong></div>` : ""}
         </div>
       </div>
@@ -1882,6 +1896,7 @@ class IHCPanel extends HTMLElement {
   }
 
   _renderRoomDetailSettings(room, container, fullContent) {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     const valveRows = room.valve_entities && room.valve_entities.length > 0
       ? room.valve_entities.map((e, i) => `
           <div class="entity-row">
@@ -2013,10 +2028,11 @@ class IHCPanel extends HTMLElement {
               <input type="number" class="form-input" id="rs-deadband"
                 value="${room.deadband ?? 0.5}" step="0.1" min="0.1" max="2">
             </div>
-            <div class="settings-item">
+            <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
               <label>Gewichtung</label>
               <input type="number" class="form-input" id="rs-weight"
                 value="${room.weight ?? 1.0}" step="0.1" min="0.1" max="5">
+              <span class="form-hint">Nur im Heizungsschalter-Modus: wie stark dieses Zimmer die Kessel-Anforderung beeinflusst</span>
             </div>
             <div class="settings-item">
               <label>Absolute Mindesttemperatur (°C)</label>
@@ -2244,6 +2260,26 @@ class IHCPanel extends HTMLElement {
           </div>
         </details>
 
+        <details class="modal-collapsible" ${room.comfort_extend_entity ? "open" : ""}>
+          <summary class="modal-section-title">⏱️ Komfort-Verlängerung${room.comfort_extend_active ? ' <span style="color:#43a047;font-size:11px">● aktiv</span>' : ''}</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Verlängerungs-Entity</label>
+              <input type="text" class="form-input full" id="rs-comfort-extend-entity"
+                value="${room.comfort_extend_entity || ''}"
+                placeholder="media_player.tv · switch.tv · binary_sensor.bewegung"
+                data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
+              <span class="form-hint">Wenn aktiv → Zeitplan-Downgrade (Komfort→Eco/Schlaf) wird blockiert</span>
+            </div>
+            <div class="settings-item">
+              <label>Auslöse-Zustand</label>
+              <input type="text" class="form-input" id="rs-comfort-extend-state"
+                value="${room.comfort_extend_state || 'on'}" placeholder="on / playing / home">
+              <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+            </div>
+          </div>
+        </details>
+
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
         </div>
@@ -2357,6 +2393,8 @@ class IHCPanel extends HTMLElement {
         room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
         comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
+        comfort_extend_entity:    container.querySelector("#rs-comfort-extend-entity")?.value.trim() || "",
+        comfort_extend_state:     container.querySelector("#rs-comfort-extend-state")?.value.trim() || "on",
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,
@@ -3063,6 +3101,85 @@ class IHCPanel extends HTMLElement {
     const hasCo2 = roomList.some(r => r.co2_ppm > 0);
     const hasRuntime = roomList.some(r => r.runtime_today_minutes > 0);
 
+    // ETA preheat section (only when enabled)
+    const etaSection = (() => {
+      if (!a.eta_preheat_enabled) return "";
+      const presEntities = a.presence_entities || [];
+      const isActive = g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90;
+
+      // Read ETA from presence entity attributes directly
+      const etaRows = presEntities.map(eid => {
+        const st = this._hass?.states[eid];
+        const name = st?.attributes?.friendly_name || eid;
+        const arrStr = st?.attributes?.estimated_arrival_time;
+        if (!arrStr) return { name, eid, mins: null, time: null };
+        const arrival = new Date(arrStr);
+        const mins = Math.round((arrival - new Date()) / 60000);
+        if (mins < 0 || mins > 120) return { name, eid, mins: null, time: null };
+        const time = arrival.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+        return { name, eid, mins, time };
+      });
+
+      const preheatingRooms = roomList.filter(r => r.source === "preheat");
+
+      const rowsHtml = etaRows.map(r => `
+        <tr>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color);font-weight:500">${r.name}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color)">
+            ${r.time ? r.time + " Uhr" : `<span style="color:var(--secondary-text-color)">keine ETA</span>`}
+          </td>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color)">
+            ${r.mins != null
+              ? `<span style="font-weight:700;color:${r.mins <= 30 ? "#e53935" : r.mins <= 60 ? "#fb8c00" : "#43a047"}">~${r.mins} min</span>`
+              : `<span style="color:var(--secondary-text-color);font-size:11px">außerhalb Fenster (0–120 min)</span>`}
+          </td>
+        </tr>`).join("");
+
+      return `
+      <details class="ihc-card" ${isActive ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">🕒 ETA-Vorheizen
+            ${isActive
+              ? activeBadge(`Ankunft ~${Math.round(g.eta_preheat_minutes)} min`, "info")
+              : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
+            Liest <code>estimated_arrival_time</code> aus den konfigurierten Anwesenheits-Entitäten.
+            Benötigt <em>Google Maps Travel Time</em> oder <em>Waze Travel Time</em> in HA.
+            IHC startet das Vorheizen wenn eine Ankunft ≤ 90 min bevorsteht.
+          </p>
+          ${etaRows.length ? `
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px">
+            <thead>
+              <tr style="color:var(--secondary-text-color);font-size:11px;text-transform:uppercase">
+                <th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--divider-color)">Person</th>
+                <th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--divider-color)">Ankunft</th>
+                <th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--divider-color)">In Minuten</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>` : `
+          <div style="color:var(--secondary-text-color);font-size:13px;margin-bottom:12px">
+            Keine Person-Entitäten konfiguriert (→ Einstellungen → Anwesenheitserkennung).
+          </div>`}
+          ${preheatingRooms.length ? `
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px">🔥 Zimmer werden vorgeheizt:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${preheatingRooms.map(r =>
+              `<span style="background:color-mix(in srgb,#ef5350 15%,transparent);padding:3px 10px;border-radius:12px;font-size:12px">
+                ⏱ ${r.name} → ${r.target_temp != null ? r.target_temp + " °C" : "—"}
+              </span>`).join("")}
+          </div>` : `
+          <div style="font-size:12px;color:var(--secondary-text-color)">
+            ℹ️ Kein Zimmer wird aktuell vorgeheizt.
+            ${!isActive ? " Vorheizen startet sobald eine Ankunft ≤ 90 min erkannt wird." : ""}
+          </div>`}
+        </div>
+      </details>`;
+    })();
+
     const roomRows = roomList.map(r => {
       const demColor = this._demandColor(r.demand);
       const modeLabel = MODE_ICONS[r.room_mode] + " " + (MODE_LABELS[r.room_mode] || r.room_mode);
@@ -3152,6 +3269,8 @@ class IHCPanel extends HTMLElement {
           </div>` : ""}
         </div>
       </details>
+
+      ${etaSection}
 
       <!-- ── Messwerte ───────────────────────────────────────── -->
       <details class="ihc-card" open>
@@ -3341,6 +3460,14 @@ class IHCPanel extends HTMLElement {
     const hasEnergy = !!(a.solar_entity || a.energy_price_entity || a.flow_temp_entity || a.smart_meter_entity);
 
     content.innerHTML = `
+      <!-- ── TRV-Modus Info-Banner ─────────────────────────── -->
+      <div id="sec-trv-info" class="info-box" style="${(g.controller_mode || 'switch') === 'trv' ? '' : 'display:none'};background:#e3f2fd;border-color:#1565c0;margin-bottom:12px">
+        ℹ️ <strong>TRV-Modus aktiv:</strong> IHC steuert die Thermostatventile direkt.
+        Einstellungen für zentrale Heizungsregelung (Kesselschalter, Schwelle, Hysterese, Solar, Vorlauf-PID) sind ausgeblendet.<br>
+        Falls du einen zentralen Kessel hast (Hybrid-Setup: Brenner + TRVs), trage den Kessel-Schalter unter
+        <em>Hardware &amp; Steuerung → Heizungsschalter</em> ein.
+      </div>
+
       <!-- ── System-Hardware ─────────────────────────────── -->
       <details class="ihc-card" open>
         <summary>
@@ -3472,7 +3599,7 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label>Heizperiode-Entity
-                ${g.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : g.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
+                ${a.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : a.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
               </label>
               <input type="text" class="form-input full" id="s-heating-period-entity"
                 value="${a.heating_period_entity || ''}" placeholder="input_boolean.heizperiode"
@@ -3528,17 +3655,6 @@ class IHCPanel extends HTMLElement {
 
       <!-- ── Regelung ──────────────────────────────────── -->
 
-      <!-- ── TRV-Modus Info ─────────────────────────────────── -->
-      <details id="sec-trv-info" class="ihc-card" style="${(g.controller_mode || 'switch') !== 'trv' ? 'display:none' : ''}">
-        <summary><span class="ihc-card-title">ℹ️ TRV-Modus aktiv</span></summary>
-        <div class="ihc-card-body">
-          <div class="info-box">
-            Im <strong>TRV-Modus</strong> steuert IHC die Thermostatventile direkt. Die zentrale Heizungsregelung (Kesselschalter, Schwelle, Hysterese) wird nicht benötigt.<br><br>
-            Wenn du einen zentralen Kessel hast der eingeschaltet werden muss (Hybrid-Setup: Gas-Brenner + TRVs), trage den Kessel-Schalter unter <em>Hardware &amp; Steuerung → Heizungsschalter</em> ein.
-          </div>
-        </div>
-      </details>
-
       <!-- ── Wärmeerzeuger WIP ──────────────────────────────── -->
       <details id="sec-hg" class="ihc-card" style="${(g.controller_mode || 'switch') !== 'hg' ? 'display:none' : ''}">
         <summary>
@@ -3570,10 +3686,8 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
-      <details id="sec-boiler-demand" class="ihc-card" ${g.controller_mode !== "trv" ? "open" : ""}>
-        <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese
-          ${g.controller_mode === "trv" ? `<span style="opacity:0.6;font-weight:400;font-size:11px"> – Kessel-Schutz</span>` : ""}
-        </span></summary>
+      <details id="sec-boiler-demand" class="ihc-card" ${g.controller_mode === "switch" || g.controller_mode === "hg" ? "open" : ""} style="${(g.controller_mode || 'switch') === 'trv' ? 'display:none' : ''}">
+        <summary><span class="ihc-card-title">⚙️ Heizungsregelung &amp; Hysterese</span></summary>
         <div class="ihc-card-body">
           <div class="info-box">
             Die <strong>Anforderung</strong> ist ein Prozentwert der angibt wie dringend ein Zimmer Wärme braucht (0–100 %).
@@ -3782,7 +3896,7 @@ class IHCPanel extends HTMLElement {
       </details>
 
       <!-- ── Energie & Solar ────────────────────────────── -->
-      <details class="ihc-card" id="energie-details" ${hasEnergy ? "open" : ""}>
+      <details class="ihc-card" id="energie-details" ${hasEnergy ? "open" : ""} style="${(g.controller_mode || 'switch') === 'trv' ? 'display:none' : ''}">
         <summary>
           <span class="ihc-card-title">⚡ Energie, Solar &amp; Vorlauftemperatur
             ${g.solar_boost > 0 ? activeBadge("☀️ Solar-Boost") : ""}
@@ -4016,6 +4130,23 @@ class IHCPanel extends HTMLElement {
                 Diese liest die geschätzte Ankunftszeit (<code>estimated_arrival_time</code>) aus <code>person.*</code>-Entitäten aus und heizt automatisch vor wenn die Ankunft ≤ 90 Minuten bevorsteht.<br>
                 Funktioniert <em>nicht</em> direkt mit der Companion App oder Google Maps – du brauchst die HA-Integration.
               </span>
+              ${a.eta_preheat_enabled ? (() => {
+                const entities = a.presence_entities || [];
+                const arrivals = entities.map(eid => {
+                  const st = this._hass?.states[eid];
+                  if (!st) return null;
+                  const t = st.attributes?.estimated_arrival_time;
+                  if (!t) return null;
+                  const arrival = new Date(t);
+                  const mins = Math.round((arrival - new Date()) / 60000);
+                  if (mins < 0 || mins > 120) return null;
+                  const name = st.attributes?.friendly_name || eid;
+                  const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+                  return `<div style="font-size:11px;color:#1565c0">⏱ ${name}: ~${mins} min (${time} Uhr)</div>`;
+                }).filter(Boolean);
+                if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt (0–120 min Fenster)</div>`;
+                return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;
+              })() : ""}
             </div>
             <div class="settings-item">
               <label>Urlaubs-Kalender</label>
@@ -4566,21 +4697,32 @@ class IHCPanel extends HTMLElement {
     const _updateModeVisibility = (newMode) => {
       const isTrv    = newMode === "trv";
       const isHg     = newMode === "hg";
-      const isBoiler = !isTrv;
-      const hs = content.querySelector("#heating-switch-item");
-      if (hs) hs.style.display = isBoiler ? "" : "none";
-      const cs = content.querySelector("#cooling-section");
-      if (cs) cs.style.display = isBoiler ? "" : "none";
-      const sbd = content.querySelector("#sec-boiler-demand");
-      if (sbd) sbd.style.display = (isBoiler || a.heating_switch) ? "" : "none";
+      const isBoiler = !isTrv && !isHg;
+      const isSwitch = newMode === "switch" || !newMode;
+      // TRV-Modus info banner (top)
       const sti = content.querySelector("#sec-trv-info");
       if (sti) sti.style.display = isTrv ? "" : "none";
+      // Heizungsschalter + Kühlung: nur in Heizungsschalter- und HG-Modus
+      const hs = content.querySelector("#heating-switch-item");
+      if (hs) hs.style.display = !isTrv ? "" : "none";
+      const cs = content.querySelector("#cooling-section");
+      if (cs) cs.style.display = !isTrv ? "" : "none";
+      // Wärmeerzeuger-WIP-Karte
       const shg = content.querySelector("#sec-hg");
       if (shg) shg.style.display = isHg ? "" : "none";
+      // Heizungsregelung & Hysterese: nur in Switch/HG-Modus sichtbar
+      const sbd = content.querySelector("#sec-boiler-demand");
+      if (sbd) sbd.style.display = isTrv ? "none" : "";
+      // Energie, Solar & Vorlauf: nur in Switch/HG-Modus
+      const ed = content.querySelector("#energie-details");
+      if (ed) ed.style.display = isTrv ? "none" : "";
+      // Flow/PID: nur in Switch/HG-Modus
       const sfl = content.querySelector("#sec-flow-pid");
-      if (sfl) sfl.style.display = isBoiler ? "" : "none";
+      if (sfl) sfl.style.display = isTrv ? "none" : "";
+      // Kalibrierungs-Assistent: nicht im TRV-Modus
       const scal = content.querySelector("#sec-calibration");
       if (scal) scal.style.display = isTrv ? "none" : "";
+      // Adaptive Heizkurve: nicht im TRV-Modus
       const acd = content.querySelector("#adaptive-curve-max-delta-item");
       if (acd) acd.style.display = isTrv ? "none" : "";
       const ace = content.querySelector("#adaptive-curve-enabled")?.closest(".settings-item");
@@ -4959,6 +5101,7 @@ class IHCPanel extends HTMLElement {
  */
 
   _showAddRoomModal() {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     this._showModal(`
       <div class="modal-title">+ Zimmer hinzufügen</div>
 
@@ -5216,10 +5359,10 @@ class IHCPanel extends HTMLElement {
             <label>Totband (°C)</label>
             <input type="number" class="form-input" id="m-deadband" value="0.5" step="0.1" min="0.1" max="2">
           </div>
-          <div class="settings-item">
+          <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
             <label>Gewichtung</label>
             <input type="number" class="form-input" id="m-weight" value="1.0" step="0.1" min="0.1" max="5">
-            <span class="form-hint">Automatisch aus qm berechnet wenn 1.0 &amp; qm gesetzt</span>
+            <span class="form-hint">Nur im Heizungsschalter-Modus relevant (Einfluss auf Kessel-Anforderung)</span>
           </div>
         </div>
       </div>
@@ -5283,6 +5426,22 @@ class IHCPanel extends HTMLElement {
             <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
           </div>
         </div>
+        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Verlängerungs-Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-extend-entity"
+              placeholder="media_player.tv oder switch.tv"
+              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
+            <span class="form-hint">Wenn diese Entity aktiv ist, bleibt die Komforttemperatur trotz Zeitplan erhalten (z.B. TV läuft → kein Eco um 22 Uhr)</span>
+          </div>
+          <div class="settings-item">
+            <label>Auslöse-Zustand</label>
+            <input type="text" class="form-input" id="m-comfort-extend-state" value="on"
+              placeholder="on / playing / home">
+            <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+          </div>
+        </div>
       </div>
 
       <div class="modal-section">
@@ -5311,7 +5470,8 @@ class IHCPanel extends HTMLElement {
       </div>
     `, async () => {
       const modal = this.shadowRoot.querySelector("#modal-root .modal");
-      const name = modal.querySelector("#m-name").value.trim();
+      if (!modal) { this._toast("❌ Modal nicht gefunden"); return; }
+      const name = modal.querySelector("#m-name")?.value.trim() || "";
       if (!name) { this._toast("❌ Bitte Zimmername eingeben"); return; }
 
       const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
@@ -5366,8 +5526,10 @@ class IHCPanel extends HTMLElement {
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
-        comfort_temp_entity:    modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
-        eco_temp_entity:        modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
+        comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
+        comfort_extend_entity:    modal.querySelector("#m-comfort-extend-entity")?.value.trim() || "",
+        comfort_extend_state:     modal.querySelector("#m-comfort-extend-state")?.value.trim() || "on",
         ha_schedules,
       });
       this._closeModal();
@@ -5379,6 +5541,7 @@ class IHCPanel extends HTMLElement {
   }
 
   _showEditRoomModal(entityId) {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     const rooms = this._getRoomData();
     const room  = rooms[entityId];
     if (!room) return;
@@ -5502,6 +5665,46 @@ class IHCPanel extends HTMLElement {
         </div>
       </div>
 
+      <div class="modal-section">
+        <div class="modal-section-title">🔗 Dynamische Sollwert-Entitäten <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Komfort-Sollwert Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-temp-entity"
+              value="${room.comfort_temp_entity || ''}"
+              placeholder="input_number.komfort_soll"
+              data-ep-domains="input_number,sensor" autocomplete="off">
+            <span class="form-hint">Überschreibt die Heizkurve als Komfort-Sollwert (optional)</span>
+          </div>
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Eco-Sollwert Entity</label>
+            <input type="text" class="form-input full" id="m-eco-temp-entity"
+              value="${room.eco_temp_entity || ''}"
+              placeholder="input_number.eco_soll"
+              data-ep-domains="input_number,sensor" autocomplete="off">
+            <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
+          </div>
+        </div>
+        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Verlängerungs-Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-extend-entity"
+              value="${room.comfort_extend_entity || ''}"
+              placeholder="media_player.tv oder switch.tv"
+              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
+            <span class="form-hint">Wenn diese Entity aktiv ist, bleibt die Komforttemperatur trotz Zeitplan erhalten (z.B. TV läuft → kein Eco um 22 Uhr)</span>
+          </div>
+          <div class="settings-item">
+            <label>Auslöse-Zustand</label>
+            <input type="text" class="form-input" id="m-comfort-extend-state"
+              value="${room.comfort_extend_state || 'on'}"
+              placeholder="on / playing / home">
+            <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+          </div>
+        </div>
+      </div>
+
       <details class="modal-collapsible">
         <summary>Erweitert</summary>
         <div class="modal-collapsible-body">
@@ -5514,10 +5717,10 @@ class IHCPanel extends HTMLElement {
               <label>Totband (°C)</label>
               <input type="number" class="form-input" id="m-deadband" value="${room.deadband}" step="0.1" min="0.1" max="2">
             </div>
-            <div class="settings-item">
+            <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
               <label>Gewichtung</label>
               <input type="number" class="form-input" id="m-weight" value="${room.weight}" step="0.1" min="0.1" max="5">
-              <span class="form-hint">Auto aus qm wenn 1.0 &amp; qm gesetzt${room.effective_weight && room.effective_weight !== room.weight ? ` · aktuell: ${room.effective_weight}` : ""}</span>
+              <span class="form-hint">Nur im Heizungsschalter-Modus relevant · Auto aus qm wenn 1.0 &amp; qm gesetzt${room.effective_weight && room.effective_weight !== room.weight ? ` · aktuell: ${room.effective_weight}` : ""}</span>
             </div>
           </div>
         </div>
@@ -5809,6 +6012,7 @@ class IHCPanel extends HTMLElement {
       </div>
     `, async () => {
       const modal  = this.shadowRoot.querySelector("#modal-root .modal");
+      if (!modal) { this._toast("❌ Modal nicht gefunden"); return; }
       const roomId = room.room_id;
       if (!roomId) { this._toast("❌ room_id fehlt – bitte HA neu starten"); return; }
       const mode    = modal.querySelector("#m-mode").value;
@@ -5865,6 +6069,10 @@ class IHCPanel extends HTMLElement {
         trv_valve_demand:         modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:    parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         trv_calibrations:         (() => { try { const v = modal.querySelector("#m-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
+        comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
+        comfort_extend_entity:    modal.querySelector("#m-comfort-extend-entity")?.value.trim() || "",
+        comfort_extend_state:     modal.querySelector("#m-comfort-extend-state")?.value.trim() || "on",
         ha_schedules,
       });
       this._closeModal();

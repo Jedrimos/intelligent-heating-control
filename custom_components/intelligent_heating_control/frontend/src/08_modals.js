@@ -7,6 +7,7 @@
  */
 
   _showAddRoomModal() {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     this._showModal(`
       <div class="modal-title">+ Zimmer hinzufügen</div>
 
@@ -264,10 +265,10 @@
             <label>Totband (°C)</label>
             <input type="number" class="form-input" id="m-deadband" value="0.5" step="0.1" min="0.1" max="2">
           </div>
-          <div class="settings-item">
+          <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
             <label>Gewichtung</label>
             <input type="number" class="form-input" id="m-weight" value="1.0" step="0.1" min="0.1" max="5">
-            <span class="form-hint">Automatisch aus qm berechnet wenn 1.0 &amp; qm gesetzt</span>
+            <span class="form-hint">Nur im Heizungsschalter-Modus relevant (Einfluss auf Kessel-Anforderung)</span>
           </div>
         </div>
       </div>
@@ -331,6 +332,22 @@
             <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
           </div>
         </div>
+        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Verlängerungs-Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-extend-entity"
+              placeholder="media_player.tv oder switch.tv"
+              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
+            <span class="form-hint">Wenn diese Entity aktiv ist, bleibt die Komforttemperatur trotz Zeitplan erhalten (z.B. TV läuft → kein Eco um 22 Uhr)</span>
+          </div>
+          <div class="settings-item">
+            <label>Auslöse-Zustand</label>
+            <input type="text" class="form-input" id="m-comfort-extend-state" value="on"
+              placeholder="on / playing / home">
+            <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+          </div>
+        </div>
       </div>
 
       <div class="modal-section">
@@ -359,7 +376,8 @@
       </div>
     `, async () => {
       const modal = this.shadowRoot.querySelector("#modal-root .modal");
-      const name = modal.querySelector("#m-name").value.trim();
+      if (!modal) { this._toast("❌ Modal nicht gefunden"); return; }
+      const name = modal.querySelector("#m-name")?.value.trim() || "";
       if (!name) { this._toast("❌ Bitte Zimmername eingeben"); return; }
 
       const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
@@ -414,8 +432,10 @@
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
-        comfort_temp_entity:    modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
-        eco_temp_entity:        modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
+        comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
+        comfort_extend_entity:    modal.querySelector("#m-comfort-extend-entity")?.value.trim() || "",
+        comfort_extend_state:     modal.querySelector("#m-comfort-extend-state")?.value.trim() || "on",
         ha_schedules,
       });
       this._closeModal();
@@ -427,6 +447,7 @@
   }
 
   _showEditRoomModal(entityId) {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     const rooms = this._getRoomData();
     const room  = rooms[entityId];
     if (!room) return;
@@ -550,6 +571,46 @@
         </div>
       </div>
 
+      <div class="modal-section">
+        <div class="modal-section-title">🔗 Dynamische Sollwert-Entitäten <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Komfort-Sollwert Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-temp-entity"
+              value="${room.comfort_temp_entity || ''}"
+              placeholder="input_number.komfort_soll"
+              data-ep-domains="input_number,sensor" autocomplete="off">
+            <span class="form-hint">Überschreibt die Heizkurve als Komfort-Sollwert (optional)</span>
+          </div>
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Eco-Sollwert Entity</label>
+            <input type="text" class="form-input full" id="m-eco-temp-entity"
+              value="${room.eco_temp_entity || ''}"
+              placeholder="input_number.eco_soll"
+              data-ep-domains="input_number,sensor" autocomplete="off">
+            <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
+          </div>
+        </div>
+        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
+        <div class="settings-grid">
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>Verlängerungs-Entity</label>
+            <input type="text" class="form-input full" id="m-comfort-extend-entity"
+              value="${room.comfort_extend_entity || ''}"
+              placeholder="media_player.tv oder switch.tv"
+              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
+            <span class="form-hint">Wenn diese Entity aktiv ist, bleibt die Komforttemperatur trotz Zeitplan erhalten (z.B. TV läuft → kein Eco um 22 Uhr)</span>
+          </div>
+          <div class="settings-item">
+            <label>Auslöse-Zustand</label>
+            <input type="text" class="form-input" id="m-comfort-extend-state"
+              value="${room.comfort_extend_state || 'on'}"
+              placeholder="on / playing / home">
+            <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+          </div>
+        </div>
+      </div>
+
       <details class="modal-collapsible">
         <summary>Erweitert</summary>
         <div class="modal-collapsible-body">
@@ -562,10 +623,10 @@
               <label>Totband (°C)</label>
               <input type="number" class="form-input" id="m-deadband" value="${room.deadband}" step="0.1" min="0.1" max="2">
             </div>
-            <div class="settings-item">
+            <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
               <label>Gewichtung</label>
               <input type="number" class="form-input" id="m-weight" value="${room.weight}" step="0.1" min="0.1" max="5">
-              <span class="form-hint">Auto aus qm wenn 1.0 &amp; qm gesetzt${room.effective_weight && room.effective_weight !== room.weight ? ` · aktuell: ${room.effective_weight}` : ""}</span>
+              <span class="form-hint">Nur im Heizungsschalter-Modus relevant · Auto aus qm wenn 1.0 &amp; qm gesetzt${room.effective_weight && room.effective_weight !== room.weight ? ` · aktuell: ${room.effective_weight}` : ""}</span>
             </div>
           </div>
         </div>
@@ -857,6 +918,7 @@
       </div>
     `, async () => {
       const modal  = this.shadowRoot.querySelector("#modal-root .modal");
+      if (!modal) { this._toast("❌ Modal nicht gefunden"); return; }
       const roomId = room.room_id;
       if (!roomId) { this._toast("❌ room_id fehlt – bitte HA neu starten"); return; }
       const mode    = modal.querySelector("#m-mode").value;
@@ -913,6 +975,10 @@
         trv_valve_demand:         modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:    parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         trv_calibrations:         (() => { try { const v = modal.querySelector("#m-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
+        comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
+        eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
+        comfort_extend_entity:    modal.querySelector("#m-comfort-extend-entity")?.value.trim() || "",
+        comfort_extend_state:     modal.querySelector("#m-comfort-extend-state")?.value.trim() || "on",
         ha_schedules,
       });
       this._closeModal();

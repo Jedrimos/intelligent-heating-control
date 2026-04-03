@@ -126,6 +126,9 @@ from .const import (
     DEFAULT_ROOM_TEMP_THRESHOLD,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
+    CONF_COMFORT_EXTEND_ENTITY,
+    CONF_COMFORT_EXTEND_STATE,
+    DEFAULT_COMFORT_EXTEND_STATE,
     CONF_STUCK_VALVE_TIMEOUT,
     DEFAULT_STUCK_VALVE_TIMEOUT,
     CONF_LIMESCALE_PROTECTION_ENABLED,
@@ -783,6 +786,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_ROOM_TEMP_THRESHOLD: float(user_input.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
                 CONF_COMFORT_TEMP_ENTITY: user_input.get(CONF_COMFORT_TEMP_ENTITY, ""),
                 CONF_ECO_TEMP_ENTITY: user_input.get(CONF_ECO_TEMP_ENTITY, ""),
+                CONF_COMFORT_EXTEND_ENTITY: user_input.get(CONF_COMFORT_EXTEND_ENTITY, ""),
+                CONF_COMFORT_EXTEND_STATE: user_input.get(CONF_COMFORT_EXTEND_STATE, DEFAULT_COMFORT_EXTEND_STATE),
                 CONF_AGGRESSIVE_MODE_ENABLED: bool(user_input.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED)),
                 CONF_AGGRESSIVE_MODE_RANGE: float(user_input.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE)),
                 CONF_AGGRESSIVE_MODE_OFFSET: float(user_input.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET)),
@@ -909,6 +914,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_ECO_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
+            vol.Optional(CONF_COMFORT_EXTEND_ENTITY, default=""): selector.selector({"text": {}}),
+            vol.Optional(CONF_COMFORT_EXTEND_STATE, default=DEFAULT_COMFORT_EXTEND_STATE): selector.selector({"text": {}}),
             vol.Optional(CONF_AGGRESSIVE_MODE_ENABLED, default=DEFAULT_AGGRESSIVE_MODE_ENABLED): selector.selector({"boolean": {}}),
             vol.Optional(CONF_AGGRESSIVE_MODE_RANGE, default=float(DEFAULT_AGGRESSIVE_MODE_RANGE)): selector.selector({
                 "number": {"min": 0.5, "max": 5.0, "step": 0.5, "unit_of_measurement": "°C", "mode": "slider"}
@@ -1075,6 +1082,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=room.get(CONF_COMFORT_TEMP_ENTITY, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_ECO_TEMP_ENTITY, default=room.get(CONF_ECO_TEMP_ENTITY, "")): selector.selector({"text": {}}),
+            vol.Optional(CONF_COMFORT_EXTEND_ENTITY, default=room.get(CONF_COMFORT_EXTEND_ENTITY, "")): selector.selector({"text": {}}),
+            vol.Optional(CONF_COMFORT_EXTEND_STATE, default=room.get(CONF_COMFORT_EXTEND_STATE, DEFAULT_COMFORT_EXTEND_STATE)): selector.selector({"text": {}}),
             vol.Optional(CONF_AGGRESSIVE_MODE_ENABLED, default=bool(room.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_AGGRESSIVE_MODE_RANGE, default=float(room.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE))): selector.selector({
                 "number": {"min": 0.5, "max": 5.0, "step": 0.5, "unit_of_measurement": "°C", "mode": "slider"}

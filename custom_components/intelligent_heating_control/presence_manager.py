@@ -62,7 +62,7 @@ class PresenceManagerMixin:
         if not someone_home and self._system_mode == SYSTEM_MODE_AUTO:
             if delay_minutes > 0:
                 # Start or check pending timer
-                if not hasattr(self, '_presence_away_pending_since') or self._presence_away_pending_since is None:
+                if self._presence_away_pending_since is None:
                     self._presence_away_pending_since = dt_util.utcnow()
                     _LOGGER.info("IHC: All persons away – auto-away pending (%d min delay)", delay_minutes)
                     return
@@ -75,13 +75,13 @@ class PresenceManagerMixin:
             self._presence_away_active = True
             self.hass.async_create_task(self._async_save_runtime_state())
 
-        elif someone_home and (self._presence_away_active or getattr(self, '_presence_away_pending_since', None) is not None):
+        elif someone_home and (self._presence_away_active or self._presence_away_pending_since is not None):
             # Cancel pending away timer if still counting
             self._presence_away_pending_since = None
             arrive_delay = int(cfg.get(CONF_PRESENCE_ARRIVE_DELAY_MINUTES, DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES))
             if self._presence_away_active:
                 if arrive_delay > 0:
-                    if not hasattr(self, '_presence_arrive_pending_since') or self._presence_arrive_pending_since is None:
+                    if self._presence_arrive_pending_since is None:
                         self._presence_arrive_pending_since = dt_util.utcnow()
                         _LOGGER.info("IHC: Person arrived – waiting %d min before restoring auto", arrive_delay)
                         return

@@ -113,6 +113,7 @@
   }
 
   _renderRoomDetailSettings(room, container, fullContent) {
+    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     const valveRows = room.valve_entities && room.valve_entities.length > 0
       ? room.valve_entities.map((e, i) => `
           <div class="entity-row">
@@ -244,10 +245,11 @@
               <input type="number" class="form-input" id="rs-deadband"
                 value="${room.deadband ?? 0.5}" step="0.1" min="0.1" max="2">
             </div>
-            <div class="settings-item">
+            <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
               <label>Gewichtung</label>
               <input type="number" class="form-input" id="rs-weight"
                 value="${room.weight ?? 1.0}" step="0.1" min="0.1" max="5">
+              <span class="form-hint">Nur im Heizungsschalter-Modus: wie stark dieses Zimmer die Kessel-Anforderung beeinflusst</span>
             </div>
             <div class="settings-item">
               <label>Absolute Mindesttemperatur (°C)</label>
@@ -475,6 +477,26 @@
           </div>
         </details>
 
+        <details class="modal-collapsible" ${room.comfort_extend_entity ? "open" : ""}>
+          <summary class="modal-section-title">⏱️ Komfort-Verlängerung${room.comfort_extend_active ? ' <span style="color:#43a047;font-size:11px">● aktiv</span>' : ''}</summary>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Verlängerungs-Entity</label>
+              <input type="text" class="form-input full" id="rs-comfort-extend-entity"
+                value="${room.comfort_extend_entity || ''}"
+                placeholder="media_player.tv · switch.tv · binary_sensor.bewegung"
+                data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
+              <span class="form-hint">Wenn aktiv → Zeitplan-Downgrade (Komfort→Eco/Schlaf) wird blockiert</span>
+            </div>
+            <div class="settings-item">
+              <label>Auslöse-Zustand</label>
+              <input type="text" class="form-input" id="rs-comfort-extend-state"
+                value="${room.comfort_extend_state || 'on'}" placeholder="on / playing / home">
+              <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+            </div>
+          </div>
+        </details>
+
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
         </div>
@@ -588,6 +610,8 @@
         room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
         comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
+        comfort_extend_entity:    container.querySelector("#rs-comfort-extend-entity")?.value.trim() || "",
+        comfort_extend_state:     container.querySelector("#rs-comfort-extend-state")?.value.trim() || "on",
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,

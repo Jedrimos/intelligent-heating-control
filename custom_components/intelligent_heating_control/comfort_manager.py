@@ -65,10 +65,13 @@ class ComfortManagerMixin:
         # Magnus formula approximation for dew point
         dew_point = None
         if current_temp is not None and humidity > 0:
-            a = 17.27
-            b = 237.7
-            alpha = ((a * current_temp) / (b + current_temp)) + math.log(humidity / 100.0)
-            dew_point = round((b * alpha) / (a - alpha), 1)
+            try:
+                a = 17.27
+                b = 237.7
+                alpha = ((a * current_temp) / (b + current_temp)) + math.log(humidity / 100.0)
+                dew_point = round((b * alpha) / (a - alpha), 1)
+            except (ValueError, ZeroDivisionError):
+                dew_point = None  # extreme humidity values can cause math domain errors
 
         return {
             "humidity": round(humidity, 1),

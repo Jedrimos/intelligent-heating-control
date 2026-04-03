@@ -96,17 +96,30 @@ class WindowManagerMixin:
             sensor_open = False
 
         if sensor_open:
-            # Record first time seen open; reset close timestamp
             if self._window_open_since.get(room_id) is None:
-                self._window_open_since[room_id] = now
+                # Brief-reopen guard: if window closed recently (within reaction_time),
+                # restore the original opening time so the reaction timer continues
+                # uninterrupted instead of restarting from zero.
+                closed_at  = self._window_closed_at.get(room_id)
+                prev_since = self._window_prev_open_since.pop(room_id, None)
+                if prev_since is not None and closed_at is not None and (now - closed_at) < reaction_time:
+                    self._window_open_since[room_id] = prev_since
+                    _LOGGER.debug(
+                        "IHC: %s – window briefly closed and reopened (%.0fs), restoring reaction timer",
+                        room_id, now - closed_at,
+                    )
+                else:
+                    self._window_open_since[room_id] = now
             self._window_closed_since[room_id] = None
+            self._window_closed_at[room_id]    = None
             # React only after reaction_time has elapsed
             return (now - self._window_open_since[room_id]) >= reaction_time
         else:
-            # Window closed: reset open timestamp
+            # Window closed: save opening timestamp for brief-reopen guard, reset open tracker
             if self._window_open_since.get(room_id) is not None:
+                self._window_prev_open_since[room_id] = self._window_open_since[room_id]
                 self._window_open_since[room_id] = None
-                # Start close-delay countdown only if we were previously "reacting"
+                self._window_closed_at[room_id] = now
                 if close_delay > 0:
                     self._window_closed_since[room_id] = now
             # During close delay: still report as open
