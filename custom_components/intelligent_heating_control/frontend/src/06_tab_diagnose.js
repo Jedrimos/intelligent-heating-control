@@ -45,6 +45,85 @@
     const hasCo2 = roomList.some(r => r.co2_ppm > 0);
     const hasRuntime = roomList.some(r => r.runtime_today_minutes > 0);
 
+    // ETA preheat section (only when enabled)
+    const etaSection = (() => {
+      if (!a.eta_preheat_enabled) return "";
+      const presEntities = a.presence_entities || [];
+      const isActive = g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90;
+
+      // Read ETA from presence entity attributes directly
+      const etaRows = presEntities.map(eid => {
+        const st = this._hass?.states[eid];
+        const name = st?.attributes?.friendly_name || eid;
+        const arrStr = st?.attributes?.estimated_arrival_time;
+        if (!arrStr) return { name, eid, mins: null, time: null };
+        const arrival = new Date(arrStr);
+        const mins = Math.round((arrival - new Date()) / 60000);
+        if (mins < 0 || mins > 120) return { name, eid, mins: null, time: null };
+        const time = arrival.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+        return { name, eid, mins, time };
+      });
+
+      const preheatingRooms = roomList.filter(r => r.source === "preheat");
+
+      const rowsHtml = etaRows.map(r => `
+        <tr>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color);font-weight:500">${r.name}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color)">
+            ${r.time ? r.time + " Uhr" : `<span style="color:var(--secondary-text-color)">keine ETA</span>`}
+          </td>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color)">
+            ${r.mins != null
+              ? `<span style="font-weight:700;color:${r.mins <= 30 ? "#e53935" : r.mins <= 60 ? "#fb8c00" : "#43a047"}">~${r.mins} min</span>`
+              : `<span style="color:var(--secondary-text-color);font-size:11px">außerhalb Fenster (0–120 min)</span>`}
+          </td>
+        </tr>`).join("");
+
+      return `
+      <details class="ihc-card" ${isActive ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">🕒 ETA-Vorheizen
+            ${isActive
+              ? activeBadge(`Ankunft ~${Math.round(g.eta_preheat_minutes)} min`, "info")
+              : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
+            Liest <code>estimated_arrival_time</code> aus den konfigurierten Anwesenheits-Entitäten.
+            Benötigt <em>Google Maps Travel Time</em> oder <em>Waze Travel Time</em> in HA.
+            IHC startet das Vorheizen wenn eine Ankunft ≤ 90 min bevorsteht.
+          </p>
+          ${etaRows.length ? `
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px">
+            <thead>
+              <tr style="color:var(--secondary-text-color);font-size:11px;text-transform:uppercase">
+                <th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--divider-color)">Person</th>
+                <th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--divider-color)">Ankunft</th>
+                <th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--divider-color)">In Minuten</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>` : `
+          <div style="color:var(--secondary-text-color);font-size:13px;margin-bottom:12px">
+            Keine Person-Entitäten konfiguriert (→ Einstellungen → Anwesenheitserkennung).
+          </div>`}
+          ${preheatingRooms.length ? `
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px">🔥 Zimmer werden vorgeheizt:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${preheatingRooms.map(r =>
+              `<span style="background:color-mix(in srgb,#ef5350 15%,transparent);padding:3px 10px;border-radius:12px;font-size:12px">
+                ⏱ ${r.name} → ${r.target_temp != null ? r.target_temp + " °C" : "—"}
+              </span>`).join("")}
+          </div>` : `
+          <div style="font-size:12px;color:var(--secondary-text-color)">
+            ℹ️ Kein Zimmer wird aktuell vorgeheizt.
+            ${!isActive ? " Vorheizen startet sobald eine Ankunft ≤ 90 min erkannt wird." : ""}
+          </div>`}
+        </div>
+      </details>`;
+    })();
+
     const roomRows = roomList.map(r => {
       const demColor = this._demandColor(r.demand);
       const modeLabel = MODE_ICONS[r.room_mode] + " " + (MODE_LABELS[r.room_mode] || r.room_mode);
@@ -134,6 +213,8 @@
           </div>` : ""}
         </div>
       </details>
+
+      ${etaSection}
 
       <!-- ── Messwerte ───────────────────────────────────────── -->
       <details class="ihc-card" open>

@@ -153,7 +153,7 @@
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label>Heizperiode-Entity
-                ${g.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : g.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
+                ${a.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : a.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
               </label>
               <input type="text" class="form-input full" id="s-heating-period-entity"
                 value="${a.heating_period_entity || ''}" placeholder="input_boolean.heizperiode"
@@ -684,6 +684,23 @@
                 Diese liest die geschätzte Ankunftszeit (<code>estimated_arrival_time</code>) aus <code>person.*</code>-Entitäten aus und heizt automatisch vor wenn die Ankunft ≤ 90 Minuten bevorsteht.<br>
                 Funktioniert <em>nicht</em> direkt mit der Companion App oder Google Maps – du brauchst die HA-Integration.
               </span>
+              ${a.eta_preheat_enabled ? (() => {
+                const entities = a.presence_entities || [];
+                const arrivals = entities.map(eid => {
+                  const st = this._hass?.states[eid];
+                  if (!st) return null;
+                  const t = st.attributes?.estimated_arrival_time;
+                  if (!t) return null;
+                  const arrival = new Date(t);
+                  const mins = Math.round((arrival - new Date()) / 60000);
+                  if (mins < 0 || mins > 120) return null;
+                  const name = st.attributes?.friendly_name || eid;
+                  const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+                  return `<div style="font-size:11px;color:#1565c0">⏱ ${name}: ~${mins} min (${time} Uhr)</div>`;
+                }).filter(Boolean);
+                if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt (0–120 min Fenster)</div>`;
+                return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;
+              })() : ""}
             </div>
             <div class="settings-item">
               <label>Urlaubs-Kalender</label>
