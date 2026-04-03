@@ -84,6 +84,8 @@ from .const import (
     DEFAULT_PRESENCE_SENSOR_OFF_DELAY,
     CONF_WINDOW_OPEN_TEMP,
     DEFAULT_WINDOW_OPEN_TEMP,
+    CONF_WINDOW_RESTORE_MODE,
+    DEFAULT_WINDOW_RESTORE_MODE,
     CONF_ROOM_TEMP_THRESHOLD,
     DEFAULT_ROOM_TEMP_THRESHOLD,
     CONF_COMFORT_TEMP_ENTITY,
@@ -326,6 +328,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "pir_presence": d.get("pir_presence"),
             # Window open temperature
             "window_open_temp": room_cfg.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP),
+            "window_restore_mode": room_cfg.get(CONF_WINDOW_RESTORE_MODE, DEFAULT_WINDOW_RESTORE_MODE),
             # Room temperature threshold
             "room_temp_threshold": room_cfg.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD),
             # Dynamic temperature entities

@@ -317,6 +317,54 @@
               <span class="form-hint">Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).</span>
             </div>
           </div>
+          <details class="ihc-card" style="margin-top:12px;box-shadow:none;border:1px solid var(--divider-color)" ${a.eta_preheat_enabled ? "open" : ""}>
+            <summary style="padding:10px 12px">
+              <span class="ihc-card-title" style="font-size:13px">🕒 ETA-Vorheizen
+                ${g.eta_preheat_minutes != null && g.eta_preheat_minutes <= (a.eta_preheat_threshold_minutes ?? 90)
+                  ? activeBadge(`Ankunft ~${Math.round(g.eta_preheat_minutes)} min`, "info") : ""}
+              </span>
+            </summary>
+            <div class="ihc-card-body" style="padding-top:8px">
+              <div class="info-box" style="margin-bottom:10px">
+                Wenn eine der oben konfigurierten Personen bald nach Hause kommt, heizt IHC die Zimmer
+                automatisch vor – auch wenn gerade kein Zeitplan aktiv ist.<br>
+                <strong>Benötigt:</strong> <em>Google Maps Travel Time</em> oder <em>Waze Travel Time</em>
+                Integration in HA (liefert <code>estimated_arrival_time</code> auf <code>person.*</code>-Entitäten).
+              </div>
+              <div class="settings-grid">
+                <div class="settings-item">
+                  <label>ETA-Vorheizen</label>
+                  <select class="form-select" id="eta-preheat-enabled">
+                    <option value="false" ${!a.eta_preheat_enabled ? "selected" : ""}>Deaktiviert</option>
+                    <option value="true"  ${a.eta_preheat_enabled  ? "selected" : ""}>Aktiviert</option>
+                  </select>
+                </div>
+                <div class="settings-item">
+                  <label>Vorheizen ab (min vor Ankunft)</label>
+                  <input type="number" class="form-input" id="eta-preheat-threshold"
+                    min="10" max="120" step="5" value="${a.eta_preheat_threshold_minutes ?? 90}">
+                  <span class="form-hint">Vorheizen startet wenn Ankunft ≤ diesem Wert (Standard: 90 min)</span>
+                </div>
+              </div>
+              ${a.eta_preheat_enabled ? (() => {
+                const entities = a.presence_entities || [];
+                const arrivals = entities.map(eid => {
+                  const st = this._hass?.states[eid];
+                  if (!st) return null;
+                  const t = st.attributes?.estimated_arrival_time;
+                  if (!t) return null;
+                  const arrival = new Date(t);
+                  const mins = Math.round((arrival - new Date()) / 60000);
+                  if (mins < 0 || mins > (a.eta_preheat_threshold_minutes ?? 90)) return null;
+                  const name = st.attributes?.friendly_name || eid;
+                  const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+                  return `<div style="font-size:11px;color:#1565c0;margin-top:4px">⏱ ${name}: ~${mins} min (${time} Uhr)</div>`;
+                }).filter(Boolean);
+                if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt im konfigurierten Fenster</div>`;
+                return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;
+              })() : ""}
+            </div>
+          </details>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-presence-settings">💾 Anwesenheit speichern</button>
           </div>
@@ -666,41 +714,27 @@
             </div>
             ` : ""}
             <div class="settings-item">
-              <label>Adaptives Vorheizen</label>
+              <label>Adaptives Vorheizen <span style="font-weight:400;font-size:10px">(lernbasiert)</span></label>
               <select class="form-select" id="adaptive-preheat-enabled">
-                <option value="true"  ${a.adaptive_preheat_enabled !== false ? "selected" : ""}>Aktiviert – lernt aus Aufheizzeiten</option>
-                <option value="false" ${a.adaptive_preheat_enabled === false  ? "selected" : ""}>Deaktiviert – fixer Vorlauf-Wert</option>
+                <option value="true"  ${a.adaptive_preheat_enabled !== false ? "selected" : ""}>Aktiviert</option>
+                <option value="false" ${a.adaptive_preheat_enabled === false  ? "selected" : ""}>Deaktiviert – nur fixer Vorlauf-Wert</option>
               </select>
-              <span class="form-hint">Merkt sich wie lange das Zimmer braucht um aufzuheizen und startet die Heizung früh genug – ganz automatisch.</span>
+              <span class="form-hint">
+                IHC misst bei jedem Aufheizzyklus wie lange es dauert bis der Raum die Solltemperatur erreicht.
+                Aus diesen Messungen berechnet es automatisch den optimalen Startzeitpunkt –
+                damit die Heizung genau dann fertig ist wenn der Zeitplan beginnt.<br>
+                <strong>Benötigt:</strong> globale Vorheizzeit &gt; 0 min (Einstellung darunter).
+                ${a.adaptive_preheat_enabled !== false && a.preheat_minutes > 0 ? `
+                <br>Aktuell: fixer Basiswert ${a.preheat_minutes} min – IHC passt diesen pro Zimmer an.` : ""}
+              </span>
             </div>
             <div class="settings-item">
               <label>ETA-basiertes Vorheizen</label>
-              <select class="form-select" id="eta-preheat-enabled">
-                <option value="false" ${!a.eta_preheat_enabled ? "selected" : ""}>Deaktiviert</option>
-                <option value="true"  ${a.eta_preheat_enabled  ? "selected" : ""}>Aktiviert</option>
-              </select>
-              <span class="form-hint">
-                <strong>Benötigt:</strong> <em>Google Maps Travel Time</em> oder <em>Waze Travel Time</em> Integration in HA.<br>
-                Diese liest die geschätzte Ankunftszeit (<code>estimated_arrival_time</code>) aus <code>person.*</code>-Entitäten aus und heizt automatisch vor wenn die Ankunft ≤ 90 Minuten bevorsteht.<br>
-                Funktioniert <em>nicht</em> direkt mit der Companion App oder Google Maps – du brauchst die HA-Integration.
-              </span>
-              ${a.eta_preheat_enabled ? (() => {
-                const entities = a.presence_entities || [];
-                const arrivals = entities.map(eid => {
-                  const st = this._hass?.states[eid];
-                  if (!st) return null;
-                  const t = st.attributes?.estimated_arrival_time;
-                  if (!t) return null;
-                  const arrival = new Date(t);
-                  const mins = Math.round((arrival - new Date()) / 60000);
-                  if (mins < 0 || mins > 120) return null;
-                  const name = st.attributes?.friendly_name || eid;
-                  const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-                  return `<div style="font-size:11px;color:#1565c0">⏱ ${name}: ~${mins} min (${time} Uhr)</div>`;
-                }).filter(Boolean);
-                if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt (0–120 min Fenster)</div>`;
-                return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;
-              })() : ""}
+              <div style="font-size:12px;color:var(--secondary-text-color);padding:6px 0">
+                ${a.eta_preheat_enabled
+                  ? `✓ Aktiv – einstellbar unter <strong>Anwesenheitserkennung → ETA-Vorheizen</strong>`
+                  : `Deaktiviert – einstellbar unter <strong>Anwesenheitserkennung → ETA-Vorheizen</strong>`}
+              </div>
             </div>
             <div class="settings-item">
               <label>Urlaubs-Kalender</label>
@@ -934,8 +968,10 @@
       const checked = [...content.querySelectorAll(".presence-cb:checked")].map(cb => cb.value);
       this._callService("update_global_settings", {
         presence_entities: checked,
-        presence_away_delay_minutes: parseInt(content.querySelector("#s-presence-away-delay")?.value ?? "0", 10),
+        presence_away_delay_minutes:   parseInt(content.querySelector("#s-presence-away-delay")?.value ?? "0", 10),
         presence_arrive_delay_minutes: parseInt(content.querySelector("#s-presence-arrive-delay")?.value ?? "0", 10),
+        eta_preheat_enabled:           content.querySelector("#eta-preheat-enabled")?.value === "true",
+        eta_preheat_threshold_minutes: parseInt(content.querySelector("#eta-preheat-threshold")?.value ?? "90", 10),
       });
       this._toast("✓ Anwesenheitserkennung gespeichert");
     });

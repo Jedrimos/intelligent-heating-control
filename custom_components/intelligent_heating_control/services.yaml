@@ -299,6 +299,134 @@ update_room:
       required: false
       selector:
         object:
+    trv_temp_weight:
+      name: TRV-Temperaturgewichtung (0–1)
+      description: Anteil der TRV-Temperaturen im Blending (0 = nur Raumsensor)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.1
+    trv_temp_offset:
+      name: TRV-Temperaturoffset (°C)
+      description: Kalibrierungsoffset für TRV-Temperaturen
+      required: false
+      selector:
+        number:
+          min: -5
+          max: 5
+          step: 0.5
+    trv_valve_demand:
+      name: TRV-Ventilposition als Anforderung
+      required: false
+      selector:
+        boolean:
+    trv_min_send_interval:
+      name: TRV Min. Sendeinterval (s)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 600
+          step: 10
+    window_reaction_time:
+      name: Fenster-Reaktionszeit (s)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 300
+          step: 10
+    window_close_delay:
+      name: Fenster-Schließverzögerung (s)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 600
+          step: 30
+    window_open_temp:
+      name: Temperatur bei offenem Fenster (°C)
+      description: "Zieltemperatur wenn Fenster offen (0 = Frostschutztemperatur)"
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 18
+          step: 0.5
+    window_restore_mode:
+      name: Sollwert nach Fenster schließen
+      description: "schedule = Zeitplan neu berechnen, previous = letzten Wert vor Öffnung wiederherstellen"
+      required: false
+      selector:
+        select:
+          options:
+            - "schedule"
+            - "previous"
+    room_temp_threshold:
+      name: Heiz-Temperaturschwelle (°C)
+      description: "Mindesttemperatur ab der geheizt wird (0 = deaktiviert)"
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 25
+          step: 0.5
+    comfort_temp_entity:
+      name: Komfort-Temp-Entität
+      description: input_number.* Entität für dynamischen Komfort-Sollwert
+      required: false
+      selector:
+        text:
+    eco_temp_entity:
+      name: Eco-Temp-Entität
+      description: input_number.* Entität für dynamischen Eco-Sollwert
+      required: false
+      selector:
+        text:
+    comfort_extend_entity:
+      name: Komfort-Verlängerung Entität
+      description: binary_sensor.* oder input_boolean.* Entität die Komfortmodus verlängert
+      required: false
+      selector:
+        text:
+    comfort_extend_state:
+      name: Komfort-Verlängerung Zustand
+      description: "Zustand der Entität der Verlängerung auslöst (Standard: on)"
+      required: false
+      selector:
+        text:
+    boost_temp:
+      name: Boost-Temperatur (°C)
+      description: Zieltemperatur im Boost-Modus
+      required: false
+      selector:
+        number:
+          min: 18
+          max: 30
+          step: 0.5
+    aggressive_mode_enabled:
+      name: Aggressiver Modus aktiviert
+      required: false
+      selector:
+        boolean:
+    aggressive_mode_range:
+      name: Aggressiver Modus Bereich (°C)
+      required: false
+      selector:
+        number:
+          min: 0.5
+          max: 5
+          step: 0.5
+    aggressive_mode_offset:
+      name: Aggressiver Modus Offset (°C)
+      required: false
+      selector:
+        number:
+          min: 0.5
+          max: 5
+          step: 0.5
 
 set_room_mode:
   name: Zimmermodus setzen
@@ -508,6 +636,68 @@ update_global_settings:
           min: 1
           max: 30
           step: 1
+    presence_entities:
+      name: Anwesenheits-Entitäten
+      description: Liste der Personen-/Geräte-Entitäten für globale Anwesenheitserkennung
+      required: false
+      selector:
+        object:
+    presence_away_delay_minutes:
+      name: Abwesend-Verzögerung (min)
+      description: Minuten nach denen Auto-Away ausgelöst wird
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 120
+          step: 5
+    presence_arrive_delay_minutes:
+      name: Ankunfts-Verzögerung (min)
+      description: Minuten Vorlauf vor Ankunft für Vorheizung
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 5
+    eta_preheat_enabled:
+      name: ETA-Vorheizen aktiviert
+      required: false
+      selector:
+        boolean:
+    eta_preheat_threshold_minutes:
+      name: ETA-Vorheizen Schwelle (min)
+      description: Minuten vor Ankunft ab wann vorgeheizt wird
+      required: false
+      selector:
+        number:
+          min: 10
+          max: 240
+          step: 5
+    heating_period_entity:
+      name: Heizperiode-Entität
+      description: input_boolean.* oder binary_sensor.* für aktive Heizperiode
+      required: false
+      selector:
+        text:
+    outdoor_temp_smoothing_minutes:
+      name: Außentemp. Glättung (min)
+      description: Gleitender Durchschnitt der Außentemperatur in Minuten
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 120
+          step: 5
+    startup_grace_seconds:
+      name: Startup-Gnadenfrist (s)
+      description: Sekunden nach Start bevor Sensoren als ungültig gelten
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 300
+          step: 10
 
 reload:
   name: Integration neu laden

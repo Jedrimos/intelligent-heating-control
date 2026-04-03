@@ -907,6 +907,7 @@ class IHCPanel extends HTMLElement {
         night_setback: state.attributes.night_setback || 0,
         runtime_today_minutes: 0,
         temp_history: [],
+        target_history: [],
         avg_warmup_minutes: null,
         // Room config (from climate entity extra_state_attributes)
         temp_sensor: state.attributes.temp_sensor || "",
@@ -984,6 +985,8 @@ class IHCPanel extends HTMLElement {
           rooms[climateId].night_setback = state.attributes.night_setback;
         if (state.attributes.temp_history !== undefined)
           rooms[climateId].temp_history = state.attributes.temp_history;
+        if (state.attributes.target_history !== undefined)
+          rooms[climateId].target_history = state.attributes.target_history;
         if (state.attributes.avg_warmup_minutes !== undefined)
           rooms[climateId].avg_warmup_minutes = state.attributes.avg_warmup_minutes;
         if (state.attributes.room_presence_active !== undefined)
@@ -2931,30 +2934,52 @@ class IHCPanel extends HTMLElement {
       return;
     }
 
-    const vals   = history.map(p => p.v);
-    const times  = history.map(p => p.t);
-    const minV   = Math.min(...vals);
-    const maxV   = Math.max(...vals);
-    const range  = maxV - minV || 1;
+    const vals  = history.map(p => p.v);
+    const times = history.map(p => p.t);
+
+    // Target history – align timestamps with actual history for x-positioning
+    const targetHistory = room.target_history || [];
+    const tgtMap = {};
+    targetHistory.forEach(p => { tgtMap[p.t] = p.v; });
+    // Build parallel array: for each actual reading, find closest target value
+    const tgtVals = times.map(t => tgtMap[t] ?? null);
+    const hasTgtHistory = tgtVals.some(v => v !== null);
+
+    // Combined min/max across both series for a shared Y scale
+    const allVals = [...vals, ...tgtVals.filter(v => v !== null)];
+    const minV = Math.min(...allVals) - 0.5;
+    const maxV = Math.max(...allVals) + 0.5;
+    const range = maxV - minV || 1;
 
     // Chart dimensions
-    const W = 560, H = 180, padL = 38, padR = 12, padT = 14, padB = 36;
+    const W = 560, H = 200, padL = 38, padR = 12, padT = 14, padB = 36;
     const cW = W - padL - padR;
     const cH = H - padT - padB;
 
     const xOf = i => padL + (i / (vals.length - 1)) * cW;
     const yOf = v => padT + cH - ((v - minV) / range) * cH;
 
-    // Polyline
+    // Ist-Verlauf (blau)
     const pts = vals.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(" ");
 
-    // Target temp reference line
-    const tgt = room.target_temp;
-    const tgtLine = (tgt != null && tgt >= minV - 1 && tgt <= maxV + 1) ? (() => {
-      const y = yOf(tgt).toFixed(1);
-      return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#fb8c00" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
-              <text x="${padL - 4}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="9" fill="#fb8c00">${parseFloat(tgt).toFixed(1)}</text>`;
-    })() : "";
+    // Soll-Verlauf (orange) – als Stufenlinie (Zeitplan ändert sich abrupt)
+    let tgtPolyline = "";
+    if (hasTgtHistory) {
+      const segments = [];
+      let seg = [];
+      tgtVals.forEach((v, i) => {
+        if (v !== null) {
+          seg.push(`${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`);
+        } else if (seg.length) {
+          segments.push(seg.join(" "));
+          seg = [];
+        }
+      });
+      if (seg.length) segments.push(seg.join(" "));
+      tgtPolyline = segments.map(s =>
+        `<polyline points="${s}" fill="none" stroke="#fb8c00" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`
+      ).join("");
+    }
 
     // Y-axis labels (4 ticks)
     const yTicks = [0, 0.33, 0.67, 1].map(f => {
@@ -2964,74 +2989,81 @@ class IHCPanel extends HTMLElement {
               <text x="${padL - 5}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="9" fill="var(--secondary-text-color)">${v.toFixed(1)}</text>`;
     }).join("");
 
-    // X-axis labels: show every ~24 entries (daily) or first/last
+    // X-axis labels
     const xLabels = [];
     const step = Math.max(1, Math.floor(vals.length / 7));
     for (let i = 0; i < vals.length; i += step) {
       const t = times[i] || "";
-      // Parse ISO datetime: "2026-03-22T14:00" → "Mo 14:00"
       let label = t;
       try {
         const d = new Date(t);
         const dayNames = ["So","Mo","Di","Mi","Do","Fr","Sa"];
         label = `${dayNames[d.getDay()]} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
       } catch(_) { /* keep raw */ }
-      const x = xOf(i).toFixed(1);
-      xLabels.push(`<text x="${x}" y="${H - padB + 14}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${label}</text>`);
+      xLabels.push(`<text x="${xOf(i).toFixed(1)}" y="${H - padB + 14}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${label}</text>`);
     }
 
-    // Last known temp + min/max annotation
+    // Current value dot + label
     const lastVal = vals[vals.length - 1];
     const lastX   = xOf(vals.length - 1).toFixed(1);
     const lastY   = yOf(lastVal).toFixed(1);
+    // Current target dot
+    const lastTgt = tgtVals.slice().reverse().find(v => v !== null);
+    const lastTgtDot = (hasTgtHistory && lastTgt != null) ? (() => {
+      const lastTgtIdx = tgtVals.length - 1 - [...tgtVals].reverse().findIndex(v => v !== null);
+      const tx = xOf(lastTgtIdx).toFixed(1);
+      const ty = yOf(lastTgt).toFixed(1);
+      return `<circle cx="${tx}" cy="${ty}" r="3.5" fill="#fb8c00" stroke="white" stroke-width="1.5"/>
+              <text x="${parseFloat(tx) + 6}" y="${parseFloat(ty) + 4}" font-size="10" font-weight="600" fill="#fb8c00">${lastTgt.toFixed(1)} °C</text>`;
+    })() : "";
 
     const svg = `
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${room.name}">
-        <!-- Grid -->
         <rect x="${padL}" y="${padT}" width="${cW}" height="${cH}" fill="var(--card-background-color,#fafafa)" rx="4" opacity="0.5"/>
         ${[0, 0.33, 0.67, 1].map(f => {
           const y = yOf(minV + f * range).toFixed(1);
           return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="var(--divider-color)" stroke-width="0.5" opacity="0.6"/>`;
         }).join("")}
-        <!-- Target reference -->
-        ${tgtLine}
-        <!-- Y axis -->
         <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + cH}" stroke="var(--divider-color)" stroke-width="1"/>
         ${yTicks}
-        <!-- X axis -->
         <line x1="${padL}" y1="${padT + cH}" x2="${W - padR}" y2="${padT + cH}" stroke="var(--divider-color)" stroke-width="1"/>
         ${xLabels.join("")}
-        <!-- Curve -->
+        <!-- Soll-Verlauf (orange) -->
+        ${tgtPolyline}
+        <!-- Ist-Verlauf (blau) -->
         <polyline points="${pts}" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-        <!-- Current value dot -->
+        <!-- Endpunkte -->
         <circle cx="${lastX}" cy="${lastY}" r="4" fill="var(--primary-color)" stroke="white" stroke-width="1.5"/>
         <text x="${parseFloat(lastX) + 7}" y="${parseFloat(lastY) + 4}" font-size="10" font-weight="600" fill="var(--primary-color)">${lastVal.toFixed(1)} °C</text>
+        ${lastTgtDot}
       </svg>`;
 
-    const minStr = minV.toFixed(1);
-    const maxStr = maxV.toFixed(1);
+    const minStr = Math.min(...vals).toFixed(1);
+    const maxStr = Math.max(...vals).toFixed(1);
     const avgStr = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
 
     container.innerHTML = `
       <div class="card">
         <div class="card-title">📈 Temperaturverlauf – ${room.name}</div>
         <div style="padding:4px 0 12px;overflow-x:auto">${svg}</div>
-        <div style="display:flex;gap:24px;padding:4px 0 8px;flex-wrap:wrap">
-          <div style="font-size:12px;color:var(--secondary-text-color)">
-            <span style="font-weight:600;color:var(--primary-text-color)">Min:</span> ${minStr} °C
-          </div>
-          <div style="font-size:12px;color:var(--secondary-text-color)">
-            <span style="font-weight:600;color:var(--primary-text-color)">Max:</span> ${maxStr} °C
-          </div>
-          <div style="font-size:12px;color:var(--secondary-text-color)">
-            <span style="font-weight:600;color:var(--primary-text-color)">Ø:</span> ${avgStr} °C
-          </div>
-          <div style="font-size:12px;color:var(--secondary-text-color)">
-            <span style="font-weight:600;color:var(--primary-text-color)">Messpunkte:</span> ${vals.length}
-          </div>
-          ${tgt != null ? `<div style="font-size:12px;color:#fb8c00"><span style="font-weight:600">Soll:</span> ${parseFloat(tgt).toFixed(1)} °C</div>` : ""}
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-size:11px;display:flex;align-items:center;gap:4px">
+            <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="var(--primary-color)" stroke-width="2"/></svg>
+            Ist-Temperatur
+          </span>
+          ${hasTgtHistory ? `<span style="font-size:11px;display:flex;align-items:center;gap:4px">
+            <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#fb8c00" stroke-width="2"/></svg>
+            Soll-Temperatur
+          </span>` : ""}
         </div>
-        <div style="font-size:11px;color:var(--secondary-text-color);padding-top:4px">Stündliche Messung · max. 7 Tage Verlauf · Ziel-Linie orange gestrichelt</div>
+        <div style="display:flex;gap:24px;padding:4px 0 8px;flex-wrap:wrap">
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Min:</span> ${minStr} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Max:</span> ${maxStr} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Ø:</span> ${avgStr} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Messpunkte:</span> ${vals.length}</div>
+          ${lastTgt != null ? `<div style="font-size:12px;color:#fb8c00"><span style="font-weight:600">Soll aktuell:</span> ${lastTgt.toFixed(1)} °C</div>` : ""}
+        </div>
+        <div style="font-size:11px;color:var(--secondary-text-color);padding-top:4px">Stündliche Messung · max. 7 Tage Verlauf</div>
       </div>`;
 
     // v1.6 – Anforderungs-Heatmap pro Zimmer
@@ -3763,6 +3795,54 @@ class IHCPanel extends HTMLElement {
               <span class="form-hint">Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).</span>
             </div>
           </div>
+          <details class="ihc-card" style="margin-top:12px;box-shadow:none;border:1px solid var(--divider-color)" ${a.eta_preheat_enabled ? "open" : ""}>
+            <summary style="padding:10px 12px">
+              <span class="ihc-card-title" style="font-size:13px">🕒 ETA-Vorheizen
+                ${g.eta_preheat_minutes != null && g.eta_preheat_minutes <= (a.eta_preheat_threshold_minutes ?? 90)
+                  ? activeBadge(`Ankunft ~${Math.round(g.eta_preheat_minutes)} min`, "info") : ""}
+              </span>
+            </summary>
+            <div class="ihc-card-body" style="padding-top:8px">
+              <div class="info-box" style="margin-bottom:10px">
+                Wenn eine der oben konfigurierten Personen bald nach Hause kommt, heizt IHC die Zimmer
+                automatisch vor – auch wenn gerade kein Zeitplan aktiv ist.<br>
+                <strong>Benötigt:</strong> <em>Google Maps Travel Time</em> oder <em>Waze Travel Time</em>
+                Integration in HA (liefert <code>estimated_arrival_time</code> auf <code>person.*</code>-Entitäten).
+              </div>
+              <div class="settings-grid">
+                <div class="settings-item">
+                  <label>ETA-Vorheizen</label>
+                  <select class="form-select" id="eta-preheat-enabled">
+                    <option value="false" ${!a.eta_preheat_enabled ? "selected" : ""}>Deaktiviert</option>
+                    <option value="true"  ${a.eta_preheat_enabled  ? "selected" : ""}>Aktiviert</option>
+                  </select>
+                </div>
+                <div class="settings-item">
+                  <label>Vorheizen ab (min vor Ankunft)</label>
+                  <input type="number" class="form-input" id="eta-preheat-threshold"
+                    min="10" max="120" step="5" value="${a.eta_preheat_threshold_minutes ?? 90}">
+                  <span class="form-hint">Vorheizen startet wenn Ankunft ≤ diesem Wert (Standard: 90 min)</span>
+                </div>
+              </div>
+              ${a.eta_preheat_enabled ? (() => {
+                const entities = a.presence_entities || [];
+                const arrivals = entities.map(eid => {
+                  const st = this._hass?.states[eid];
+                  if (!st) return null;
+                  const t = st.attributes?.estimated_arrival_time;
+                  if (!t) return null;
+                  const arrival = new Date(t);
+                  const mins = Math.round((arrival - new Date()) / 60000);
+                  if (mins < 0 || mins > (a.eta_preheat_threshold_minutes ?? 90)) return null;
+                  const name = st.attributes?.friendly_name || eid;
+                  const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+                  return `<div style="font-size:11px;color:#1565c0;margin-top:4px">⏱ ${name}: ~${mins} min (${time} Uhr)</div>`;
+                }).filter(Boolean);
+                if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt im konfigurierten Fenster</div>`;
+                return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;
+              })() : ""}
+            </div>
+          </details>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-presence-settings">💾 Anwesenheit speichern</button>
           </div>
@@ -4112,41 +4192,27 @@ class IHCPanel extends HTMLElement {
             </div>
             ` : ""}
             <div class="settings-item">
-              <label>Adaptives Vorheizen</label>
+              <label>Adaptives Vorheizen <span style="font-weight:400;font-size:10px">(lernbasiert)</span></label>
               <select class="form-select" id="adaptive-preheat-enabled">
-                <option value="true"  ${a.adaptive_preheat_enabled !== false ? "selected" : ""}>Aktiviert – lernt aus Aufheizzeiten</option>
-                <option value="false" ${a.adaptive_preheat_enabled === false  ? "selected" : ""}>Deaktiviert – fixer Vorlauf-Wert</option>
+                <option value="true"  ${a.adaptive_preheat_enabled !== false ? "selected" : ""}>Aktiviert</option>
+                <option value="false" ${a.adaptive_preheat_enabled === false  ? "selected" : ""}>Deaktiviert – nur fixer Vorlauf-Wert</option>
               </select>
-              <span class="form-hint">Merkt sich wie lange das Zimmer braucht um aufzuheizen und startet die Heizung früh genug – ganz automatisch.</span>
+              <span class="form-hint">
+                IHC misst bei jedem Aufheizzyklus wie lange es dauert bis der Raum die Solltemperatur erreicht.
+                Aus diesen Messungen berechnet es automatisch den optimalen Startzeitpunkt –
+                damit die Heizung genau dann fertig ist wenn der Zeitplan beginnt.<br>
+                <strong>Benötigt:</strong> globale Vorheizzeit &gt; 0 min (Einstellung darunter).
+                ${a.adaptive_preheat_enabled !== false && a.preheat_minutes > 0 ? `
+                <br>Aktuell: fixer Basiswert ${a.preheat_minutes} min – IHC passt diesen pro Zimmer an.` : ""}
+              </span>
             </div>
             <div class="settings-item">
               <label>ETA-basiertes Vorheizen</label>
-              <select class="form-select" id="eta-preheat-enabled">
-                <option value="false" ${!a.eta_preheat_enabled ? "selected" : ""}>Deaktiviert</option>
-                <option value="true"  ${a.eta_preheat_enabled  ? "selected" : ""}>Aktiviert</option>
-              </select>
-              <span class="form-hint">
-                <strong>Benötigt:</strong> <em>Google Maps Travel Time</em> oder <em>Waze Travel Time</em> Integration in HA.<br>
-                Diese liest die geschätzte Ankunftszeit (<code>estimated_arrival_time</code>) aus <code>person.*</code>-Entitäten aus und heizt automatisch vor wenn die Ankunft ≤ 90 Minuten bevorsteht.<br>
-                Funktioniert <em>nicht</em> direkt mit der Companion App oder Google Maps – du brauchst die HA-Integration.
-              </span>
-              ${a.eta_preheat_enabled ? (() => {
-                const entities = a.presence_entities || [];
-                const arrivals = entities.map(eid => {
-                  const st = this._hass?.states[eid];
-                  if (!st) return null;
-                  const t = st.attributes?.estimated_arrival_time;
-                  if (!t) return null;
-                  const arrival = new Date(t);
-                  const mins = Math.round((arrival - new Date()) / 60000);
-                  if (mins < 0 || mins > 120) return null;
-                  const name = st.attributes?.friendly_name || eid;
-                  const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-                  return `<div style="font-size:11px;color:#1565c0">⏱ ${name}: ~${mins} min (${time} Uhr)</div>`;
-                }).filter(Boolean);
-                if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt (0–120 min Fenster)</div>`;
-                return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;
-              })() : ""}
+              <div style="font-size:12px;color:var(--secondary-text-color);padding:6px 0">
+                ${a.eta_preheat_enabled
+                  ? `✓ Aktiv – einstellbar unter <strong>Anwesenheitserkennung → ETA-Vorheizen</strong>`
+                  : `Deaktiviert – einstellbar unter <strong>Anwesenheitserkennung → ETA-Vorheizen</strong>`}
+              </div>
             </div>
             <div class="settings-item">
               <label>Urlaubs-Kalender</label>
@@ -4380,8 +4446,10 @@ class IHCPanel extends HTMLElement {
       const checked = [...content.querySelectorAll(".presence-cb:checked")].map(cb => cb.value);
       this._callService("update_global_settings", {
         presence_entities: checked,
-        presence_away_delay_minutes: parseInt(content.querySelector("#s-presence-away-delay")?.value ?? "0", 10),
+        presence_away_delay_minutes:   parseInt(content.querySelector("#s-presence-away-delay")?.value ?? "0", 10),
         presence_arrive_delay_minutes: parseInt(content.querySelector("#s-presence-arrive-delay")?.value ?? "0", 10),
+        eta_preheat_enabled:           content.querySelector("#eta-preheat-enabled")?.value === "true",
+        eta_preheat_threshold_minutes: parseInt(content.querySelector("#eta-preheat-threshold")?.value ?? "90", 10),
       });
       this._toast("✓ Anwesenheitserkennung gespeichert");
     });
@@ -5405,6 +5473,14 @@ class IHCPanel extends HTMLElement {
             <input type="number" class="form-input" id="m-window-open-temp" min="0" max="22" step="0.5" value="0" placeholder="0 = Frostschutz">
             <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
           </div>
+          <div class="settings-item">
+            <label>Nach Fenster schließen</label>
+            <select class="form-select" id="m-window-restore-mode">
+              <option value="schedule">Zeitplan neu berechnen</option>
+              <option value="previous">Letzten Sollwert wiederherstellen</option>
+            </select>
+            <span class="form-hint">Was passiert mit dem Sollwert wenn das Fenster wieder geschlossen wird</span>
+          </div>
         </div>
       </div>
 
@@ -5504,6 +5580,7 @@ class IHCPanel extends HTMLElement {
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
         window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
         window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
+        window_restore_mode:    modal.querySelector("#m-window-restore-mode")?.value || "schedule",
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
@@ -5771,6 +5848,14 @@ class IHCPanel extends HTMLElement {
               <input type="number" class="form-input" id="m-window-open-temp"
                 min="0" max="22" step="0.5" value="${room.window_open_temp ?? 0}" placeholder="0 = Frostschutz">
               <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
+            </div>
+            <div class="settings-item">
+              <label>Nach Fenster schließen</label>
+              <select class="form-select" id="m-window-restore-mode">
+                <option value="schedule" ${(room.window_restore_mode || 'schedule') === 'schedule' ? 'selected' : ''}>Zeitplan neu berechnen</option>
+                <option value="previous" ${room.window_restore_mode === 'previous' ? 'selected' : ''}>Letzten Sollwert wiederherstellen</option>
+              </select>
+              <span class="form-hint">Was passiert mit dem Sollwert wenn das Fenster wieder geschlossen wird</span>
             </div>
           </div>
         </div>
@@ -6046,6 +6131,7 @@ class IHCPanel extends HTMLElement {
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
         window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
         window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
+        window_restore_mode:    modal.querySelector("#m-window-restore-mode")?.value || "schedule",
         humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,

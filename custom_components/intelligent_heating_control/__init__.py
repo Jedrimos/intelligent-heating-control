@@ -110,6 +110,8 @@ from .const import (
     CONF_MOLD_HUMIDITY_THRESHOLD,
     CONF_WINDOW_OPEN_TEMP,
     DEFAULT_WINDOW_OPEN_TEMP,
+    CONF_WINDOW_RESTORE_MODE,
+    DEFAULT_WINDOW_RESTORE_MODE,
     CONF_AGGRESSIVE_MODE_ENABLED,
     DEFAULT_AGGRESSIVE_MODE_ENABLED,
     CONF_AGGRESSIVE_MODE_RANGE,
@@ -329,6 +331,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_TRV_MIN_SEND_INTERVAL: int(call.data.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL)),
             CONF_TRV_CALIBRATIONS: call.data.get(CONF_TRV_CALIBRATIONS) or {},
             CONF_WINDOW_OPEN_TEMP: float(call.data.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP)),
+            CONF_WINDOW_RESTORE_MODE: str(call.data.get(CONF_WINDOW_RESTORE_MODE, DEFAULT_WINDOW_RESTORE_MODE)),
             CONF_PRESENCE_SENSOR: call.data.get(CONF_PRESENCE_SENSOR, ""),
             CONF_PRESENCE_SENSOR_ON_DELAY: int(call.data.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY)),
             CONF_PRESENCE_SENSOR_OFF_DELAY: int(call.data.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY)),
@@ -441,6 +444,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "adaptive_preheat_enabled",
             # v1.4 – ETA-based pre-heat
             "eta_preheat_enabled",
+            "eta_preheat_threshold_minutes",
             # Roadmap 2.0
             "controller_mode", "guest_duration_hours",
             "vacation_return_preheat_days",

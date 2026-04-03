@@ -225,6 +225,8 @@ DEFAULT_ADAPTIVE_PREHEAT_ENABLED: Final = True
 # v1.4 – ETA-based pre-heating
 CONF_ETA_PREHEAT_ENABLED: Final = "eta_preheat_enabled"
 DEFAULT_ETA_PREHEAT_ENABLED: Final = False
+CONF_ETA_PREHEAT_THRESHOLD_MINUTES: Final = "eta_preheat_threshold_minutes"
+DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES: Final = 90  # start preheating when arrival ≤ this many minutes away
 
 # v1.5 – Cooling mode target temperature
 CONF_COOLING_TARGET_TEMP: Final = "cooling_target_temp"
@@ -388,6 +390,10 @@ DEFAULT_PRESENCE_SENSOR_OFF_DELAY: Final = 300  # 5 Minuten – verhindert sofor
 # Fenster-Mindesttemperatur (pro Zimmer): Statt Frostschutz diese Temp bei offenem Fenster
 CONF_WINDOW_OPEN_TEMP: Final = "window_open_temp"
 DEFAULT_WINDOW_OPEN_TEMP: Final = 0.0  # 0 = Frostschutz-Temp verwenden (Legacy-Verhalten)
+
+# Sollwert-Wiederherstellung nach Fenster schließen
+CONF_WINDOW_RESTORE_MODE: Final = "window_restore_mode"
+DEFAULT_WINDOW_RESTORE_MODE: Final = "schedule"   # "schedule" = Zeitplan neu berechnen | "previous" = letzten Sollwert vor Öffnung wiederherstellen
 
 # Aggressiver Modus: Überhitzt TRV-Sollwert wenn Raum weit unter Soll (für träge TRVs)
 CONF_AGGRESSIVE_MODE_ENABLED: Final = "aggressive_mode_enabled"

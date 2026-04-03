@@ -24,6 +24,8 @@ from .const import (
     CONF_ADAPTIVE_CURVE_MAX_DELTA,
     CONF_ADAPTIVE_PREHEAT_ENABLED,
     CONF_ETA_PREHEAT_ENABLED,
+    CONF_ETA_PREHEAT_THRESHOLD_MINUTES,
+    DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES,
     CONF_PRESENCE_ENTITIES,
     CONF_PREHEAT_MINUTES,
     CONF_HEATING_CURVE,
@@ -326,7 +328,8 @@ class ClimateAdjustmentsMixin:
                 if eta_dt.tzinfo is not None:
                     eta_dt = eta_dt.astimezone().replace(tzinfo=None)
                 minutes = (eta_dt - datetime.now()).total_seconds() / 60
-                if 0 < minutes <= 120:
+                threshold = int(cfg.get(CONF_ETA_PREHEAT_THRESHOLD_MINUTES, DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES))
+                if 0 < minutes <= threshold:
                     min_minutes = min(min_minutes or minutes, minutes)
             except (ValueError, TypeError, AttributeError):
                 pass

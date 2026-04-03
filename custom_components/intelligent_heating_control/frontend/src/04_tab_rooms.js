@@ -1148,30 +1148,52 @@
       return;
     }
 
-    const vals   = history.map(p => p.v);
-    const times  = history.map(p => p.t);
-    const minV   = Math.min(...vals);
-    const maxV   = Math.max(...vals);
-    const range  = maxV - minV || 1;
+    const vals  = history.map(p => p.v);
+    const times = history.map(p => p.t);
+
+    // Target history – align timestamps with actual history for x-positioning
+    const targetHistory = room.target_history || [];
+    const tgtMap = {};
+    targetHistory.forEach(p => { tgtMap[p.t] = p.v; });
+    // Build parallel array: for each actual reading, find closest target value
+    const tgtVals = times.map(t => tgtMap[t] ?? null);
+    const hasTgtHistory = tgtVals.some(v => v !== null);
+
+    // Combined min/max across both series for a shared Y scale
+    const allVals = [...vals, ...tgtVals.filter(v => v !== null)];
+    const minV = Math.min(...allVals) - 0.5;
+    const maxV = Math.max(...allVals) + 0.5;
+    const range = maxV - minV || 1;
 
     // Chart dimensions
-    const W = 560, H = 180, padL = 38, padR = 12, padT = 14, padB = 36;
+    const W = 560, H = 200, padL = 38, padR = 12, padT = 14, padB = 36;
     const cW = W - padL - padR;
     const cH = H - padT - padB;
 
     const xOf = i => padL + (i / (vals.length - 1)) * cW;
     const yOf = v => padT + cH - ((v - minV) / range) * cH;
 
-    // Polyline
+    // Ist-Verlauf (blau)
     const pts = vals.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(" ");
 
-    // Target temp reference line
-    const tgt = room.target_temp;
-    const tgtLine = (tgt != null && tgt >= minV - 1 && tgt <= maxV + 1) ? (() => {
-      const y = yOf(tgt).toFixed(1);
-      return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#fb8c00" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
-              <text x="${padL - 4}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="9" fill="#fb8c00">${parseFloat(tgt).toFixed(1)}</text>`;
-    })() : "";
+    // Soll-Verlauf (orange) – als Stufenlinie (Zeitplan ändert sich abrupt)
+    let tgtPolyline = "";
+    if (hasTgtHistory) {
+      const segments = [];
+      let seg = [];
+      tgtVals.forEach((v, i) => {
+        if (v !== null) {
+          seg.push(`${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`);
+        } else if (seg.length) {
+          segments.push(seg.join(" "));
+          seg = [];
+        }
+      });
+      if (seg.length) segments.push(seg.join(" "));
+      tgtPolyline = segments.map(s =>
+        `<polyline points="${s}" fill="none" stroke="#fb8c00" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`
+      ).join("");
+    }
 
     // Y-axis labels (4 ticks)
     const yTicks = [0, 0.33, 0.67, 1].map(f => {
@@ -1181,74 +1203,81 @@
               <text x="${padL - 5}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="9" fill="var(--secondary-text-color)">${v.toFixed(1)}</text>`;
     }).join("");
 
-    // X-axis labels: show every ~24 entries (daily) or first/last
+    // X-axis labels
     const xLabels = [];
     const step = Math.max(1, Math.floor(vals.length / 7));
     for (let i = 0; i < vals.length; i += step) {
       const t = times[i] || "";
-      // Parse ISO datetime: "2026-03-22T14:00" → "Mo 14:00"
       let label = t;
       try {
         const d = new Date(t);
         const dayNames = ["So","Mo","Di","Mi","Do","Fr","Sa"];
         label = `${dayNames[d.getDay()]} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
       } catch(_) { /* keep raw */ }
-      const x = xOf(i).toFixed(1);
-      xLabels.push(`<text x="${x}" y="${H - padB + 14}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${label}</text>`);
+      xLabels.push(`<text x="${xOf(i).toFixed(1)}" y="${H - padB + 14}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${label}</text>`);
     }
 
-    // Last known temp + min/max annotation
+    // Current value dot + label
     const lastVal = vals[vals.length - 1];
     const lastX   = xOf(vals.length - 1).toFixed(1);
     const lastY   = yOf(lastVal).toFixed(1);
+    // Current target dot
+    const lastTgt = tgtVals.slice().reverse().find(v => v !== null);
+    const lastTgtDot = (hasTgtHistory && lastTgt != null) ? (() => {
+      const lastTgtIdx = tgtVals.length - 1 - [...tgtVals].reverse().findIndex(v => v !== null);
+      const tx = xOf(lastTgtIdx).toFixed(1);
+      const ty = yOf(lastTgt).toFixed(1);
+      return `<circle cx="${tx}" cy="${ty}" r="3.5" fill="#fb8c00" stroke="white" stroke-width="1.5"/>
+              <text x="${parseFloat(tx) + 6}" y="${parseFloat(ty) + 4}" font-size="10" font-weight="600" fill="#fb8c00">${lastTgt.toFixed(1)} °C</text>`;
+    })() : "";
 
     const svg = `
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${room.name}">
-        <!-- Grid -->
         <rect x="${padL}" y="${padT}" width="${cW}" height="${cH}" fill="var(--card-background-color,#fafafa)" rx="4" opacity="0.5"/>
         ${[0, 0.33, 0.67, 1].map(f => {
           const y = yOf(minV + f * range).toFixed(1);
           return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="var(--divider-color)" stroke-width="0.5" opacity="0.6"/>`;
         }).join("")}
-        <!-- Target reference -->
-        ${tgtLine}
-        <!-- Y axis -->
         <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + cH}" stroke="var(--divider-color)" stroke-width="1"/>
         ${yTicks}
-        <!-- X axis -->
         <line x1="${padL}" y1="${padT + cH}" x2="${W - padR}" y2="${padT + cH}" stroke="var(--divider-color)" stroke-width="1"/>
         ${xLabels.join("")}
-        <!-- Curve -->
+        <!-- Soll-Verlauf (orange) -->
+        ${tgtPolyline}
+        <!-- Ist-Verlauf (blau) -->
         <polyline points="${pts}" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-        <!-- Current value dot -->
+        <!-- Endpunkte -->
         <circle cx="${lastX}" cy="${lastY}" r="4" fill="var(--primary-color)" stroke="white" stroke-width="1.5"/>
         <text x="${parseFloat(lastX) + 7}" y="${parseFloat(lastY) + 4}" font-size="10" font-weight="600" fill="var(--primary-color)">${lastVal.toFixed(1)} °C</text>
+        ${lastTgtDot}
       </svg>`;
 
-    const minStr = minV.toFixed(1);
-    const maxStr = maxV.toFixed(1);
+    const minStr = Math.min(...vals).toFixed(1);
+    const maxStr = Math.max(...vals).toFixed(1);
     const avgStr = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
 
     container.innerHTML = `
       <div class="card">
         <div class="card-title">📈 Temperaturverlauf – ${room.name}</div>
         <div style="padding:4px 0 12px;overflow-x:auto">${svg}</div>
-        <div style="display:flex;gap:24px;padding:4px 0 8px;flex-wrap:wrap">
-          <div style="font-size:12px;color:var(--secondary-text-color)">
-            <span style="font-weight:600;color:var(--primary-text-color)">Min:</span> ${minStr} °C
-          </div>
-          <div style="font-size:12px;color:var(--secondary-text-color)">
-            <span style="font-weight:600;color:var(--primary-text-color)">Max:</span> ${maxStr} °C
-          </div>
-          <div style="font-size:12px;color:var(--secondary-text-color)">
-            <span style="font-weight:600;color:var(--primary-text-color)">Ø:</span> ${avgStr} °C
-          </div>
-          <div style="font-size:12px;color:var(--secondary-text-color)">
-            <span style="font-weight:600;color:var(--primary-text-color)">Messpunkte:</span> ${vals.length}
-          </div>
-          ${tgt != null ? `<div style="font-size:12px;color:#fb8c00"><span style="font-weight:600">Soll:</span> ${parseFloat(tgt).toFixed(1)} °C</div>` : ""}
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-size:11px;display:flex;align-items:center;gap:4px">
+            <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="var(--primary-color)" stroke-width="2"/></svg>
+            Ist-Temperatur
+          </span>
+          ${hasTgtHistory ? `<span style="font-size:11px;display:flex;align-items:center;gap:4px">
+            <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#fb8c00" stroke-width="2"/></svg>
+            Soll-Temperatur
+          </span>` : ""}
         </div>
-        <div style="font-size:11px;color:var(--secondary-text-color);padding-top:4px">Stündliche Messung · max. 7 Tage Verlauf · Ziel-Linie orange gestrichelt</div>
+        <div style="display:flex;gap:24px;padding:4px 0 8px;flex-wrap:wrap">
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Min:</span> ${minStr} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Max:</span> ${maxStr} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Ø:</span> ${avgStr} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Messpunkte:</span> ${vals.length}</div>
+          ${lastTgt != null ? `<div style="font-size:12px;color:#fb8c00"><span style="font-weight:600">Soll aktuell:</span> ${lastTgt.toFixed(1)} °C</div>` : ""}
+        </div>
+        <div style="font-size:11px;color:var(--secondary-text-color);padding-top:4px">Stündliche Messung · max. 7 Tage Verlauf</div>
       </div>`;
 
     // v1.6 – Anforderungs-Heatmap pro Zimmer

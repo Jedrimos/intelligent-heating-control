@@ -36,6 +36,7 @@ from .const import (
     CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
     # v1.4 ETA pre-heat
     CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED,
+    CONF_ETA_PREHEAT_THRESHOLD_MINUTES, DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES,
     # v1.5 Cooling target + smart meter
     CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP,
     CONF_SMART_METER_ENTITY,
@@ -151,6 +152,8 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "heating_period_active":  d.get("heating_period_active", True),
             "night_setback_active":   d.get("night_setback_active", False),
             "presence_away_active":   d.get("presence_away_active", False),
+            "presence_away_pending":  d.get("presence_away_pending", False),
+            "presence_away_pending_minutes_remaining": d.get("presence_away_pending_minutes_remaining"),
             "vacation_auto_active":        d.get("vacation_auto_active", False),
             "vacation_range":              d.get("vacation_range", {}),
             "efficiency_score":            d.get("efficiency_score"),
@@ -219,7 +222,8 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             # Intelligent control (adaptive curve, ETA pre-heat)
             "adaptive_curve_enabled":      cfg.get(CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED),
             "adaptive_preheat_enabled":    cfg.get(CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED),
-            "eta_preheat_enabled":         cfg.get(CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED),
+            "eta_preheat_enabled":              cfg.get(CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED),
+            "eta_preheat_threshold_minutes":   cfg.get(CONF_ETA_PREHEAT_THRESHOLD_MINUTES, DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES),
             "vacation_calendar":           cfg.get(CONF_VACATION_CALENDAR, ""),
             "flow_temp_sensor":            cfg.get(CONF_FLOW_TEMP_SENSOR, ""),
             "smart_meter_entity":          cfg.get(CONF_SMART_METER_ENTITY, ""),
@@ -333,7 +337,8 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
                 "room_mode": room.get("room_mode", "auto"),
                 "source": room.get("source", ""),
                 "night_setback": room.get("night_setback", 0.0),
-                "temp_history": room.get("temp_history", []),          # Roadmap 1.1
+                "temp_history":   room.get("temp_history", []),          # Roadmap 1.1
+                "target_history": room.get("target_history", []),       # v1.6.2
                 "avg_warmup_minutes": room.get("avg_warmup_minutes"),  # Roadmap 1.1
                 "anomaly": room.get("anomaly"),                        # Roadmap 1.1
                 "room_presence_active": room.get("room_presence_active"),  # Roadmap 1.2

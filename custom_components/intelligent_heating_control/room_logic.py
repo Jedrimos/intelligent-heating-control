@@ -439,6 +439,16 @@ class RoomLogicMixin:
                         "comfort_extend_active": extend,
                     }
             # Schedules configured but none active → use configured off-mode (eco or sleep)
+            # ETA override: if someone is arriving home soon, heat to comfort instead of off-mode
+            eta_minutes = getattr(self, "_current_eta_minutes", None)
+            if eta_minutes and eta_minutes > 0:
+                target = min(max_temp, max(min_temp, comfort_base + room_offset - night_setback))
+                return target, {
+                    "source": "preheat",
+                    "schedule_active": False,
+                    "eta_minutes": eta_minutes,
+                    "night_setback": night_setback,
+                }
             off_mode = room.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE)
             off_base = sleep_base if off_mode == ROOM_MODE_SLEEP else eco_base
             target = min(max_temp, max(min_temp, off_base + room_offset - night_setback))
@@ -471,6 +481,16 @@ class RoomLogicMixin:
                 if active_period:
                     source_tag = "preheat"
                 else:
+                    # No upcoming period found – but if ETA is active, heat to comfort anyway
+                    eta_minutes = getattr(self, "_current_eta_minutes", None)
+                    if eta_minutes and eta_minutes > 0:
+                        target = min(max_temp, max(min_temp, comfort_base + room_offset - night_setback))
+                        return target, {
+                            "source": "preheat",
+                            "schedule_active": False,
+                            "eta_minutes": eta_minutes,
+                            "night_setback": night_setback,
+                        }
                     source_tag = "schedule"
             else:
                 source_tag = "schedule"
