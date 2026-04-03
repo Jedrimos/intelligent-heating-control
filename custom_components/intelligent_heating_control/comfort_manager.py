@@ -86,7 +86,7 @@ class ComfortManagerMixin:
         When mold risk is detected, raise target temp by 1°C to reduce relative humidity.
         """
         mold = self._check_mold_risk(room, current_temp)
-        if mold and mold["risk"]:
+        if mold and mold.get("risk"):
             return 1.0
         return 0.0
 
@@ -159,14 +159,14 @@ class ComfortManagerMixin:
 
         # ── Indoor humidity ──────────────────────────────────────────────
         mold = self._check_mold_risk(room, current_temp)
-        room_humidity = mold["humidity"] if mold else None
+        room_humidity = mold.get("humidity") if mold else None
         if mold:
-            if mold["risk"]:
+            if mold.get("risk"):
                 score += 3
-                reasons.append(f"Luftfeuchtigkeit {mold['humidity']}% (Schimmelrisiko)")
-            elif mold["humidity"] > 60:
+                reasons.append(f"Luftfeuchtigkeit {mold.get('humidity')}% (Schimmelrisiko)")
+            elif (mold.get("humidity") or 0) > 60:
                 score += 1
-                reasons.append(f"Luftfeuchtigkeit {mold['humidity']}%")
+                reasons.append(f"Luftfeuchtigkeit {mold.get('humidity')}%")
 
         # ── Outdoor conditions (negative factors) ───────────────────────
         BAD_CONDITIONS = {"rainy", "pouring", "fog", "hail", "snowy", "snowy-rainy"}

@@ -1647,7 +1647,7 @@ class IHCCoordinator(
         # Ventilation advice – compute per room now that outdoor_temp is known
         try:
             outdoor_humidity = self._get_outdoor_humidity()
-            weather_condition = (weather_forecast["condition"] if weather_forecast else None)
+            weather_condition = (weather_forecast.get("condition") if weather_forecast else None)
             energy_price_high = price_eco_offset < 0  # negative offset = expensive hour (reduces setpoint to save energy)
             for room in self.get_rooms():
                 room_id = room.get(CONF_ROOM_ID, "")
