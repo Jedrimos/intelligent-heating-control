@@ -200,7 +200,9 @@
     }).join("");
 
     // Build system banners (compact new style)
+    const _demA = (this._st("sensor.ihc_gesamtanforderung") || { attributes: {} }).attributes;
     const banners = [
+      _demA.startup_grace_active ? `<div class="system-banner warn">⏳ <strong>Startup-Gnadenfrist aktiv</strong> – Heizung gesperrt bis alle Sensoren geladen sind</div>` : "",
       g.summer_mode           ? `<div class="system-banner summer">☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</div>` : "",
       g.night_setback_active  ? `<div class="system-banner night">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
       g.presence_away_active  ? `<div class="system-banner away">🚶 <strong>Niemand zuhause</strong> – Abwesend-Modus aktiv</div>` : "",

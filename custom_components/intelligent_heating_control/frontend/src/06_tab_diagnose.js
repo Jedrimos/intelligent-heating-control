@@ -19,6 +19,7 @@
 
     // Active flags
     const flags = [
+      a.startup_grace_active    ? {icon:"⏳", label:`Startup-Gnadenfrist · Sensoren werden geladen`, cls:"warn"} : null,
       g.heating_active          ? {icon:"🔥", label:"Heizung aktiv",    cls:"warn"} : null,
       g.night_setback_active    ? {icon:"🌙", label:"Nachtabsenkung",    cls:""} : null,
       g.summer_mode             ? {icon:"☀️", label:"Sommer-Modus",      cls:"warn"} : null,

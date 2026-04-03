@@ -114,6 +114,8 @@ from .const import (
     CONF_TEMP_HISTORY_SIZE,
     CONF_OUTDOOR_TEMP_SMOOTHING_MINUTES,
     DEFAULT_OUTDOOR_TEMP_SMOOTHING_MINUTES,
+    CONF_STARTUP_GRACE_SECONDS,
+    DEFAULT_STARTUP_GRACE_SECONDS,
     DEFAULT_SUMMER_THRESHOLD,
     DEFAULT_FROST_PROTECTION_TEMP,
     DEFAULT_OFF_USE_FROST_PROTECTION,
@@ -393,6 +395,10 @@ class IHCCoordinator(
         # On startup skip one cycle so _last_sent_temps can be pre-populated from TRV states
         # before the manual-override detector runs (prevents false "manual override" alerts)
         self._startup_cycles_remaining: int = 1
+        # Startup grace: track the real wall-clock time when the first update cycle ran.
+        # During this window all TRVs are held at frost-protection temp and the heating
+        # switch stays off so we never blast heat before window sensors have reported.
+        self._startup_time: Optional[datetime] = None
 
         # Manual TRV override detection: track last IHC-set temperature per room
         self._last_ihc_set_temps: Dict[str, float] = {}  # room_id → last temp IHC intentionally set
@@ -419,6 +425,10 @@ class IHCCoordinator(
         # Window restore mode: track per-room state to detect open→closed transitions
         self._prev_window_open: Dict[str, bool] = {}               # room_id → was window open last cycle
         self._pre_window_temps: Dict[str, float] = {}              # room_id → target_temp before window opened
+        # Last-known sensor temperature cache: entity_id → (value, timestamp)
+        # Used as fallback when a sensor goes unavailable during normal operation.
+        # Stale after SENSOR_FALLBACK_SECONDS (30 min) → returns None again.
+        self._last_known_sensor_temps: Dict[str, tuple] = {}       # entity_id → (float, datetime)
 
         # Event-driven window detection: single subscription for all window sensors.
         # Using one subscription (not per-sensor) avoids a bug where removing one sensor
@@ -1088,9 +1098,17 @@ class IHCCoordinator(
             return None
         state = self.hass.states.get(sensor)
         if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            # Outdoor sensor unavailable – reuse last known value (same 30-min window)
+            cached = self._last_known_sensor_temps.get(f"__outdoor__{sensor}")
+            if cached is not None:
+                cached_value, cached_at = cached
+                if (dt_util.utcnow() - cached_at).total_seconds() < self._SENSOR_FALLBACK_SECONDS:
+                    return cached_value
             return None
         try:
             raw = float(state.state)
+            # Cache the fresh reading under a namespaced key
+            self._last_known_sensor_temps[f"__outdoor__{sensor}"] = (raw, dt_util.utcnow())
         except ValueError:
             return None
 
@@ -1107,16 +1125,33 @@ class IHCCoordinator(
         readings = list(self._outdoor_temp_buffer)[-n:]
         return round(sum(readings) / len(readings), 1)
 
+    # Max age for last-known sensor temperature fallback (30 minutes)
+    _SENSOR_FALLBACK_SECONDS: int = 1800
+
     def _get_sensor_temp(self, sensor_entity: str) -> Optional[float]:
         if not sensor_entity:
             return None
         state = self.hass.states.get(sensor_entity)
-        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return None
-        try:
-            return float(state.state)
-        except ValueError:
-            return None
+        if state is not None and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            try:
+                value = float(state.state)
+                # Update last-known cache with fresh reading
+                self._last_known_sensor_temps[sensor_entity] = (value, dt_util.utcnow())
+                return value
+            except ValueError:
+                return None
+        # Sensor unavailable/unknown – use last-known value if fresh enough
+        cached = self._last_known_sensor_temps.get(sensor_entity)
+        if cached is not None:
+            cached_value, cached_at = cached
+            age = (dt_util.utcnow() - cached_at).total_seconds()
+            if age < self._SENSOR_FALLBACK_SECONDS:
+                _LOGGER.debug(
+                    "IHC: Sensor %s unavailable – using last known value %.1f°C (age %.0fs)",
+                    sensor_entity, cached_value, age,
+                )
+                return cached_value
+        return None
 
     # ------------------------------------------------------------------
     # Control output
@@ -1161,12 +1196,23 @@ class IHCCoordinator(
         # This prevents false "manuell bedient" notifications right after HA restart.
         if self._startup_cycles_remaining > 0:
             self._startup_cycles_remaining -= 1
-            # Apply configurable grace duration from global config (first cycle only)
+            self._startup_time = dt_util.utcnow()  # record when first cycle ran
             self._prefill_window_states()
             self._prefill_last_sent_temps()
             self._setup_window_listeners()
             self._setup_ha_schedule_listeners()
             await self._async_startup_presence_sync()
+
+        # Check whether we are still inside the startup grace window.
+        # During grace: TRVs stay at frost-protection temp, heating switch stays off.
+        # This prevents blasting heat while window/temp sensors haven't reported yet.
+        cfg = self.get_config()
+        grace_seconds = int(cfg.get(CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS))
+        startup_grace_active = (
+            self._startup_time is not None
+            and grace_seconds > 0
+            and (dt_util.utcnow() - self._startup_time).total_seconds() < grace_seconds
+        )
 
         # Expire any boost timers
         self._check_boost_expiry()
@@ -1282,12 +1328,14 @@ class IHCCoordinator(
 
             # Update temperature history (Roadmap 1.1)
             self._update_temp_history(room_id, current_temp)
-            self._update_target_history(room_id, target_temp)
 
             # Room-level presence check (Roadmap 1.2 – exposed to UI)
             room_presence_active = self._check_room_presence(room)
 
             target_temp, meta = self._calculate_target_temp(room, outdoor_temp)
+
+            # target_history logged after target_temp is known (v1.6.2)
+            self._update_target_history(room_id, target_temp)
 
             # Emergency frost protection when system is OFF (and not already frost-protecting):
             # If outdoor temp is below 0°C AND room temp is very cold (<10°C) AND window is closed,
@@ -1457,6 +1505,11 @@ class IHCCoordinator(
         heating_period_active = self._is_heating_period_active()
         should_heat = False if (summer_mode or not heating_period_active) else self._controller.should_heat(self._system_mode)
         should_cool = self._controller.should_cool(self._system_mode) if enable_cooling else False
+
+        # Startup grace: suppress all heating while sensors haven't reported yet
+        if startup_grace_active:
+            should_heat = False
+            should_cool = False
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
 
@@ -1491,10 +1544,18 @@ class IHCCoordinator(
             #   - There is no central boiler in TRV mode
             #   - TRVs decide themselves whether to heat
             # Exception: room OFF, window open, system OFF, or summer mode → close TRV.
+            if startup_grace_active:
+                # Startup grace: hold all TRVs at frost-protection temp until sensors report.
+                # Windows might be open — don't blast heat into unknown room states.
+                _frost = self._get_frost_protection_temp()
+                for _room in self.get_rooms():
+                    self._set_valve_entities(_room, _frost)
             for room in self.get_rooms():
                 room_id = room.get(CONF_ROOM_ID, "")
                 if not room_id or room_id not in room_data:
                     continue
+                if startup_grace_active:
+                    continue  # already handled above
                 rdata = room_data[room_id]
                 room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
                 window_open = rdata.get("window_open", False)
@@ -1542,6 +1603,10 @@ class IHCCoordinator(
             for room in self.get_rooms():
                 room_id = room.get(CONF_ROOM_ID, "")
                 if not room_id or room_id not in room_data:
+                    continue
+                if startup_grace_active:
+                    # Hold TRVs at frost-protection temp until sensors have reported
+                    self._set_valve_entities(room, self._get_frost_protection_temp())
                     continue
                 rdata = room_data[room_id]
                 room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
@@ -1611,7 +1676,7 @@ class IHCCoordinator(
         # Ventilation advice – compute per room now that outdoor_temp is known
         try:
             outdoor_humidity = self._get_outdoor_humidity()
-            weather_condition = (weather_forecast["condition"] if weather_forecast else None)
+            weather_condition = (weather_forecast.get("condition") if weather_forecast else None)
             energy_price_high = price_eco_offset < 0  # negative offset = expensive hour (reduces setpoint to save energy)
             for room in self.get_rooms():
                 room_id = room.get(CONF_ROOM_ID, "")
@@ -1647,6 +1712,7 @@ class IHCCoordinator(
             "heating_active": should_heat,
             "cooling_active": should_cool,
             "summer_mode": summer_mode,
+            "startup_grace_active": startup_grace_active,
             "heating_period_active": heating_period_active,
             "night_setback_active": night_setback_active,
             "presence_away_active": self._presence_away_active,

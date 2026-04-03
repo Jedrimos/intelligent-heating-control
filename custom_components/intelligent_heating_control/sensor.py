@@ -149,6 +149,7 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "heating_active":         d.get("heating_active", False),
             "cooling_active":         d.get("cooling_active", False),
             "summer_mode":            d.get("summer_mode", False),
+            "startup_grace_active":   d.get("startup_grace_active", False),
             "heating_period_active":  d.get("heating_period_active", True),
             "night_setback_active":   d.get("night_setback_active", False),
             "presence_away_active":   d.get("presence_away_active", False),
