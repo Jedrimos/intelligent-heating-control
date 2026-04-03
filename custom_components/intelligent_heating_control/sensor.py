@@ -128,6 +128,18 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_icon = "mdi:thermometer-lines"
+    # Exclude large/static attributes from recorder – only scalar state values needed historically
+    _attr_extra_state_attributes_excluded_from_recorder = frozenset({
+        "groups",
+        "presence_entities",
+        "vacation_range",
+        "weather_forecast",
+        # All global config mirrors (never need historical recording – only current value matters)
+        "outdoor_temp_sensor", "heating_switch", "cooling_switch",
+        "solar_entity", "energy_price_entity", "flow_temp_entity", "flow_temp_sensor",
+        "vacation_calendar", "smart_meter_entity", "weather_entity", "sun_entity",
+        "outdoor_humidity_sensor",
+    })
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
@@ -307,6 +319,14 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_icon = "mdi:thermometer-alert"
+    # Exclude history arrays from recorder – they are large (~8 KB) and IHC manages its own
+    # ring-buffer history; writing them to the DB every 60 s causes significant storage bloat.
+    _attr_extra_state_attributes_excluded_from_recorder = frozenset({
+        "temp_history",
+        "target_history",
+        "mold",
+        "ventilation",
+    })
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
         super().__init__(coordinator, entry)

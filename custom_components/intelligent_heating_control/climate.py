@@ -146,6 +146,35 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         | ClimateEntityFeature.TURN_OFF
         | ClimateEntityFeature.TURN_ON
     )
+    # Exclude large/static attributes from recorder.
+    # The climate entity carries the full room config mirror (~40 KB); only the small
+    # operational attributes (temperature, demand, mode, window_open) are useful historically.
+    _attr_extra_state_attributes_excluded_from_recorder = frozenset({
+        # Schedules – static config, large JSON, only current value matters
+        "schedules",
+        "ha_schedules",
+        "ha_schedule_blocks",
+        # 7×24 EMA grid that changes every 60 s – no historical value in DB
+        "demand_heatmap",
+        # Static config lists – never useful as time-series data
+        "valve_entities",
+        "window_sensors",
+        "room_presence_entities",
+        "trv_calibrations",
+        "trv_stuck_valves",
+        # Sensor entity-IDs – static config mirrors
+        "temp_sensor",
+        "humidity_sensor",
+        "co2_sensor",
+        "hkv_sensor",
+        "presence_sensor",
+        "comfort_temp_entity",
+        "eco_temp_entity",
+        "comfort_extend_entity",
+        # next_period / anomaly – transient, not useful in long-term history
+        "next_period",
+        "anomaly",
+    })
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
         super().__init__(coordinator)

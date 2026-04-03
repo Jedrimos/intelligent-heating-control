@@ -400,6 +400,11 @@ class IHCCoordinator(
         # switch stays off so we never blast heat before window sensors have reported.
         self._startup_time: Optional[datetime] = None
 
+        # Save debounce: avoid hammering the .storage/ file on bursts of rapid mode changes.
+        # All save requests are coalesced into a single write after _SAVE_DEBOUNCE_SECONDS.
+        self._save_debounce_handle: Optional[Any] = None
+        self._SAVE_DEBOUNCE_SECONDS: int = 30
+
         # Manual TRV override detection: track last IHC-set temperature per room
         self._last_ihc_set_temps: Dict[str, float] = {}  # room_id → last temp IHC intentionally set
         # Reconnect guard: entities that were unavailable/unknown last cycle → skip override detection
@@ -568,8 +573,18 @@ class IHCCoordinator(
             if isinstance(grid, list) and len(grid) == 7:
                 self._demand_heatmap[room_id] = grid
 
+    def _schedule_save(self) -> None:
+        """Request a debounced save – coalesces rapid successive calls into one write."""
+        if self._save_debounce_handle is not None:
+            self._save_debounce_handle.cancel()
+        self._save_debounce_handle = self.hass.loop.call_later(
+            self._SAVE_DEBOUNCE_SECONDS,
+            lambda: self.hass.async_create_task(self._async_save_runtime_state()),
+        )
+
     async def _async_save_runtime_state(self) -> None:
         """Persist current runtime state to Store."""
+        self._save_debounce_handle = None
         await self._store.async_save({
             "system_mode": self._system_mode,
             "room_modes": self._room_modes,
@@ -683,7 +698,7 @@ class IHCCoordinator(
         # write their new hvac_mode to HA without waiting for the next 60s cycle.
         # hvac_mode reads from get_system_mode() which already reflects the new value.
         self.async_update_listeners()
-        self.hass.async_create_task(self._async_save_runtime_state())
+        self._schedule_save()
         self.hass.async_create_task(self.async_request_refresh())
 
     def get_system_mode(self) -> str:
@@ -705,7 +720,7 @@ class IHCCoordinator(
         # new preset_mode/hvac_mode without waiting for the next full 60s cycle.
         # preset_mode reads from get_room_mode() which already reflects the new value.
         self.async_update_listeners()
-        self.hass.async_create_task(self._async_save_runtime_state())
+        self._schedule_save()
         self.hass.async_create_task(self.async_request_refresh())
 
     def get_room_mode(self, room_id: str) -> str:
@@ -731,7 +746,7 @@ class IHCCoordinator(
         self._boost_until[room_id] = datetime.now() + timedelta(minutes=duration_minutes)
         self._room_modes[room_id] = ROOM_MODE_COMFORT
         self.async_update_listeners()
-        self.hass.async_create_task(self._async_save_runtime_state())
+        self._schedule_save()
         self.hass.async_create_task(self.async_request_refresh())
 
     def cancel_room_boost(self, room_id: str) -> None:
@@ -740,7 +755,7 @@ class IHCCoordinator(
         prev_mode = self._room_pre_boost_mode.pop(room_id, ROOM_MODE_AUTO)
         self._room_modes[room_id] = prev_mode
         self.async_update_listeners()
-        self.hass.async_create_task(self._async_save_runtime_state())
+        self._schedule_save()
         self.hass.async_create_task(self.async_request_refresh())
 
     def get_boost_remaining_minutes(self, room_id: str) -> int:
@@ -930,7 +945,7 @@ class IHCCoordinator(
         self._guest_mode_active = True
         self._guest_mode_until = datetime.now() + timedelta(hours=hours) if hours > 0 else None
         _LOGGER.info("IHC: Guest mode activated (duration: %s h)", hours if hours > 0 else "indefinite")
-        self.hass.async_create_task(self._async_save_runtime_state())
+        self._schedule_save()
         self.hass.async_create_task(self.async_request_refresh())
 
     def deactivate_guest_mode(self) -> None:
@@ -939,7 +954,7 @@ class IHCCoordinator(
         self._guest_mode_active = False
         self._guest_mode_until = None
         _LOGGER.info("IHC: Guest mode deactivated")
-        self.hass.async_create_task(self._async_save_runtime_state())
+        self._schedule_save()
         self.hass.async_create_task(self.async_request_refresh())
 
     def _check_guest_mode_expiry(self) -> None:
@@ -953,7 +968,7 @@ class IHCCoordinator(
             self._system_mode = SYSTEM_MODE_AUTO
             self._guest_mode_active = False
             self._guest_mode_until = None
-            self.hass.async_create_task(self._async_save_runtime_state())
+            self._schedule_save()
 
     # ------------------------------------------------------------------
     # Roadmap 1.1 – Temperature history
@@ -1240,7 +1255,7 @@ class IHCCoordinator(
         now = datetime.now()
         if self._history_last_saved is None or (now - self._history_last_saved).total_seconds() >= 3600:
             self._history_last_saved = now
-            self.hass.async_create_task(self._async_save_runtime_state())
+            self._schedule_save()
 
         outdoor_temp = self._get_outdoor_temp()
         curve_target = (
