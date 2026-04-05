@@ -209,6 +209,8 @@ from .const import (
     DEFAULT_AGGRESSIVE_MODE_RANGE,
     CONF_AGGRESSIVE_MODE_OFFSET,
     DEFAULT_AGGRESSIVE_MODE_OFFSET,
+    CONF_OPTIMUM_START_ENABLED,
+    DEFAULT_OPTIMUM_START_ENABLED,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -657,6 +659,11 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "number": {"min": 10, "max": 240, "step": 5, "unit_of_measurement": "min", "mode": "slider"}
             }),
+            # --- Optimum Start (lernt Aufheizrate pro Zimmer) ---
+            vol.Optional(
+                CONF_OPTIMUM_START_ENABLED,
+                default=bool(cfg.get(CONF_OPTIMUM_START_ENABLED, DEFAULT_OPTIMUM_START_ENABLED))
+            ): selector.selector({"boolean": {}}),
             # --- Vacation calendar ---
             vol.Optional(
                 CONF_VACATION_CALENDAR,

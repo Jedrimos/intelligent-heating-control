@@ -3096,6 +3096,62 @@ class IHCPanel extends HTMLElement {
       const gridContainer = heatmapCard.querySelector(`#hm-${room.room_id}`);
       gridContainer.innerHTML = this._renderDemandHeatmapGrid(room.demand_heatmap);
     }
+
+    // Optimum Start – Lernkurve + Thermische Masse
+    const warmupCurve = room.warmup_curve || [];
+    const learnedMin = room.learned_preheat_minutes;
+    const coolingRate = room.avg_cooling_rate;
+    if (warmupCurve.length > 0 || coolingRate != null) {
+      const learnCard = document.createElement("div");
+      learnCard.className = "card";
+      learnCard.style.marginTop = "16px";
+
+      // Build warmup curve table rows
+      let warmupRows = "";
+      if (warmupCurve.length > 0) {
+        warmupRows = warmupCurve.map(pt => `
+          <tr>
+            <td style="padding:3px 8px;text-align:right">${pt.outdoor_temp > 0 ? "+" : ""}${pt.outdoor_temp} °C</td>
+            <td style="padding:3px 8px;text-align:right">${pt.avg_minutes.toFixed(0)} min</td>
+            <td style="padding:3px 8px;text-align:right;color:var(--secondary-text-color)">${pt.samples}×</td>
+          </tr>`).join("");
+      }
+
+      learnCard.innerHTML = `
+        <div class="card-title">🧠 Lernkurve – Optimum Start & Thermische Masse</div>
+        <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+          IHC misst wie lange der Raum benötigt um den Sollwert zu erreichen (Aufheizrate) und wie schnell er abkühlt.
+          Die Daten werden pro Außentemperatur gespeichert und für die automatische Vorheizzeit genutzt.
+        </div>
+        ${learnedMin != null ? `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span style="font-size:13px">📐 Aktuelle Vorheizzeit (gelernt):</span>
+            <span style="font-size:15px;font-weight:700;color:var(--primary-color)">${learnedMin.toFixed(0)} min</span>
+          </div>` : ""}
+        ${coolingRate != null ? `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span style="font-size:13px">❄️ Abkühlrate:</span>
+            <span style="font-size:15px;font-weight:700;color:#42a5f5">${coolingRate.toFixed(3)} °C/h je °C Δ (innen/außen)</span>
+          </div>` : ""}
+        ${warmupCurve.length > 0 ? `
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px">Aufheizkurve nach Außentemperatur</div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead>
+                <tr style="border-bottom:1px solid var(--divider-color)">
+                  <th style="padding:3px 8px;text-align:right;color:var(--secondary-text-color)">Außen</th>
+                  <th style="padding:3px 8px;text-align:right;color:var(--secondary-text-color)">Ø Aufheizzeit</th>
+                  <th style="padding:3px 8px;text-align:right;color:var(--secondary-text-color)">Messungen</th>
+                </tr>
+              </thead>
+              <tbody>${warmupRows}</tbody>
+            </table>
+          </div>` : `
+          <div style="padding:16px;text-align:center;color:var(--secondary-text-color);font-size:12px">
+            Noch keine Lernkurven-Daten – IHC sammelt beim nächsten Aufheizzyklus erste Messungen.
+          </div>`}`;
+      container.appendChild(learnCard);
+    }
   }
 
 
@@ -4270,6 +4326,19 @@ class IHCPanel extends HTMLElement {
               </span>
             </div>
             <div class="settings-item">
+              <label>Optimum Start <span style="font-weight:400;font-size:10px">(lernt Aufheizrate je Außentemperatur)</span></label>
+              <select class="form-select" id="optimum-start-enabled">
+                <option value="false" ${!a.optimum_start_enabled ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${a.optimum_start_enabled  ? "selected" : ""}>Aktiviert</option>
+              </select>
+              <span class="form-hint">
+                IHC misst bei jedem Aufheizzyklus wie lange der Raum braucht – getrennt nach Außentemperatur.
+                Bei −5 °C draußen wird länger vorgeheizt als bei +10 °C.
+                Ergebnisse sichtbar im Zimmer-Detail → Verlauf → Lernkurve.
+                Ersetzt das klassische adaptive Vorheizen sobald genug Messungen vorliegen.
+              </span>
+            </div>
+            <div class="settings-item">
               <label>ETA-basiertes Vorheizen</label>
               <div style="font-size:12px;color:var(--secondary-text-color);padding:6px 0">
                 ${a.eta_preheat_enabled
@@ -4692,6 +4761,7 @@ class IHCPanel extends HTMLElement {
       this._callService("update_global_settings", {
         ...(curveSel ? { adaptive_curve_enabled: curveSel.value === "true" } : {}),
         adaptive_preheat_enabled: content.querySelector("#adaptive-preheat-enabled")?.value === "true",
+        optimum_start_enabled:    content.querySelector("#optimum-start-enabled")?.value === "true",
         eta_preheat_enabled:      content.querySelector("#eta-preheat-enabled")?.value === "true",
         vacation_calendar:        content.querySelector("#vacation-calendar")?.value.trim() ?? "",
         adaptive_curve_max_delta: parseFloat(content.querySelector("#adaptive-curve-max-delta")?.value) || 3.0,

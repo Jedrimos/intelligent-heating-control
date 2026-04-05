@@ -174,6 +174,8 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         # next_period / anomaly – transient, not useful in long-term history
         "next_period",
         "anomaly",
+        # Learning data – large lists, best read on demand not stored every 60 s
+        "warmup_curve",
     })
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
@@ -402,6 +404,10 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "trv_stuck_valves": d.get("trv_stuck_valves", []),
             # Demand heatmap (7 days × 24 hours EMA)
             "demand_heatmap": d.get("demand_heatmap", []),
+            # Optimum Start & Thermal Mass learning data
+            "learned_preheat_minutes": d.get("learned_preheat_minutes"),
+            "avg_cooling_rate": d.get("avg_cooling_rate"),
+            "warmup_curve": d.get("warmup_curve", []),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:

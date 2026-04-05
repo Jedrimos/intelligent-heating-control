@@ -235,6 +235,10 @@ DEFAULT_ADAPTIVE_CURVE_MAX_DELTA: Final = 3.0
 CONF_ADAPTIVE_PREHEAT_ENABLED: Final = "adaptive_preheat_enabled"
 DEFAULT_ADAPTIVE_PREHEAT_ENABLED: Final = True
 
+# v1.7 – Optimum Start: outdoor-temp-bucketed warmup learning + thermal mass (cooling rate)
+CONF_OPTIMUM_START_ENABLED: Final = "optimum_start_enabled"
+DEFAULT_OPTIMUM_START_ENABLED: Final = False  # opt-in
+
 # v1.4 – ETA-based pre-heating
 CONF_ETA_PREHEAT_ENABLED: Final = "eta_preheat_enabled"
 DEFAULT_ETA_PREHEAT_ENABLED: Final = False

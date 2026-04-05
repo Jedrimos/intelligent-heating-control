@@ -73,6 +73,8 @@ from .const import (
     DEFAULT_COOLING_TARGET_TEMP,
     DEFAULT_OFF_USE_FROST_PROTECTION,
     DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
+    CONF_OPTIMUM_START_ENABLED,
+    DEFAULT_OPTIMUM_START_ENABLED,
     ROOM_MODE_AUTO,
     ROOM_MODE_COMFORT,
     ROOM_MODE_ECO,
@@ -94,17 +96,156 @@ _LOGGER = logging.getLogger(__name__)
 class RoomLogicMixin:
     """Mixin for room temperature calculation and schedule evaluation."""
 
-    def _update_warmup_tracking(self, room_id: str, was_cold: bool, is_now_warm: bool) -> None:
-        """Track how long a room took to warm up (predictive pre-heating data)."""
+    def _update_warmup_tracking(
+        self,
+        room_id: str,
+        was_cold: bool,
+        is_now_warm: bool,
+        outdoor_temp: Optional[float] = None,
+    ) -> None:
+        """Track how long a room took to warm up.
+
+        Stores in two structures:
+        - _warmup_history[room_id]: flat list (backward-compat, max 10 entries)
+        - _warmup_history_by_temp[room_id][bucket]: bucketed by outdoor temp (max 5 per bucket)
+          bucket = round(outdoor_temp) to nearest integer °C
+        """
         if was_cold and self._warmup_start.get(room_id) is None:
-            self._warmup_start[room_id] = datetime.now()
+            self._warmup_start[room_id] = (datetime.now(), outdoor_temp)
         if is_now_warm and self._warmup_start.get(room_id) is not None:
-            minutes = (datetime.now() - self._warmup_start[room_id]).total_seconds() / 60
-            history = self._warmup_history.setdefault(room_id, [])
-            history.append(round(minutes, 1))
-            if len(history) > 10:
-                history.pop(0)
+            start_info = self._warmup_start[room_id]
+            # Handle both old format (just datetime) and new format (datetime, outdoor_temp)
+            if isinstance(start_info, tuple):
+                start_time, start_outdoor = start_info
+            else:
+                start_time, start_outdoor = start_info, None
+            minutes = (datetime.now() - start_time).total_seconds() / 60
+            if 2.0 <= minutes <= 240.0:  # sanity bounds: 2 min – 4 hours
+                minutes = round(minutes, 1)
+                # Flat history (existing)
+                history = self._warmup_history.setdefault(room_id, [])
+                history.append(minutes)
+                if len(history) > 10:
+                    history.pop(0)
+                # Bucketed by outdoor temp (new)
+                ot = start_outdoor if start_outdoor is not None else outdoor_temp
+                if ot is not None:
+                    bucket = round(ot)  # integer °C
+                    by_temp = self._warmup_history_by_temp.setdefault(room_id, {})
+                    bucket_list = by_temp.setdefault(bucket, [])
+                    bucket_list.append(minutes)
+                    if len(bucket_list) > 5:
+                        bucket_list.pop(0)
             self._warmup_start[room_id] = None
+
+    def _update_cooling_tracking(
+        self,
+        room_id: str,
+        demand: float,
+        current_temp: Optional[float],
+        outdoor_temp: Optional[float],
+        window_open: bool,
+    ) -> None:
+        """Track room cooling rate when heating is off.
+
+        Stores (outdoor_temp, rate) pairs in _cooling_rate_history[room_id].
+        rate = °C/h lost per 1°C of (indoor - outdoor) temperature difference.
+        Typical well-insulated room: 0.05–0.15; leaky room: 0.2–0.5.
+        """
+        if window_open:
+            # Window open invalidates cooling measurement – cancel any ongoing tracking
+            self._cooling_start.pop(room_id, None)
+            return
+
+        prev_demand = self._cooling_prev_demand.get(room_id, 0.0)
+        now = datetime.now()
+
+        # Heating just stopped → start cooling timer
+        if prev_demand > 0 and demand == 0 and current_temp is not None and outdoor_temp is not None:
+            if current_temp > outdoor_temp + 3.0:  # only meaningful if indoors is warmer
+                self._cooling_start[room_id] = (now, current_temp, outdoor_temp)
+
+        # Already tracking cooling – check after ≥30 min
+        if demand == 0 and room_id in self._cooling_start and current_temp is not None and outdoor_temp is not None:
+            start_time, start_temp, start_outdoor = self._cooling_start[room_id]
+            elapsed_h = (now - start_time).total_seconds() / 3600.0
+            if elapsed_h >= 0.5:  # 30 minutes minimum
+                delta_t = start_temp - current_temp          # how much it cooled
+                avg_outdoor = (start_outdoor + outdoor_temp) / 2.0
+                avg_indoor  = (start_temp + current_temp) / 2.0
+                indoor_outdoor_delta = avg_indoor - avg_outdoor
+                if indoor_outdoor_delta > 2.0 and delta_t >= 0:
+                    rate = delta_t / elapsed_h / indoor_outdoor_delta
+                    if 0.0 < rate < 2.0:  # sanity bounds
+                        hist = self._cooling_rate_history.setdefault(room_id, [])
+                        hist.append(round(rate, 4))
+                        if len(hist) > 15:
+                            hist.pop(0)
+                # Stop tracking after first measurement (reset on next heating cycle)
+                del self._cooling_start[room_id]
+
+        self._cooling_prev_demand[room_id] = demand
+
+    def get_learned_preheat_minutes(
+        self, room_id: str, outdoor_temp: float
+    ) -> Optional[float]:
+        """Return learned warmup minutes for the given outdoor temperature.
+
+        Uses weighted interpolation from nearby outdoor-temp buckets.
+        Returns None if insufficient data (< 2 samples in range ±6°C).
+        Adds 10% safety buffer to the result.
+        """
+        by_temp = self._warmup_history_by_temp.get(room_id)
+        if not by_temp:
+            return None
+
+        bucket = round(outdoor_temp)
+        # Collect buckets within ±6°C that have ≥ 2 samples
+        candidates = [
+            (b, samples)
+            for b, samples in by_temp.items()
+            if abs(b - bucket) <= 6 and len(samples) >= 2
+        ]
+        if not candidates:
+            return None
+
+        # Weighted average: weight = samples / (1 + distance²)
+        total_w = 0.0
+        total_m = 0.0
+        for b, samples in candidates:
+            dist = abs(b - bucket)
+            w = len(samples) / (1.0 + dist * dist)
+            avg = sum(samples) / len(samples)
+            total_m += avg * w
+            total_w += w
+
+        return round((total_m / total_w) * 1.1, 1)  # +10% safety buffer
+
+    def get_avg_cooling_rate(self, room_id: str) -> Optional[float]:
+        """Return median cooling rate (°C/h per °C delta) or None if no data."""
+        hist = self._cooling_rate_history.get(room_id)
+        if not hist:
+            return None
+        sorted_h = sorted(hist)
+        n = len(sorted_h)
+        mid = n // 2
+        if n % 2 == 0:
+            return round((sorted_h[mid - 1] + sorted_h[mid]) / 2.0, 4)
+        return round(sorted_h[mid], 4)
+
+    def get_warmup_curve_data(self, room_id: str) -> list:
+        """Return list of {bucket, avg_minutes, samples} sorted by outdoor temp for display."""
+        by_temp = self._warmup_history_by_temp.get(room_id, {})
+        result = []
+        for bucket in sorted(by_temp.keys()):
+            samples = by_temp[bucket]
+            if samples:
+                result.append({
+                    "outdoor_temp": bucket,
+                    "avg_minutes": round(sum(samples) / len(samples), 1),
+                    "samples": len(samples),
+                })
+        return result
 
     def _detect_sensor_anomaly(self, room_id: str) -> Optional[str]:
         """
@@ -385,7 +526,21 @@ class RoomLogicMixin:
         else:
             static_preheat = global_preheat
 
-        if static_preheat > 0 and cfg.get(CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED):
+        if cfg.get(CONF_OPTIMUM_START_ENABLED, DEFAULT_OPTIMUM_START_ENABLED):
+            # v1.7 Optimum Start: use outdoor-temp-bucketed warmup history when available.
+            # Falls back to adaptive/static if no bucketed data yet.
+            _outdoor = getattr(self, "_last_outdoor_temp", None)
+            if _outdoor is None:
+                _outdoor = self._get_outdoor_temp()
+            learned = self.get_learned_preheat_minutes(room_id, _outdoor) if _outdoor is not None else None
+            if learned is not None:
+                preheat_minutes = max(static_preheat, int(learned))
+            elif static_preheat > 0 and cfg.get(CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED):
+                avg_warmup = self.get_avg_warmup_minutes(room_id)
+                preheat_minutes = max(static_preheat, round(avg_warmup * 1.1)) if avg_warmup else static_preheat
+            else:
+                preheat_minutes = static_preheat
+        elif static_preheat > 0 and cfg.get(CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED):
             avg_warmup = self.get_avg_warmup_minutes(room_id)
             # Use historical warmup + 10% safety buffer (floor = static_preheat)
             preheat_minutes = max(static_preheat, round(avg_warmup * 1.1)) if avg_warmup else static_preheat

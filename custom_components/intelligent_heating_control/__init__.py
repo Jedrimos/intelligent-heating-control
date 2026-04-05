@@ -471,6 +471,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # Summer mode external entity + forecast cold-night early start
             "summer_mode_entity",
             "forecast_coldnight_enabled", "forecast_coldnight_temp", "forecast_advance_hours",
+            # Optimum Start – learn heating rate per room bucketed by outdoor temp
+            "optimum_start_enabled",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:

@@ -65,6 +65,7 @@ from .const import (
     CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED,
     CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP,
     CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS,
+    CONF_OPTIMUM_START_ENABLED, DEFAULT_OPTIMUM_START_ENABLED,
 )
 from .coordinator import IHCCoordinator
 
@@ -266,6 +267,8 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "presence_arrive_delay_minutes":   cfg.get(CONF_PRESENCE_ARRIVE_DELAY_MINUTES, DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES),
             # Heating period entity (Heizperiode)
             "heating_period_entity":           cfg.get(CONF_HEATING_PERIOD_ENTITY, ""),
+            # Optimum Start (learn heating rate per outdoor-temp bucket)
+            "optimum_start_enabled":           cfg.get(CONF_OPTIMUM_START_ENABLED, DEFAULT_OPTIMUM_START_ENABLED),
         }
 
 
@@ -334,6 +337,7 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
         "target_history",
         "mold",
         "ventilation",
+        "warmup_curve",   # learning data – large list, no time-series value
     })
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
@@ -369,6 +373,9 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
                 "temp_history":   room.get("temp_history", []),          # Roadmap 1.1
                 "target_history": room.get("target_history", []),       # v1.6.2
                 "avg_warmup_minutes": room.get("avg_warmup_minutes"),  # Roadmap 1.1
+                "learned_preheat_minutes": room.get("learned_preheat_minutes"),
+                "avg_cooling_rate": room.get("avg_cooling_rate"),
+                "warmup_curve": room.get("warmup_curve", []),
                 "anomaly": room.get("anomaly"),                        # Roadmap 1.1
                 "room_presence_active": room.get("room_presence_active"),  # Roadmap 1.2
                 "mold": room.get("mold"),                                  # Roadmap 2.0

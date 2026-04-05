@@ -221,6 +221,8 @@ from .const import (
     DEFAULT_ADAPTIVE_CURVE_ENABLED,
     DEFAULT_ADAPTIVE_CURVE_MAX_DELTA,
     CONF_ADAPTIVE_PREHEAT_ENABLED,
+    CONF_OPTIMUM_START_ENABLED,
+    DEFAULT_OPTIMUM_START_ENABLED,
     DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
     # v1.4 – ETA pre-heat, vacation calendar
     CONF_ETA_PREHEAT_ENABLED,
@@ -367,8 +369,16 @@ class IHCCoordinator(
         self._history_last_saved: Optional[datetime] = None
 
         # Roadmap 1.1 – Warmup tracking (for predictive pre-heating)
-        self._warmup_start: Dict[str, Optional[datetime]] = {}    # room_id → when heat request started
-        self._warmup_history: Dict[str, List[float]] = {}          # room_id → list of warmup minutes
+        self._warmup_start: Dict[str, Any] = {}                    # room_id → (start_time, outdoor_temp)
+        self._warmup_history: Dict[str, List[float]] = {}          # room_id → flat warmup minutes (compat)
+
+        # v1.7 – Optimum Start: outdoor-temp-bucketed warmup history
+        self._warmup_history_by_temp: Dict[str, Dict[int, List[float]]] = {}  # room_id → {bucket→[minutes]}
+
+        # v1.7 – Thermal mass: cooling rate tracking
+        self._cooling_rate_history: Dict[str, List[float]] = {}    # room_id → [rate, ...]
+        self._cooling_start: Dict[str, tuple] = {}                  # room_id → (start_time, start_temp, outdoor)
+        self._cooling_prev_demand: Dict[str, float] = {}            # room_id → demand from last cycle
 
         # v1.3 – Adaptive heating curve: cumulative offset applied so far
         self._curve_adaptation_delta: float = 0.0   # °C total shift applied
@@ -573,6 +583,10 @@ class IHCCoordinator(
             self._target_history[room_id] = deque(entries, maxlen=CONF_TEMP_HISTORY_SIZE)
         # Restore warmup history (for predictive pre-heating)
         self._warmup_history = data.get("warmup_history", {})
+        # v1.7 – Restore bucketed warmup history and cooling rates
+        for room_id, buckets in data.get("warmup_history_by_temp", {}).items():
+            self._warmup_history_by_temp[room_id] = {int(k): list(v) for k, v in buckets.items()}
+        self._cooling_rate_history = {k: list(v) for k, v in data.get("cooling_rate_history", {}).items()}
         # Restore adaptive curve state
         self._curve_adaptation_delta = float(data.get("curve_adaptation_delta", 0.0))
         # Restore demand heatmap (v1.6)
@@ -621,6 +635,9 @@ class IHCCoordinator(
             "curve_adaptation_delta": self._curve_adaptation_delta,
             # Persist demand heatmap (v1.6)
             "demand_heatmap": self._demand_heatmap,
+            # v1.7 – Optimum Start: bucketed warmup history + cooling rates
+            "warmup_history_by_temp": self._warmup_history_by_temp,
+            "cooling_rate_history": self._cooling_rate_history,
         })
 
     def get_config(self) -> dict:
@@ -1490,6 +1507,14 @@ class IHCCoordinator(
                 room_id,
                 was_cold=demand > 0,
                 is_now_warm=demand == 0 and current_temp is not None,
+                outdoor_temp=outdoor_temp,
+            )
+            self._update_cooling_tracking(
+                room_id,
+                demand=demand,
+                current_temp=current_temp,
+                outdoor_temp=outdoor_temp,
+                window_open=window_open,
             )
 
             # Stuck-valve detection: are any TRV valves stuck (calcified / jammed)?
@@ -1522,6 +1547,14 @@ class IHCCoordinator(
                 "temp_history":   self.get_temp_history(room_id),    # Roadmap 1.1
                 "target_history": self.get_target_history(room_id), # v1.6.2 – target temp trend
                 "avg_warmup_minutes": self.get_avg_warmup_minutes(room_id),
+                # v1.7 – Optimum Start: learned warmup + thermal mass
+                "learned_preheat_minutes": (
+                    self.get_learned_preheat_minutes(room_id, outdoor_temp)
+                    if cfg.get(CONF_OPTIMUM_START_ENABLED, DEFAULT_OPTIMUM_START_ENABLED) and outdoor_temp is not None
+                    else None
+                ),
+                "avg_cooling_rate": self.get_avg_cooling_rate(room_id),
+                "warmup_curve": self.get_warmup_curve_data(room_id),
                 "next_period": self.get_next_schedule_period(room_id),  # Roadmap 1.1
                 "anomaly": self._detect_sensor_anomaly(room_id),    # Roadmap 1.1
                 "room_presence_active": room_presence_active,       # Roadmap 1.2

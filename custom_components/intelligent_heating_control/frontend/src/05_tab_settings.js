@@ -776,6 +776,19 @@
               </span>
             </div>
             <div class="settings-item">
+              <label>Optimum Start <span style="font-weight:400;font-size:10px">(lernt Aufheizrate je Außentemperatur)</span></label>
+              <select class="form-select" id="optimum-start-enabled">
+                <option value="false" ${!a.optimum_start_enabled ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${a.optimum_start_enabled  ? "selected" : ""}>Aktiviert</option>
+              </select>
+              <span class="form-hint">
+                IHC misst bei jedem Aufheizzyklus wie lange der Raum braucht – getrennt nach Außentemperatur.
+                Bei −5 °C draußen wird länger vorgeheizt als bei +10 °C.
+                Ergebnisse sichtbar im Zimmer-Detail → Verlauf → Lernkurve.
+                Ersetzt das klassische adaptive Vorheizen sobald genug Messungen vorliegen.
+              </span>
+            </div>
+            <div class="settings-item">
               <label>ETA-basiertes Vorheizen</label>
               <div style="font-size:12px;color:var(--secondary-text-color);padding:6px 0">
                 ${a.eta_preheat_enabled
@@ -1198,6 +1211,7 @@
       this._callService("update_global_settings", {
         ...(curveSel ? { adaptive_curve_enabled: curveSel.value === "true" } : {}),
         adaptive_preheat_enabled: content.querySelector("#adaptive-preheat-enabled")?.value === "true",
+        optimum_start_enabled:    content.querySelector("#optimum-start-enabled")?.value === "true",
         eta_preheat_enabled:      content.querySelector("#eta-preheat-enabled")?.value === "true",
         vacation_calendar:        content.querySelector("#vacation-calendar")?.value.trim() ?? "",
         adaptive_curve_max_delta: parseFloat(content.querySelector("#adaptive-curve-max-delta")?.value) || 3.0,
