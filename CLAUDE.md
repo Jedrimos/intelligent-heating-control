@@ -1202,7 +1202,7 @@ Abgleich mit dem Blueprint `panhans/advanced_heating_control.yaml` ergab folgend
 - [x] `config_flow.py` – Number-Feld 0–25°C in `async_step_add_room` + `async_step_edit_room_details`
 - [x] `__init__.py` – `handle_add_room()`: `CONF_ROOM_TEMP_THRESHOLD: float(...)`; in `_FLOAT_FIELDS` für `handle_update_room()`
 - [x] Frontend `08_modals.js` – Feld `#m-room-temp-threshold` in Add + Edit Modal
-- [ ] Frontend `04_tab_rooms.js` – Badge/Hinweis im Zimmer-Detail wenn Schwelle aktiv greift
+- [x] Frontend `04_tab_rooms.js` – Badge/Hinweis im Zimmer-Detail wenn Schwelle aktiv greift
 
 ##### `CONF_COMFORT_TEMP_ENTITY` / `CONF_ECO_TEMP_ENTITY` – Dynamische Sollwert-Entitäten ✅ Vollständig
 - [x] `const.py` – `CONF_COMFORT_TEMP_ENTITY`, `CONF_ECO_TEMP_ENTITY` definiert
