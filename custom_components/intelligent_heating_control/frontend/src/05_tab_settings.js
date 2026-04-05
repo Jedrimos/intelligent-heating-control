@@ -152,6 +152,15 @@
               <span class="form-hint">Ab dieser Außentemperatur wird die Heizung gesperrt (Sommerautomatik muss aktiviert sein).</span>
             </div>
             <div class="settings-item" style="grid-column:1/-1">
+              <label>Sommermodus-Entity (externer Schalter)
+                ${a.summer_mode_entity ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">Extern gesteuert</span>` : ""}
+              </label>
+              <input type="text" class="form-input full" id="s-summer-mode-entity"
+                value="${a.summer_mode_entity || ''}" placeholder="input_boolean.sommermodus"
+                data-ep-domains="input_boolean,binary_sensor" autocomplete="off">
+              <span class="form-hint">Optional: Überschreibt die Temperatur-Automatik. ON = Sommer aktiv (Heizung gesperrt), OFF = Heizung freigegeben. Ideal für Automationen oder einen physischen Schalter.</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
               <label>Heizperiode-Entity
                 ${a.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : a.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
               </label>
@@ -163,6 +172,44 @@
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-temp-settings">💾 Temperaturen speichern</button>
+          </div>
+        </div>
+      </details>
+
+      <!-- ── Kälteprognose & Frühstart ────────────────────── -->
+      <details class="ihc-card" ${a.forecast_coldnight_enabled ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">❄️ Kälteprognose – Frühstart
+            ${(() => { const fc = g.weather_forecast; const active = a.forecast_coldnight_enabled && fc && fc.forecast_today_min != null && fc.forecast_today_min <= (a.forecast_coldnight_temp ?? 8); return active ? `<span class="badge" style="background:#29b6f6;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">❄️ Aktiv – ${fc.forecast_today_min}°C</span>` : ""; })()}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <p style="margin:0 0 12px;font-size:13px;color:var(--secondary-text-color)">
+            Wenn die Wetterprognose heute Nacht unter den Schwellwert fällt: Sommerautomatik für heute deaktiviert und Heizung startet automatisch früher (Vorheizzeit verlängert). Erfordert eine konfigurierte Wetter-Entity unter <em>System &amp; Sensoren</em>.
+          </p>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Kälteprognose-Frühstart</label>
+              <select class="form-select" id="s-forecast-coldnight-enabled">
+                <option value="false" ${!a.forecast_coldnight_enabled ? "selected" : ""}>Deaktiviert</option>
+                <option value="true" ${a.forecast_coldnight_enabled ? "selected" : ""}>Aktiviert</option>
+              </select>
+            </div>
+            <div class="settings-item">
+              <label>Kälteschwelle Nacht (°C)</label>
+              <input type="number" class="form-input" id="s-forecast-coldnight-temp"
+                min="-10" max="20" step="0.5" value="${a.forecast_coldnight_temp ?? 8}">
+              <span class="form-hint">Unter dieser Nachttemperatur-Prognose wird der Frühstart ausgelöst.</span>
+            </div>
+            <div class="settings-item">
+              <label>Frühstart-Vorlaufzeit (Stunden)</label>
+              <input type="number" class="form-input" id="s-forecast-advance-hours"
+                min="1" max="8" step="1" value="${a.forecast_advance_hours ?? 3}">
+              <span class="form-hint">Um wie viele Stunden früher soll die Heizung anspringen. Empfehlung: 2–4 Stunden.</span>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-forecast-settings">💾 Kälteprognose speichern</button>
           </div>
         </div>
       </details>
@@ -905,10 +952,23 @@
         frost_protection_temp:    frostT,
         summer_mode_enabled:      content.querySelector("#summer-enabled").value === "true",
         summer_threshold:         sumT,
+        summer_mode_entity:       content.querySelector("#s-summer-mode-entity")?.value.trim() || "",
         off_use_frost_protection: content.querySelector("#off-use-frost").value === "true",
         heating_period_entity:    content.querySelector("#s-heating-period-entity")?.value.trim() || "",
       });
       this._toast("✓ Temperatur-Einstellungen gespeichert");
+    });
+
+    content.querySelector("#save-forecast-settings")?.addEventListener("click", () => {
+      const cnTemp = parseFloat(content.querySelector("#s-forecast-coldnight-temp").value);
+      const advH   = parseInt(content.querySelector("#s-forecast-advance-hours").value, 10);
+      if (isNaN(cnTemp) || isNaN(advH)) { this._toast("⚠️ Ungültiger Wert"); return; }
+      this._callService("update_global_settings", {
+        forecast_coldnight_enabled: content.querySelector("#s-forecast-coldnight-enabled").value === "true",
+        forecast_coldnight_temp:    cnTemp,
+        forecast_advance_hours:     advH,
+      });
+      this._toast("✓ Kälteprognose gespeichert");
     });
 
     content.querySelector("#save-night-settings").addEventListener("click", () => {

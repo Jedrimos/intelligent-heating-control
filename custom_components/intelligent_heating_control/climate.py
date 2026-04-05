@@ -210,6 +210,9 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
 
     @property
     def target_temperature(self) -> Optional[float]:
+        # In summer mode there is no heating target
+        if (self.coordinator.data or {}).get("summer_mode", False):
+            return None
         # During boost: report max_temp so the climate tile matches what we send to the TRV
         if self.coordinator.get_boost_remaining_minutes(self._room_id) > 0:
             room_cfg = self.coordinator.get_room_config(self._room_id) or {}
@@ -220,6 +223,9 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
     @property
     def hvac_mode(self) -> HVACMode:
         if self.coordinator.get_system_mode() == SYSTEM_MODE_OFF:
+            return HVACMode.OFF
+        # Summer mode: heating globally disabled
+        if (self.coordinator.data or {}).get("summer_mode", False):
             return HVACMode.OFF
         mode = self.coordinator.get_room_mode(self._room_id)
         if mode == ROOM_MODE_OFF:
@@ -235,6 +241,8 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         d = self._room_data
         if d is None:
             return None
+        if self.coordinator.data and self.coordinator.data.get("summer_mode", False):
+            return HVACAction.OFF
         if self.coordinator.get_system_mode() == SYSTEM_MODE_OFF:
             return HVACAction.OFF
         if d.get("room_mode") == ROOM_MODE_OFF:

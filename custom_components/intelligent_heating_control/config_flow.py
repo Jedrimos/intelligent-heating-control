@@ -26,6 +26,13 @@ from .const import (
     CONF_VACATION_TEMP,
     CONF_SUMMER_MODE_ENABLED,
     CONF_SUMMER_THRESHOLD,
+    CONF_SUMMER_MODE_ENTITY,
+    CONF_FORECAST_COLDNIGHT_ENABLED,
+    DEFAULT_FORECAST_COLDNIGHT_ENABLED,
+    CONF_FORECAST_COLDNIGHT_TEMP,
+    DEFAULT_FORECAST_COLDNIGHT_TEMP,
+    CONF_FORECAST_ADVANCE_HOURS,
+    DEFAULT_FORECAST_ADVANCE_HOURS,
     CONF_SHOW_PANEL,
     CONF_PRESENCE_ENTITIES,
     CONF_HEATING_PERIOD_ENTITY,
@@ -452,6 +459,28 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 default=float(cfg.get(CONF_SUMMER_THRESHOLD, DEFAULT_SUMMER_THRESHOLD))
             ): selector.selector({
                 "number": {"min": 10, "max": 30, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_SUMMER_MODE_ENTITY,
+                default=cfg.get(CONF_SUMMER_MODE_ENTITY, "")
+            ): selector.selector({
+                "entity": {"domain": ["input_boolean", "binary_sensor"]}
+            }),
+            vol.Optional(
+                CONF_FORECAST_COLDNIGHT_ENABLED,
+                default=bool(cfg.get(CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_FORECAST_COLDNIGHT_TEMP,
+                default=float(cfg.get(CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP))
+            ): selector.selector({
+                "number": {"min": -10, "max": 20, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_FORECAST_ADVANCE_HOURS,
+                default=int(cfg.get(CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS))
+            ): selector.selector({
+                "number": {"min": 1, "max": 8, "step": 1, "unit_of_measurement": "h", "mode": "slider"}
             }),
             vol.Optional(
                 CONF_SHOW_PANEL,

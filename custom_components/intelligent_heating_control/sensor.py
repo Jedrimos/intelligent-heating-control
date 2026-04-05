@@ -61,6 +61,10 @@ from .const import (
     CONF_LIMESCALE_TIME, DEFAULT_LIMESCALE_TIME,
     CONF_LIMESCALE_DURATION_MINUTES, DEFAULT_LIMESCALE_DURATION_MINUTES,
     CONF_OUTDOOR_TEMP_SMOOTHING_MINUTES, DEFAULT_OUTDOOR_TEMP_SMOOTHING_MINUTES,
+    CONF_SUMMER_MODE_ENTITY,
+    CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED,
+    CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP,
+    CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS,
 )
 from .coordinator import IHCCoordinator
 
@@ -138,7 +142,7 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
         "outdoor_temp_sensor", "heating_switch", "cooling_switch",
         "solar_entity", "energy_price_entity", "flow_temp_entity", "flow_temp_sensor",
         "vacation_calendar", "smart_meter_entity", "weather_entity", "sun_entity",
-        "outdoor_humidity_sensor",
+        "outdoor_humidity_sensor", "summer_mode_entity",
     })
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
@@ -205,6 +209,10 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "vacation_temp":               cfg.get(CONF_VACATION_TEMP, DEFAULT_VACATION_TEMP),
             "summer_mode_enabled":         cfg.get(CONF_SUMMER_MODE_ENABLED, False),
             "summer_threshold":            cfg.get(CONF_SUMMER_THRESHOLD, DEFAULT_SUMMER_THRESHOLD),
+            "summer_mode_entity":          cfg.get(CONF_SUMMER_MODE_ENTITY, ""),
+            "forecast_coldnight_enabled":  cfg.get(CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED),
+            "forecast_coldnight_temp":     cfg.get(CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP),
+            "forecast_advance_hours":      cfg.get(CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS),
             "frost_protection_temp":       cfg.get(CONF_FROST_PROTECTION_TEMP, DEFAULT_FROST_PROTECTION_TEMP),
             "off_use_frost_protection":    cfg.get(CONF_OFF_USE_FROST_PROTECTION, DEFAULT_OFF_USE_FROST_PROTECTION),
             "night_setback_enabled":       cfg.get(CONF_NIGHT_SETBACK_ENABLED, False),

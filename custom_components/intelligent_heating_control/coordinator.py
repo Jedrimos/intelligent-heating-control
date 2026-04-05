@@ -785,13 +785,35 @@ class IHCCoordinator(
     def _is_summer_mode_active(self) -> bool:
         """Return True if Sommerautomatik should block heating."""
         cfg = self.get_config()
+
+        # External entity takes full control when configured.
+        # ON = summer active (heating blocked); OFF = summer inactive (heating allowed).
+        summer_entity = cfg.get(CONF_SUMMER_MODE_ENTITY, "")
+        if summer_entity:
+            state = self.hass.states.get(summer_entity)
+            if state is not None and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                return state.state in ("on", "true", "1")
+
         if not cfg.get(CONF_SUMMER_MODE_ENABLED, False):
             return False
         threshold = float(cfg.get(CONF_SUMMER_THRESHOLD, DEFAULT_SUMMER_THRESHOLD))
         outdoor_temp = self._get_outdoor_temp()
         if outdoor_temp is None:
             return False
-        return outdoor_temp >= threshold
+        if outdoor_temp < threshold:
+            return False
+
+        # Cold night forecast override: if tonight will be cold, suspend summer mode for today
+        # so the schedule-based heating can start normally.
+        if cfg.get(CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED):
+            forecast = self._get_weather_forecast()
+            if forecast:
+                tonight_min = forecast.get("forecast_today_min")
+                coldnight_temp = float(cfg.get(CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP))
+                if tonight_min is not None and tonight_min <= coldnight_temp:
+                    return False  # Cold night predicted – keep heating available
+
+        return True
 
     def _check_room_pir_presence(self, room: dict) -> Optional[bool]:
         """Return True=present / False=absent / None=not configured or pending.
@@ -1272,6 +1294,14 @@ class IHCCoordinator(
         )
         summer_mode = self._is_summer_mode_active()
 
+        # Compute forecast cold night status for data dict / sensor
+        forecast_coldnight_active = False
+        if cfg.get(CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED):
+            _fc = self._get_weather_forecast()
+            if _fc and _fc.get("forecast_today_min") is not None:
+                _cn_temp = float(cfg.get(CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP))
+                forecast_coldnight_active = _fc["forecast_today_min"] <= _cn_temp
+
         room_data: Dict[str, dict] = {}
 
         solar_boost = self._get_solar_boost()
@@ -1594,10 +1624,9 @@ class IHCCoordinator(
                         rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
                     self._turn_off_valve_entities(room)
                 elif summer_mode or not self._is_heating_period_active():
-                    # Sommerautomatik or heating period disabled: send frost protection temp to close TRV valves.
-                    # (The TRV's internal thermostat would otherwise try to heat if room cools at night)
-                    frost_temp = self._get_frost_protection_temp()
-                    self._set_valve_entities(room, frost_temp)
+                    # Sommerautomatik or heating period disabled: turn TRVs off completely.
+                    # Setting frost temp keeps them in HEAT mode which misleads users.
+                    self._turn_off_valve_entities(room)
                 elif self.get_boost_remaining_minutes(room_id) > 0:
                     # Boost active: try native HA boost preset first.
                     # Fallback (TRV doesn't support boost preset): send max_temp so the
@@ -1734,6 +1763,7 @@ class IHCCoordinator(
             "heating_active": should_heat,
             "cooling_active": should_cool,
             "summer_mode": summer_mode,
+            "forecast_coldnight_active": forecast_coldnight_active,
             "startup_grace_active": startup_grace_active,
             "heating_period_active": heating_period_active,
             "night_setback_active": night_setback_active,

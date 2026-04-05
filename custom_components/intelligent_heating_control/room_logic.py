@@ -47,6 +47,12 @@ from .const import (
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_ADAPTIVE_PREHEAT_ENABLED,
     CONF_TEMP_HISTORY_SIZE,
+    CONF_FORECAST_COLDNIGHT_ENABLED,
+    DEFAULT_FORECAST_COLDNIGHT_ENABLED,
+    CONF_FORECAST_COLDNIGHT_TEMP,
+    DEFAULT_FORECAST_COLDNIGHT_TEMP,
+    CONF_FORECAST_ADVANCE_HOURS,
+    DEFAULT_FORECAST_ADVANCE_HOURS,
     DEFAULT_MIN_TEMP,
     DEFAULT_MAX_TEMP,
     DEFAULT_COMFORT_TEMP,
@@ -391,6 +397,17 @@ class RoomLogicMixin:
         eta_minutes = getattr(self, "_current_eta_minutes", None)
         if eta_minutes and eta_minutes > 0:
             preheat_minutes = max(preheat_minutes, int(eta_minutes))
+
+        # Forecast cold night: start heating earlier when tonight will be cold.
+        if cfg.get(CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED):
+            advance_hours = int(cfg.get(CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS))
+            if advance_hours > 0:
+                forecast = self._get_weather_forecast()
+                if forecast:
+                    tonight_min = forecast.get("forecast_today_min")
+                    coldnight_temp = float(cfg.get(CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP))
+                    if tonight_min is not None and tonight_min <= coldnight_temp:
+                        preheat_minutes = preheat_minutes + advance_hours * 60
 
         # --- 3a. HA schedule entities (external schedule.* entities with optional condition) ---
         # Each entry uses an existing room preset (comfort/eco/sleep/away) – no separate temp needed.

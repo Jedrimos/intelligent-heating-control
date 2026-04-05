@@ -203,7 +203,8 @@
     const _demA = (this._st("sensor.ihc_gesamtanforderung") || { attributes: {} }).attributes;
     const banners = [
       _demA.startup_grace_active ? `<div class="system-banner warn">⏳ <strong>Startup-Gnadenfrist aktiv</strong> – Heizung gesperrt bis alle Sensoren geladen sind</div>` : "",
-      g.summer_mode           ? `<div class="system-banner summer">☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</div>` : "",
+      g.summer_mode           ? `<div class="system-banner summer" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</span><button id="btn-disable-summer" style="flex-shrink:0;padding:4px 10px;border:none;border-radius:6px;background:rgba(0,0,0,0.15);color:inherit;cursor:pointer;font-size:12px;font-weight:600">❄️ Jetzt heizen</button></div>` : "",
+      g.forecast_coldnight_active ? `<div class="system-banner cold">❄️ <strong>Kälte heute Nacht</strong> – Heizung startet ${g.forecast_advance_hours ?? 3}h früher (${g.weather_forecast?.forecast_today_min}°C erwartet)</div>` : "",
       g.night_setback_active  ? `<div class="system-banner night">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
       g.presence_away_active  ? `<div class="system-banner away">🚶 <strong>Niemand zuhause</strong> – Abwesend-Modus aktiv</div>` : "",
       g.solar_boost > 0       ? `<div class="system-banner solar">🌞 <strong>Solar-Überschuss</strong>${g.solar_power != null ? " · " + g.solar_power + " W" : ""} · +${g.solar_boost}°C angehoben</div>` : "",
@@ -332,6 +333,16 @@
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--secondary-text-color);margin-bottom:10px">${sortedRooms.length} Zimmer</div>
       <div class="rooms-grid">${roomCards}</div>
     `;
+
+    // Summer mode quick-disable button
+    const btnDisableSummer = content.querySelector("#btn-disable-summer");
+    if (btnDisableSummer) {
+      btnDisableSummer.addEventListener("click", () => {
+        this._callService("update_global_settings", { summer_mode_enabled: false });
+        this._toast("☀️ Sommerautomatik deaktiviert – Heizung freigegeben");
+        setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 400);
+      });
+    }
 
     // Sysmode-pill buttons (system mode quick-select in hero section)
     content.querySelectorAll(".sysmode-pill[data-sysmode]").forEach(btn => {
