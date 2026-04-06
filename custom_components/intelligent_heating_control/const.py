@@ -433,6 +433,7 @@ CONF_ECO_TEMP_ENTITY: Final = "eco_temp_entity"          # input_number.* für d
 CONF_COMFORT_EXTEND_ENTITY: Final = "comfort_extend_entity"  # entity_id (z.B. media_player.tv)
 CONF_COMFORT_EXTEND_STATE: Final = "comfort_extend_state"    # Zustand der Verlängerung auslöst
 DEFAULT_COMFORT_EXTEND_STATE: Final = "on"
+CONF_COMFORT_EXTEND_ENTRIES: Final = "comfort_extend_entries"  # list[{entity, state}]
 
 # Per-TRV Kalibrierung (pro Entität, ergänzt den Zimmer-weiten trv_temp_offset)
 # Dict: {"climate.trv_schrank": -2.0, "climate.trv_fenster": 0.5}

@@ -2278,25 +2278,42 @@ class IHCPanel extends HTMLElement {
           </div>
         </details>
 
-        <details class="modal-collapsible" ${room.comfort_extend_entity ? "open" : ""}>
-          <summary class="modal-section-title">⏱️ Komfort-Verlängerung${room.comfort_extend_active ? ' <span style="color:#43a047;font-size:11px">● aktiv</span>' : ''}</summary>
-          <div class="settings-grid">
-            <div class="settings-item" style="grid-column:1/-1">
-              <label>Verlängerungs-Entity</label>
-              <input type="text" class="form-input full" id="rs-comfort-extend-entity"
-                value="${room.comfort_extend_entity || ''}"
-                placeholder="media_player.tv · switch.tv · binary_sensor.bewegung"
-                data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
-              <span class="form-hint">Wenn aktiv → Zeitplan-Downgrade (Komfort→Eco/Schlaf) wird blockiert</span>
-            </div>
-            <div class="settings-item">
-              <label>Auslöse-Zustand</label>
-              <input type="text" class="form-input" id="rs-comfort-extend-state"
-                value="${room.comfort_extend_state || 'on'}" placeholder="on / playing / home">
-              <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
-            </div>
+        <div style="margin-bottom:16px">
+          <div class="modal-section-title" style="margin-bottom:8px">⏱️ Komfort-Verlängerung
+            ${room.comfort_extend_active ? '<span style="color:#43a047;font-size:11px;margin-left:6px">● aktiv</span>' : ''}
           </div>
-        </details>
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:8px">
+            Heizung bleibt im Komfortmodus solange eine der folgenden Bedingungen zutrifft.
+            Eintrag: entity_id · zustand (z.B. <code>media_player.tv · playing</code>)
+          </div>
+          <div id="rs-comfort-extend-list">
+            ${(() => {
+              const entries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
+                ? room.comfort_extend_entries
+                : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
+              if (entries.length > 0) {
+                return entries.map((entry, i) => `
+                  <div class="entity-row comfort-extend-row">
+                    <input type="text" class="form-input" placeholder="entity_id"
+                      value="${entry.entity || ''}" autocomplete="off" data-ce-field="entity">
+                    <input type="text" class="form-input" style="max-width:100px" placeholder="zustand"
+                      value="${entry.state || 'on'}" autocomplete="off" data-ce-field="state">
+                    ${i === 0
+                      ? `<button class="btn btn-secondary btn-icon" id="rs-add-comfort-extend">+</button>`
+                      : `<button class="btn btn-danger btn-icon remove-comfort-extend">✕</button>`}
+                  </div>`).join("");
+              } else {
+                return `
+                  <div class="entity-row comfort-extend-row">
+                    <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity">
+                    <input type="text" class="form-input" style="max-width:100px" placeholder="on" value="on" autocomplete="off" data-ce-field="state">
+                    <button class="btn btn-secondary btn-icon" id="rs-add-comfort-extend">+</button>
+                  </div>`;
+              }
+            })()}
+          </div>
+          <span class="form-hint">Optional. Beispiel: media_player.wohnzimmer / playing · binary_sensor.jemand_zuhause / on</span>
+        </div>
 
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
@@ -2339,6 +2356,22 @@ class IHCPanel extends HTMLElement {
     });
     container.querySelectorAll(".remove-entity").forEach(btn => {
       btn.addEventListener("click", () => btn.closest(".entity-row")?.remove());
+    });
+
+    // Comfort-extend list: add + remove buttons
+    container.querySelector("#rs-add-comfort-extend")?.addEventListener("click", () => {
+      const list = container.querySelector("#rs-comfort-extend-list");
+      const row = document.createElement("div");
+      row.className = "entity-row comfort-extend-row";
+      row.innerHTML = `
+        <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity">
+        <input type="text" class="form-input" style="max-width:100px" placeholder="on" value="on" autocomplete="off" data-ce-field="state">
+        <button class="btn btn-danger btn-icon remove-comfort-extend">✕</button>`;
+      list.appendChild(row);
+      row.querySelector(".remove-comfort-extend").addEventListener("click", () => row.remove());
+    });
+    container.querySelectorAll(".remove-comfort-extend").forEach(btn => {
+      btn.addEventListener("click", () => btn.closest(".comfort-extend-row").remove());
     });
 
     // Boost buttons
@@ -2411,8 +2444,14 @@ class IHCPanel extends HTMLElement {
         room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
         comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
-        comfort_extend_entity:    container.querySelector("#rs-comfort-extend-entity")?.value.trim() || "",
-        comfort_extend_state:     container.querySelector("#rs-comfort-extend-state")?.value.trim() || "on",
+        comfort_extend_entries: [...container.querySelectorAll("#rs-comfort-extend-list .comfort-extend-row")]
+          .map(row => ({
+            entity: row.querySelector('[data-ce-field="entity"]')?.value.trim() || "",
+            state:  row.querySelector('[data-ce-field="state"]')?.value.trim()  || "on",
+          }))
+          .filter(e => e.entity),
+        comfort_extend_entity: "",
+        comfort_extend_state:  "on",
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,
@@ -3097,11 +3136,11 @@ class IHCPanel extends HTMLElement {
       gridContainer.innerHTML = this._renderDemandHeatmapGrid(room.demand_heatmap);
     }
 
-    // Optimum Start – Lernkurve + Thermische Masse
+    // Optimum Start – Lernkurve + Thermische Masse (always visible)
     const warmupCurve = room.warmup_curve || [];
     const learnedMin = room.learned_preheat_minutes;
     const coolingRate = room.avg_cooling_rate;
-    if (warmupCurve.length > 0 || coolingRate != null) {
+    {
       const learnCard = document.createElement("div");
       learnCard.className = "card";
       learnCard.style.marginTop = "16px";
@@ -5649,21 +5688,18 @@ class IHCPanel extends HTMLElement {
           </div>
         </div>
         <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
-        <div class="settings-grid">
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>Verlängerungs-Entity</label>
-            <input type="text" class="form-input full" id="m-comfort-extend-entity"
-              placeholder="media_player.tv oder switch.tv"
-              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
-            <span class="form-hint">Wenn diese Entity aktiv ist, bleibt die Komforttemperatur trotz Zeitplan erhalten (z.B. TV läuft → kein Eco um 22 Uhr)</span>
-          </div>
-          <div class="settings-item">
-            <label>Auslöse-Zustand</label>
-            <input type="text" class="form-input" id="m-comfort-extend-state" value="on"
-              placeholder="on / playing / home">
-            <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+        <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:8px">
+          Heizung bleibt im Komfortmodus solange eine der Bedingungen zutrifft (z.B. TV läuft → kein Eco um 22 Uhr).
+        </div>
+        <div id="m-comfort-extend-list">
+          <div class="entity-row ce-row">
+            <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity"
+              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
+            <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="on" data-ce-field="state">
+            <button class="btn btn-secondary btn-icon" id="m-add-ce-entry">+</button>
           </div>
         </div>
+        <span class="form-hint">Entity · Zustand – z.B. <code>media_player.tv</code> / <code>playing</code> oder <code>person.max</code> / <code>home</code></span>
       </div>
 
       <div class="modal-section">
@@ -5751,8 +5787,11 @@ class IHCPanel extends HTMLElement {
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
-        comfort_extend_entity:    modal.querySelector("#m-comfort-extend-entity")?.value.trim() || "",
-        comfort_extend_state:     modal.querySelector("#m-comfort-extend-state")?.value.trim() || "on",
+        comfort_extend_entity: "",
+        comfort_extend_state:  "on",
+        comfort_extend_entries: [...modal.querySelectorAll("#m-comfort-extend-list .ce-row")]
+          .map(r => ({ entity: r.querySelector('[data-ce-field="entity"]')?.value.trim() || "", state: r.querySelector('[data-ce-field="state"]')?.value.trim() || "on" }))
+          .filter(e => e.entity),
         ha_schedules,
       });
       this._closeModal();
@@ -5760,6 +5799,7 @@ class IHCPanel extends HTMLElement {
     });
     this._bindEntityListAdders();
     this._bindHaSchedAdder([], "m-ha-sched-list", "m-add-ha-sched");
+    this._bindComfortExtendAdder("m-comfort-extend-list", "m-add-ce-entry");
     // Pickers are attached by _showModal already; schedule rows attached separately
   }
 
@@ -5908,24 +5948,37 @@ class IHCPanel extends HTMLElement {
             <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
           </div>
         </div>
-        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
-        <div class="settings-grid">
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>Verlängerungs-Entity</label>
-            <input type="text" class="form-input full" id="m-comfort-extend-entity"
-              value="${room.comfort_extend_entity || ''}"
-              placeholder="media_player.tv oder switch.tv"
-              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
-            <span class="form-hint">Wenn diese Entity aktiv ist, bleibt die Komforttemperatur trotz Zeitplan erhalten (z.B. TV läuft → kein Eco um 22 Uhr)</span>
-          </div>
-          <div class="settings-item">
-            <label>Auslöse-Zustand</label>
-            <input type="text" class="form-input" id="m-comfort-extend-state"
-              value="${room.comfort_extend_state || 'on'}"
-              placeholder="on / playing / home">
-            <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
-          </div>
+        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span>
+          ${room.comfort_extend_active ? '<span style="color:#43a047;font-size:11px;margin-left:4px">● aktiv</span>' : ''}
         </div>
+        <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:8px">
+          Heizung bleibt im Komfortmodus solange eine der Bedingungen zutrifft (z.B. TV läuft → kein Eco um 22 Uhr).
+        </div>
+        <div id="m-comfort-extend-list">
+          ${(() => {
+            const entries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
+              ? room.comfort_extend_entries
+              : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
+            if (entries.length === 0) {
+              return `<div class="entity-row ce-row">
+                <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity"
+                  data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
+                <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="on" data-ce-field="state">
+                <button class="btn btn-secondary btn-icon" id="m-add-ce-entry">+</button>
+              </div>`;
+            }
+            return entries.map((e, i) => `
+              <div class="entity-row ce-row">
+                <input type="text" class="form-input" placeholder="entity_id" value="${e.entity || ''}" autocomplete="off" data-ce-field="entity"
+                  data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
+                <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="${e.state || 'on'}" data-ce-field="state">
+                ${i === 0
+                  ? `<button class="btn btn-secondary btn-icon" id="m-add-ce-entry">+</button>`
+                  : `<button class="btn btn-danger btn-icon remove-ce-entry">✕</button>`}
+              </div>`).join("");
+          })()}
+        </div>
+        <span class="form-hint">Entity · Zustand – z.B. <code>media_player.tv</code> / <code>playing</code> oder <code>person.max</code> / <code>home</code></span>
       </div>
 
       <details class="modal-collapsible">
@@ -6303,8 +6356,11 @@ class IHCPanel extends HTMLElement {
         trv_calibrations:         (() => { try { const v = modal.querySelector("#m-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
         comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
-        comfort_extend_entity:    modal.querySelector("#m-comfort-extend-entity")?.value.trim() || "",
-        comfort_extend_state:     modal.querySelector("#m-comfort-extend-state")?.value.trim() || "on",
+        comfort_extend_entity: "",
+        comfort_extend_state:  "on",
+        comfort_extend_entries: [...modal.querySelectorAll("#m-comfort-extend-list .ce-row")]
+          .map(r => ({ entity: r.querySelector('[data-ce-field="entity"]')?.value.trim() || "", state: r.querySelector('[data-ce-field="state"]')?.value.trim() || "on" }))
+          .filter(e => e.entity),
         ha_schedules,
       });
       this._closeModal();
@@ -6335,6 +6391,7 @@ class IHCPanel extends HTMLElement {
 
     this._bindEntityListAdders();
     this._bindHaSchedAdder(room.ha_schedules || [], "m-ha-sched-list", "m-add-ha-sched");
+    this._bindComfortExtendAdder("m-comfort-extend-list", "m-add-ce-entry");
   }
 
   _showConfirmModal(title, body, onConfirm) {
@@ -6455,6 +6512,32 @@ class IHCPanel extends HTMLElement {
       existingEntries.forEach(entry => list.appendChild(this._makeHaSchedRow(entry)));
       const btn = this.shadowRoot.querySelector(`#${addBtnId}`);
       if (btn) btn.addEventListener("click", () => list.appendChild(this._makeHaSchedRow()));
+    }, 50);
+  }
+
+  /** Binds the add/remove buttons for comfort-extend entry rows. */
+  _bindComfortExtendAdder(listId, addBtnId) {
+    setTimeout(() => {
+      const list = this.shadowRoot.querySelector(`#${listId}`);
+      if (!list) return;
+      // Bind existing remove buttons
+      list.querySelectorAll(".remove-ce-entry").forEach(btn => {
+        btn.addEventListener("click", () => btn.closest(".ce-row").remove());
+      });
+      const addBtn = this.shadowRoot.querySelector(`#${addBtnId}`);
+      if (addBtn) {
+        addBtn.addEventListener("click", () => {
+          const row = document.createElement("div");
+          row.className = "entity-row ce-row";
+          row.innerHTML = `
+            <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity"
+              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
+            <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="on" data-ce-field="state">
+            <button class="btn btn-danger btn-icon remove-ce-entry">✕</button>`;
+          row.querySelector(".remove-ce-entry").addEventListener("click", () => row.remove());
+          list.appendChild(row);
+        });
+      }
     }, 50);
   }
 

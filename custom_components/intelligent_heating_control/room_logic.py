@@ -22,6 +22,7 @@ from .const import (
     CONF_ECO_TEMP_ENTITY,
     CONF_COMFORT_EXTEND_ENTITY,
     CONF_COMFORT_EXTEND_STATE,
+    CONF_COMFORT_EXTEND_ENTRIES,
     DEFAULT_COMFORT_EXTEND_STATE,
     CONF_AWAY_TEMP_ROOM,
     CONF_ROOM_TEMP_THRESHOLD,
@@ -355,13 +356,24 @@ class RoomLogicMixin:
         return comfort_base, eco_base, sleep_base, away_base
 
     def _comfort_extend_active(self, room: dict) -> bool:
-        """Return True if the comfort extension condition is currently met."""
+        """Return True if ANY comfort-extension condition is currently met."""
+        # New-style: list of {entity, state} entries (OR logic)
+        entries = room.get(CONF_COMFORT_EXTEND_ENTRIES, [])
+        for entry in entries:
+            entity = entry.get("entity", "")
+            expected = entry.get("state", DEFAULT_COMFORT_EXTEND_STATE)
+            if entity:
+                s = self.hass.states.get(entity)
+                if s is not None and s.state == expected:
+                    return True
+        # Legacy single entity (backward compat)
         entity = room.get(CONF_COMFORT_EXTEND_ENTITY, "")
-        if not entity:
-            return False
-        expected = room.get(CONF_COMFORT_EXTEND_STATE, DEFAULT_COMFORT_EXTEND_STATE)
-        state = self.hass.states.get(entity)
-        return state is not None and state.state == expected
+        if entity:
+            expected = room.get(CONF_COMFORT_EXTEND_STATE, DEFAULT_COMFORT_EXTEND_STATE)
+            s = self.hass.states.get(entity)
+            if s is not None and s.state == expected:
+                return True
+        return False
 
     def _calculate_target_temp(self, room: dict, outdoor_temp: Optional[float]) -> tuple[float, dict]:
         """

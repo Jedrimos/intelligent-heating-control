@@ -92,6 +92,7 @@ from .const import (
     CONF_ECO_TEMP_ENTITY,
     CONF_COMFORT_EXTEND_ENTITY,
     CONF_COMFORT_EXTEND_STATE,
+    CONF_COMFORT_EXTEND_ENTRIES,
     DEFAULT_COMFORT_EXTEND_STATE,
     CONF_AGGRESSIVE_MODE_ENABLED,
     DEFAULT_AGGRESSIVE_MODE_ENABLED,
@@ -376,6 +377,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             # Comfort extend
             "comfort_extend_entity": room_cfg.get(CONF_COMFORT_EXTEND_ENTITY, ""),
             "comfort_extend_state": room_cfg.get(CONF_COMFORT_EXTEND_STATE, DEFAULT_COMFORT_EXTEND_STATE),
+            "comfort_extend_entries": room_cfg.get(CONF_COMFORT_EXTEND_ENTRIES, []),
             "comfort_extend_active": d.get("comfort_extend_active", False),
             # Aggressive mode
             "aggressive_mode_enabled": room_cfg.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED),

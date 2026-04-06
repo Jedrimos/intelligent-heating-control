@@ -341,21 +341,18 @@
           </div>
         </div>
         <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
-        <div class="settings-grid">
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>Verlängerungs-Entity</label>
-            <input type="text" class="form-input full" id="m-comfort-extend-entity"
-              placeholder="media_player.tv oder switch.tv"
-              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
-            <span class="form-hint">Wenn diese Entity aktiv ist, bleibt die Komforttemperatur trotz Zeitplan erhalten (z.B. TV läuft → kein Eco um 22 Uhr)</span>
-          </div>
-          <div class="settings-item">
-            <label>Auslöse-Zustand</label>
-            <input type="text" class="form-input" id="m-comfort-extend-state" value="on"
-              placeholder="on / playing / home">
-            <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
+        <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:8px">
+          Heizung bleibt im Komfortmodus solange eine der Bedingungen zutrifft (z.B. TV läuft → kein Eco um 22 Uhr).
+        </div>
+        <div id="m-comfort-extend-list">
+          <div class="entity-row ce-row">
+            <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity"
+              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
+            <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="on" data-ce-field="state">
+            <button class="btn btn-secondary btn-icon" id="m-add-ce-entry">+</button>
           </div>
         </div>
+        <span class="form-hint">Entity · Zustand – z.B. <code>media_player.tv</code> / <code>playing</code> oder <code>person.max</code> / <code>home</code></span>
       </div>
 
       <div class="modal-section">
@@ -443,8 +440,11 @@
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
-        comfort_extend_entity:    modal.querySelector("#m-comfort-extend-entity")?.value.trim() || "",
-        comfort_extend_state:     modal.querySelector("#m-comfort-extend-state")?.value.trim() || "on",
+        comfort_extend_entity: "",
+        comfort_extend_state:  "on",
+        comfort_extend_entries: [...modal.querySelectorAll("#m-comfort-extend-list .ce-row")]
+          .map(r => ({ entity: r.querySelector('[data-ce-field="entity"]')?.value.trim() || "", state: r.querySelector('[data-ce-field="state"]')?.value.trim() || "on" }))
+          .filter(e => e.entity),
         ha_schedules,
       });
       this._closeModal();
@@ -452,6 +452,7 @@
     });
     this._bindEntityListAdders();
     this._bindHaSchedAdder([], "m-ha-sched-list", "m-add-ha-sched");
+    this._bindComfortExtendAdder("m-comfort-extend-list", "m-add-ce-entry");
     // Pickers are attached by _showModal already; schedule rows attached separately
   }
 
@@ -600,24 +601,37 @@
             <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
           </div>
         </div>
-        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
-        <div class="settings-grid">
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>Verlängerungs-Entity</label>
-            <input type="text" class="form-input full" id="m-comfort-extend-entity"
-              value="${room.comfort_extend_entity || ''}"
-              placeholder="media_player.tv oder switch.tv"
-              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
-            <span class="form-hint">Wenn diese Entity aktiv ist, bleibt die Komforttemperatur trotz Zeitplan erhalten (z.B. TV läuft → kein Eco um 22 Uhr)</span>
-          </div>
-          <div class="settings-item">
-            <label>Auslöse-Zustand</label>
-            <input type="text" class="form-input" id="m-comfort-extend-state"
-              value="${room.comfort_extend_state || 'on'}"
-              placeholder="on / playing / home">
-            <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
-          </div>
+        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span>
+          ${room.comfort_extend_active ? '<span style="color:#43a047;font-size:11px;margin-left:4px">● aktiv</span>' : ''}
         </div>
+        <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:8px">
+          Heizung bleibt im Komfortmodus solange eine der Bedingungen zutrifft (z.B. TV läuft → kein Eco um 22 Uhr).
+        </div>
+        <div id="m-comfort-extend-list">
+          ${(() => {
+            const entries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
+              ? room.comfort_extend_entries
+              : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
+            if (entries.length === 0) {
+              return `<div class="entity-row ce-row">
+                <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity"
+                  data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
+                <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="on" data-ce-field="state">
+                <button class="btn btn-secondary btn-icon" id="m-add-ce-entry">+</button>
+              </div>`;
+            }
+            return entries.map((e, i) => `
+              <div class="entity-row ce-row">
+                <input type="text" class="form-input" placeholder="entity_id" value="${e.entity || ''}" autocomplete="off" data-ce-field="entity"
+                  data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
+                <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="${e.state || 'on'}" data-ce-field="state">
+                ${i === 0
+                  ? `<button class="btn btn-secondary btn-icon" id="m-add-ce-entry">+</button>`
+                  : `<button class="btn btn-danger btn-icon remove-ce-entry">✕</button>`}
+              </div>`).join("");
+          })()}
+        </div>
+        <span class="form-hint">Entity · Zustand – z.B. <code>media_player.tv</code> / <code>playing</code> oder <code>person.max</code> / <code>home</code></span>
       </div>
 
       <details class="modal-collapsible">
@@ -995,8 +1009,11 @@
         trv_calibrations:         (() => { try { const v = modal.querySelector("#m-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
         comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
-        comfort_extend_entity:    modal.querySelector("#m-comfort-extend-entity")?.value.trim() || "",
-        comfort_extend_state:     modal.querySelector("#m-comfort-extend-state")?.value.trim() || "on",
+        comfort_extend_entity: "",
+        comfort_extend_state:  "on",
+        comfort_extend_entries: [...modal.querySelectorAll("#m-comfort-extend-list .ce-row")]
+          .map(r => ({ entity: r.querySelector('[data-ce-field="entity"]')?.value.trim() || "", state: r.querySelector('[data-ce-field="state"]')?.value.trim() || "on" }))
+          .filter(e => e.entity),
         ha_schedules,
       });
       this._closeModal();
@@ -1027,6 +1044,7 @@
 
     this._bindEntityListAdders();
     this._bindHaSchedAdder(room.ha_schedules || [], "m-ha-sched-list", "m-add-ha-sched");
+    this._bindComfortExtendAdder("m-comfort-extend-list", "m-add-ce-entry");
   }
 
   _showConfirmModal(title, body, onConfirm) {
@@ -1147,6 +1165,32 @@
       existingEntries.forEach(entry => list.appendChild(this._makeHaSchedRow(entry)));
       const btn = this.shadowRoot.querySelector(`#${addBtnId}`);
       if (btn) btn.addEventListener("click", () => list.appendChild(this._makeHaSchedRow()));
+    }, 50);
+  }
+
+  /** Binds the add/remove buttons for comfort-extend entry rows. */
+  _bindComfortExtendAdder(listId, addBtnId) {
+    setTimeout(() => {
+      const list = this.shadowRoot.querySelector(`#${listId}`);
+      if (!list) return;
+      // Bind existing remove buttons
+      list.querySelectorAll(".remove-ce-entry").forEach(btn => {
+        btn.addEventListener("click", () => btn.closest(".ce-row").remove());
+      });
+      const addBtn = this.shadowRoot.querySelector(`#${addBtnId}`);
+      if (addBtn) {
+        addBtn.addEventListener("click", () => {
+          const row = document.createElement("div");
+          row.className = "entity-row ce-row";
+          row.innerHTML = `
+            <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity"
+              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
+            <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="on" data-ce-field="state">
+            <button class="btn btn-danger btn-icon remove-ce-entry">✕</button>`;
+          row.querySelector(".remove-ce-entry").addEventListener("click", () => row.remove());
+          list.appendChild(row);
+        });
+      }
     }, 50);
   }
 

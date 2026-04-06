@@ -477,25 +477,42 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${room.comfort_extend_entity ? "open" : ""}>
-          <summary class="modal-section-title">⏱️ Komfort-Verlängerung${room.comfort_extend_active ? ' <span style="color:#43a047;font-size:11px">● aktiv</span>' : ''}</summary>
-          <div class="settings-grid">
-            <div class="settings-item" style="grid-column:1/-1">
-              <label>Verlängerungs-Entity</label>
-              <input type="text" class="form-input full" id="rs-comfort-extend-entity"
-                value="${room.comfort_extend_entity || ''}"
-                placeholder="media_player.tv · switch.tv · binary_sensor.bewegung"
-                data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker" autocomplete="off">
-              <span class="form-hint">Wenn aktiv → Zeitplan-Downgrade (Komfort→Eco/Schlaf) wird blockiert</span>
-            </div>
-            <div class="settings-item">
-              <label>Auslöse-Zustand</label>
-              <input type="text" class="form-input" id="rs-comfort-extend-state"
-                value="${room.comfort_extend_state || 'on'}" placeholder="on / playing / home">
-              <span class="form-hint">Zustand der die Verlängerung aktiviert</span>
-            </div>
+        <div style="margin-bottom:16px">
+          <div class="modal-section-title" style="margin-bottom:8px">⏱️ Komfort-Verlängerung
+            ${room.comfort_extend_active ? '<span style="color:#43a047;font-size:11px;margin-left:6px">● aktiv</span>' : ''}
           </div>
-        </details>
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:8px">
+            Heizung bleibt im Komfortmodus solange eine der folgenden Bedingungen zutrifft.
+            Eintrag: entity_id · zustand (z.B. <code>media_player.tv · playing</code>)
+          </div>
+          <div id="rs-comfort-extend-list">
+            ${(() => {
+              const entries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
+                ? room.comfort_extend_entries
+                : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
+              if (entries.length > 0) {
+                return entries.map((entry, i) => `
+                  <div class="entity-row comfort-extend-row">
+                    <input type="text" class="form-input" placeholder="entity_id"
+                      value="${entry.entity || ''}" autocomplete="off" data-ce-field="entity">
+                    <input type="text" class="form-input" style="max-width:100px" placeholder="zustand"
+                      value="${entry.state || 'on'}" autocomplete="off" data-ce-field="state">
+                    ${i === 0
+                      ? `<button class="btn btn-secondary btn-icon" id="rs-add-comfort-extend">+</button>`
+                      : `<button class="btn btn-danger btn-icon remove-comfort-extend">✕</button>`}
+                  </div>`).join("");
+              } else {
+                return `
+                  <div class="entity-row comfort-extend-row">
+                    <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity">
+                    <input type="text" class="form-input" style="max-width:100px" placeholder="on" value="on" autocomplete="off" data-ce-field="state">
+                    <button class="btn btn-secondary btn-icon" id="rs-add-comfort-extend">+</button>
+                  </div>`;
+              }
+            })()}
+          </div>
+          <span class="form-hint">Optional. Beispiel: media_player.wohnzimmer / playing · binary_sensor.jemand_zuhause / on</span>
+        </div>
 
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
@@ -538,6 +555,22 @@
     });
     container.querySelectorAll(".remove-entity").forEach(btn => {
       btn.addEventListener("click", () => btn.closest(".entity-row")?.remove());
+    });
+
+    // Comfort-extend list: add + remove buttons
+    container.querySelector("#rs-add-comfort-extend")?.addEventListener("click", () => {
+      const list = container.querySelector("#rs-comfort-extend-list");
+      const row = document.createElement("div");
+      row.className = "entity-row comfort-extend-row";
+      row.innerHTML = `
+        <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity">
+        <input type="text" class="form-input" style="max-width:100px" placeholder="on" value="on" autocomplete="off" data-ce-field="state">
+        <button class="btn btn-danger btn-icon remove-comfort-extend">✕</button>`;
+      list.appendChild(row);
+      row.querySelector(".remove-comfort-extend").addEventListener("click", () => row.remove());
+    });
+    container.querySelectorAll(".remove-comfort-extend").forEach(btn => {
+      btn.addEventListener("click", () => btn.closest(".comfort-extend-row").remove());
     });
 
     // Boost buttons
@@ -610,8 +643,14 @@
         room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
         comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
-        comfort_extend_entity:    container.querySelector("#rs-comfort-extend-entity")?.value.trim() || "",
-        comfort_extend_state:     container.querySelector("#rs-comfort-extend-state")?.value.trim() || "on",
+        comfort_extend_entries: [...container.querySelectorAll("#rs-comfort-extend-list .comfort-extend-row")]
+          .map(row => ({
+            entity: row.querySelector('[data-ce-field="entity"]')?.value.trim() || "",
+            state:  row.querySelector('[data-ce-field="state"]')?.value.trim()  || "on",
+          }))
+          .filter(e => e.entity),
+        comfort_extend_entity: "",
+        comfort_extend_state:  "on",
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,
@@ -1296,11 +1335,11 @@
       gridContainer.innerHTML = this._renderDemandHeatmapGrid(room.demand_heatmap);
     }
 
-    // Optimum Start – Lernkurve + Thermische Masse
+    // Optimum Start – Lernkurve + Thermische Masse (always visible)
     const warmupCurve = room.warmup_curve || [];
     const learnedMin = room.learned_preheat_minutes;
     const coolingRate = room.avg_cooling_rate;
-    if (warmupCurve.length > 0 || coolingRate != null) {
+    {
       const learnCard = document.createElement("div");
       learnCard.className = "card";
       learnCard.style.marginTop = "16px";
