@@ -184,6 +184,18 @@ class IHCPanel extends HTMLElement {
       shadow.appendChild(toastRoot);
     }
 
+    // Delegated: manual-override dismiss button on dashboard room cards
+    const tabContent = panel.querySelector("#tab-content") || shadow.querySelector("#tab-content");
+    if (tabContent && !tabContent._ihcManualListenerAttached) {
+      tabContent._ihcManualListenerAttached = true;
+      tabContent.addEventListener("ihc-dismiss-manual", (e) => {
+        const roomId = e.detail?.id;
+        if (!roomId) return;
+        this._callService("set_room_mode", { id: roomId, mode: "auto" });
+        this._toast("↩ Modus zurück auf Auto");
+      });
+    }
+
     this._initialized = true;
     this._updateActiveTab();
     this._renderTabContent();

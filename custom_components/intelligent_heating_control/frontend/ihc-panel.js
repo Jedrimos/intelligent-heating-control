@@ -818,6 +818,18 @@ class IHCPanel extends HTMLElement {
       shadow.appendChild(toastRoot);
     }
 
+    // Delegated: manual-override dismiss button on dashboard room cards
+    const tabContent = panel.querySelector("#tab-content") || shadow.querySelector("#tab-content");
+    if (tabContent && !tabContent._ihcManualListenerAttached) {
+      tabContent._ihcManualListenerAttached = true;
+      tabContent.addEventListener("ihc-dismiss-manual", (e) => {
+        const roomId = e.detail?.id;
+        if (!roomId) return;
+        this._callService("set_room_mode", { id: roomId, mode: "auto" });
+        this._toast("↩ Modus zurück auf Auto");
+      });
+    }
+
     this._initialized = true;
     this._updateActiveTab();
     this._renderTabContent();
@@ -1502,6 +1514,12 @@ class IHCPanel extends HTMLElement {
       // Alert chips (compact, stacked)
       const alerts = [];
       if (systemOverrides) alerts.push(`<div class="room-alert alert-override">${overrideLabel} – Zimmermodus übersteuert</div>`);
+      // Manual override: show prominent alert with reset time if known
+      if (room.room_mode === "manual") {
+        const resetStr = (room.next_period && room.next_period.start) ? ` · Reset: ${room.next_period.start} Uhr` : "";
+        const manualTemp = room.manual_temp != null ? ` (${parseFloat(room.manual_temp).toFixed(1)}°C)` : "";
+        alerts.push(`<div class="room-alert alert-warn" style="cursor:pointer" onclick="this.closest('.room-card').dispatchEvent(new CustomEvent('ihc-dismiss-manual',{bubbles:true,detail:{id:'${room.room_id}'}}))">✋ Manuell bedient${manualTemp}${resetStr} – <u>Auto wiederherstellen</u></div>`);
+      }
       if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
       if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
       if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);

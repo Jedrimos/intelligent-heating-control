@@ -475,8 +475,18 @@ class TRVControllerMixin:
             # reflect a new setpoint – a window far beyond the old 3-minute fixed grace.
             pending = self._trv_cmd_pending.get(entity_id)
             if pending is not None:
-                if abs(trv_target - pending) < TRV_TEMP_HYSTERESIS:
-                    # TRV confirmed our command → remove pending, detection resumes next cycle
+                # Use TRV_SETPOINT_STEP (0.5 °C) as confirmation window, not TRV_TEMP_HYSTERESIS.
+                # Reason: TRVs always quantise their reported temperature to their own resolution
+                # (typically 0.5 °C, some older models 1.0 °C).  If IHC sends 19.5 °C and the
+                # TRV rounds to 20.0 °C the 0.3 °C hysteresis would never match, causing the
+                # command to sit in "pending" forever until the 600 s timeout.  After the timeout
+                # the baseline is reset to the TRV value, and on the very next cycle the
+                # calculated setpoint is 0.5–1.0 °C below the TRV's rounded-up value – which is
+                # exactly the 1.0 °C threshold that triggers a false "Manuell" override.
+                # Using TRV_SETPOINT_STEP (0.5 °C) as the confirmation window handles both
+                # 0.5 °C-step and 1.0 °C-step TRVs without false positives.
+                if abs(trv_target - pending) <= TRV_SETPOINT_STEP:
+                    # TRV confirmed our command (within its resolution) → detection resumes next cycle
                     del self._trv_cmd_pending[entity_id]
                     self._last_sent_temps[entity_id] = trv_target  # sync baseline to confirmed value
                 else:
