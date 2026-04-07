@@ -337,6 +337,8 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "weight": room_cfg.get("weight", 1.0),
             # Per-room advanced settings
             "absolute_min_temp": room_cfg.get(CONF_ABSOLUTE_MIN_TEMP, DEFAULT_ABSOLUTE_MIN_TEMP),
+            "min_temp": room_cfg.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP),
+            "max_temp": room_cfg.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP),
             "room_qm": room_cfg.get(CONF_ROOM_QM, DEFAULT_ROOM_QM),
             "room_preheat_minutes": room_cfg.get(CONF_ROOM_PREHEAT_MINUTES, DEFAULT_ROOM_PREHEAT_MINUTES),
             "window_reaction_time": room_cfg.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME),
