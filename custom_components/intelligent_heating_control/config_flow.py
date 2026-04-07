@@ -220,6 +220,8 @@ from .const import (
     DEFAULT_AGGRESSIVE_MODE_OFFSET,
     CONF_OPTIMUM_START_ENABLED,
     DEFAULT_OPTIMUM_START_ENABLED,
+    CONF_TEMP_CALIBRATION,
+    CONF_COMFORT_EXTEND_ENTRIES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -867,6 +869,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_AGGRESSIVE_MODE_ENABLED: bool(user_input.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED)),
                 CONF_AGGRESSIVE_MODE_RANGE: float(user_input.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE)),
                 CONF_AGGRESSIVE_MODE_OFFSET: float(user_input.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET)),
+                CONF_TEMP_CALIBRATION: float(user_input.get(CONF_TEMP_CALIBRATION, 0.0)),
+                CONF_COMFORT_EXTEND_ENTRIES: list(user_input.get(CONF_COMFORT_EXTEND_ENTRIES, [])),
                 CONF_SCHEDULES: [],
                 CONF_HA_SCHEDULES: [],
             }
@@ -1001,6 +1005,9 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_AGGRESSIVE_MODE_OFFSET, default=float(DEFAULT_AGGRESSIVE_MODE_OFFSET)): selector.selector({
                 "number": {"min": 0.5, "max": 8.0, "step": 0.5, "unit_of_measurement": "°C", "mode": "slider"}
+            }),
+            vol.Optional(CONF_TEMP_CALIBRATION, default=0.0): selector.selector({
+                "number": {"min": -5.0, "max": 5.0, "step": 0.1, "unit_of_measurement": "°C", "mode": "box"}
             }),
         })
         return self.async_show_form(
@@ -1172,6 +1179,9 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_AGGRESSIVE_MODE_OFFSET, default=float(room.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET))): selector.selector({
                 "number": {"min": 0.5, "max": 8.0, "step": 0.5, "unit_of_measurement": "°C", "mode": "slider"}
+            }),
+            vol.Optional(CONF_TEMP_CALIBRATION, default=float(room.get(CONF_TEMP_CALIBRATION, 0.0))): selector.selector({
+                "number": {"min": -5.0, "max": 5.0, "step": 0.1, "unit_of_measurement": "°C", "mode": "box"}
             }),
         })
         return self.async_show_form(step_id="edit_room_details", data_schema=schema)

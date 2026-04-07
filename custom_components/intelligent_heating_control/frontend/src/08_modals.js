@@ -109,6 +109,12 @@
           min="0" max="3600" step="30" value="300">
       </div>
 
+      <div class="form-group">
+        <label class="form-label">🎚️ Sensor-Kalibrierung (°C)</label>
+        <input type="number" class="form-input full" id="m-temp-calibration" value="0" step="0.1" min="-5" max="5">
+        <span class="form-hint">Offset für den Raumtemperatursensor. Positiv = Sensor misst zu kalt, negativ = zu warm. 0 = deaktiviert.</span>
+      </div>
+
       <details class="modal-collapsible">
         <summary class="modal-section-title">⚡ Aggressiver Modus (für träge TRVs)</summary>
         <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0 10px">
@@ -450,6 +456,7 @@
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
+        temp_calibration:       parseFloat(modal.querySelector("#m-temp-calibration")?.value ?? "0") || 0,
         comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
         comfort_extend_entity: "",
@@ -873,6 +880,20 @@
         </div>
       </details>
 
+      <details class="modal-collapsible" ${room.temp_calibration != null && room.temp_calibration !== 0 ? "open" : ""}>
+        <summary>🎚️ Sensor-Kalibrierung</summary>
+        <div class="modal-collapsible-body">
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Raumtemperatursensor-Offset (°C)</label>
+              <input type="number" class="form-input" id="m-temp-calibration"
+                value="${room.temp_calibration ?? 0}" step="0.1" min="-5" max="5">
+              <span class="form-hint">Positiv = Sensor misst zu kalt (IHC addiert den Wert). Negativ = Sensor misst zu warm. 0 = deaktiviert.</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <details class="modal-collapsible" ${room.ha_schedules?.length ? "open" : ""}>
         <summary>📅 HA Zeitpläne <span style="font-weight:400;font-size:10px;margin-left:6px">(optional)</span></summary>
         <div class="modal-collapsible-body">
@@ -1033,6 +1054,7 @@
         trv_valve_demand:         modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:    parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         trv_calibrations:         (() => { try { const v = modal.querySelector("#m-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
+        temp_calibration:         parseFloat(modal.querySelector("#m-temp-calibration")?.value ?? "0") || 0,
         comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
         comfort_extend_entity: "",

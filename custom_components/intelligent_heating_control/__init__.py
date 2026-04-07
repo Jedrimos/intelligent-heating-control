@@ -135,6 +135,7 @@ from .const import (
     DEFAULT_TRV_VALVE_DEMAND,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
     DEFAULT_MOLD_HUMIDITY_THRESHOLD,
+    CONF_TEMP_CALIBRATION,
 )
 from .coordinator import IHCCoordinator
 
@@ -190,6 +191,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_SET_ROOM_MODE, SERVICE_SET_SYSTEM_MODE, SERVICE_BOOST_ROOM,
         SERVICE_RELOAD, SERVICE_EXPORT_CONFIG, SERVICE_UPDATE_GLOBAL_SETTINGS,
         SERVICE_ACTIVATE_GUEST_MODE, SERVICE_DEACTIVATE_GUEST_MODE, SERVICE_RESET_STATS,
+        # v1.7 – Heizgruppen (must be unregistered here too)
+        SERVICE_ADD_GROUP, SERVICE_REMOVE_GROUP, SERVICE_UPDATE_GROUP, SERVICE_SET_GROUP_MODE,
     ]:
         hass.services.async_remove(DOMAIN, service)
 
@@ -242,7 +245,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         config={
             "_panel_custom": {
                 "name": "ihc-panel",
-                "js_url": "/ihc_static/ihc-panel.js?v=1.4.0",
+                "js_url": "/ihc_static/ihc-panel.js?v=1.6.3",
                 "embed_iframe": False,
                 "trust_external_script": True,
             }
@@ -345,6 +348,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_AGGRESSIVE_MODE_ENABLED: bool(call.data.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED)),
             CONF_AGGRESSIVE_MODE_RANGE: float(call.data.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE)),
             CONF_AGGRESSIVE_MODE_OFFSET: float(call.data.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET)),
+            CONF_TEMP_CALIBRATION: float(call.data.get(CONF_TEMP_CALIBRATION, 0.0)),
         }
         await coordinator.async_add_room(room_config)
 
@@ -367,6 +371,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_RADIATOR_KW, CONF_HKV_FACTOR, CONF_MOLD_HUMIDITY_THRESHOLD,
             CONF_TRV_TEMP_WEIGHT, CONF_TRV_TEMP_OFFSET, CONF_ROOM_TEMP_THRESHOLD,
             CONF_WINDOW_OPEN_TEMP, CONF_AGGRESSIVE_MODE_RANGE, CONF_AGGRESSIVE_MODE_OFFSET,
+            CONF_TEMP_CALIBRATION,
         }
         _INT_FIELDS = {
             CONF_WINDOW_REACTION_TIME, CONF_WINDOW_CLOSE_DELAY,
