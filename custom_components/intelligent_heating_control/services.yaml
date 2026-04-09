@@ -385,14 +385,20 @@ update_room:
       required: false
       selector:
         text:
+    comfort_extend_entries:
+      name: Komfort-Verlängerung (Liste)
+      description: "Liste von {entity, state} Einträgen (OR-Logik). Ersetzt comfort_extend_entity."
+      required: false
+      selector:
+        object:
     comfort_extend_entity:
-      name: Komfort-Verlängerung Entität
+      name: Komfort-Verlängerung Entität (Legacy)
       description: binary_sensor.* oder input_boolean.* Entität die Komfortmodus verlängert
       required: false
       selector:
         text:
     comfort_extend_state:
-      name: Komfort-Verlängerung Zustand
+      name: Komfort-Verlängerung Zustand (Legacy)
       description: "Zustand der Entität der Verlängerung auslöst (Standard: on)"
       required: false
       selector:

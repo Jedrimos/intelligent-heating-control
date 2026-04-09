@@ -138,10 +138,19 @@
         aggressive_mode_range:   state.attributes.aggressive_mode_range ?? 2,
         aggressive_mode_offset:  state.attributes.aggressive_mode_offset ?? 3,
         // Runtime status
-        optimum_stop_active:  state.attributes.optimum_stop_active === true,
-        optimum_stop_minutes: state.attributes.optimum_stop_minutes ?? null,
-        ha_schedule_entity:   state.attributes.ha_schedule_entity || "",
-        ha_schedule_mode:     state.attributes.ha_schedule_mode || "",
+        optimum_stop_active:     state.attributes.optimum_stop_active === true,
+        optimum_stop_minutes:    state.attributes.optimum_stop_minutes ?? null,
+        optimum_stop_predicted:  state.attributes.optimum_stop_predicted ?? null,
+        ha_schedule_entity:      state.attributes.ha_schedule_entity || "",
+        ha_schedule_mode:        state.attributes.ha_schedule_mode || "",
+        // Temperature limits
+        min_temp:                state.attributes.min_temp ?? 5,
+        max_temp:                state.attributes.max_temp ?? 30,
+        // Demand heatmap & learning data
+        demand_heatmap:          state.attributes.demand_heatmap ?? [],
+        learned_preheat_minutes: state.attributes.learned_preheat_minutes ?? null,
+        avg_cooling_rate:        state.attributes.avg_cooling_rate ?? null,
+        warmup_curve:            state.attributes.warmup_curve ?? [],
       };
     });
     // Enrich from demand sensors

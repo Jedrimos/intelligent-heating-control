@@ -106,6 +106,15 @@
       if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
       if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
       if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);
+      // Comfort extend: show which entity is keeping the room in comfort mode
+      if (room.comfort_extend_active) {
+        const ceEntries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
+          ? room.comfort_extend_entries
+          : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
+        const activeEntry = ceEntries.find(e => e.entity && this._hass?.states[e.entity]?.state === (e.state || "on"));
+        const reason = activeEntry ? activeEntry.entity.split(".")[1] : "Bedingung";
+        alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
+      }
       if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
       const v = room.ventilation;
       if (v && v.level !== "none") {

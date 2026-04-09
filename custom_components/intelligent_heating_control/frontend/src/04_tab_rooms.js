@@ -184,6 +184,14 @@
               <input type="number" class="form-input" id="rs-window-close-delay"
                 value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
             </div>
+            <div class="settings-item">
+              <label>Sollwert nach Fenster schließen</label>
+              <select class="form-select" id="rs-window-restore-mode">
+                <option value="schedule" ${(room.window_restore_mode || 'schedule') === 'schedule' ? 'selected' : ''}>Zeitplan (Standard)</option>
+                <option value="previous" ${room.window_restore_mode === 'previous' ? 'selected' : ''}>Vorherigen Sollwert wiederherstellen</option>
+              </select>
+              <span class="form-hint">„Vorherig" merkt sich den Sollwert vor dem Öffnen</span>
+            </div>
           </div>
         </details>
 
@@ -677,6 +685,7 @@
         presence_sensor_on_delay: parseInt(container.querySelector("#rs-presence-sensor-on-delay")?.value, 10) || 0,
         presence_sensor_off_delay: parseInt(container.querySelector("#rs-presence-sensor-off-delay")?.value, 10) || 0,
         window_open_temp:         parseFloat(container.querySelector("#rs-window-open-temp")?.value) || 0,
+        window_restore_mode:      container.querySelector("#rs-window-restore-mode")?.value || "schedule",
         room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
         comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",

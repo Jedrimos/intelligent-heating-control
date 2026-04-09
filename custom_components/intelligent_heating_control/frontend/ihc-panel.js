@@ -1009,10 +1009,19 @@ class IHCPanel extends HTMLElement {
         aggressive_mode_range:   state.attributes.aggressive_mode_range ?? 2,
         aggressive_mode_offset:  state.attributes.aggressive_mode_offset ?? 3,
         // Runtime status
-        optimum_stop_active:  state.attributes.optimum_stop_active === true,
-        optimum_stop_minutes: state.attributes.optimum_stop_minutes ?? null,
-        ha_schedule_entity:   state.attributes.ha_schedule_entity || "",
-        ha_schedule_mode:     state.attributes.ha_schedule_mode || "",
+        optimum_stop_active:     state.attributes.optimum_stop_active === true,
+        optimum_stop_minutes:    state.attributes.optimum_stop_minutes ?? null,
+        optimum_stop_predicted:  state.attributes.optimum_stop_predicted ?? null,
+        ha_schedule_entity:      state.attributes.ha_schedule_entity || "",
+        ha_schedule_mode:        state.attributes.ha_schedule_mode || "",
+        // Temperature limits
+        min_temp:                state.attributes.min_temp ?? 5,
+        max_temp:                state.attributes.max_temp ?? 30,
+        // Demand heatmap & learning data
+        demand_heatmap:          state.attributes.demand_heatmap ?? [],
+        learned_preheat_minutes: state.attributes.learned_preheat_minutes ?? null,
+        avg_cooling_rate:        state.attributes.avg_cooling_rate ?? null,
+        warmup_curve:            state.attributes.warmup_curve ?? [],
       };
     });
     // Enrich from demand sensors
@@ -1560,6 +1569,15 @@ class IHCPanel extends HTMLElement {
       if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
       if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
       if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);
+      // Comfort extend: show which entity is keeping the room in comfort mode
+      if (room.comfort_extend_active) {
+        const ceEntries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
+          ? room.comfort_extend_entries
+          : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
+        const activeEntry = ceEntries.find(e => e.entity && this._hass?.states[e.entity]?.state === (e.state || "on"));
+        const reason = activeEntry ? activeEntry.entity.split(".")[1] : "Bedingung";
+        alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
+      }
       if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
       const v = room.ventilation;
       if (v && v.level !== "none") {
@@ -2044,6 +2062,14 @@ class IHCPanel extends HTMLElement {
               <label>Wiederaufnahme nach Schließen (s)</label>
               <input type="number" class="form-input" id="rs-window-close-delay"
                 value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
+            </div>
+            <div class="settings-item">
+              <label>Sollwert nach Fenster schließen</label>
+              <select class="form-select" id="rs-window-restore-mode">
+                <option value="schedule" ${(room.window_restore_mode || 'schedule') === 'schedule' ? 'selected' : ''}>Zeitplan (Standard)</option>
+                <option value="previous" ${room.window_restore_mode === 'previous' ? 'selected' : ''}>Vorherigen Sollwert wiederherstellen</option>
+              </select>
+              <span class="form-hint">„Vorherig" merkt sich den Sollwert vor dem Öffnen</span>
             </div>
           </div>
         </details>
@@ -2538,6 +2564,7 @@ class IHCPanel extends HTMLElement {
         presence_sensor_on_delay: parseInt(container.querySelector("#rs-presence-sensor-on-delay")?.value, 10) || 0,
         presence_sensor_off_delay: parseInt(container.querySelector("#rs-presence-sensor-off-delay")?.value, 10) || 0,
         window_open_temp:         parseFloat(container.querySelector("#rs-window-open-temp")?.value) || 0,
+        window_restore_mode:      container.querySelector("#rs-window-restore-mode")?.value || "schedule",
         room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
         comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
