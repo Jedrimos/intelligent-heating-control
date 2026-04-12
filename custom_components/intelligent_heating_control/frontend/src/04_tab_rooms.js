@@ -36,6 +36,7 @@
             ${MODE_ICONS[room.room_mode] || "⚙️"} ${MODE_LABELS[room.room_mode] || room.room_mode}
             · ${room.current_temp !== null ? room.current_temp + " °C → " + (room.target_temp ?? "—") + " °C" : "kein Sensor"}
             ${room.window_open ? " · 🪟 Fenster offen" : ""}
+            ${room.window_cascade_active ? ` · 🌊 Kaskade –${room.window_cascade_offset?.toFixed(1) ?? '?'}°C` : ""}
           </div>
         </div>
       </div>`;
@@ -193,6 +194,51 @@
               <span class="form-hint">„Vorherig" merkt sich den Sollwert vor dem Öffnen</span>
             </div>
           </div>
+        </details>
+
+        <details class="modal-collapsible"${(room.window_cascade_rooms && room.window_cascade_rooms.length > 0) ? ' open' : ''}>
+          <summary class="modal-section-title">🌊 Fenster-Kaskade</summary>
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+            Wenn dieses Zimmer zu lange gelüftet wird, senkt IHC automatisch die Heizung in anderen Räumen ab.
+            Nützlich bei offenen Wohnungen wo Kaltluft in Nachbarzimmer zieht.
+          </div>
+          ${(() => {
+            const allRooms = this._getRoomData();
+            const otherRooms = allRooms.filter(r => r.room_id !== room.room_id);
+            const currentCascadeRooms = room.window_cascade_rooms || [];
+            const roomCheckboxes = otherRooms.map(r => `
+              <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
+                <input type="checkbox" class="cascade-room-check" value="${r.room_id}"
+                  ${currentCascadeRooms.includes(r.room_id) ? 'checked' : ''}>
+                <span style="font-size:13px">${r.name}</span>
+              </label>`).join('');
+            return `
+              <div style="margin-bottom:12px">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
+                <div style="padding:8px 12px;border-radius:8px;background:var(--secondary-background-color);max-height:180px;overflow-y:auto">
+                  ${otherRooms.length > 0 ? roomCheckboxes : '<span style="font-size:12px;color:var(--secondary-text-color)">Keine anderen Räume vorhanden</span>'}
+                </div>
+              </div>`;
+          })()}
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Verzögerung (min)</label>
+              <input type="number" class="form-input" id="rs-cascade-delay"
+                value="${room.window_cascade_delay_minutes ?? 30}" step="5" min="5" max="120">
+              <span class="form-hint">Fenster muss mindestens so lange offen sein</span>
+            </div>
+            <div class="settings-item">
+              <label>Absenkung (°C)</label>
+              <input type="number" class="form-input" id="rs-cascade-offset"
+                value="${(room.window_cascade_offset_cfg ?? 3.0).toFixed(1)}" step="0.5" min="0.5" max="10">
+              <span class="form-hint">Zieltemperatur in anderen Räumen wird um diesen Wert reduziert</span>
+            </div>
+          </div>
+          ${room.window_cascade_active ? `
+          <div style="padding:8px 12px;border-radius:8px;background:color-mix(in srgb,#42a5f5 12%,transparent);font-size:12px;margin-top:8px">
+            🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${room.window_cascade_source || '?'}</strong>
+            (–${room.window_cascade_offset?.toFixed(1) ?? '?'} °C)
+          </div>` : ''}
         </details>
 
         <details class="modal-collapsible" open>
@@ -700,6 +746,9 @@
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,
+        window_cascade_rooms:     [...container.querySelectorAll(".cascade-room-check:checked")].map(cb => cb.value),
+        window_cascade_delay_minutes: parseInt(container.querySelector("#rs-cascade-delay")?.value, 10) || 30,
+        window_cascade_offset:    parseFloat(container.querySelector("#rs-cascade-offset")?.value) || 3.0,
       });
       this._toast(`✓ ${room.name} gespeichert`);
     });

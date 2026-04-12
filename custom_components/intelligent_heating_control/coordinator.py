@@ -92,6 +92,11 @@ from .const import (
     DEFAULT_WINDOW_OPEN_TEMP,
     CONF_WINDOW_RESTORE_MODE,
     DEFAULT_WINDOW_RESTORE_MODE,
+    CONF_WINDOW_CASCADE_ROOMS,
+    CONF_WINDOW_CASCADE_DELAY_MINUTES,
+    CONF_WINDOW_CASCADE_OFFSET,
+    DEFAULT_WINDOW_CASCADE_DELAY_MINUTES,
+    DEFAULT_WINDOW_CASCADE_OFFSET,
     CONF_FROST_PROTECTION_TEMP,
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_NIGHT_SETBACK_ENABLED,
@@ -425,6 +430,11 @@ class IHCCoordinator(
         # During this window all TRVs are held at frost-protection temp and the heating
         # switch stays off so we never blast heat before window sensors have reported.
         self._startup_time: Optional[datetime] = None
+
+        # Fenster-Kaskade: Tracking wann welches Zimmer-Fenster geöffnet wurde
+        self._window_opened_at: Dict[str, Optional[datetime]] = {}   # room_id → datetime when window opened
+        # Fenster-Kaskade: aktive Absenkungen in Zielräumen {target_room_id → (offset°C, source_room_name)}
+        self._window_cascade_active: Dict[str, tuple] = {}
 
         # Save debounce: avoid hammering the .storage/ file on bursts of rapid mode changes.
         # All save requests are coalesced into a single write after _SAVE_DEBOUNCE_SECONDS.
@@ -1366,6 +1376,42 @@ class IHCCoordinator(
         _loop_ctrl_mode = self.get_config().get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
         _loop_trv_mode = _loop_ctrl_mode == CONTROLLER_MODE_TRV
 
+        # Fenster-Kaskade Pre-Pass: window_opened_at aktualisieren + aktive Kaskaden berechnen
+        _now_cascade = datetime.now()
+        _new_cascade: Dict[str, tuple] = {}  # target_room_id → (offset, source_room_name)
+        for _cr in self.get_rooms():
+            _cr_id = _cr.get(CONF_ROOM_ID, "")
+            if not _cr_id:
+                continue
+            _cascade_target_ids = _cr.get(CONF_WINDOW_CASCADE_ROOMS, [])
+            if not _cascade_target_ids:
+                # No cascade configured – still track window-open time for future use
+                _win_open = self._is_window_open(_cr, None)
+                if not _win_open:
+                    self._window_opened_at[_cr_id] = None
+                elif self._window_opened_at.get(_cr_id) is None:
+                    self._window_opened_at[_cr_id] = _now_cascade
+                continue
+            _win_open = self._is_window_open(_cr, None)
+            if not _win_open:
+                self._window_opened_at[_cr_id] = None
+                continue
+            if self._window_opened_at.get(_cr_id) is None:
+                self._window_opened_at[_cr_id] = _now_cascade
+            _opened_at = self._window_opened_at[_cr_id]
+            _delay_min = int(_cr.get(CONF_WINDOW_CASCADE_DELAY_MINUTES, DEFAULT_WINDOW_CASCADE_DELAY_MINUTES))
+            _open_min = (_now_cascade - _opened_at).total_seconds() / 60.0
+            if _open_min < _delay_min:
+                continue  # Not yet long enough
+            _offset = float(_cr.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET))
+            _src_name = _cr.get(CONF_ROOM_NAME, _cr_id)
+            for _tgt_id in _cascade_target_ids:
+                # Keep the largest offset if multiple source rooms cascade into same target
+                existing = _new_cascade.get(_tgt_id)
+                if existing is None or _offset > existing[0]:
+                    _new_cascade[_tgt_id] = (_offset, _src_name)
+        self._window_cascade_active = _new_cascade
+
         for room in self.get_rooms():
             room_id = room.get(CONF_ROOM_ID, "")
             if not room_id:
@@ -1503,6 +1549,16 @@ class IHCCoordinator(
                 else:
                     self._pre_window_temps.pop(room_id, None)
             self._prev_window_open[room_id] = window_open
+
+            # Fenster-Kaskade: Zieltemperatur absenken wenn ein anderes Zimmer lange gelüftet wird
+            _cascade_info = self._window_cascade_active.get(room_id)
+            if _cascade_info is not None and not window_open and room_mode not in (ROOM_MODE_OFF,):
+                _casc_offset, _casc_src = _cascade_info
+                _frost_temp = self._get_frost_protection_temp()
+                target_temp = max(_frost_temp, target_temp - _casc_offset)
+                meta["window_cascade_active"] = True
+                meta["window_cascade_offset"] = _casc_offset
+                meta["window_cascade_source"] = _casc_src
 
             # Manual TRV override detection: if TRV was adjusted by hand, switch room to manual
             # Skip during preheat: the preheat window sends the upcoming period's comfort setpoint
@@ -1647,6 +1703,15 @@ class IHCCoordinator(
                 "effective_weight": weight,
                 # Ensure night_setback is always present (meta may omit it for mode overrides)
                 "night_setback": 0.0,
+                # Fenster-Kaskade: Status ob dieser Raum gerade durch ein anderes Zimmer abgesenkt wird
+                "window_cascade_active": _cascade_info is not None and room_mode not in (ROOM_MODE_OFF,),
+                "window_cascade_offset": _cascade_info[0] if _cascade_info else None,
+                "window_cascade_source": _cascade_info[1] if _cascade_info else None,
+                # window_opened_at: Minuten seit dem Fenster geöffnet wurde (für Kaskaden-Countdown)
+                "window_open_minutes": (
+                    round((_now_cascade - self._window_opened_at[room_id]).total_seconds() / 60.0, 1)
+                    if self._window_opened_at.get(room_id) is not None else None
+                ),
                 # HA schedule time blocks (read from schedule.* entity config entries)
                 "ha_schedule_blocks": self.get_ha_schedule_blocks_for_room(room),
                 **meta,

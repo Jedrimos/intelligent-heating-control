@@ -49,6 +49,10 @@ from .const import (
     DEFAULT_WINDOW_OPEN_TEMP,
     CONF_WINDOW_RESTORE_MODE,
     DEFAULT_WINDOW_RESTORE_MODE,
+    CONF_WINDOW_CASCADE_DELAY_MINUTES,
+    CONF_WINDOW_CASCADE_OFFSET,
+    DEFAULT_WINDOW_CASCADE_DELAY_MINUTES,
+    DEFAULT_WINDOW_CASCADE_OFFSET,
     CONF_FROST_PROTECTION_TEMP,
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_NIGHT_SETBACK_ENABLED,
@@ -944,6 +948,12 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_WINDOW_RESTORE_MODE, default=DEFAULT_WINDOW_RESTORE_MODE): selector.selector({
                 "select": {"options": ["schedule", "previous"]}
             }),
+            vol.Optional(CONF_WINDOW_CASCADE_DELAY_MINUTES, default=DEFAULT_WINDOW_CASCADE_DELAY_MINUTES): selector.selector({
+                "number": {"min": 5, "max": 120, "step": 5, "unit_of_measurement": "min", "mode": "box"}
+            }),
+            vol.Optional(CONF_WINDOW_CASCADE_OFFSET, default=float(DEFAULT_WINDOW_CASCADE_OFFSET)): selector.selector({
+                "number": {"min": 0.5, "max": 10, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=DEFAULT_HA_SCHEDULE_OFF_MODE): selector.selector({
                 "select": {"options": ["eco", "sleep", "away"]}
             }),
@@ -1117,6 +1127,12 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_WINDOW_RESTORE_MODE, default=str(room.get(CONF_WINDOW_RESTORE_MODE, DEFAULT_WINDOW_RESTORE_MODE))): selector.selector({
                 "select": {"options": ["schedule", "previous"]}
+            }),
+            vol.Optional(CONF_WINDOW_CASCADE_DELAY_MINUTES, default=int(room.get(CONF_WINDOW_CASCADE_DELAY_MINUTES, DEFAULT_WINDOW_CASCADE_DELAY_MINUTES))): selector.selector({
+                "number": {"min": 5, "max": 120, "step": 5, "unit_of_measurement": "min", "mode": "box"}
+            }),
+            vol.Optional(CONF_WINDOW_CASCADE_OFFSET, default=float(room.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET))): selector.selector({
+                "number": {"min": 0.5, "max": 10, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=room.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE)): selector.selector({
                 "select": {"options": ["eco", "sleep", "away"]}

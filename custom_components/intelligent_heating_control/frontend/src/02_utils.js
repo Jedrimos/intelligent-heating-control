@@ -152,6 +152,15 @@
         learned_preheat_minutes: state.attributes.learned_preheat_minutes ?? null,
         avg_cooling_rate:        state.attributes.avg_cooling_rate ?? null,
         warmup_curve:            state.attributes.warmup_curve ?? [],
+        // Fenster-Kaskade
+        window_cascade_active:   state.attributes.window_cascade_active === true,
+        window_cascade_offset:   state.attributes.window_cascade_offset ?? null,
+        window_cascade_source:   state.attributes.window_cascade_source ?? null,
+        window_open_minutes:     state.attributes.window_open_minutes ?? null,
+        // Kaskaden-Konfiguration (zum Vorbelegen der Einstellungen)
+        window_cascade_rooms:    state.attributes.window_cascade_rooms ?? [],
+        window_cascade_delay_minutes: state.attributes.window_cascade_delay_minutes ?? 30,
+        window_cascade_offset_cfg:    state.attributes.window_cascade_offset_cfg ?? 3.0,
       };
     });
     // Enrich from demand sensors

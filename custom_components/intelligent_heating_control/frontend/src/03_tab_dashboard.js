@@ -116,6 +116,20 @@
         alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
       }
       if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
+      // Fenster-Kaskade: zeigt welches Zimmer diese Absenkung verursacht
+      if (room.window_cascade_active) {
+        const src = room.window_cascade_source || "anderes Zimmer";
+        const off = room.window_cascade_offset != null ? ` (–${parseFloat(room.window_cascade_offset).toFixed(1)} °C)` : "";
+        alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${off}: Fenster offen in <strong>${src}</strong></div>`);
+      }
+      // Fenster-Kaskade: zeigt Countdown wenn dieses Zimmer eine Kaskade auslösen wird
+      if (room.window_open && !room.window_cascade_active && room.window_cascade_rooms && room.window_cascade_rooms.length > 0 && room.window_open_minutes != null) {
+        const delay = room.window_cascade_delay_minutes ?? 30;
+        const remaining = delay - room.window_open_minutes;
+        if (remaining > 0 && remaining <= delay) {
+          alerts.push(`<div class="room-alert alert-warn">🌊 Kaskade in ${remaining.toFixed(0)} min – andere Räume werden abgesenkt</div>`);
+        }
+      }
       const v = room.ventilation;
       if (v && v.level !== "none") {
         const icons = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };

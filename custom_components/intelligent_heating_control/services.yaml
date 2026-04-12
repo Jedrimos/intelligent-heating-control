@@ -364,6 +364,30 @@ update_room:
           options:
             - "schedule"
             - "previous"
+    window_cascade_rooms:
+      name: Fenster-Kaskade – Zielräume
+      description: "Liste von Zimmer-IDs die abgesenkt werden wenn dieses Zimmer zu lange gelüftet wird"
+      required: false
+      selector:
+        object:
+    window_cascade_delay_minutes:
+      name: Fenster-Kaskade – Verzögerung (min)
+      description: "Minuten bis Kaskade aktiv wird (Standard: 30)"
+      required: false
+      selector:
+        number:
+          min: 5
+          max: 120
+          step: 5
+    window_cascade_offset:
+      name: Fenster-Kaskade – Absenkung (°C)
+      description: "°C um die die Zieltemperatur in anderen Räumen reduziert wird (Standard: 3.0)"
+      required: false
+      selector:
+        number:
+          min: 0.5
+          max: 10
+          step: 0.5
     room_temp_threshold:
       name: Heiz-Temperaturschwelle (°C)
       description: "Mindesttemperatur ab der geheizt wird (0 = deaktiviert)"

@@ -1023,6 +1023,15 @@ class IHCPanel extends HTMLElement {
         learned_preheat_minutes: state.attributes.learned_preheat_minutes ?? null,
         avg_cooling_rate:        state.attributes.avg_cooling_rate ?? null,
         warmup_curve:            state.attributes.warmup_curve ?? [],
+        // Fenster-Kaskade
+        window_cascade_active:   state.attributes.window_cascade_active === true,
+        window_cascade_offset:   state.attributes.window_cascade_offset ?? null,
+        window_cascade_source:   state.attributes.window_cascade_source ?? null,
+        window_open_minutes:     state.attributes.window_open_minutes ?? null,
+        // Kaskaden-Konfiguration (zum Vorbelegen der Einstellungen)
+        window_cascade_rooms:    state.attributes.window_cascade_rooms ?? [],
+        window_cascade_delay_minutes: state.attributes.window_cascade_delay_minutes ?? 30,
+        window_cascade_offset_cfg:    state.attributes.window_cascade_offset_cfg ?? 3.0,
       };
     });
     // Enrich from demand sensors
@@ -1580,6 +1589,20 @@ class IHCPanel extends HTMLElement {
         alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
       }
       if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
+      // Fenster-Kaskade: zeigt welches Zimmer diese Absenkung verursacht
+      if (room.window_cascade_active) {
+        const src = room.window_cascade_source || "anderes Zimmer";
+        const off = room.window_cascade_offset != null ? ` (–${parseFloat(room.window_cascade_offset).toFixed(1)} °C)` : "";
+        alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${off}: Fenster offen in <strong>${src}</strong></div>`);
+      }
+      // Fenster-Kaskade: zeigt Countdown wenn dieses Zimmer eine Kaskade auslösen wird
+      if (room.window_open && !room.window_cascade_active && room.window_cascade_rooms && room.window_cascade_rooms.length > 0 && room.window_open_minutes != null) {
+        const delay = room.window_cascade_delay_minutes ?? 30;
+        const remaining = delay - room.window_open_minutes;
+        if (remaining > 0 && remaining <= delay) {
+          alerts.push(`<div class="room-alert alert-warn">🌊 Kaskade in ${remaining.toFixed(0)} min – andere Räume werden abgesenkt</div>`);
+        }
+      }
       const v = room.ventilation;
       if (v && v.level !== "none") {
         const icons = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };
@@ -1916,6 +1939,7 @@ class IHCPanel extends HTMLElement {
             ${MODE_ICONS[room.room_mode] || "⚙️"} ${MODE_LABELS[room.room_mode] || room.room_mode}
             · ${room.current_temp !== null ? room.current_temp + " °C → " + (room.target_temp ?? "—") + " °C" : "kein Sensor"}
             ${room.window_open ? " · 🪟 Fenster offen" : ""}
+            ${room.window_cascade_active ? ` · 🌊 Kaskade –${room.window_cascade_offset?.toFixed(1) ?? '?'}°C` : ""}
           </div>
         </div>
       </div>`;
@@ -2073,6 +2097,51 @@ class IHCPanel extends HTMLElement {
               <span class="form-hint">„Vorherig" merkt sich den Sollwert vor dem Öffnen</span>
             </div>
           </div>
+        </details>
+
+        <details class="modal-collapsible"${(room.window_cascade_rooms && room.window_cascade_rooms.length > 0) ? ' open' : ''}>
+          <summary class="modal-section-title">🌊 Fenster-Kaskade</summary>
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+            Wenn dieses Zimmer zu lange gelüftet wird, senkt IHC automatisch die Heizung in anderen Räumen ab.
+            Nützlich bei offenen Wohnungen wo Kaltluft in Nachbarzimmer zieht.
+          </div>
+          ${(() => {
+            const allRooms = this._getRoomData();
+            const otherRooms = allRooms.filter(r => r.room_id !== room.room_id);
+            const currentCascadeRooms = room.window_cascade_rooms || [];
+            const roomCheckboxes = otherRooms.map(r => `
+              <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
+                <input type="checkbox" class="cascade-room-check" value="${r.room_id}"
+                  ${currentCascadeRooms.includes(r.room_id) ? 'checked' : ''}>
+                <span style="font-size:13px">${r.name}</span>
+              </label>`).join('');
+            return `
+              <div style="margin-bottom:12px">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
+                <div style="padding:8px 12px;border-radius:8px;background:var(--secondary-background-color);max-height:180px;overflow-y:auto">
+                  ${otherRooms.length > 0 ? roomCheckboxes : '<span style="font-size:12px;color:var(--secondary-text-color)">Keine anderen Räume vorhanden</span>'}
+                </div>
+              </div>`;
+          })()}
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Verzögerung (min)</label>
+              <input type="number" class="form-input" id="rs-cascade-delay"
+                value="${room.window_cascade_delay_minutes ?? 30}" step="5" min="5" max="120">
+              <span class="form-hint">Fenster muss mindestens so lange offen sein</span>
+            </div>
+            <div class="settings-item">
+              <label>Absenkung (°C)</label>
+              <input type="number" class="form-input" id="rs-cascade-offset"
+                value="${(room.window_cascade_offset_cfg ?? 3.0).toFixed(1)}" step="0.5" min="0.5" max="10">
+              <span class="form-hint">Zieltemperatur in anderen Räumen wird um diesen Wert reduziert</span>
+            </div>
+          </div>
+          ${room.window_cascade_active ? `
+          <div style="padding:8px 12px;border-radius:8px;background:color-mix(in srgb,#42a5f5 12%,transparent);font-size:12px;margin-top:8px">
+            🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${room.window_cascade_source || '?'}</strong>
+            (–${room.window_cascade_offset?.toFixed(1) ?? '?'} °C)
+          </div>` : ''}
         </details>
 
         <details class="modal-collapsible" open>
@@ -2580,6 +2649,9 @@ class IHCPanel extends HTMLElement {
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,
+        window_cascade_rooms:     [...container.querySelectorAll(".cascade-room-check:checked")].map(cb => cb.value),
+        window_cascade_delay_minutes: parseInt(container.querySelector("#rs-cascade-delay")?.value, 10) || 30,
+        window_cascade_offset:    parseFloat(container.querySelector("#rs-cascade-offset")?.value) || 3.0,
       });
       this._toast(`✓ ${room.name} gespeichert`);
     });

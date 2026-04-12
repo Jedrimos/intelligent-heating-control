@@ -87,6 +87,11 @@ from .const import (
     DEFAULT_WINDOW_OPEN_TEMP,
     CONF_WINDOW_RESTORE_MODE,
     DEFAULT_WINDOW_RESTORE_MODE,
+    CONF_WINDOW_CASCADE_ROOMS,
+    CONF_WINDOW_CASCADE_DELAY_MINUTES,
+    CONF_WINDOW_CASCADE_OFFSET,
+    DEFAULT_WINDOW_CASCADE_DELAY_MINUTES,
+    DEFAULT_WINDOW_CASCADE_OFFSET,
     CONF_ROOM_TEMP_THRESHOLD,
     DEFAULT_ROOM_TEMP_THRESHOLD,
     CONF_COMFORT_TEMP_ENTITY,
@@ -424,6 +429,15 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "optimum_stop_active": d.get("optimum_stop_active", False),
             "optimum_stop_minutes": d.get("optimum_stop_minutes"),
             "optimum_stop_predicted": d.get("optimum_stop_predicted"),
+            # Fenster-Kaskade: Status + Quelle
+            "window_cascade_active": d.get("window_cascade_active", False),
+            "window_cascade_offset": d.get("window_cascade_offset"),
+            "window_cascade_source": d.get("window_cascade_source"),
+            "window_open_minutes": d.get("window_open_minutes"),
+            # Fenster-Kaskade: Konfiguration (zum Vorbelegen im Panel)
+            "window_cascade_rooms": room.get(CONF_WINDOW_CASCADE_ROOMS, []),
+            "window_cascade_delay_minutes": room.get(CONF_WINDOW_CASCADE_DELAY_MINUTES, DEFAULT_WINDOW_CASCADE_DELAY_MINUTES),
+            "window_cascade_offset_cfg": room.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:

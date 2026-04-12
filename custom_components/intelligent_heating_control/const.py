@@ -477,3 +477,10 @@ SERVICE_ADD_GROUP: Final = "add_group"
 SERVICE_REMOVE_GROUP: Final = "remove_group"
 SERVICE_UPDATE_GROUP: Final = "update_group"
 SERVICE_SET_GROUP_MODE: Final = "set_group_mode"
+
+# Fenster-Kaskade: Wenn dieses Zimmer zu lange gelüftet wird, andere Räume absenken
+CONF_WINDOW_CASCADE_ROOMS: Final = "window_cascade_rooms"             # list[str] Ziel-Zimmer-IDs
+CONF_WINDOW_CASCADE_DELAY_MINUTES: Final = "window_cascade_delay_minutes"  # int, Minuten bis Kaskade aktiv
+CONF_WINDOW_CASCADE_OFFSET: Final = "window_cascade_offset"           # float, °C Absenkung in Zielräumen
+DEFAULT_WINDOW_CASCADE_DELAY_MINUTES: Final = 30
+DEFAULT_WINDOW_CASCADE_OFFSET: Final = 3.0
