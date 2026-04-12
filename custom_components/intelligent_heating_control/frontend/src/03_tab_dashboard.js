@@ -106,7 +106,30 @@
       if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
       if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
       if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);
+      // Comfort extend: show which entity is keeping the room in comfort mode
+      if (room.comfort_extend_active) {
+        const ceEntries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
+          ? room.comfort_extend_entries
+          : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
+        const activeEntry = ceEntries.find(e => e.entity && this._hass?.states[e.entity]?.state === (e.state || "on"));
+        const reason = activeEntry ? activeEntry.entity.split(".")[1] : "Bedingung";
+        alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
+      }
       if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
+      // Fenster-Kaskade: zeigt welches Zimmer diese Absenkung verursacht
+      if (room.window_cascade_active) {
+        const src = room.window_cascade_source || "anderes Zimmer";
+        const off = room.window_cascade_offset != null ? ` (–${parseFloat(room.window_cascade_offset).toFixed(1)} °C)` : "";
+        alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${off}: Fenster offen in <strong>${src}</strong></div>`);
+      }
+      // Fenster-Kaskade: zeigt Countdown wenn dieses Zimmer eine Kaskade auslösen wird
+      if (room.window_open && !room.window_cascade_active && room.window_cascade_rooms && room.window_cascade_rooms.length > 0 && room.window_open_minutes != null) {
+        const delay = room.window_cascade_delay_minutes ?? 30;
+        const remaining = delay - room.window_open_minutes;
+        if (remaining > 0 && remaining <= delay) {
+          alerts.push(`<div class="room-alert alert-warn">🌊 Kaskade in ${remaining.toFixed(0)} min – andere Räume werden abgesenkt</div>`);
+        }
+      }
       const v = room.ventilation;
       if (v && v.level !== "none") {
         const icons = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };

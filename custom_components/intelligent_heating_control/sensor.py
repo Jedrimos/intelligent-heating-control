@@ -66,6 +66,9 @@ from .const import (
     CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP,
     CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS,
     CONF_OPTIMUM_START_ENABLED, DEFAULT_OPTIMUM_START_ENABLED,
+    # PID flow-temp controller
+    CONF_PID_KP, CONF_PID_KI, CONF_PID_KD,
+    DEFAULT_PID_KP, DEFAULT_PID_KI, DEFAULT_PID_KD,
     # v1.8 – Holiday calendar
     CONF_HOLIDAY_CALENDAR,
     CONF_HOLIDAY_SCHEDULE_MODE,
@@ -175,6 +178,7 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "heating_active":         d.get("heating_active", False),
             "cooling_active":         d.get("cooling_active", False),
             "summer_mode":            d.get("summer_mode", False),
+            "forecast_coldnight_active": d.get("forecast_coldnight_active", False),
             "startup_grace_active":   d.get("startup_grace_active", False),
             "heating_period_active":  d.get("heating_period_active", True),
             "night_setback_active":   d.get("night_setback_active", False),
@@ -261,6 +265,9 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "eta_preheat_threshold_minutes":   cfg.get(CONF_ETA_PREHEAT_THRESHOLD_MINUTES, DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES),
             "vacation_calendar":           cfg.get(CONF_VACATION_CALENDAR, ""),
             "flow_temp_sensor":            cfg.get(CONF_FLOW_TEMP_SENSOR, ""),
+            "pid_kp":                      cfg.get(CONF_PID_KP, DEFAULT_PID_KP),
+            "pid_ki":                      cfg.get(CONF_PID_KI, DEFAULT_PID_KI),
+            "pid_kd":                      cfg.get(CONF_PID_KD, DEFAULT_PID_KD),
             "smart_meter_entity":          cfg.get(CONF_SMART_METER_ENTITY, ""),
             "cooling_target_temp":         cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP),
             "static_energy_price":         cfg.get("static_energy_price"),

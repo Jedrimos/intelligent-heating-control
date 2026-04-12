@@ -96,15 +96,71 @@
         window_close_delay: state.attributes.window_close_delay ?? 0,
         effective_weight: state.attributes.effective_weight ?? state.attributes.weight ?? 1.0,
         // TRV sensor data integration
-        trv_temp_weight:  state.attributes.trv_temp_weight ?? 0,
-        trv_temp_offset:  state.attributes.trv_temp_offset ?? -2,
-        trv_valve_demand: state.attributes.trv_valve_demand === true,
-        trv_raw_temp:     state.attributes.trv_raw_temp ?? null,
-        trv_humidity:     state.attributes.trv_humidity ?? null,
-        trv_avg_valve:    state.attributes.trv_avg_valve ?? null,
-        trv_any_heating:  state.attributes.trv_any_heating === true,
-        trv_min_battery:  state.attributes.trv_min_battery ?? null,
-        trv_low_battery:  state.attributes.trv_low_battery === true,
+        trv_temp_weight:      state.attributes.trv_temp_weight ?? 0,
+        trv_temp_offset:      state.attributes.trv_temp_offset ?? -2,
+        trv_valve_demand:     state.attributes.trv_valve_demand === true,
+        trv_min_send_interval: state.attributes.trv_min_send_interval ?? 0,
+        trv_calibrations:     state.attributes.trv_calibrations ?? {},
+        temp_calibration:     state.attributes.temp_calibration ?? 0,
+        trv_raw_temp:         state.attributes.trv_raw_temp ?? null,
+        trv_humidity:         state.attributes.trv_humidity ?? null,
+        trv_avg_valve:        state.attributes.trv_avg_valve ?? null,
+        trv_any_heating:      state.attributes.trv_any_heating === true,
+        trv_min_battery:      state.attributes.trv_min_battery ?? null,
+        trv_low_battery:      state.attributes.trv_low_battery === true,
+        trv_stuck_valves:     state.attributes.trv_stuck_valves ?? [],
+        // Mold protection details
+        mold_humidity_threshold: state.attributes.mold_humidity_threshold ?? 70,
+        // CO2 config
+        co2_sensor:            state.attributes.co2_sensor || "",
+        co2_threshold_good:    state.attributes.co2_threshold_good ?? 800,
+        co2_threshold_bad:     state.attributes.co2_threshold_bad ?? 1200,
+        co2_ventilation_eta_minutes: state.attributes.co2_ventilation_eta_minutes ?? null,
+        // PIR presence sensor
+        presence_sensor:            state.attributes.presence_sensor || "",
+        presence_sensor_on_delay:   state.attributes.presence_sensor_on_delay ?? 300,
+        presence_sensor_off_delay:  state.attributes.presence_sensor_off_delay ?? 300,
+        pir_presence:               state.attributes.pir_presence ?? null,
+        // Window settings
+        window_open_temp:     state.attributes.window_open_temp ?? 0,
+        window_restore_mode:  state.attributes.window_restore_mode || "schedule",
+        // Temperature threshold & dynamic entities
+        room_temp_threshold:  state.attributes.room_temp_threshold ?? 0,
+        comfort_temp_entity:  state.attributes.comfort_temp_entity || "",
+        eco_temp_entity:      state.attributes.eco_temp_entity || "",
+        // Comfort extend
+        comfort_extend_entries: state.attributes.comfort_extend_entries ?? [],
+        comfort_extend_entity:  state.attributes.comfort_extend_entity || "",
+        comfort_extend_state:   state.attributes.comfort_extend_state || "on",
+        comfort_extend_active:  state.attributes.comfort_extend_active === true,
+        // Aggressive mode
+        aggressive_mode_enabled: state.attributes.aggressive_mode_enabled === true,
+        aggressive_mode_range:   state.attributes.aggressive_mode_range ?? 2,
+        aggressive_mode_offset:  state.attributes.aggressive_mode_offset ?? 3,
+        // Runtime status
+        optimum_stop_active:     state.attributes.optimum_stop_active === true,
+        optimum_stop_minutes:    state.attributes.optimum_stop_minutes ?? null,
+        optimum_stop_predicted:  state.attributes.optimum_stop_predicted ?? null,
+        ha_schedule_entity:      state.attributes.ha_schedule_entity || "",
+        ha_schedule_mode:        state.attributes.ha_schedule_mode || "",
+        // Temperature limits
+        min_temp:                state.attributes.min_temp ?? 5,
+        max_temp:                state.attributes.max_temp ?? 30,
+        // Demand heatmap & learning data
+        demand_heatmap:          state.attributes.demand_heatmap ?? [],
+        avg_warmup_minutes:      state.attributes.avg_warmup_minutes ?? null,
+        learned_preheat_minutes: state.attributes.learned_preheat_minutes ?? null,
+        avg_cooling_rate:        state.attributes.avg_cooling_rate ?? null,
+        warmup_curve:            state.attributes.warmup_curve ?? [],
+        // Fenster-Kaskade
+        window_cascade_active:   state.attributes.window_cascade_active === true,
+        window_cascade_offset:   state.attributes.window_cascade_offset ?? null,
+        window_cascade_source:   state.attributes.window_cascade_source ?? null,
+        window_open_minutes:     state.attributes.window_open_minutes ?? null,
+        // Kaskaden-Konfiguration (zum Vorbelegen der Einstellungen)
+        window_cascade_rooms:    state.attributes.window_cascade_rooms ?? [],
+        window_cascade_delay_minutes: state.attributes.window_cascade_delay_minutes ?? 30,
+        window_cascade_offset_cfg:    state.attributes.window_cascade_offset_cfg ?? 3.0,
       };
     });
     // Enrich from demand sensors

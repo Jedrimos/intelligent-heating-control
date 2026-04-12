@@ -36,6 +36,7 @@
             ${MODE_ICONS[room.room_mode] || "⚙️"} ${MODE_LABELS[room.room_mode] || room.room_mode}
             · ${room.current_temp !== null ? room.current_temp + " °C → " + (room.target_temp ?? "—") + " °C" : "kein Sensor"}
             ${room.window_open ? " · 🪟 Fenster offen" : ""}
+            ${room.window_cascade_active ? ` · 🌊 Kaskade –${room.window_cascade_offset?.toFixed(1) ?? '?'}°C` : ""}
           </div>
         </div>
       </div>`;
@@ -184,7 +185,60 @@
               <input type="number" class="form-input" id="rs-window-close-delay"
                 value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
             </div>
+            <div class="settings-item">
+              <label>Sollwert nach Fenster schließen</label>
+              <select class="form-select" id="rs-window-restore-mode">
+                <option value="schedule" ${(room.window_restore_mode || 'schedule') === 'schedule' ? 'selected' : ''}>Zeitplan (Standard)</option>
+                <option value="previous" ${room.window_restore_mode === 'previous' ? 'selected' : ''}>Vorherigen Sollwert wiederherstellen</option>
+              </select>
+              <span class="form-hint">„Vorherig" merkt sich den Sollwert vor dem Öffnen</span>
+            </div>
           </div>
+        </details>
+
+        <details class="modal-collapsible"${(room.window_cascade_rooms && room.window_cascade_rooms.length > 0) ? ' open' : ''}>
+          <summary class="modal-section-title">🌊 Fenster-Kaskade</summary>
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+            Wenn dieses Zimmer zu lange gelüftet wird, senkt IHC automatisch die Heizung in anderen Räumen ab.
+            Nützlich bei offenen Wohnungen wo Kaltluft in Nachbarzimmer zieht.
+          </div>
+          ${(() => {
+            const allRooms = this._getRoomData();
+            const otherRooms = allRooms.filter(r => r.room_id !== room.room_id);
+            const currentCascadeRooms = room.window_cascade_rooms || [];
+            const roomCheckboxes = otherRooms.map(r => `
+              <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
+                <input type="checkbox" class="cascade-room-check" value="${r.room_id}"
+                  ${currentCascadeRooms.includes(r.room_id) ? 'checked' : ''}>
+                <span style="font-size:13px">${r.name}</span>
+              </label>`).join('');
+            return `
+              <div style="margin-bottom:12px">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
+                <div style="padding:8px 12px;border-radius:8px;background:var(--secondary-background-color);max-height:180px;overflow-y:auto">
+                  ${otherRooms.length > 0 ? roomCheckboxes : '<span style="font-size:12px;color:var(--secondary-text-color)">Keine anderen Räume vorhanden</span>'}
+                </div>
+              </div>`;
+          })()}
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Verzögerung (min)</label>
+              <input type="number" class="form-input" id="rs-cascade-delay"
+                value="${room.window_cascade_delay_minutes ?? 30}" step="5" min="5" max="120">
+              <span class="form-hint">Fenster muss mindestens so lange offen sein</span>
+            </div>
+            <div class="settings-item">
+              <label>Absenkung (°C)</label>
+              <input type="number" class="form-input" id="rs-cascade-offset"
+                value="${(room.window_cascade_offset_cfg ?? 3.0).toFixed(1)}" step="0.5" min="0.5" max="10">
+              <span class="form-hint">Zieltemperatur in anderen Räumen wird um diesen Wert reduziert</span>
+            </div>
+          </div>
+          ${room.window_cascade_active ? `
+          <div style="padding:8px 12px;border-radius:8px;background:color-mix(in srgb,#42a5f5 12%,transparent);font-size:12px;margin-top:8px">
+            🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${room.window_cascade_source || '?'}</strong>
+            (–${room.window_cascade_offset?.toFixed(1) ?? '?'} °C)
+          </div>` : ''}
         </details>
 
         <details class="modal-collapsible" open>
@@ -478,13 +532,49 @@
           </div>
         </details>
 
-        <div style="margin-bottom:16px">
-          <div class="modal-section-title" style="margin-bottom:8px">⏱️ Komfort-Verlängerung
+        <details class="modal-collapsible" ${(room.comfort_extend_entries?.length > 0 || room.comfort_extend_entity) ? "open" : ""}>
+          <summary class="modal-section-title">⏱️ Komfort-Verlängerung
             ${room.comfort_extend_active ? '<span style="color:#43a047;font-size:11px;margin-left:6px">● aktiv</span>' : ''}
-          </div>
+          </summary>
           <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:8px">
             Heizung bleibt im Komfortmodus solange eine der folgenden Bedingungen zutrifft.
-            Eintrag: entity_id · zustand (z.B. <code>media_player.tv · playing</code>)
+          </div>
+
+          ${(() => {
+            // Live status of each configured entry (like HA schedule status)
+            const entries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
+              ? room.comfort_extend_entries
+              : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
+            if (entries.length === 0) return "";
+            const statusRows = entries.map(entry => {
+              if (!entry.entity) return "";
+              const entityState = this._hass?.states[entry.entity];
+              const currentState = entityState?.state ?? "?";
+              const isActive = currentState === (entry.state || "on");
+              const dot = isActive
+                ? `<span style="color:#66bb6a;font-weight:700">● AN</span>`
+                : `<span style="color:#9e9e9e">● AUS</span>`;
+              const badge = isActive
+                ? `<span style="background:#1b5e20;color:#a5d6a7;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:700;margin-left:6px">▶ AKTIV</span>`
+                : "";
+              return `
+                <div style="padding:6px 10px;border-radius:8px;margin-bottom:4px;
+                  background:${isActive ? "rgba(27,94,32,0.15)" : "var(--secondary-background-color)"};
+                  border:1px solid ${isActive ? "#388e3c" : "var(--divider-color)"}">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    ${dot}
+                    <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${entry.entity}</span>
+                    <span style="font-size:11px;color:var(--secondary-text-color)">= ${entry.state || "on"}</span>
+                    <span style="font-size:11px;opacity:.6">(ist: ${currentState})</span>
+                    ${badge}
+                  </div>
+                </div>`;
+            }).filter(Boolean).join("");
+            return statusRows ? `<div style="margin-bottom:10px">${statusRows}</div>` : "";
+          })()}
+
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:6px">
+            Konfiguration: entity_id · zustand (z.B. <code>media_player.tv · playing</code>)
           </div>
           <div id="rs-comfort-extend-list">
             ${(() => {
@@ -513,7 +603,7 @@
             })()}
           </div>
           <span class="form-hint">Optional. Beispiel: media_player.wohnzimmer / playing · binary_sensor.jemand_zuhause / on</span>
-        </div>
+        </details>
 
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
@@ -641,6 +731,7 @@
         presence_sensor_on_delay: parseInt(container.querySelector("#rs-presence-sensor-on-delay")?.value, 10) || 0,
         presence_sensor_off_delay: parseInt(container.querySelector("#rs-presence-sensor-off-delay")?.value, 10) || 0,
         window_open_temp:         parseFloat(container.querySelector("#rs-window-open-temp")?.value) || 0,
+        window_restore_mode:      container.querySelector("#rs-window-restore-mode")?.value || "schedule",
         room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
         comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
@@ -655,6 +746,9 @@
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,
+        window_cascade_rooms:     [...container.querySelectorAll(".cascade-room-check:checked")].map(cb => cb.value),
+        window_cascade_delay_minutes: parseInt(container.querySelector("#rs-cascade-delay")?.value, 10) || 30,
+        window_cascade_offset:    parseFloat(container.querySelector("#rs-cascade-offset")?.value) || 3.0,
       });
       this._toast(`✓ ${room.name} gespeichert`);
     });
@@ -1340,6 +1434,7 @@
     const warmupCurve = room.warmup_curve || [];
     const learnedMin = room.learned_preheat_minutes;
     const coolingRate = room.avg_cooling_rate;
+    const avgWarmupMin = room.avg_warmup_minutes;  // flat average, always available
     {
       const learnCard = document.createElement("div");
       learnCard.className = "card";
@@ -1356,15 +1451,24 @@
           </tr>`).join("");
       }
 
+      // Detect if outdoor sensor seems to be missing (no curve data and no cooling rate)
+      const noOutdoorData = warmupCurve.length === 0 && coolingRate == null && avgWarmupMin != null;
+
       learnCard.innerHTML = `
         <div class="card-title">🧠 Lernkurve – Optimum Start & Thermische Masse</div>
         <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
           IHC misst wie lange der Raum benötigt um den Sollwert zu erreichen (Aufheizrate) und wie schnell er abkühlt.
-          Die Daten werden pro Außentemperatur gespeichert und für die automatische Vorheizzeit genutzt.
+          Die detaillierte Kurve nach Außentemperatur wird für die automatische Vorheizzeit genutzt.
         </div>
+        ${avgWarmupMin != null ? `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:13px">⏱ Ø Aufheizzeit (einfach):</span>
+            <span style="font-size:15px;font-weight:700;color:var(--primary-color)">${avgWarmupMin.toFixed(0)} min</span>
+            <span style="font-size:11px;color:var(--secondary-text-color)">(ohne Außentemperatur-Korrektur)</span>
+          </div>` : ""}
         ${learnedMin != null ? `
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-            <span style="font-size:13px">📐 Aktuelle Vorheizzeit (gelernt):</span>
+            <span style="font-size:13px">📐 Vorheizzeit (gelernt + AT-korrigiert):</span>
             <span style="font-size:15px;font-weight:700;color:var(--primary-color)">${learnedMin.toFixed(0)} min</span>
           </div>` : ""}
         ${coolingRate != null ? `
@@ -1381,8 +1485,13 @@
             </span>
           </div>` : (coolingRate != null ? `
           <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:8px">
-            🌿 Optimum Stop: ${coolingRate > 0 ? 'Abkühlrate bekannt – IHC prüft bei jedem Zeitplan-Wechsel ob Heizung früher ausgeschaltet werden kann.' : 'Wird aktiv sobald genug Abkühlmessungen vorliegen.'}
+            🌿 Optimum Stop: Abkühlrate bekannt – IHC prüft bei jedem Zeitplan-Wechsel ob Heizung früher ausgeschaltet werden kann.
           </div>` : "")}
+        ${noOutdoorData ? `
+          <div style="padding:10px 12px;border-radius:8px;background:color-mix(in srgb,#ff9800 12%,transparent);font-size:12px;margin-bottom:8px">
+            ⚠️ Kein Außentemperatursensor konfiguriert oder verfügbar – die detaillierte Aufheizkurve und die Abkühlrate
+            können nicht berechnet werden. Bitte einen Außensensor in den <strong>Globaleinstellungen</strong> eintragen.
+          </div>` : ""}
         ${warmupCurve.length > 0 ? `
           <div style="font-size:12px;font-weight:600;margin-bottom:6px">Aufheizkurve nach Außentemperatur</div>
           <div style="overflow-x:auto">
@@ -1396,10 +1505,10 @@
               </thead>
               <tbody>${warmupRows}</tbody>
             </table>
-          </div>` : `
+          </div>` : (avgWarmupMin == null ? `
           <div style="padding:16px;text-align:center;color:var(--secondary-text-color);font-size:12px">
-            Noch keine Lernkurven-Daten – IHC sammelt beim nächsten Aufheizzyklus erste Messungen.
-          </div>`}`;
+            Noch keine Lernkurven-Daten – IHC sammelt beim nächsten Aufheizzyklus (mind. 2 min Aufheizphase) erste Messungen.
+          </div>` : "")}`;
       container.appendChild(learnCard);
     }
   }

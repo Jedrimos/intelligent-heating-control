@@ -41,6 +41,29 @@ class EnergyManagerMixin:
             self._smart_meter_day_start = None
             self.hass.async_create_task(self._async_save_runtime_state())
 
+    @staticmethod
+    def _trv_room_is_heating(rdata: dict) -> bool:
+        """Decide if a TRV room is actively heating – same logic as climate.hvac_action.
+
+        Priority:
+          1. Valve position > 8 %  (most reliable, direct hardware signal)
+          2. TRV reports hvac_action == "heating"
+          3. IHC calculated demand > 0 (post-safety-gate)
+          4. Fallback: no TRV state available → room below its setpoint
+        """
+        avg_valve = rdata.get("trv_avg_valve")
+        if avg_valve is not None:
+            return avg_valve > 8
+        if rdata.get("trv_any_heating", False):
+            return True
+        if rdata.get("demand", 0.0) > 0:
+            return True
+        # Fallback (mirrors climate.py hvac_action): TRV doesn't report state,
+        # count as heating whenever the room is below its target temperature.
+        current = rdata.get("current_temp")
+        target = rdata.get("target_temp")
+        return current is not None and target is not None and current < target
+
     def _update_runtime_tracking(self, should_heat: bool, room_data: dict) -> None:
         """Track heating on-times for energy statistics."""
         now = datetime.now()
@@ -48,9 +71,11 @@ class EnergyManagerMixin:
         controller_mode = self.get_config().get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
 
         # Global heating runtime
-        # In TRV mode there is no central switch; treat "any room demanding" as heating active
+        # In TRV mode there is no central switch; treat "any room heating" as active.
+        # Uses the same signal logic as climate.hvac_action so runtime is counted
+        # whenever the climate entity shows HEATING.
         global_heat = should_heat if controller_mode != CONTROLLER_MODE_TRV else any(
-            rd.get("demand", 0.0) > 0 for rd in room_data.values()
+            self._trv_room_is_heating(rd) for rd in room_data.values()
         )
         if global_heat:
             if self._heating_started_at is None:
@@ -62,18 +87,12 @@ class EnergyManagerMixin:
                 self._heating_started_at = None
 
         # Per-room demand runtime
-        # TRV mode: prefer valve position > threshold as heating signal – it reacts faster
-        #           and directly represents actual heat flow (no lag from room sensor).
-        #           Falls back to demand > 0 when valve data is not available.
-        # Switch mode: count only when central heater is also on (demand > 0 AND should_heat)
+        # TRV mode: use same signal hierarchy as climate.hvac_action (_trv_room_is_heating).
+        # Switch mode: count only when central heater is also on (demand > 0 AND should_heat).
         for room_id, rdata in room_data.items():
             demand = rdata.get("demand", 0.0)
             if controller_mode == CONTROLLER_MODE_TRV:
-                avg_valve = rdata.get("trv_avg_valve")
-                if avg_valve is not None:
-                    room_heating = avg_valve > 8  # valve open → actively heating
-                else:
-                    room_heating = demand > 0
+                room_heating = self._trv_room_is_heating(rdata)
             else:
                 room_heating = demand > 0 and should_heat
             if room_heating:

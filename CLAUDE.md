@@ -11,10 +11,10 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `1.6.3`
-- **Repository:** https://github.com/Jedrimos/intelligent-heatingcontroll
-- **Aktiver Entwicklungs-Branch:** `claude/fix-heating-control-bugs-I9DSg`
-- **Dateipfad:** `/home/user/intelligent-heatingcontrol/`
+- **Version:** `1.9.0`
+- **Repository:** https://github.com/Jedrimos/intelligent-heating-controll
+- **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
+- **Dateipfad:** `/home/user/intelligent-heating-control/`
 - **Integration-Pfad:** `custom_components/intelligent_heating_control/`
 
 ### Was kann es?
@@ -415,27 +415,27 @@ Integration neu laden (keine Parameter).
 
 ## 7. Git-Workflow
 
-Der aktive Branch heißt `claude/review-homeassistant-repo-PL7tn`.
+Der aktive Branch heißt `claude/fix-ihc-climate-heating-l9eLh`.
 Branches beginnen immer mit `claude/` + Session-ID. Push scheitert mit HTTP 403 wenn Branchname falsch.
 
 ```bash
 # Auf korrekten Branch wechseln / erstellen
-git checkout claude/review-homeassistant-repo-PL7tn
+git checkout claude/fix-ihc-climate-heating-l9eLh
 # oder erstellen falls nötig:
-git checkout -b claude/review-homeassistant-repo-PL7tn
+git checkout -b claude/fix-ihc-climate-heating-l9eLh
 
 # Commiten
 git add custom_components/intelligent_heating_control/DATEI.py
 git commit -m "fix: beschreibung der änderung"
 
 # Pushen (IMMER so, nie abkürzen)
-git push -u origin claude/review-homeassistant-repo-PL7tn
+git push -u origin claude/fix-ihc-climate-heating-l9eLh
 ```
 
 **Niemals auf `main` pushen.**
 
 ### Korrekte Pfade
-- Arbeitsverzeichnis: `/home/user/intelligent-heatingcontrol/` (KEIN doppeltes `l` am Ende!)
+- Arbeitsverzeichnis: `/home/user/intelligent-heating-control/` (KEIN doppeltes `l` am Ende!)
 - Integration: `custom_components/intelligent_heating_control/`
 
 ---
@@ -443,7 +443,7 @@ git push -u origin claude/review-homeassistant-repo-PL7tn
 ## 8. Pflicht-Checks vor jedem Commit
 
 ```bash
-cd /home/user/intelligent-heatingcontrol
+cd /home/user/intelligent-heating-control
 
 # 1. Python-Syntax prüfen
 python3 -m py_compile custom_components/intelligent_heating_control/const.py && echo OK
@@ -762,10 +762,10 @@ Falls du diesen Chat frisch öffnest ohne Verlauf, tue folgendes:
 
 ```bash
 # 1. Ins Projekt wechseln
-cd /home/user/intelligent-heatingcontrol
+cd /home/user/intelligent-heating-control
 
 # 2. Auf richtigen Branch wechseln
-git checkout claude/review-homeassistant-repo-PL7tn
+git checkout claude/fix-ihc-climate-heating-l9eLh
 
 # 3. Aktuellen Status sehen
 git status
@@ -1102,6 +1102,41 @@ Pro Heizkreis: Energie-Anteil = (Spreizung × Durchfluss × Laufzeit) / Gesamt.
 ---
 
 ## 11. Bekannte offene Punkte / Roadmap (aktualisiert)
+
+### Implementiert (✅) – Release 1.9.0 (2026-04-12)
+- **Fenster-Kaskade:** Wenn ein Zimmer zu lange lüftet, senken konfigurierbare Nachbarräume automatisch ab
+  - Pro Zimmer: Ziel-Räume, Verzögerung (min), Absenkung (°C) konfigurierbar
+  - Dashboard: Kaskade-Alert-Chips mit Countdown und Quell-Raum-Anzeige
+  - TRV-Modus: Kaskade wirkt direkt auf TRV-Sollwert; höchster Offset bei mehreren Quellen gewinnt
+  - `window_open_minutes`, `window_cascade_active/offset/source` in climate-Attributen
+- **Optimum Start – Lernkurve nach Außentemperatur:**
+  - IHC misst Aufheizzeiten getrennt nach Außentemperatur-Bucket (z.B. −5°C, 0°C, +5°C, …)
+  - `warmup_curve` in climate-Attributen; sichtbar im Verlauf-Tab als Kurve mit Datenpunkten
+  - `avg_warmup_minutes` (flat, ohne Außensensor) erstmals korrekt im Frontend sichtbar
+- **Thermische Masse:** IHC lernt die Abkühlrate pro Zimmer (°C/h bei Δ innen/außen)
+  - Genutzt für präzisere Vorheiz-Zeitschätzung; `avg_cooling_rate` in climate-Attributen
+- **Fenster-Restore-Modus:** Temperatur nach Fenster schließen wahlweise aus Zeitplan oder vom Wert vor dem Öffnen wiederherstellen
+- **Sommermodus – Externer Schalter:** `CONF_SUMMER_MODE_ENTITY` (input_boolean / binary_sensor) überschreibt Temperatur-Automatik
+- **Kälteprognose-Frühstart:** Wenn Wetterprognose heute Nacht kalt → Sommerautomatik deaktiviert, Heizung startet X Stunden früher
+- **Mehrere Komfort-Verlängerungs-Einträge:** `comfort_extend_entries` erlaubt beliebig viele Entitäten+Zustände als Auslöser
+- **CO₂-Vorheiz-Boost:** Wenn CO₂ über Schwelle, heizt Raum kurz vor dem Lüften etwas vor → weniger Kälteschock
+- **v1.8 – Feiertags-/Schulferienkalender:** HA-Kalender-Entität → Wochenend-Zeitplan oder Komfort-Modus an Feiertagen
+- **v1.8 – CO₂-Prognose:** `co2_ventilation_eta_minutes` berechnet voraussichtliche Zeit bis Lüftungsempfehlung
+- **v1.8 – Energiepreis-Chart:** Tibber/Nordpool Stundenpreise als Balkendiagramm im Diagnose-Tab
+- **v1.8 – Peak Shaving:** Gestaffelter Heizungsstart verhindert Lastspitzen bei synchronem Anforderungsanstieg
+- **Bugfixes (gesammelt seit 1.6.3):**
+  - `forecast_coldnight_active` war nie im Frontend sichtbar → Kälteprognose-Banner immer aus ❌→✅
+  - `pid_kp/ki/kd` wurden nach Panel-Reload immer auf Standardwerte zurückgesetzt ❌→✅
+  - TRV: Kein falsches „manuell" mehr während Vorheizfenster
+  - Laufzeit/kWh: Folgt exakt HVAC-Heating-Signal statt berechneter Anforderung (TRV-Modus)
+  - HVAC-Idle-Bug: `hvac_action` zeigte „heating" wenn Raum bei Sollwert war, statt „idle"
+  - `avg_warmup_minutes` war im Frontend unsichtbar trotz vorhandener Backend-Daten
+  - Startup-Crash bei unavailable Zigbee/Z-Wave-Sensoren (letzter bekannter Wert 30 min)
+  - Massiv reduziertes Schreibvolumen in HA-Recorder/.storage (perf)
+  - Mehrere Panel-Einstellungen-Bugs (Sichtbarkeit, Felder, services.yaml)
+  - Stuck-valve-AttributeError bei Ventilen ohne `valve_position`-Attribut
+  - Komfort-Verlängerung: Grund wird im Dashboard angezeigt
+  - min_temp/max_temp fehlten in Add/Edit-Room-Modals und climate-Attributen
 
 ### Implementiert (✅) – Release 1.6.3 (2026-04-03)
 - **Bestätigungs-basierte TRV Override-Erkennung:** Kein falsches „manuell" nach Zeitplanwechsel

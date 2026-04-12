@@ -967,15 +967,71 @@ class IHCPanel extends HTMLElement {
         window_close_delay: state.attributes.window_close_delay ?? 0,
         effective_weight: state.attributes.effective_weight ?? state.attributes.weight ?? 1.0,
         // TRV sensor data integration
-        trv_temp_weight:  state.attributes.trv_temp_weight ?? 0,
-        trv_temp_offset:  state.attributes.trv_temp_offset ?? -2,
-        trv_valve_demand: state.attributes.trv_valve_demand === true,
-        trv_raw_temp:     state.attributes.trv_raw_temp ?? null,
-        trv_humidity:     state.attributes.trv_humidity ?? null,
-        trv_avg_valve:    state.attributes.trv_avg_valve ?? null,
-        trv_any_heating:  state.attributes.trv_any_heating === true,
-        trv_min_battery:  state.attributes.trv_min_battery ?? null,
-        trv_low_battery:  state.attributes.trv_low_battery === true,
+        trv_temp_weight:      state.attributes.trv_temp_weight ?? 0,
+        trv_temp_offset:      state.attributes.trv_temp_offset ?? -2,
+        trv_valve_demand:     state.attributes.trv_valve_demand === true,
+        trv_min_send_interval: state.attributes.trv_min_send_interval ?? 0,
+        trv_calibrations:     state.attributes.trv_calibrations ?? {},
+        temp_calibration:     state.attributes.temp_calibration ?? 0,
+        trv_raw_temp:         state.attributes.trv_raw_temp ?? null,
+        trv_humidity:         state.attributes.trv_humidity ?? null,
+        trv_avg_valve:        state.attributes.trv_avg_valve ?? null,
+        trv_any_heating:      state.attributes.trv_any_heating === true,
+        trv_min_battery:      state.attributes.trv_min_battery ?? null,
+        trv_low_battery:      state.attributes.trv_low_battery === true,
+        trv_stuck_valves:     state.attributes.trv_stuck_valves ?? [],
+        // Mold protection details
+        mold_humidity_threshold: state.attributes.mold_humidity_threshold ?? 70,
+        // CO2 config
+        co2_sensor:            state.attributes.co2_sensor || "",
+        co2_threshold_good:    state.attributes.co2_threshold_good ?? 800,
+        co2_threshold_bad:     state.attributes.co2_threshold_bad ?? 1200,
+        co2_ventilation_eta_minutes: state.attributes.co2_ventilation_eta_minutes ?? null,
+        // PIR presence sensor
+        presence_sensor:            state.attributes.presence_sensor || "",
+        presence_sensor_on_delay:   state.attributes.presence_sensor_on_delay ?? 300,
+        presence_sensor_off_delay:  state.attributes.presence_sensor_off_delay ?? 300,
+        pir_presence:               state.attributes.pir_presence ?? null,
+        // Window settings
+        window_open_temp:     state.attributes.window_open_temp ?? 0,
+        window_restore_mode:  state.attributes.window_restore_mode || "schedule",
+        // Temperature threshold & dynamic entities
+        room_temp_threshold:  state.attributes.room_temp_threshold ?? 0,
+        comfort_temp_entity:  state.attributes.comfort_temp_entity || "",
+        eco_temp_entity:      state.attributes.eco_temp_entity || "",
+        // Comfort extend
+        comfort_extend_entries: state.attributes.comfort_extend_entries ?? [],
+        comfort_extend_entity:  state.attributes.comfort_extend_entity || "",
+        comfort_extend_state:   state.attributes.comfort_extend_state || "on",
+        comfort_extend_active:  state.attributes.comfort_extend_active === true,
+        // Aggressive mode
+        aggressive_mode_enabled: state.attributes.aggressive_mode_enabled === true,
+        aggressive_mode_range:   state.attributes.aggressive_mode_range ?? 2,
+        aggressive_mode_offset:  state.attributes.aggressive_mode_offset ?? 3,
+        // Runtime status
+        optimum_stop_active:     state.attributes.optimum_stop_active === true,
+        optimum_stop_minutes:    state.attributes.optimum_stop_minutes ?? null,
+        optimum_stop_predicted:  state.attributes.optimum_stop_predicted ?? null,
+        ha_schedule_entity:      state.attributes.ha_schedule_entity || "",
+        ha_schedule_mode:        state.attributes.ha_schedule_mode || "",
+        // Temperature limits
+        min_temp:                state.attributes.min_temp ?? 5,
+        max_temp:                state.attributes.max_temp ?? 30,
+        // Demand heatmap & learning data
+        demand_heatmap:          state.attributes.demand_heatmap ?? [],
+        avg_warmup_minutes:      state.attributes.avg_warmup_minutes ?? null,
+        learned_preheat_minutes: state.attributes.learned_preheat_minutes ?? null,
+        avg_cooling_rate:        state.attributes.avg_cooling_rate ?? null,
+        warmup_curve:            state.attributes.warmup_curve ?? [],
+        // Fenster-Kaskade
+        window_cascade_active:   state.attributes.window_cascade_active === true,
+        window_cascade_offset:   state.attributes.window_cascade_offset ?? null,
+        window_cascade_source:   state.attributes.window_cascade_source ?? null,
+        window_open_minutes:     state.attributes.window_open_minutes ?? null,
+        // Kaskaden-Konfiguration (zum Vorbelegen der Einstellungen)
+        window_cascade_rooms:    state.attributes.window_cascade_rooms ?? [],
+        window_cascade_delay_minutes: state.attributes.window_cascade_delay_minutes ?? 30,
+        window_cascade_offset_cfg:    state.attributes.window_cascade_offset_cfg ?? 3.0,
       };
     });
     // Enrich from demand sensors
@@ -1523,7 +1579,30 @@ class IHCPanel extends HTMLElement {
       if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
       if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
       if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);
+      // Comfort extend: show which entity is keeping the room in comfort mode
+      if (room.comfort_extend_active) {
+        const ceEntries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
+          ? room.comfort_extend_entries
+          : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
+        const activeEntry = ceEntries.find(e => e.entity && this._hass?.states[e.entity]?.state === (e.state || "on"));
+        const reason = activeEntry ? activeEntry.entity.split(".")[1] : "Bedingung";
+        alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
+      }
       if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
+      // Fenster-Kaskade: zeigt welches Zimmer diese Absenkung verursacht
+      if (room.window_cascade_active) {
+        const src = room.window_cascade_source || "anderes Zimmer";
+        const off = room.window_cascade_offset != null ? ` (–${parseFloat(room.window_cascade_offset).toFixed(1)} °C)` : "";
+        alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${off}: Fenster offen in <strong>${src}</strong></div>`);
+      }
+      // Fenster-Kaskade: zeigt Countdown wenn dieses Zimmer eine Kaskade auslösen wird
+      if (room.window_open && !room.window_cascade_active && room.window_cascade_rooms && room.window_cascade_rooms.length > 0 && room.window_open_minutes != null) {
+        const delay = room.window_cascade_delay_minutes ?? 30;
+        const remaining = delay - room.window_open_minutes;
+        if (remaining > 0 && remaining <= delay) {
+          alerts.push(`<div class="room-alert alert-warn">🌊 Kaskade in ${remaining.toFixed(0)} min – andere Räume werden abgesenkt</div>`);
+        }
+      }
       const v = room.ventilation;
       if (v && v.level !== "none") {
         const icons = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };
@@ -1860,6 +1939,7 @@ class IHCPanel extends HTMLElement {
             ${MODE_ICONS[room.room_mode] || "⚙️"} ${MODE_LABELS[room.room_mode] || room.room_mode}
             · ${room.current_temp !== null ? room.current_temp + " °C → " + (room.target_temp ?? "—") + " °C" : "kein Sensor"}
             ${room.window_open ? " · 🪟 Fenster offen" : ""}
+            ${room.window_cascade_active ? ` · 🌊 Kaskade –${room.window_cascade_offset?.toFixed(1) ?? '?'}°C` : ""}
           </div>
         </div>
       </div>`;
@@ -2008,7 +2088,60 @@ class IHCPanel extends HTMLElement {
               <input type="number" class="form-input" id="rs-window-close-delay"
                 value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
             </div>
+            <div class="settings-item">
+              <label>Sollwert nach Fenster schließen</label>
+              <select class="form-select" id="rs-window-restore-mode">
+                <option value="schedule" ${(room.window_restore_mode || 'schedule') === 'schedule' ? 'selected' : ''}>Zeitplan (Standard)</option>
+                <option value="previous" ${room.window_restore_mode === 'previous' ? 'selected' : ''}>Vorherigen Sollwert wiederherstellen</option>
+              </select>
+              <span class="form-hint">„Vorherig" merkt sich den Sollwert vor dem Öffnen</span>
+            </div>
           </div>
+        </details>
+
+        <details class="modal-collapsible"${(room.window_cascade_rooms && room.window_cascade_rooms.length > 0) ? ' open' : ''}>
+          <summary class="modal-section-title">🌊 Fenster-Kaskade</summary>
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+            Wenn dieses Zimmer zu lange gelüftet wird, senkt IHC automatisch die Heizung in anderen Räumen ab.
+            Nützlich bei offenen Wohnungen wo Kaltluft in Nachbarzimmer zieht.
+          </div>
+          ${(() => {
+            const allRooms = this._getRoomData();
+            const otherRooms = allRooms.filter(r => r.room_id !== room.room_id);
+            const currentCascadeRooms = room.window_cascade_rooms || [];
+            const roomCheckboxes = otherRooms.map(r => `
+              <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
+                <input type="checkbox" class="cascade-room-check" value="${r.room_id}"
+                  ${currentCascadeRooms.includes(r.room_id) ? 'checked' : ''}>
+                <span style="font-size:13px">${r.name}</span>
+              </label>`).join('');
+            return `
+              <div style="margin-bottom:12px">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
+                <div style="padding:8px 12px;border-radius:8px;background:var(--secondary-background-color);max-height:180px;overflow-y:auto">
+                  ${otherRooms.length > 0 ? roomCheckboxes : '<span style="font-size:12px;color:var(--secondary-text-color)">Keine anderen Räume vorhanden</span>'}
+                </div>
+              </div>`;
+          })()}
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Verzögerung (min)</label>
+              <input type="number" class="form-input" id="rs-cascade-delay"
+                value="${room.window_cascade_delay_minutes ?? 30}" step="5" min="5" max="120">
+              <span class="form-hint">Fenster muss mindestens so lange offen sein</span>
+            </div>
+            <div class="settings-item">
+              <label>Absenkung (°C)</label>
+              <input type="number" class="form-input" id="rs-cascade-offset"
+                value="${(room.window_cascade_offset_cfg ?? 3.0).toFixed(1)}" step="0.5" min="0.5" max="10">
+              <span class="form-hint">Zieltemperatur in anderen Räumen wird um diesen Wert reduziert</span>
+            </div>
+          </div>
+          ${room.window_cascade_active ? `
+          <div style="padding:8px 12px;border-radius:8px;background:color-mix(in srgb,#42a5f5 12%,transparent);font-size:12px;margin-top:8px">
+            🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${room.window_cascade_source || '?'}</strong>
+            (–${room.window_cascade_offset?.toFixed(1) ?? '?'} °C)
+          </div>` : ''}
         </details>
 
         <details class="modal-collapsible" open>
@@ -2302,13 +2435,49 @@ class IHCPanel extends HTMLElement {
           </div>
         </details>
 
-        <div style="margin-bottom:16px">
-          <div class="modal-section-title" style="margin-bottom:8px">⏱️ Komfort-Verlängerung
+        <details class="modal-collapsible" ${(room.comfort_extend_entries?.length > 0 || room.comfort_extend_entity) ? "open" : ""}>
+          <summary class="modal-section-title">⏱️ Komfort-Verlängerung
             ${room.comfort_extend_active ? '<span style="color:#43a047;font-size:11px;margin-left:6px">● aktiv</span>' : ''}
-          </div>
+          </summary>
           <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:8px">
             Heizung bleibt im Komfortmodus solange eine der folgenden Bedingungen zutrifft.
-            Eintrag: entity_id · zustand (z.B. <code>media_player.tv · playing</code>)
+          </div>
+
+          ${(() => {
+            // Live status of each configured entry (like HA schedule status)
+            const entries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
+              ? room.comfort_extend_entries
+              : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
+            if (entries.length === 0) return "";
+            const statusRows = entries.map(entry => {
+              if (!entry.entity) return "";
+              const entityState = this._hass?.states[entry.entity];
+              const currentState = entityState?.state ?? "?";
+              const isActive = currentState === (entry.state || "on");
+              const dot = isActive
+                ? `<span style="color:#66bb6a;font-weight:700">● AN</span>`
+                : `<span style="color:#9e9e9e">● AUS</span>`;
+              const badge = isActive
+                ? `<span style="background:#1b5e20;color:#a5d6a7;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:700;margin-left:6px">▶ AKTIV</span>`
+                : "";
+              return `
+                <div style="padding:6px 10px;border-radius:8px;margin-bottom:4px;
+                  background:${isActive ? "rgba(27,94,32,0.15)" : "var(--secondary-background-color)"};
+                  border:1px solid ${isActive ? "#388e3c" : "var(--divider-color)"}">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    ${dot}
+                    <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${entry.entity}</span>
+                    <span style="font-size:11px;color:var(--secondary-text-color)">= ${entry.state || "on"}</span>
+                    <span style="font-size:11px;opacity:.6">(ist: ${currentState})</span>
+                    ${badge}
+                  </div>
+                </div>`;
+            }).filter(Boolean).join("");
+            return statusRows ? `<div style="margin-bottom:10px">${statusRows}</div>` : "";
+          })()}
+
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:6px">
+            Konfiguration: entity_id · zustand (z.B. <code>media_player.tv · playing</code>)
           </div>
           <div id="rs-comfort-extend-list">
             ${(() => {
@@ -2337,7 +2506,7 @@ class IHCPanel extends HTMLElement {
             })()}
           </div>
           <span class="form-hint">Optional. Beispiel: media_player.wohnzimmer / playing · binary_sensor.jemand_zuhause / on</span>
-        </div>
+        </details>
 
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
@@ -2465,6 +2634,7 @@ class IHCPanel extends HTMLElement {
         presence_sensor_on_delay: parseInt(container.querySelector("#rs-presence-sensor-on-delay")?.value, 10) || 0,
         presence_sensor_off_delay: parseInt(container.querySelector("#rs-presence-sensor-off-delay")?.value, 10) || 0,
         window_open_temp:         parseFloat(container.querySelector("#rs-window-open-temp")?.value) || 0,
+        window_restore_mode:      container.querySelector("#rs-window-restore-mode")?.value || "schedule",
         room_temp_threshold:      parseFloat(container.querySelector("#rs-room-temp-threshold")?.value) || 0,
         comfort_temp_entity:      container.querySelector("#rs-comfort-temp-entity")?.value.trim() || "",
         eco_temp_entity:          container.querySelector("#rs-eco-temp-entity")?.value.trim() || "",
@@ -2479,6 +2649,9 @@ class IHCPanel extends HTMLElement {
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,
+        window_cascade_rooms:     [...container.querySelectorAll(".cascade-room-check:checked")].map(cb => cb.value),
+        window_cascade_delay_minutes: parseInt(container.querySelector("#rs-cascade-delay")?.value, 10) || 30,
+        window_cascade_offset:    parseFloat(container.querySelector("#rs-cascade-offset")?.value) || 3.0,
       });
       this._toast(`✓ ${room.name} gespeichert`);
     });
@@ -3164,6 +3337,7 @@ class IHCPanel extends HTMLElement {
     const warmupCurve = room.warmup_curve || [];
     const learnedMin = room.learned_preheat_minutes;
     const coolingRate = room.avg_cooling_rate;
+    const avgWarmupMin = room.avg_warmup_minutes;  // flat average, always available
     {
       const learnCard = document.createElement("div");
       learnCard.className = "card";
@@ -3180,15 +3354,24 @@ class IHCPanel extends HTMLElement {
           </tr>`).join("");
       }
 
+      // Detect if outdoor sensor seems to be missing (no curve data and no cooling rate)
+      const noOutdoorData = warmupCurve.length === 0 && coolingRate == null && avgWarmupMin != null;
+
       learnCard.innerHTML = `
         <div class="card-title">🧠 Lernkurve – Optimum Start & Thermische Masse</div>
         <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
           IHC misst wie lange der Raum benötigt um den Sollwert zu erreichen (Aufheizrate) und wie schnell er abkühlt.
-          Die Daten werden pro Außentemperatur gespeichert und für die automatische Vorheizzeit genutzt.
+          Die detaillierte Kurve nach Außentemperatur wird für die automatische Vorheizzeit genutzt.
         </div>
+        ${avgWarmupMin != null ? `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:13px">⏱ Ø Aufheizzeit (einfach):</span>
+            <span style="font-size:15px;font-weight:700;color:var(--primary-color)">${avgWarmupMin.toFixed(0)} min</span>
+            <span style="font-size:11px;color:var(--secondary-text-color)">(ohne Außentemperatur-Korrektur)</span>
+          </div>` : ""}
         ${learnedMin != null ? `
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-            <span style="font-size:13px">📐 Aktuelle Vorheizzeit (gelernt):</span>
+            <span style="font-size:13px">📐 Vorheizzeit (gelernt + AT-korrigiert):</span>
             <span style="font-size:15px;font-weight:700;color:var(--primary-color)">${learnedMin.toFixed(0)} min</span>
           </div>` : ""}
         ${coolingRate != null ? `
@@ -3205,8 +3388,13 @@ class IHCPanel extends HTMLElement {
             </span>
           </div>` : (coolingRate != null ? `
           <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:8px">
-            🌿 Optimum Stop: ${coolingRate > 0 ? 'Abkühlrate bekannt – IHC prüft bei jedem Zeitplan-Wechsel ob Heizung früher ausgeschaltet werden kann.' : 'Wird aktiv sobald genug Abkühlmessungen vorliegen.'}
+            🌿 Optimum Stop: Abkühlrate bekannt – IHC prüft bei jedem Zeitplan-Wechsel ob Heizung früher ausgeschaltet werden kann.
           </div>` : "")}
+        ${noOutdoorData ? `
+          <div style="padding:10px 12px;border-radius:8px;background:color-mix(in srgb,#ff9800 12%,transparent);font-size:12px;margin-bottom:8px">
+            ⚠️ Kein Außentemperatursensor konfiguriert oder verfügbar – die detaillierte Aufheizkurve und die Abkühlrate
+            können nicht berechnet werden. Bitte einen Außensensor in den <strong>Globaleinstellungen</strong> eintragen.
+          </div>` : ""}
         ${warmupCurve.length > 0 ? `
           <div style="font-size:12px;font-weight:600;margin-bottom:6px">Aufheizkurve nach Außentemperatur</div>
           <div style="overflow-x:auto">
@@ -3220,10 +3408,10 @@ class IHCPanel extends HTMLElement {
               </thead>
               <tbody>${warmupRows}</tbody>
             </table>
-          </div>` : `
+          </div>` : (avgWarmupMin == null ? `
           <div style="padding:16px;text-align:center;color:var(--secondary-text-color);font-size:12px">
-            Noch keine Lernkurven-Daten – IHC sammelt beim nächsten Aufheizzyklus erste Messungen.
-          </div>`}`;
+            Noch keine Lernkurven-Daten – IHC sammelt beim nächsten Aufheizzyklus (mind. 2 min Aufheizphase) erste Messungen.
+          </div>` : "")}`;
       container.appendChild(learnCard);
     }
   }
