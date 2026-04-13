@@ -420,6 +420,8 @@
   // ── Analyse Tab (Heatmap + Lernkurve, kein Auto-Refresh) ──────────────────
 
   _renderAnalyse(content) {
+    content.innerHTML = "";
+
     const rooms    = this._getRoomData();
     const roomList = Object.values(rooms);
 
