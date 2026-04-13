@@ -82,7 +82,10 @@ const STYLES = `
     border: 1px solid var(--divider-color, #e5e5e5);
     box-shadow: 0 1px 3px rgba(0,0,0,.06);
     display: flex; flex-direction: column; gap: 3px;
+    transition: background 0.4s;
   }
+  .hero-card.state-heating { background: linear-gradient(135deg, rgba(239,83,80,.06) 0%, var(--card-background-color,#fff) 60%); border-color: rgba(239,83,80,.25); }
+  .hero-card.state-ok { background: linear-gradient(135deg, rgba(102,187,106,.05) 0%, var(--card-background-color,#fff) 60%); }
   .hero-label {
     font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
     color: var(--secondary-text-color); margin-bottom: 1px;
@@ -90,6 +93,7 @@ const STYLES = `
   .hero-value { font-size: 24px; font-weight: 700; color: var(--primary-text-color); line-height: 1.15; }
   .hero-value.heating { color: #ef5350; }
   .hero-value.ok { color: #66bb6a; }
+  .hero-value.warn { color: #ffa726; }
   .hero-sub { font-size: 11px; color: var(--secondary-text-color); }
 
   /* System mode quick-select pills */
@@ -135,6 +139,14 @@ const STYLES = `
   .status-value.warn { color: #ffa726; }
 
   /* ── Room cards ──────────────────────────────────────────────────────────────── */
+  @keyframes ihc-heat-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.7; transform: scale(1.06); }
+  }
+  @keyframes ihc-glow {
+    0%, 100% { box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    50%       { box-shadow: 0 2px 12px rgba(239,83,80,.18); }
+  }
   .rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(275px, 1fr)); gap: 12px; }
   .room-card {
     background: var(--card-background-color, #fff); border-radius: 12px;
@@ -145,7 +157,7 @@ const STYLES = `
     overflow: hidden;
   }
   .room-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.11); }
-  .room-card.heating     { border-left-color: #ef5350; }
+  .room-card.heating     { border-left-color: #ef5350; animation: ihc-glow 3s ease-in-out infinite; }
   .room-card.satisfied   { border-left-color: #66bb6a; }
   .room-card.window-open { border-left-color: #42a5f5; }
   .room-card.off         { border-left-color: #bdbdbd; }
@@ -153,8 +165,11 @@ const STYLES = `
   .room-card.away        { border-left-color: #ffa726; }
   .room-card.sleep       { border-left-color: #5c6bc0; }
 
-  /* Card inner padding */
+  /* Subtle state-aware inner tint */
   .room-card-inner { padding: 14px 16px 12px; }
+  .room-card.heating   .room-card-inner { background: linear-gradient(160deg, rgba(239,83,80,.04) 0%, transparent 55%); }
+  .room-card.satisfied .room-card-inner { background: linear-gradient(160deg, rgba(102,187,106,.04) 0%, transparent 55%); }
+  .room-card.window-open .room-card-inner { background: linear-gradient(160deg, rgba(66,165,245,.04) 0%, transparent 55%); }
 
   /* Room header row */
   .room-header {
@@ -166,15 +181,17 @@ const STYLES = `
 
   /* Temperature hero */
   .room-temp-row {
-    display: flex; align-items: flex-end; gap: 10px; margin-bottom: 10px;
+    display: flex; align-items: flex-end; gap: 10px; margin-bottom: 8px;
   }
   .room-temp-current {
     display: flex; flex-direction: column;
   }
   .room-temp-big {
     font-size: 38px; font-weight: 300; color: var(--primary-text-color); line-height: 1;
-    letter-spacing: -1px;
+    letter-spacing: -1px; transition: color 0.4s;
   }
+  .room-card.heating .room-temp-big   { color: #ef5350; }
+  .room-card.satisfied .room-temp-big { color: #43a047; }
   .room-temp-unit-big { font-size: 18px; font-weight: 400; color: var(--secondary-text-color); }
   .room-temp-lbl {
     font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
@@ -195,13 +212,16 @@ const STYLES = `
     font-size: 11px; margin-left: 4px; line-height: 1.1;
   }
 
-  /* Demand bar */
+  /* Demand bar – taller, gradient fill */
   .demand-wrap { margin-bottom: 6px; }
   .demand-bar-bg {
-    background: var(--secondary-background-color, #f0f0f0); border-radius: 4px;
-    height: 5px; overflow: hidden;
+    background: var(--secondary-background-color, #f0f0f0); border-radius: 5px;
+    height: 7px; overflow: hidden; position: relative;
   }
-  .demand-bar { height: 100%; border-radius: 4px; transition: width 0.6s ease, background 0.4s; }
+  .demand-bar {
+    height: 100%; border-radius: 5px;
+    transition: width 0.7s cubic-bezier(.4,0,.2,1), background 0.4s;
+  }
   .demand-meta {
     font-size: 10px; color: var(--secondary-text-color); margin-top: 4px;
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
@@ -264,13 +284,13 @@ const STYLES = `
     display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px;
     border-radius: 9px; font-size: 10px; font-weight: 700; line-height: 1.4;
   }
-  .badge-heat   { background: #fce4ec; color: #c62828; }
+  .badge-heat   { background: #fce4ec; color: #c62828; animation: ihc-heat-pulse 2s ease-in-out infinite; }
   .badge-ok     { background: #e8f5e9; color: #2e7d32; }
   .badge-off    { background: #f0f0f0; color: #757575; }
   .badge-window { background: #e3f2fd; color: #1565c0; }
   .badge-eco    { background: #e0f2f1; color: #00695c; }
   .badge-away   { background: #fff3e0; color: #e65100; }
-  .badge-boost  { background: #fbe9e7; color: #bf360c; }
+  .badge-boost  { background: #fbe9e7; color: #bf360c; animation: ihc-heat-pulse 1.5s ease-in-out infinite; }
   .badge-summer { background: #fffde7; color: #f57f17; }
   .badge-sleep  { background: #ede7f6; color: #4527a0; }
 

@@ -270,12 +270,12 @@
 
     const heroSection = `
       <div class="overview-hero">
-        <div class="hero-card">
+        <div class="hero-card state-${heatingCls}">
           <div class="hero-label">${isTrv ? "TRV-Modus" : "Heizung"}</div>
           <div class="hero-value ${heatingCls}">${heatingState}</div>
           <div class="hero-sub">${g.rooms_demanding} Zimmer mit Anforderung</div>
         </div>
-        <div class="hero-card">
+        <div class="hero-card state-${demandCls}">
           <div class="hero-label">Gesamtanforderung</div>
           <div class="hero-value ${demandCls}">${demandNum}</div>
           ${(() => {

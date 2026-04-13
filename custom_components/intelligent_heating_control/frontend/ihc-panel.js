@@ -128,7 +128,10 @@ const STYLES = `
     border: 1px solid var(--divider-color, #e5e5e5);
     box-shadow: 0 1px 3px rgba(0,0,0,.06);
     display: flex; flex-direction: column; gap: 3px;
+    transition: background 0.4s;
   }
+  .hero-card.state-heating { background: linear-gradient(135deg, rgba(239,83,80,.06) 0%, var(--card-background-color,#fff) 60%); border-color: rgba(239,83,80,.25); }
+  .hero-card.state-ok { background: linear-gradient(135deg, rgba(102,187,106,.05) 0%, var(--card-background-color,#fff) 60%); }
   .hero-label {
     font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
     color: var(--secondary-text-color); margin-bottom: 1px;
@@ -136,6 +139,7 @@ const STYLES = `
   .hero-value { font-size: 24px; font-weight: 700; color: var(--primary-text-color); line-height: 1.15; }
   .hero-value.heating { color: #ef5350; }
   .hero-value.ok { color: #66bb6a; }
+  .hero-value.warn { color: #ffa726; }
   .hero-sub { font-size: 11px; color: var(--secondary-text-color); }
 
   /* System mode quick-select pills */
@@ -181,6 +185,14 @@ const STYLES = `
   .status-value.warn { color: #ffa726; }
 
   /* ── Room cards ──────────────────────────────────────────────────────────────── */
+  @keyframes ihc-heat-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.7; transform: scale(1.06); }
+  }
+  @keyframes ihc-glow {
+    0%, 100% { box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    50%       { box-shadow: 0 2px 12px rgba(239,83,80,.18); }
+  }
   .rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(275px, 1fr)); gap: 12px; }
   .room-card {
     background: var(--card-background-color, #fff); border-radius: 12px;
@@ -191,7 +203,7 @@ const STYLES = `
     overflow: hidden;
   }
   .room-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.11); }
-  .room-card.heating     { border-left-color: #ef5350; }
+  .room-card.heating     { border-left-color: #ef5350; animation: ihc-glow 3s ease-in-out infinite; }
   .room-card.satisfied   { border-left-color: #66bb6a; }
   .room-card.window-open { border-left-color: #42a5f5; }
   .room-card.off         { border-left-color: #bdbdbd; }
@@ -199,8 +211,11 @@ const STYLES = `
   .room-card.away        { border-left-color: #ffa726; }
   .room-card.sleep       { border-left-color: #5c6bc0; }
 
-  /* Card inner padding */
+  /* Subtle state-aware inner tint */
   .room-card-inner { padding: 14px 16px 12px; }
+  .room-card.heating   .room-card-inner { background: linear-gradient(160deg, rgba(239,83,80,.04) 0%, transparent 55%); }
+  .room-card.satisfied .room-card-inner { background: linear-gradient(160deg, rgba(102,187,106,.04) 0%, transparent 55%); }
+  .room-card.window-open .room-card-inner { background: linear-gradient(160deg, rgba(66,165,245,.04) 0%, transparent 55%); }
 
   /* Room header row */
   .room-header {
@@ -212,15 +227,17 @@ const STYLES = `
 
   /* Temperature hero */
   .room-temp-row {
-    display: flex; align-items: flex-end; gap: 10px; margin-bottom: 10px;
+    display: flex; align-items: flex-end; gap: 10px; margin-bottom: 8px;
   }
   .room-temp-current {
     display: flex; flex-direction: column;
   }
   .room-temp-big {
     font-size: 38px; font-weight: 300; color: var(--primary-text-color); line-height: 1;
-    letter-spacing: -1px;
+    letter-spacing: -1px; transition: color 0.4s;
   }
+  .room-card.heating .room-temp-big   { color: #ef5350; }
+  .room-card.satisfied .room-temp-big { color: #43a047; }
   .room-temp-unit-big { font-size: 18px; font-weight: 400; color: var(--secondary-text-color); }
   .room-temp-lbl {
     font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
@@ -241,13 +258,16 @@ const STYLES = `
     font-size: 11px; margin-left: 4px; line-height: 1.1;
   }
 
-  /* Demand bar */
+  /* Demand bar – taller, gradient fill */
   .demand-wrap { margin-bottom: 6px; }
   .demand-bar-bg {
-    background: var(--secondary-background-color, #f0f0f0); border-radius: 4px;
-    height: 5px; overflow: hidden;
+    background: var(--secondary-background-color, #f0f0f0); border-radius: 5px;
+    height: 7px; overflow: hidden; position: relative;
   }
-  .demand-bar { height: 100%; border-radius: 4px; transition: width 0.6s ease, background 0.4s; }
+  .demand-bar {
+    height: 100%; border-radius: 5px;
+    transition: width 0.7s cubic-bezier(.4,0,.2,1), background 0.4s;
+  }
   .demand-meta {
     font-size: 10px; color: var(--secondary-text-color); margin-top: 4px;
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
@@ -310,13 +330,13 @@ const STYLES = `
     display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px;
     border-radius: 9px; font-size: 10px; font-weight: 700; line-height: 1.4;
   }
-  .badge-heat   { background: #fce4ec; color: #c62828; }
+  .badge-heat   { background: #fce4ec; color: #c62828; animation: ihc-heat-pulse 2s ease-in-out infinite; }
   .badge-ok     { background: #e8f5e9; color: #2e7d32; }
   .badge-off    { background: #f0f0f0; color: #757575; }
   .badge-window { background: #e3f2fd; color: #1565c0; }
   .badge-eco    { background: #e0f2f1; color: #00695c; }
   .badge-away   { background: #fff3e0; color: #e65100; }
-  .badge-boost  { background: #fbe9e7; color: #bf360c; }
+  .badge-boost  { background: #fbe9e7; color: #bf360c; animation: ihc-heat-pulse 1.5s ease-in-out infinite; }
   .badge-summer { background: #fffde7; color: #f57f17; }
   .badge-sleep  { background: #ede7f6; color: #4527a0; }
 
@@ -756,7 +776,7 @@ class IHCPanel extends HTMLElement {
           <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
         </button>
         <span class="topbar-title">Intelligent Heating Control</span>
-        <span class="topbar-version">v1.4</span>
+        <span class="topbar-version">v1.9.2</span>
       `;
       shadow.appendChild(topbar);
       // Toggle HA sidebar – single event only (dispatching multiple events causes double-toggle)
@@ -1746,12 +1766,12 @@ class IHCPanel extends HTMLElement {
 
     const heroSection = `
       <div class="overview-hero">
-        <div class="hero-card">
+        <div class="hero-card state-${heatingCls}">
           <div class="hero-label">${isTrv ? "TRV-Modus" : "Heizung"}</div>
           <div class="hero-value ${heatingCls}">${heatingState}</div>
           <div class="hero-sub">${g.rooms_demanding} Zimmer mit Anforderung</div>
         </div>
-        <div class="hero-card">
+        <div class="hero-card state-${demandCls}">
           <div class="hero-label">Gesamtanforderung</div>
           <div class="hero-value ${demandCls}">${demandNum}</div>
           ${(() => {
@@ -2600,31 +2620,31 @@ class IHCPanel extends HTMLElement {
         valve_entities:           valves,
         window_sensor:            windows[0] || "",
         window_sensors:           windows,
-        comfort_temp:             parseFloat(container.querySelector("#rs-comfort").value),
-        away_temp_room:           parseFloat(container.querySelector("#rs-away-temp-room").value) || 16.0,
-        eco_offset:               parseFloat(container.querySelector("#rs-eco-offset").value),
-        eco_max_temp:             parseFloat(container.querySelector("#rs-eco-max").value),
-        sleep_offset:             parseFloat(container.querySelector("#rs-sleep-offset").value),
-        sleep_max_temp:           parseFloat(container.querySelector("#rs-sleep-max").value),
-        away_offset:              parseFloat(container.querySelector("#rs-away-offset").value),
-        away_max_temp:            parseFloat(container.querySelector("#rs-away-max").value),
-        room_offset:              parseFloat(container.querySelector("#rs-offset").value),
-        deadband:                 parseFloat(container.querySelector("#rs-deadband").value),
-        weight:                   parseFloat(container.querySelector("#rs-weight").value),
-        absolute_min_temp:        parseFloat(container.querySelector("#rs-absolute-min-temp").value) || 15,
-        room_qm:                  parseFloat(container.querySelector("#rs-room-qm").value) || 0,
-        room_preheat_minutes:     parseInt(container.querySelector("#rs-room-preheat").value ?? "-1", 10),
-        window_reaction_time:     parseInt(container.querySelector("#rs-window-reaction-time").value, 10) || 30,
-        window_close_delay:       parseInt(container.querySelector("#rs-window-close-delay").value, 10) || 0,
+        comfort_temp:             parseFloat(container.querySelector("#rs-comfort")?.value),
+        away_temp_room:           parseFloat(container.querySelector("#rs-away-temp-room")?.value) || 16.0,
+        eco_offset:               parseFloat(container.querySelector("#rs-eco-offset")?.value),
+        eco_max_temp:             parseFloat(container.querySelector("#rs-eco-max")?.value),
+        sleep_offset:             parseFloat(container.querySelector("#rs-sleep-offset")?.value),
+        sleep_max_temp:           parseFloat(container.querySelector("#rs-sleep-max")?.value),
+        away_offset:              parseFloat(container.querySelector("#rs-away-offset")?.value),
+        away_max_temp:            parseFloat(container.querySelector("#rs-away-max")?.value),
+        room_offset:              parseFloat(container.querySelector("#rs-offset")?.value),
+        deadband:                 parseFloat(container.querySelector("#rs-deadband")?.value),
+        weight:                   parseFloat(container.querySelector("#rs-weight")?.value),
+        absolute_min_temp:        parseFloat(container.querySelector("#rs-absolute-min-temp")?.value) || 15,
+        room_qm:                  parseFloat(container.querySelector("#rs-room-qm")?.value) || 0,
+        room_preheat_minutes:     parseInt(container.querySelector("#rs-room-preheat")?.value ?? "-1", 10),
+        window_reaction_time:     parseInt(container.querySelector("#rs-window-reaction-time")?.value, 10) || 30,
+        window_close_delay:       parseInt(container.querySelector("#rs-window-close-delay")?.value, 10) || 0,
         humidity_sensor:          container.querySelector("#rs-humidity-sensor")?.value.trim() || "",
         mold_protection_enabled:  container.querySelector("#rs-mold-protection")?.value === "true",
         mold_humidity_threshold:  parseFloat(container.querySelector("#rs-mold-humidity-threshold")?.value) || 70,
         co2_sensor:               container.querySelector("#rs-co2-sensor")?.value.trim() || "",
         co2_threshold_good:       parseInt(container.querySelector("#rs-co2-threshold-good")?.value, 10) || 800,
         co2_threshold_bad:        parseInt(container.querySelector("#rs-co2-threshold-bad")?.value, 10) || 1200,
-        radiator_kw:              parseFloat(container.querySelector("#rs-radiator-kw").value) || 1.0,
+        radiator_kw:              parseFloat(container.querySelector("#rs-radiator-kw")?.value) || 1.0,
         hkv_sensor:               container.querySelector("#rs-hkv-sensor")?.value.trim() || "",
-        hkv_factor:               parseFloat(container.querySelector("#rs-hkv-factor").value) || 0.083,
+        hkv_factor:               parseFloat(container.querySelector("#rs-hkv-factor")?.value) || 0.083,
         room_presence_entities:   (container.querySelector("#rs-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
         boost_default_duration:   parseInt(container.querySelector("#rs-boost-dur")?.value, 10) || 60,
@@ -3844,6 +3864,8 @@ class IHCPanel extends HTMLElement {
   // ── Analyse Tab (Heatmap + Lernkurve, kein Auto-Refresh) ──────────────────
 
   _renderAnalyse(content) {
+    content.innerHTML = "";
+
     const rooms    = this._getRoomData();
     const roomList = Object.values(rooms);
 

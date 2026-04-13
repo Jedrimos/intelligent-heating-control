@@ -90,15 +90,23 @@ class TRVControllerMixin:
                 except (ValueError, TypeError):
                     pass
 
-            h = attrs.get("humidity") or attrs.get("current_humidity")
+            # Use "is not None" checks to avoid falsy-0 fallthrough (humidity=0 is valid)
+            _h = attrs.get("humidity")
+            h = _h if _h is not None else attrs.get("current_humidity")
             if h is not None:
                 try:
                     humidities.append(float(h))
                 except (ValueError, TypeError):
                     pass
 
-            # Valve position: different TRVs use different attribute names
-            vp = attrs.get("valve_position") or attrs.get("position") or attrs.get("pi_heating_demand")
+            # Valve position: different TRVs use different attribute names.
+            # Must use explicit None checks – valve=0 (fully closed) is valid and falsy.
+            _vp = attrs.get("valve_position")
+            if _vp is None:
+                _vp = attrs.get("position")
+            if _vp is None:
+                _vp = attrs.get("pi_heating_demand")
+            vp = _vp
             if vp is not None:
                 try:
                     valve_positions.append(float(vp))
@@ -115,7 +123,9 @@ class TRVControllerMixin:
             if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
                 continue
             attrs = state.attributes
-            bat = attrs.get("battery") or attrs.get("battery_level")
+            # Explicit None check: battery=0% is falsy but valid data
+            _bat = attrs.get("battery")
+            bat = _bat if _bat is not None else attrs.get("battery_level")
             if bat is not None:
                 try:
                     batteries.append(float(bat))
@@ -583,7 +593,13 @@ class TRVControllerMixin:
                 self._trv_stuck_since.pop(eid, None)
                 continue
             attrs = state.attributes
-            vp = attrs.get("valve_position") or attrs.get("position") or attrs.get("pi_heating_demand")
+            # Explicit None checks: valve=0 (fully closed) is valid but falsy
+            _vp = attrs.get("valve_position")
+            if _vp is None:
+                _vp = attrs.get("position")
+            if _vp is None:
+                _vp = attrs.get("pi_heating_demand")
+            vp = _vp
             if vp is None:
                 # TRV does not report valve position → cannot detect stuck
                 self._trv_stuck_since.pop(eid, None)
