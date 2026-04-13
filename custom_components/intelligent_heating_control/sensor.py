@@ -356,14 +356,19 @@ class IHCRoomDemandSensor(_IHCBase, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_icon = "mdi:thermometer-alert"
-    # Exclude history arrays from recorder – they are large (~8 KB) and IHC manages its own
-    # ring-buffer history; writing them to the DB every 60 s causes significant storage bloat.
+    # Exclude large/transient/learning data from recorder – only scalar operational
+    # values (demand %, temps, mode) are useful as time-series history.
     _attr_extra_state_attributes_excluded_from_recorder = frozenset({
-        "temp_history",
-        "target_history",
-        "mold",
-        "ventilation",
-        "warmup_curve",   # learning data – large list, no time-series value
+        "temp_history",         # 168-entry ring buffer, IHC manages its own history
+        "target_history",       # same
+        "warmup_curve",         # large learning list, no time-series value
+        "mold",                 # structured dict, details not useful in history
+        "ventilation",          # structured dict
+        "anomaly",              # transient
+        # Learning scalars – rarely change, authoritative copy is in climate entity
+        "avg_warmup_minutes",
+        "learned_preheat_minutes",
+        "avg_cooling_rate",
     })
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
