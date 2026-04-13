@@ -1076,11 +1076,13 @@
     }
 
     content.querySelector("#s-presence-away-delay")?.addEventListener("input", e => {
-      content.querySelector("#s-presence-away-delay-val").textContent = e.target.value + " min";
+      const el = content.querySelector("#s-presence-away-delay-val");
+      if (el) el.textContent = e.target.value + " min";
     });
 
     content.querySelector("#s-presence-arrive-delay")?.addEventListener("input", e => {
-      content.querySelector("#s-presence-arrive-delay-val").textContent = e.target.value + " min";
+      const el = content.querySelector("#s-presence-arrive-delay-val");
+      if (el) el.textContent = e.target.value + " min";
     });
 
     content.querySelector("#save-presence-settings").addEventListener("click", () => {
@@ -1188,7 +1190,8 @@
 
     // Toggle flow-temp section visibility (only in switch mode)
     content.querySelector("#flow-temp-enabled")?.addEventListener("change", e => {
-      content.querySelector("#flow-temp-section").style.display = e.target.checked ? "" : "none";
+      const sec = content.querySelector("#flow-temp-section");
+      if (sec) sec.style.display = e.target.checked ? "" : "none";
     });
 
     // Save flow temp + PID settings

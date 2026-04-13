@@ -2107,7 +2107,7 @@ class IHCPanel extends HTMLElement {
           </div>
           ${(() => {
             const allRooms = this._getRoomData();
-            const otherRooms = allRooms.filter(r => r.room_id !== room.room_id);
+            const otherRooms = Object.values(allRooms).filter(r => r.room_id !== room.room_id);
             const currentCascadeRooms = room.window_cascade_rooms || [];
             const roomCheckboxes = otherRooms.map(r => `
               <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
@@ -2881,7 +2881,7 @@ class IHCPanel extends HTMLElement {
     // ── HA Schedules (schedule.* entities) ────────────────────────────────
     // Build live status HTML for configured HA schedules
     const haSchedsConfig = room.ha_schedules || [];
-    const MODE_LABELS = { comfort: "☀️ Komfort", eco: "🌿 Eco", sleep: "🌙 Schlaf", away: "🚶 Abwesend" };
+    const HA_MODE_LABELS = { comfort: "☀️ Komfort", eco: "🌿 Eco", sleep: "🌙 Schlaf", away: "🚶 Abwesend" };
     const activeSchedEntity = room.ha_schedule_entity || "";  // currently winning schedule entity
     const currentSource = room.source || "";
 
@@ -2911,7 +2911,7 @@ class IHCPanel extends HTMLElement {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${schedDot}
             <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.entity}</span>
-            <span style="font-size:11px;color:var(--secondary-text-color);flex-shrink:0">${MODE_LABELS[s.mode] || s.mode}</span>
+            <span style="font-size:11px;color:var(--secondary-text-color);flex-shrink:0">${HA_MODE_LABELS[s.mode] || s.mode}</span>
             ${winBadge}
           </div>
           <div style="margin-top:4px">${condBadge}</div>
@@ -2924,7 +2924,7 @@ class IHCPanel extends HTMLElement {
         ${haStatusRows}
         ${currentSource.startsWith("ha_schedule_") ? `
           <div style="font-size:11px;color:var(--secondary-text-color);padding:6px 10px;background:var(--secondary-background-color);border-radius:6px;margin-top:4px">
-            ⏸ Kein Zeitplan aktiv → Fallback: <strong>${MODE_LABELS[room.ha_schedule_off_mode] || room.ha_schedule_off_mode}</strong>
+            ⏸ Kein Zeitplan aktiv → Fallback: <strong>${HA_MODE_LABELS[room.ha_schedule_off_mode] || room.ha_schedule_off_mode}</strong>
           </div>` : ""}
       </div>` : "";
 
@@ -4941,11 +4941,13 @@ class IHCPanel extends HTMLElement {
     }
 
     content.querySelector("#s-presence-away-delay")?.addEventListener("input", e => {
-      content.querySelector("#s-presence-away-delay-val").textContent = e.target.value + " min";
+      const el = content.querySelector("#s-presence-away-delay-val");
+      if (el) el.textContent = e.target.value + " min";
     });
 
     content.querySelector("#s-presence-arrive-delay")?.addEventListener("input", e => {
-      content.querySelector("#s-presence-arrive-delay-val").textContent = e.target.value + " min";
+      const el = content.querySelector("#s-presence-arrive-delay-val");
+      if (el) el.textContent = e.target.value + " min";
     });
 
     content.querySelector("#save-presence-settings").addEventListener("click", () => {
@@ -5053,7 +5055,8 @@ class IHCPanel extends HTMLElement {
 
     // Toggle flow-temp section visibility (only in switch mode)
     content.querySelector("#flow-temp-enabled")?.addEventListener("change", e => {
-      content.querySelector("#flow-temp-section").style.display = e.target.checked ? "" : "none";
+      const sec = content.querySelector("#flow-temp-section");
+      if (sec) sec.style.display = e.target.checked ? "" : "none";
     });
 
     // Save flow temp + PID settings
