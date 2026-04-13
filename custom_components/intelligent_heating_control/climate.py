@@ -157,19 +157,23 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
     # The climate entity carries the full room config mirror (~40 KB); only the small
     # operational attributes (temperature, demand, mode, window_open) are useful historically.
     _attr_extra_state_attributes_excluded_from_recorder = frozenset({
+        # ── Large structured data ─────────────────────────────────────────────
         # Schedules – static config, large JSON, only current value matters
         "schedules",
         "ha_schedules",
         "ha_schedule_blocks",
-        # 7×24 EMA grid that changes every 60 s – no historical value in DB
+        # 7×24 EMA grid – large, changes every 60 s, no time-series value in DB
         "demand_heatmap",
-        # Static config lists – never useful as time-series data
+        # Learning curve – large list, best queried on demand
+        "warmup_curve",
+        # ── Static config lists ───────────────────────────────────────────────
         "valve_entities",
         "window_sensors",
         "room_presence_entities",
         "trv_calibrations",
         "trv_stuck_valves",
-        # Sensor entity-IDs – static config mirrors
+        "comfort_extend_entries",
+        # ── Sensor / entity-ID references ─────────────────────────────────────
         "temp_sensor",
         "humidity_sensor",
         "co2_sensor",
@@ -178,11 +182,65 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         "comfort_temp_entity",
         "eco_temp_entity",
         "comfort_extend_entity",
-        # next_period / anomaly – transient, not useful in long-term history
+        # ── Transient computed helpers ────────────────────────────────────────
         "next_period",
         "anomaly",
-        # Learning data – large lists, best read on demand not stored every 60 s
-        "warmup_curve",
+        # ── Static config scalars (set by user, stored in config_entry) ───────
+        # These never change during normal operation – recording them every 60 s
+        # just bloats each DB row without providing any useful history.
+        # Temperature presets / offsets
+        "comfort_temp",
+        "away_temp_room",
+        "eco_offset",
+        "sleep_offset",
+        "away_offset",
+        "eco_max_temp",
+        "sleep_max_temp",
+        "away_max_temp",
+        "ha_schedule_off_mode",
+        "comfort_extend_state",
+        # Room geometry / weighting
+        "room_id",
+        "room_offset",
+        "deadband",
+        "weight",
+        "absolute_min_temp",
+        "min_temp",
+        "max_temp",
+        "room_qm",
+        "room_preheat_minutes",
+        # Window behaviour
+        "window_reaction_time",
+        "window_close_delay",
+        "window_open_temp",
+        "window_restore_mode",
+        # Mold / comfort thresholds
+        "mold_protection_enabled",
+        "mold_humidity_threshold",
+        "room_temp_threshold",
+        # CO₂ thresholds
+        "co2_threshold_good",
+        "co2_threshold_bad",
+        # Energy / HKV
+        "radiator_kw",
+        "hkv_factor",
+        # TRV config
+        "trv_temp_weight",
+        "trv_temp_offset",
+        "trv_valve_demand",
+        "trv_min_send_interval",
+        "temp_calibration",
+        # Presence PIR delays
+        "presence_sensor_on_delay",
+        "presence_sensor_off_delay",
+        # Boost / aggressive mode config
+        "boost_default_duration",
+        "aggressive_mode_enabled",
+        "aggressive_mode_range",
+        "aggressive_mode_offset",
+        # Cascade config (static tuning params, not status)
+        "window_cascade_delay_minutes",
+        "window_cascade_offset_cfg",
     })
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
