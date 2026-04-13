@@ -435,9 +435,9 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "window_cascade_source": d.get("window_cascade_source"),
             "window_open_minutes": d.get("window_open_minutes"),
             # Fenster-Kaskade: Konfiguration (zum Vorbelegen im Panel)
-            "window_cascade_rooms": room.get(CONF_WINDOW_CASCADE_ROOMS, []),
-            "window_cascade_delay_minutes": room.get(CONF_WINDOW_CASCADE_DELAY_MINUTES, DEFAULT_WINDOW_CASCADE_DELAY_MINUTES),
-            "window_cascade_offset_cfg": room.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET),
+            "window_cascade_rooms": room_cfg.get(CONF_WINDOW_CASCADE_ROOMS, []),
+            "window_cascade_delay_minutes": room_cfg.get(CONF_WINDOW_CASCADE_DELAY_MINUTES, DEFAULT_WINDOW_CASCADE_DELAY_MINUTES),
+            "window_cascade_offset_cfg": room_cfg.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET),
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
