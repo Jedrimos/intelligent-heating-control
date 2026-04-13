@@ -29,6 +29,7 @@ class IHCPanel extends HTMLElement {
     this._editingSchedules = {};
     this._selectedRoom = null;        // entity_id of room shown in detail view
     this._selectedRoomTab = "schedule"; // "schedule" | "calendar"
+    this._analyseRoom = null;           // entity_id of room shown in analyse tab
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -157,6 +158,7 @@ class IHCPanel extends HTMLElement {
         <div class="tab" data-tab="overview">🏠 Dashboard</div>
         <div class="tab" data-tab="rooms">🚪 Zimmer</div>
         <div class="tab" data-tab="diagnose">📊 Übersicht</div>
+        <div class="tab" data-tab="analyse">🔥 Analyse</div>
         <div class="tab" data-tab="settings">⚙️ Einstellungen</div>
         <div class="tab" data-tab="curve">📈 Heizkurve</div>
       </div>
@@ -217,6 +219,7 @@ class IHCPanel extends HTMLElement {
         case "overview":   this._renderOverview(content); break;
         case "rooms":      this._renderRooms(content); break;
         case "diagnose":   this._renderDiagnose(content); break;
+        case "analyse":    this._renderAnalyse(content); break;
         case "settings":   this._renderSettings(content); break;
         case "curve":      this._renderCurve(content); break;
       }

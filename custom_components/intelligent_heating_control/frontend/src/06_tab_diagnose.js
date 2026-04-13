@@ -334,27 +334,6 @@
       </details>` : ""}
     `;
 
-    // ── v1.6 Anforderungs-Heatmap (alle Zimmer) ────────────────────────────
-    const roomsWithHeatmap = roomList.filter(r => r.demand_heatmap && r.demand_heatmap.length === 7);
-    if (roomsWithHeatmap.length > 0) {
-      const heatmapCard = document.createElement("details");
-      heatmapCard.className = "ihc-card";
-      heatmapCard.innerHTML = `
-        <summary><span class="ihc-card-title">🔥 Anforderungs-Heatmap</span></summary>
-        <div class="ihc-card-body">
-          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 12px">
-            Zeitbasiertes Heizprofil pro Zimmer – gleitender Durchschnitt (EMA) über mehrere Wochen.
-            Blau = niedrige, Rot = hohe Anforderung.
-          </p>
-          ${roomsWithHeatmap.map(r =>
-            `<div style="margin-bottom:16px">
-              ${this._renderDemandHeatmapGrid(r.demand_heatmap, r.name)}
-            </div>`
-          ).join("")}
-        </div>`;
-      content.appendChild(heatmapCard);
-    }
-
     // ── v1.8 Energiepreis-Forecast Chart (Tibber/Nordpool) ────────────────────
     if (g.price_forecast && g.price_forecast.length > 0) {
       const prices = g.price_forecast;
@@ -435,6 +414,145 @@
           }
         );
       });
+    }
+  }
+
+  // ── Analyse Tab (Heatmap + Lernkurve, kein Auto-Refresh) ──────────────────
+
+  _renderAnalyse(content) {
+    const rooms    = this._getRoomData();
+    const roomList = Object.values(rooms);
+
+    if (roomList.length === 0) {
+      content.innerHTML = `<div class="info-box" style="margin-top:16px">Keine Zimmer konfiguriert.</div>`;
+      return;
+    }
+
+    // Ensure selected room is valid; fall back to first room
+    if (!this._analyseRoom || !rooms[this._analyseRoom]) {
+      this._analyseRoom = roomList[0].entity_id;
+    }
+    const room = rooms[this._analyseRoom];
+
+    // ── Room selector pills ──────────────────────────────────────────────────
+    const selector = document.createElement("div");
+    selector.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;padding:12px 0 4px";
+    selector.innerHTML = roomList.map(r => {
+      const active = r.entity_id === this._analyseRoom;
+      return `<button class="sysmode-pill${active ? " active-auto" : ""}" data-room="${r.entity_id}">${r.name}</button>`;
+    }).join("");
+    content.appendChild(selector);
+    selector.querySelectorAll("[data-room]").forEach(btn =>
+      btn.addEventListener("click", () => {
+        this._analyseRoom = btn.dataset.room;
+        this._renderAnalyse(content);
+      })
+    );
+
+    // ── Heatmap card ─────────────────────────────────────────────────────────
+    const hmCard = document.createElement("div");
+    hmCard.className = "card";
+    hmCard.style.marginTop = "12px";
+    if (room.demand_heatmap && room.demand_heatmap.length === 7) {
+      hmCard.innerHTML = `
+        <div class="card-title">🔥 Anforderungs-Heatmap – ${room.name}</div>
+        <div class="card-subtitle">
+          Gleitender Durchschnitt (EMA) der Heizanforderung nach Wochentag und Uhrzeit.
+          Wird über mehrere Wochen gelernt. Blau = niedrige, Rot = hohe Anforderung.
+        </div>
+        <div id="hm-analyse-grid"></div>`;
+      content.appendChild(hmCard);
+      hmCard.querySelector("#hm-analyse-grid").innerHTML =
+        this._renderDemandHeatmapGrid(room.demand_heatmap);
+    } else {
+      hmCard.innerHTML = `
+        <div class="card-title">🔥 Anforderungs-Heatmap – ${room.name}</div>
+        <div style="color:var(--secondary-text-color);font-size:13px;padding:4px 0 8px">
+          IHC sammelt Heatmap-Daten automatisch über mehrere Wochen. Noch keine Daten vorhanden.
+        </div>`;
+      content.appendChild(hmCard);
+    }
+
+    // ── Optimum Start – Lernkurve ────────────────────────────────────────────
+    const warmupCurve  = room.warmup_curve  || [];
+    const avgWarmupMin = room.avg_warmup_minutes;
+    const learnedMin   = room.learned_preheat_minutes;
+    const coolingRate  = room.avg_cooling_rate;
+
+    const learnCard = document.createElement("div");
+    learnCard.className = "card";
+    learnCard.style.marginTop = "0";   // card already has margin-bottom
+
+    const warmupRows = warmupCurve.map(pt => `
+      <tr>
+        <td style="padding:5px 12px;text-align:right">${pt.outdoor_temp > 0 ? "+" : ""}${pt.outdoor_temp} °C</td>
+        <td style="padding:5px 12px;text-align:right;font-weight:600;color:var(--primary-color)">${pt.avg_minutes.toFixed(0)} min</td>
+        <td style="padding:5px 12px;text-align:right;color:var(--secondary-text-color)">${pt.samples}×</td>
+      </tr>`).join("");
+
+    learnCard.innerHTML = `
+      <div class="card-title">🧠 Optimum Start – Lernkurve</div>
+      <div class="card-subtitle">
+        IHC misst wie lange ${room.name} zum Aufheizen braucht und passt die Vorheizzeit automatisch an.
+        Je mehr Daten gesammelt werden, desto präziser die Vorhersage.
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:${warmupCurve.length > 0 ? "16px" : "0"}">
+        ${avgWarmupMin != null ? `
+          <div style="min-width:140px">
+            <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:2px">Ø Aufheizzeit</div>
+            <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${avgWarmupMin.toFixed(0)} min</div>
+            <div style="font-size:11px;color:var(--secondary-text-color)">ohne AT-Korrektur</div>
+          </div>` : `
+          <div style="color:var(--secondary-text-color);font-size:13px">
+            Noch keine Aufheizzeit-Daten gesammelt.
+          </div>`}
+        ${learnedMin != null ? `
+          <div style="min-width:140px">
+            <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:2px">AT-korrigierte Vorheizzeit</div>
+            <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${learnedMin.toFixed(0)} min</div>
+            <div style="font-size:11px;color:var(--secondary-text-color)">aktuell berechnet</div>
+          </div>` : ""}
+        ${coolingRate != null ? `
+          <div style="min-width:140px">
+            <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:2px">Abkühlrate</div>
+            <div style="font-size:22px;font-weight:700;color:#42a5f5">${coolingRate.toFixed(3)}</div>
+            <div style="font-size:11px;color:var(--secondary-text-color)">°C/h je °C Δ innen/außen</div>
+          </div>` : ""}
+      </div>
+      ${warmupCurve.length > 0 ? `
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="border-bottom:2px solid var(--divider-color)">
+              <th style="text-align:right;padding:5px 12px;font-weight:600;color:var(--secondary-text-color)">Außentemperatur</th>
+              <th style="text-align:right;padding:5px 12px;font-weight:600;color:var(--secondary-text-color)">Ø Aufheizzeit</th>
+              <th style="text-align:right;padding:5px 12px;font-weight:600;color:var(--secondary-text-color)">Messungen</th>
+            </tr>
+          </thead>
+          <tbody>${warmupRows}</tbody>
+        </table>` : ""}`;
+    content.appendChild(learnCard);
+
+    // ── Optimum Stop status ──────────────────────────────────────────────────
+    if (room.optimum_stop_active) {
+      const stopCard = document.createElement("div");
+      stopCard.className = "card";
+      stopCard.style.marginTop = "0";
+      stopCard.innerHTML = `
+        <div class="card-title">⏹ Optimum Stop aktiv</div>
+        <div style="display:flex;flex-wrap:wrap;gap:20px">
+          ${room.optimum_stop_minutes != null ? `
+            <div>
+              <div style="font-size:11px;color:var(--secondary-text-color)">Frühzeitige Abschaltung</div>
+              <div style="font-size:20px;font-weight:700;color:#ffa726">${room.optimum_stop_minutes.toFixed(0)} min</div>
+              <div style="font-size:11px;color:var(--secondary-text-color)">vor Zeitplan-Ende</div>
+            </div>` : ""}
+          ${room.optimum_stop_predicted != null ? `
+            <div>
+              <div style="font-size:11px;color:var(--secondary-text-color)">Vorhergesagte Temp. bei Plan-Ende</div>
+              <div style="font-size:20px;font-weight:700;color:#ffa726">${room.optimum_stop_predicted.toFixed(1)} °C</div>
+            </div>` : ""}
+        </div>`;
+      content.appendChild(stopCard);
     }
   }
 
