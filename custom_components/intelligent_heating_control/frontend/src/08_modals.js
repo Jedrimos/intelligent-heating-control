@@ -371,6 +371,38 @@
         <span class="form-hint">Entity · Zustand – z.B. <code>media_player.tv</code> / <code>playing</code> oder <code>person.max</code> / <code>home</code></span>
       </div>
 
+      <details class="modal-collapsible">
+        <summary>🌊 Fenster-Kaskade <span style="font-size:10px;font-weight:400;margin-left:4px">(optional)</span></summary>
+        <div class="modal-collapsible-body">
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+            Wenn dieses Zimmer zu lange gelüftet wird, senkt IHC die Heizung in anderen Räumen automatisch ab.
+          </div>
+          ${(() => {
+            const allRooms = this._getRoomData();
+            const boxes = Object.values(allRooms).map(r => `
+              <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
+                <input type="checkbox" class="m-cascade-room-check" value="${r.room_id}">
+                <span style="font-size:13px">${r.name}</span>
+              </label>`).join("");
+            return `<div style="margin-bottom:12px">
+              <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
+              <div style="padding:8px 12px;border-radius:8px;background:var(--secondary-background-color);max-height:160px;overflow-y:auto">
+                ${Object.keys(allRooms).length > 0 ? boxes : '<span style="font-size:12px;color:var(--secondary-text-color)">Noch keine anderen Räume vorhanden – später im Zimmer-Detail konfigurierbar</span>'}
+              </div></div>`;
+          })()}
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Verzögerung (min)</label>
+              <input type="number" class="form-input" id="m-cascade-delay" value="30" step="5" min="5" max="120">
+            </div>
+            <div class="settings-item">
+              <label>Absenkung (°C)</label>
+              <input type="number" class="form-input" id="m-cascade-offset" value="3.0" step="0.5" min="0.5" max="10">
+            </div>
+          </div>
+        </div>
+      </details>
+
       <div class="modal-section">
         <div class="modal-section-title">📅 HA Zeitpläne <span style="font-weight:400;font-size:10px">(optional)</span></div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
@@ -448,6 +480,9 @@
         aggressive_mode_enabled: modal.querySelector("#m-aggressive-mode")?.checked === true,
         aggressive_mode_range:   parseFloat(modal.querySelector("#m-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:  parseFloat(modal.querySelector("#m-aggressive-offset")?.value ?? "3") || 3.0,
+        window_cascade_rooms:     [...modal.querySelectorAll(".m-cascade-room-check:checked")].map(cb => cb.value),
+        window_cascade_delay_minutes: parseInt(modal.querySelector("#m-cascade-delay")?.value, 10) || 30,
+        window_cascade_offset:    parseFloat(modal.querySelector("#m-cascade-offset")?.value) || 3.0,
         radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
         hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
         hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
@@ -803,6 +838,44 @@
         </div>
       </details>
 
+      <details class="modal-collapsible" ${(room.window_cascade_rooms && room.window_cascade_rooms.length > 0) ? "open" : ""}>
+        <summary>🌊 Fenster-Kaskade</summary>
+        <div class="modal-collapsible-body">
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+            Wenn dieses Zimmer zu lange gelüftet wird, senkt IHC die Heizung in anderen Räumen automatisch ab.
+          </div>
+          ${(() => {
+            const allRooms = this._getRoomData();
+            const otherRooms = Object.values(allRooms).filter(r => r.room_id !== room.room_id);
+            const current = room.window_cascade_rooms || [];
+            const boxes = otherRooms.map(r => `
+              <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
+                <input type="checkbox" class="m-cascade-room-check" value="${r.room_id}" ${current.includes(r.room_id) ? "checked" : ""}>
+                <span style="font-size:13px">${r.name}</span>
+              </label>`).join("");
+            return `<div style="margin-bottom:12px">
+              <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
+              <div style="padding:8px 12px;border-radius:8px;background:var(--secondary-background-color);max-height:160px;overflow-y:auto">
+                ${otherRooms.length > 0 ? boxes : '<span style="font-size:12px;color:var(--secondary-text-color)">Keine anderen Räume vorhanden</span>'}
+              </div></div>`;
+          })()}
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Verzögerung (min)</label>
+              <input type="number" class="form-input" id="m-cascade-delay"
+                value="${room.window_cascade_delay_minutes ?? 30}" step="5" min="5" max="120">
+              <span class="form-hint">Fenster muss mindestens so lange offen sein</span>
+            </div>
+            <div class="settings-item">
+              <label>Absenkung (°C)</label>
+              <input type="number" class="form-input" id="m-cascade-offset"
+                value="${(room.window_cascade_offset_cfg ?? 3.0).toFixed(1)}" step="0.5" min="0.5" max="10">
+              <span class="form-hint">Zieltemperatur in Nachbarräumen wird um diesen Wert reduziert</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <details class="modal-collapsible" ${room.humidity_sensor || room.co2_sensor ? "open" : ""}>
         <summary>🌬️ Lüftung &amp; Schimmelschutz</summary>
         <div class="modal-collapsible-body">
@@ -1048,6 +1121,9 @@
         aggressive_mode_enabled:  modal.querySelector("#m-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(modal.querySelector("#m-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(modal.querySelector("#m-aggressive-offset")?.value ?? "3") || 3.0,
+        window_cascade_rooms:     [...modal.querySelectorAll(".m-cascade-room-check:checked")].map(cb => cb.value),
+        window_cascade_delay_minutes: parseInt(modal.querySelector("#m-cascade-delay")?.value, 10) || 30,
+        window_cascade_offset:    parseFloat(modal.querySelector("#m-cascade-offset")?.value) || 3.0,
         boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),

@@ -51,6 +51,7 @@ from .const import (
     DEFAULT_WINDOW_RESTORE_MODE,
     CONF_WINDOW_CASCADE_DELAY_MINUTES,
     CONF_WINDOW_CASCADE_OFFSET,
+    CONF_WINDOW_CASCADE_ROOMS,
     DEFAULT_WINDOW_CASCADE_DELAY_MINUTES,
     DEFAULT_WINDOW_CASCADE_OFFSET,
     CONF_FROST_PROTECTION_TEMP,
@@ -875,6 +876,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_AGGRESSIVE_MODE_OFFSET: float(user_input.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET)),
                 CONF_TEMP_CALIBRATION: float(user_input.get(CONF_TEMP_CALIBRATION, 0.0)),
                 CONF_COMFORT_EXTEND_ENTRIES: list(user_input.get(CONF_COMFORT_EXTEND_ENTRIES, [])),
+                CONF_WINDOW_CASCADE_ROOMS: [],
                 CONF_SCHEDULES: [],
                 CONF_HA_SCHEDULES: [],
             }
@@ -1133,6 +1135,17 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_WINDOW_CASCADE_OFFSET, default=float(room.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET))): selector.selector({
                 "number": {"min": 0.5, "max": 10, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(CONF_WINDOW_CASCADE_ROOMS, default=list(room.get(CONF_WINDOW_CASCADE_ROOMS, []))): selector.selector({
+                "select": {
+                    "multiple": True,
+                    "custom_value": True,
+                    "options": [
+                        {"label": r.get(CONF_ROOM_NAME, r.get(CONF_ROOM_ID, "")), "value": r.get(CONF_ROOM_ID, "")}
+                        for r in self._options.get(CONF_ROOMS, [])
+                        if r.get(CONF_ROOM_ID) != self._selected_room_id
+                    ],
+                }
             }),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=room.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE)): selector.selector({
                 "select": {"options": ["eco", "sleep", "away"]}
