@@ -1566,7 +1566,7 @@ class IHCCoordinator(
             # small outdoor-temp-driven recalculations, or the confirmation-timeout baseline-reset
             # can all produce a ≥1.0 °C discrepancy during preheat that looks like a manual
             # override but isn't.  The room will auto-reset to AUTO at the schedule transition anyway.
-            if room_mode not in (ROOM_MODE_OFF, ROOM_MODE_MANUAL) and not window_open:
+            if room_mode not in (ROOM_MODE_OFF,) and not window_open:
                 if meta.get("source") != "preheat":
                     self._detect_manual_trv_override(room, room_id, room_mode)
 
