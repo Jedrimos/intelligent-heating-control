@@ -313,6 +313,24 @@
                 value="${room.absolute_min_temp ?? 15}" step="0.5" min="5" max="25">
             </div>
             <div class="settings-item">
+              <label>HA Klimaregler – Min.-Temperatur (°C)</label>
+              <input type="number" class="form-input" id="rs-min-temp"
+                value="${room.min_temp ?? 5}" step="0.5" min="4" max="15">
+              <span class="form-hint">Untergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
+            </div>
+            <div class="settings-item">
+              <label>HA Klimaregler – Max.-Temperatur (°C)</label>
+              <input type="number" class="form-input" id="rs-max-temp"
+                value="${room.max_temp ?? 30}" step="0.5" min="20" max="35">
+              <span class="form-hint">Obergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
+            </div>
+            <div class="settings-item">
+              <label>Sensor-Kalibrierungsoffset (°C)</label>
+              <input type="number" class="form-input" id="rs-temp-calibration"
+                value="${room.temp_calibration ?? 0}" step="0.1" min="-5" max="5">
+              <span class="form-hint">Korrigiert einen zu warm/kalt messenden Temperatursensor</span>
+            </div>
+            <div class="settings-item">
               <label>Zimmergröße (m²)</label>
               <input type="number" class="form-input" id="rs-room-qm"
                 value="${room.room_qm ?? 0}" step="1" min="0" max="200">
@@ -401,14 +419,20 @@
         <details class="modal-collapsible" ${room.boost_default_duration !== 60 ? "open" : ""}>
           <summary class="modal-section-title">⚡ Boost</summary>
           <p style="margin:0 0 8px;font-size:0.85em;color:var(--secondary-text-color)">
-            Aktiviert den nativen HA-Boost-Modus auf den TRVs des Zimmers für die gewünschte Dauer.
-            Ohne native Boost-Unterstützung des TRVs wird stattdessen die Komforttemperatur genutzt.
+            Aktiviert den nativen HA-Boost-Modus auf den TRVs des Zimmers für die gewünschte Dauer,
+            oder eine feste Zieltemperatur wenn unten gesetzt.
           </p>
           <div class="settings-grid">
             <div class="settings-item">
               <label>Boost-Dauer (min)</label>
               <input type="number" class="form-input" id="rs-boost-dur"
                 value="${room.boost_default_duration ?? 60}" min="5" max="480" step="5">
+            </div>
+            <div class="settings-item">
+              <label>Boost-Zieltemperatur (°C)</label>
+              <input type="number" class="form-input" id="rs-boost-temp"
+                value="${room.boost_temp ?? 0}" min="0" max="30" step="0.5" placeholder="0 = Komfort-Temperatur">
+              <span class="form-hint">0 = deaktiviert, nutzt stattdessen die Komfort-Temperatur.</span>
             </div>
           </div>
           <div class="form-row" style="gap:8px;margin-top:8px">
@@ -707,6 +731,9 @@
         deadband:                 parseFloat(container.querySelector("#rs-deadband")?.value),
         weight:                   parseFloat(container.querySelector("#rs-weight")?.value),
         absolute_min_temp:        parseFloat(container.querySelector("#rs-absolute-min-temp")?.value) || 15,
+        min_temp:                 parseFloat(container.querySelector("#rs-min-temp")?.value) || 5,
+        max_temp:                 parseFloat(container.querySelector("#rs-max-temp")?.value) || 30,
+        temp_calibration:         parseFloat(container.querySelector("#rs-temp-calibration")?.value ?? "0") || 0,
         room_qm:                  parseFloat(container.querySelector("#rs-room-qm")?.value) || 0,
         room_preheat_minutes:     parseInt(container.querySelector("#rs-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:     parseInt(container.querySelector("#rs-window-reaction-time")?.value, 10) || 30,
@@ -723,6 +750,7 @@
         room_presence_entities:   (container.querySelector("#rs-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
         boost_default_duration:   parseInt(container.querySelector("#rs-boost-dur")?.value, 10) || 60,
+        boost_temp:               parseFloat(container.querySelector("#rs-boost-temp")?.value) || 0,
         trv_temp_weight:          parseFloat(container.querySelector("#rs-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(container.querySelector("#rs-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:         container.querySelector("#rs-trv-valve-demand")?.checked === true,
@@ -1513,4 +1541,3 @@
       container.appendChild(learnCard);
     }
   }
-
