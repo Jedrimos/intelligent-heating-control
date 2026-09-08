@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 import math
-from collections import deque
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -291,7 +290,22 @@ class RoomLogicMixin:
         if next_period is None:
             return result
 
-        next_target = float(next_period.get("temperature", current_temp))
+        # Resolve the period's mode to a temperature the same way _calculate_target_temp
+        # does for the active period — the raw "temperature" field is only meaningful for
+        # manual/legacy periods; comfort/eco/sleep/away periods are resolved dynamically
+        # from the live heating curve and can drift arbitrarily far from a stale stored value.
+        next_mode = next_period.get("mode", "manual")
+        comfort_base, eco_base, sleep_base, away_base = self._get_room_preset_temps(room, outdoor_temp)
+        mode_to_temp = {
+            ROOM_MODE_COMFORT: comfort_base,
+            ROOM_MODE_ECO:     eco_base,
+            ROOM_MODE_SLEEP:   sleep_base,
+            ROOM_MODE_AWAY:    away_base,
+        }
+        if next_mode in mode_to_temp:
+            next_target = mode_to_temp[next_mode]
+        else:
+            next_target = float(next_period.get("temperature", current_temp))
         # Only useful when next period has a LOWER target (otherwise no coast needed)
         if next_target >= current_temp - 0.3:
             return result
