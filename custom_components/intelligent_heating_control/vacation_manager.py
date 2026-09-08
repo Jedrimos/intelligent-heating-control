@@ -45,7 +45,7 @@ class VacationManagerMixin:
         except ValueError:
             return
 
-        today = date.today()
+        today = dt_util.now().date()
         in_vacation = vac_start <= today <= vac_end
 
         # Allow activation from AUTO or presence-triggered AWAY (so airport-departure doesn't block it)
@@ -108,7 +108,7 @@ class VacationManagerMixin:
             vac_end = date.fromisoformat(end_str)
         except ValueError:
             return
-        today = date.today()
+        today = dt_util.now().date()
         days_until_return = (vac_end - today).days
         # Activate pre-heat if within preheat_days before end AND system is currently in vacation
         if 0 <= days_until_return < preheat_days and self._system_mode == SYSTEM_MODE_VACATION and self._vacation_auto_active:
@@ -139,7 +139,7 @@ class VacationManagerMixin:
         self._vac_calendar_last_check = today_yday
 
         keyword = cfg.get(CONF_VACATION_CALENDAR_KEYWORD, DEFAULT_VACATION_CALENDAR_KEYWORD).lower()
-        today = date.today()
+        today = dt_util.now().date()
         end_date = today + timedelta(days=30)
         try:
             result = await self.hass.services.async_call(

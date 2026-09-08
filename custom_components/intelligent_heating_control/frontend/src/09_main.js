@@ -10,9 +10,9 @@
  * method files (02-08) between Part A and Part B.
  */
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 // Panel Component
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 class IHCPanel extends HTMLElement {
   constructor() {
     super();
@@ -32,7 +32,7 @@ class IHCPanel extends HTMLElement {
     this._analyseRoom = null;           // entity_id of room shown in analyse tab
   }
 
-  // ── Lifecycle ──────────────────────────────────────────────────────────────
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   set hass(hass) {
     this._hass = hass;
@@ -103,7 +103,7 @@ class IHCPanel extends HTMLElement {
     }, 5000);
   }
 
-  // ── One-time structure render ──────────────────────────────────────────────
+  // ── One-time structure render ────────────────────────────────────────────
 
   _render() {
     const shadow = this.shadowRoot;
@@ -113,7 +113,7 @@ class IHCPanel extends HTMLElement {
       shadow.appendChild(style);
     }
 
-    // ── HA Standard Top Bar (sticky, opens sidebar on click) ──────────────
+    // ── HA Standard Top Bar (sticky, opens sidebar on click) ────────────────
     if (!shadow.querySelector(".ha-topbar")) {
       const topbar = document.createElement("div");
       topbar.className = "ha-topbar";
@@ -122,7 +122,7 @@ class IHCPanel extends HTMLElement {
           <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
         </button>
         <span class="topbar-title">Intelligent Heating Control</span>
-        <span class="topbar-version">v1.9.4</span>
+        <span class="topbar-version">v1.9.5</span>
       `;
       shadow.appendChild(topbar);
       // Toggle HA sidebar – single event only (dispatching multiple events causes double-toggle)
@@ -233,7 +233,7 @@ class IHCPanel extends HTMLElement {
     }
   }
 
-  // ── Data Helpers ───────────────────────────────────────────────────────────
+  // ── Data Helpers ────────────────────────────────────────────────────────
 
 
 // === METHODS_INSERTED_HERE ===
