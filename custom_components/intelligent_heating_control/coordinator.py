@@ -608,6 +608,12 @@ class IHCCoordinator(
                 _LOGGER.debug("IHC: Could not restore boost_until for room %s: %s", rid, dt_str)
         # Restore the mode to return to when each boost ends
         self._room_pre_boost_mode = data.get("room_pre_boost_mode", {})
+        # Restore limescale-protection last-exercised dates (ISO string → date)
+        for eid, date_str in data.get("limescale_last_exercise", {}).items():
+            try:
+                self._limescale_last_exercise[eid] = date.fromisoformat(date_str)
+            except (ValueError, TypeError):
+                _LOGGER.debug("IHC: Could not restore limescale_last_exercise for %s: %s", eid, date_str)
         # Restore temperature history (persisted across restarts)
         for room_id, entries in data.get("temp_history", {}).items():
             self._temp_history[room_id] = deque(entries, maxlen=CONF_TEMP_HISTORY_SIZE)
@@ -660,6 +666,9 @@ class IHCCoordinator(
             "boost_until": {rid: dt.isoformat() for rid, dt in self._boost_until.items()},
             # Persist the mode to restore to when each boost ends
             "room_pre_boost_mode": self._room_pre_boost_mode,
+            # Persist limescale-protection last-exercised dates so a restart near the
+            # exercise window doesn't re-trigger it for valves already exercised today
+            "limescale_last_exercise": {eid: d.isoformat() for eid, d in self._limescale_last_exercise.items()},
             # Persist temperature history so sparklines survive HA restarts
             "temp_history":    {rid: list(hist) for rid, hist in self._temp_history.items()},
             "target_history":  {rid: list(hist) for rid, hist in self._target_history.items()},
@@ -763,6 +772,14 @@ class IHCCoordinator(
         return self._system_mode
 
     def set_room_mode(self, room_id: str, mode: str) -> None:
+        # If a boost is currently active and the user explicitly picks a different mode
+        # (not via set_room_boost/cancel_room_boost), treat it as cancelling the boost.
+        # Otherwise the stale _boost_until entry would later re-apply boost_temp to this
+        # room the next time it happens to be in ROOM_MODE_COMFORT, and _check_boost_expiry
+        # would eventually overwrite the user's new mode with the pre-boost one.
+        if room_id in self._boost_until:
+            self._boost_until.pop(room_id, None)
+            self._room_pre_boost_mode.pop(room_id, None)
         if mode == ROOM_MODE_MANUAL:
             # Track when manual mode was entered (for auto-reset on schedule transition)
             self._room_manual_since[room_id] = dt_util.utcnow()
