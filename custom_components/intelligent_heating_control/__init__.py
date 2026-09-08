@@ -333,7 +333,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_SCHEDULES: call.data.get(CONF_SCHEDULES, []),
             CONF_HA_SCHEDULES: call.data.get(CONF_HA_SCHEDULES, []),
             CONF_HUMIDITY_SENSOR: call.data.get(CONF_HUMIDITY_SENSOR, ""),
-            CONF_MOLD_PROTECTION_ENABLED: call.data.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED),
+            CONF_MOLD_PROTECTION_ENABLED: _coerce_bool(call.data.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED)),
             CONF_CO2_SENSOR: call.data.get(CONF_CO2_SENSOR, ""),
             CONF_CO2_THRESHOLD_GOOD: int(call.data.get(CONF_CO2_THRESHOLD_GOOD, DEFAULT_CO2_THRESHOLD_GOOD)),
             CONF_CO2_THRESHOLD_BAD: int(call.data.get(CONF_CO2_THRESHOLD_BAD, DEFAULT_CO2_THRESHOLD_BAD)),
