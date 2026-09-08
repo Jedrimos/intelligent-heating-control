@@ -86,6 +86,7 @@
         mold_protection_enabled: state.attributes.mold_protection_enabled !== false,
         // Boost config
         boost_default_duration: state.attributes.boost_default_duration ?? 60,
+        boost_temp: state.attributes.boost_temp ?? 0,
         // HA schedule blocks (from schedule.* entity config entries)
         ha_schedule_blocks: state.attributes.ha_schedule_blocks || {},
         // Per-room advanced settings
@@ -116,6 +117,7 @@
         co2_threshold_good:    state.attributes.co2_threshold_good ?? 800,
         co2_threshold_bad:     state.attributes.co2_threshold_bad ?? 1200,
         co2_ventilation_eta_minutes: state.attributes.co2_ventilation_eta_minutes ?? null,
+        co2_preheat_boost:     state.attributes.co2_preheat_boost === true,
         // PIR presence sensor
         presence_sensor:            state.attributes.presence_sensor || "",
         presence_sensor_on_delay:   state.attributes.presence_sensor_on_delay ?? 300,
