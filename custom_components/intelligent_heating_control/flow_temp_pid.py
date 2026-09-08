@@ -34,14 +34,12 @@ class FlowTempPID:
         self._integral_clamp = integral_clamp
 
         self._integral: float = 0.0
-        self._last_error: float = 0.0
         self._last_measurement: Optional[float] = None
         self._last_time: Optional[datetime] = None
 
     def reset(self) -> None:
         """Reset integrator state (call when setpoint changes significantly)."""
         self._integral = 0.0
-        self._last_error = 0.0
         self._last_measurement = None
         self._last_time = None
 
@@ -74,7 +72,6 @@ class FlowTempPID:
         derivative = 0.0
         if dt_minutes > 0 and self._last_measurement is not None:
             derivative = -(measurement - self._last_measurement) / dt_minutes
-        self._last_error = error
         self._last_measurement = measurement
 
         output = setpoint + self.kp * error + self.ki * self._integral + self.kd * derivative

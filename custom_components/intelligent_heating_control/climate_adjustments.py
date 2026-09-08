@@ -220,7 +220,14 @@ class ClimateAdjustmentsMixin:
             return
 
         avg_warmup = sum(all_warmups) / len(all_warmups)
-        target_warmup = float(cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES)) or 30.0
+        # CONF_PREHEAT_MINUTES == 0 means "no fixed preheat configured", not "rooms warm
+        # up instantly" — using 0 as the reference here would make avg_warmup > 15 (true
+        # for virtually every real room) look like a permanent "warming up too slowly"
+        # signal and pin the curve at +max_delta. Fall back to a neutral 30 min reference
+        # whenever preheat isn't usefully configured (was previously `or 30.0`, which
+        # relied on 0 being falsy — made explicit here since 0 is a valid, common value).
+        raw_preheat_minutes = float(cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES))
+        target_warmup = raw_preheat_minutes if raw_preheat_minutes > 0 else 30.0
         max_delta = float(cfg.get(CONF_ADAPTIVE_CURVE_MAX_DELTA, DEFAULT_ADAPTIVE_CURVE_MAX_DELTA))
         step = 0.5  # °C per adaptation step
 
