@@ -19,7 +19,7 @@ const _DB_MODE_ICONS = {
   away: "🚶", off: "⛔", manual: "✏️",
 };
 const _SYS_MODE_LABELS = {
-  auto: "Automatisch", heat: "Heizen", cool: "Kühlen",
+  auto: "Automatisch", heat: "Heizen",
   off: "Aus", away: "Abwesend", vacation: "Urlaub", guest: "Gäste",
 };
 const _WEATHER_ICONS = {

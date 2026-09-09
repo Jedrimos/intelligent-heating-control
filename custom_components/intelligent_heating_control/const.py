@@ -6,12 +6,10 @@ PLATFORMS: Final = ["climate", "sensor", "binary_sensor", "switch", "number", "s
 
 # Config keys - global
 CONF_OUTDOOR_TEMP_SENSOR: Final = "outdoor_temp_sensor"
-CONF_COOLING_SWITCH: Final = "cooling_switch"
 CONF_HEATING_CURVE: Final = "heating_curve"
 CONF_SYSTEM_MODE: Final = "system_mode"
 CONF_AWAY_TEMP: Final = "away_temp"
 CONF_VACATION_TEMP: Final = "vacation_temp"
-CONF_ENABLE_COOLING: Final = "enable_cooling"
 CONF_SUMMER_MODE_ENABLED: Final = "summer_mode_enabled"
 CONF_SUMMER_THRESHOLD: Final = "summer_threshold"
 CONF_SHOW_PANEL: Final = "show_panel"
@@ -130,7 +128,6 @@ DEFAULT_HEATING_CURVE: Final = [
 # System / room operation modes
 SYSTEM_MODE_AUTO: Final = "auto"
 SYSTEM_MODE_HEAT: Final = "heat"
-SYSTEM_MODE_COOL: Final = "cool"
 SYSTEM_MODE_OFF: Final = "off"
 SYSTEM_MODE_AWAY: Final = "away"
 SYSTEM_MODE_VACATION: Final = "vacation"
@@ -138,7 +135,6 @@ SYSTEM_MODE_GUEST: Final = "guest"
 SYSTEM_MODES: Final = [
     SYSTEM_MODE_AUTO,
     SYSTEM_MODE_HEAT,
-    SYSTEM_MODE_COOL,
     SYSTEM_MODE_OFF,
     SYSTEM_MODE_AWAY,
     SYSTEM_MODE_VACATION,
@@ -227,10 +223,6 @@ CONF_ETA_PREHEAT_ENABLED: Final = "eta_preheat_enabled"
 DEFAULT_ETA_PREHEAT_ENABLED: Final = False
 CONF_ETA_PREHEAT_THRESHOLD_MINUTES: Final = "eta_preheat_threshold_minutes"
 DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES: Final = 90  # start preheating when arrival ≤ this many minutes away
-
-# v1.5 – Cooling mode target temperature
-CONF_COOLING_TARGET_TEMP: Final = "cooling_target_temp"
-DEFAULT_COOLING_TARGET_TEMP: Final = 24.0
 
 # v1.5 – Tibber / dynamic price forecast attribute
 CONF_PRICE_FORECAST_ATTRIBUTE: Final = "price_forecast_attribute"

@@ -3,16 +3,12 @@
     "step": {
       "user": {
         "title": "Basic Settings",
-        "description": "Configure the outdoor temperature sensor and optional cooling.",
+        "description": "Configure the outdoor temperature sensor.",
         "data": {
-          "outdoor_temp_sensor": "Outdoor Temperature Sensor",
-          "enable_cooling": "Enable Cooling",
-          "cooling_switch": "Cooling Switch"
+          "outdoor_temp_sensor": "Outdoor Temperature Sensor"
         },
         "data_description": {
-          "outdoor_temp_sensor": "Sensor measuring the current outdoor temperature. Used for the heating curve – the colder outside, the higher the target temperature.",
-          "enable_cooling": "Enable if your system can also cool (e.g. heat pump with cooling mode).",
-          "cooling_switch": "The switch that activates cooling mode. Only turns on when rooms are too warm."
+          "outdoor_temp_sensor": "Sensor measuring the current outdoor temperature. Used for the heating curve – the colder outside, the higher the target temperature."
         }
       },
       "temperatures": {
@@ -53,8 +49,6 @@
         "title": "Global Settings",
         "data": {
           "outdoor_temp_sensor": "Outdoor Temperature Sensor",
-          "enable_cooling": "Enable Cooling",
-          "cooling_switch": "Cooling Switch",
           "away_temp": "Away Temperature (°C)",
           "vacation_temp": "Vacation Temperature (°C)",
           "summer_mode_enabled": "Enable Summer Mode",
@@ -72,7 +66,6 @@
           "energy_price_entity": "Energy Price Sensor",
           "energy_price_threshold": "High Price Threshold (€/kWh)",
           "energy_price_eco_offset": "Eco Offset at High Price (°C)",
-          "cooling_target_temp": "Cooling Target Temperature (°C)",
           "weather_entity": "Weather Entity",
           "weather_cold_threshold": "Cold Weather Threshold (°C)",
           "weather_cold_boost": "Cold Weather Boost (°C)",
@@ -92,8 +85,6 @@
         },
         "data_description": {
           "outdoor_temp_sensor": "Sensor measuring the current outdoor temperature. Used for the heating curve.",
-          "enable_cooling": "Enable if your system can also cool (e.g. heat pump with cooling mode).",
-          "cooling_switch": "The switch that activates cooling mode.",
           "away_temp": "Target temperature in Away mode for all rooms. Typical: 16–18 °C.",
           "vacation_temp": "Target temperature in Vacation mode. Frost protection only. Typical: 14–16 °C.",
           "summer_mode_enabled": "When enabled, heating is automatically blocked when outdoor temperature exceeds the threshold.",
@@ -111,7 +102,6 @@
           "energy_price_entity": "Sensor providing the current electricity price (€/kWh). Used to reduce heating when prices are high.",
           "energy_price_threshold": "Electricity price above which IHC applies the Eco offset to save energy.",
           "energy_price_eco_offset": "How many degrees to reduce target temperatures when electricity is expensive.",
-          "cooling_target_temp": "Target temperature when cooling mode is active. Typical: 24–26 °C.",
           "weather_entity": "Weather integration entity for forecast-based heating adjustments.",
           "weather_cold_threshold": "Temperature below which IHC applies the cold weather boost to rooms.",
           "weather_cold_boost": "Additional degrees added to target temperatures during very cold weather.",

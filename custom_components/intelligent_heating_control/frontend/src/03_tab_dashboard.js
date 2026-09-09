@@ -250,7 +250,7 @@
 
     // Quick system-mode pills
     const sysModes = [
-      ["auto","⚙️","Automatisch"], ["heat","🔥","Heizen"], ["cool","❄️","Kühlen"],
+      ["auto","⚙️","Automatisch"], ["heat","🔥","Heizen"],
       ["away","🚶","Abwesend"], ["vacation","✈️","Urlaub"], ["off","⛔","Aus"], ["guest","🎉","Gäste"],
     ];
     const modeDisplay = SYSTEM_MODE_LABELS[g.system_mode] || g.system_mode;

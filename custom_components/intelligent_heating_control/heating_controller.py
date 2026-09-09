@@ -1,35 +1,17 @@
 """
-Heating Controller - per-room demand engine + cooling actuator gate.
+Heating Controller - per-room demand engine.
 
 TRV mode uses each room's 0-100% demand directly as the heating signal
-(no central boiler on/off decision). This module still aggregates a
-simple, fixed-tuning on/off gate for the optional CONF_COOLING_SWITCH
-actuator, since TRVs cannot cool and cooling therefore still needs a
-short-cycling-safe switch decision.
+(no central boiler on/off decision, no cooling actuator - TRVs cannot cool).
 """
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
 from typing import Dict, Optional
 
-from .const import (
-    SYSTEM_MODE_HEAT,
-    SYSTEM_MODE_OFF,
-    SYSTEM_MODE_AWAY,
-    SYSTEM_MODE_VACATION,
-    ROOM_MODE_OFF,
-)
+from .const import ROOM_MODE_OFF
 
 _LOGGER = logging.getLogger(__name__)
-
-# Fixed cooling-switch tuning. Not user-configurable: this only protects the
-# physical cooling actuator from short-cycling, unlike the old boiler
-# threshold/hysteresis/min-times which were configurable for switch mode.
-_COOLING_THRESHOLD = 15.0
-_COOLING_HYSTERESIS = 5.0
-_COOLING_MIN_ON = timedelta(minutes=5)
-_COOLING_MIN_OFF = timedelta(minutes=5)
 
 
 def calculate_room_demand(
@@ -67,33 +49,15 @@ def calculate_room_demand(
     return round(min(100.0, (effective_diff / demand_range) * 100.0), 1)
 
 
-def calculate_room_cooling_demand(
-    current_temp: float,
-    target_temp: float,
-    deadband: float = 0.5,
-    demand_range: float = 5.0,
-) -> float:
-    """Calculate cooling demand (0-100%) - mirrors heating logic (inverted direction)."""
-    diff = current_temp - target_temp
-    if diff <= deadband:
-        return 0.0
-    effective_diff = diff - deadband
-    return round(min(100.0, (effective_diff / demand_range) * 100.0), 1)
-
-
 class HeatingController:
     """
     Per-room demand engine.
 
-    Collects each room's demand (used directly by TRV mode as the
-    per-room heating signal) and separately aggregates a fixed-tuning
-    on/off decision for the optional cooling switch.
+    Collects each room's demand and aggregates it into total demand / rooms
+    demanding metrics for the dashboard and diagnostics.
     """
 
     def __init__(self) -> None:
-        self._cooling_active: bool = False
-        self._last_cooling_state_change: datetime = datetime.now()
-
         # Room state cache: {room_id: RoomState}
         self._room_states: Dict[str, dict] = {}
 
@@ -175,63 +139,8 @@ class HeatingController:
             self._room_states[room_id]["demand"] = demand
 
     # ------------------------------------------------------------------
-    # Cooling actuator gate (TRVs cannot cool - this is the only actuator)
-    # ------------------------------------------------------------------
-
-    def should_cool(self, system_mode: str) -> bool:
-        """Decide whether the cooling switch should be active."""
-        if system_mode in (SYSTEM_MODE_OFF, SYSTEM_MODE_HEAT, SYSTEM_MODE_AWAY, SYSTEM_MODE_VACATION):
-            return self._apply_min_time_cooling(False)
-
-        demands = []
-        for state in self._room_states.values():
-            if state["room_mode"] == ROOM_MODE_OFF or state.get("window_open", False):
-                continue
-            ct = state["current_temp"]
-            tt = state["target_temp"]
-            if ct is None:
-                continue
-            demands.append(calculate_room_cooling_demand(ct, tt, state.get("deadband", 0.5)))
-
-        if not demands:
-            return self._apply_min_time_cooling(False)
-
-        total_cooling = sum(demands) / len(demands)
-        if self._cooling_active:
-            new_state = total_cooling >= (_COOLING_THRESHOLD - _COOLING_HYSTERESIS)
-        else:
-            new_state = total_cooling >= _COOLING_THRESHOLD
-
-        return self._apply_min_time_cooling(new_state)
-
-    def _apply_min_time_cooling(self, desired: bool) -> bool:
-        """Enforce minimum on/off times for cooling."""
-        now = datetime.now()
-        elapsed = now - self._last_cooling_state_change
-
-        if desired == self._cooling_active:
-            return self._cooling_active
-
-        if self._cooling_active and not desired:
-            if elapsed < _COOLING_MIN_ON:
-                return True
-            self._cooling_active = False
-            self._last_cooling_state_change = now
-        elif not self._cooling_active and desired:
-            if elapsed < _COOLING_MIN_OFF:
-                return False
-            self._cooling_active = True
-            self._last_cooling_state_change = now
-
-        return self._cooling_active
-
-    # ------------------------------------------------------------------
     # Properties & serialization
     # ------------------------------------------------------------------
-
-    @property
-    def cooling_active(self) -> bool:
-        return self._cooling_active
 
     @property
     def room_states(self) -> dict:
@@ -240,10 +149,8 @@ class HeatingController:
     def get_debug_info(self) -> dict:
         """Return full debug information for the UI."""
         return {
-            "cooling_active": self._cooling_active,
             "total_demand": self.get_total_demand(),
             "rooms_demanding": self.get_rooms_demanding(),
-            "last_cooling_state_change": self._last_cooling_state_change.isoformat(),
             "rooms": {
                 rid: {
                     "current_temp": s["current_temp"],

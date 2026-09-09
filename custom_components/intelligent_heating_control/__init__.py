@@ -446,8 +446,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "night_setback_enabled", "night_setback_offset", "sun_entity",
             "preheat_minutes",
             "presence_entities",
-            "cooling_switch", "outdoor_temp_sensor",
-            "enable_cooling", "show_panel",
+            "outdoor_temp_sensor",
+            "show_panel",
             # Heating curve
             "heating_curve",
             # Roadmap 1.3 – Energy
@@ -456,8 +456,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # Vacation assistant + calendar integration
             "vacation_start", "vacation_end",
             "vacation_calendar", "vacation_calendar_keyword",
-            # v1.5 – Cooling target, price forecast attribute
-            "cooling_target_temp",
+            # v1.5 – Price forecast attribute
             "price_forecast_attribute",
             # Predictive pre-heat
             "adaptive_preheat_enabled",

@@ -52,23 +52,6 @@
                 step="0.5" min="0" max="5" value="${a.weather_cold_boost ?? 0}">
               <span class="form-hint">Bei Kältewarnung werden alle Zimmer um diesen Wert zusätzlich aufgeheizt (0 = kein Boost).</span>
             </div>
-            <div id="cooling-section">
-            <div class="settings-item">
-              <label>Kühlung aktivieren</label>
-              <select class="form-select" id="enable-cooling">
-                <option value="false" ${!a.enable_cooling ? "selected" : ""}>Deaktiviert</option>
-                <option value="true" ${a.enable_cooling ? "selected" : ""}>Aktiviert</option>
-              </select>
-              <span class="form-hint">Aktiviert Kühl-Modus im System. Erfordert einen separaten Kühlschalter (z.B. Klimaanlage).</span>
-            </div>
-            <div class="settings-item" id="cooling-switch-item" style="${a.enable_cooling ? "" : "opacity:0.5"}">
-              <label>Kühlschalter</label>
-              <input type="text" class="form-input" id="cooling-switch"
-                placeholder="switch.klimaanlage"
-                value="${a.cooling_switch ?? ''}" data-ep-domains="switch,input_boolean" autocomplete="off">
-              <span class="form-hint">Wird eingeschaltet wenn Kühlung aktiv ist.</span>
-            </div>
-            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-hardware-settings">💾 Hardware speichern</button>
@@ -376,11 +359,6 @@
               <label>Fester Energiepreis (€/kWh) <span style="font-size:10px;color:var(--secondary-text-color)">(optional)</span></label>
               <input type="number" class="form-input" id="static-energy-price" min="0.01" max="2" step="0.01" value="${a.static_energy_price ?? ''}" placeholder="z.B. 0.09 (leer = nur kWh)">
               <span class="form-hint">Wenn kein dynamischer Preis-Sensor vorhanden: fester Preis für die Kostenanzeige (Gas ≈ 0,09 €/kWh, Fernwärme ≈ 0,11 €/kWh).</span>
-            </div>
-            <div class="settings-item">
-              <label>Kühl-Zieltemperatur (°C)</label>
-              <input type="number" class="form-input" id="cooling-target-temp" min="18" max="30" step="0.5" value="${a.cooling_target_temp ?? 24}">
-              <span class="form-hint">Zimmer werden auf diese Temperatur heruntergekühlt wenn Kühlung aktiv ist.</span>
             </div>
           </div>
           <hr class="divider">
@@ -718,18 +696,10 @@
       </details>
     `;
 
-    // Toggle cooling-switch opacity based on enable-cooling select
-    content.querySelector("#enable-cooling")?.addEventListener("change", e => {
-      const item = content.querySelector("#cooling-switch-item");
-      if (item) item.style.opacity = e.target.value === "true" ? "1" : "0.5";
-    });
-
     content.querySelector("#save-hardware-settings").addEventListener("click", () => {
       this._callService("update_global_settings", {
         outdoor_temp_sensor:          content.querySelector("#outdoor-sensor").value.trim(),
         outdoor_temp_smoothing_minutes: parseInt(content.querySelector("#outdoor-smoothing").value, 10) || 0,
-        enable_cooling:           content.querySelector("#enable-cooling").value === "true",
-        cooling_switch:           content.querySelector("#cooling-switch").value.trim(),
         weather_entity:           content.querySelector("#weather-entity").value.trim(),
         weather_cold_threshold:   parseFloat(content.querySelector("#weather-cold-threshold").value) || 0,
         weather_cold_boost:       parseFloat(content.querySelector("#weather-cold-boost").value) || 0,
@@ -840,7 +810,6 @@
         energy_price_entity:     content.querySelector("#energy-price-entity").value.trim(),
         energy_price_threshold:  priceThresh,
         energy_price_eco_offset: priceEco,
-        cooling_target_temp:     parseFloat(content.querySelector("#cooling-target-temp").value) || 24,
         ...((!isNaN(staticPrice) && staticPrice > 0) ? { static_energy_price: staticPrice } : {}),
         price_forecast_attribute: content.querySelector("#price-forecast-attribute")?.value.trim() || "today_prices",
       });

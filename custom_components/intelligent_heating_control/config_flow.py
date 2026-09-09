@@ -14,8 +14,6 @@ from homeassistant.helpers import selector
 from .const import (
     DOMAIN,
     CONF_OUTDOOR_TEMP_SENSOR,
-    CONF_COOLING_SWITCH,
-    CONF_ENABLE_COOLING,
     CONF_AWAY_TEMP,
     CONF_VACATION_TEMP,
     CONF_SUMMER_MODE_ENABLED,
@@ -115,7 +113,6 @@ from .const import (
     CONF_WEATHER_ENTITY,
     CONF_WEATHER_COLD_THRESHOLD,
     CONF_WEATHER_COLD_BOOST,
-    CONF_COOLING_TARGET_TEMP,
     CONF_OUTDOOR_HUMIDITY_SENSOR,
     CONF_VENTILATION_ADVICE_ENABLED,
     CONF_ADAPTIVE_PREHEAT_ENABLED,
@@ -181,7 +178,6 @@ from .const import (
     DEFAULT_WEATHER_COLD_BOOST,
     CONF_STARTUP_GRACE_SECONDS,
     DEFAULT_STARTUP_GRACE_SECONDS,
-    DEFAULT_COOLING_TARGET_TEMP,
     DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
     DEFAULT_ETA_PREHEAT_ENABLED,
     DEFAULT_VACATION_CALENDAR_KEYWORD,
@@ -222,7 +218,7 @@ class IHCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: Optional[dict[str, Any]] = None
     ) -> config_entries.FlowResult:
-        """Step 1: Basic settings (outdoor sensor, optional cooling switch)."""
+        """Step 1: Basic settings (outdoor sensor)."""
         errors: dict = {}
 
         if user_input is not None:
@@ -231,34 +227,15 @@ class IHCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if outdoor_sensor and self.hass.states.get(outdoor_sensor) is None:
                 errors[CONF_OUTDOOR_TEMP_SENSOR] = "entity_not_found"
 
-            enable_cooling = user_input.get(CONF_ENABLE_COOLING, False)
-            if enable_cooling:
-                cooling_switch = user_input.get(CONF_COOLING_SWITCH, "")
-                if not cooling_switch:
-                    errors[CONF_COOLING_SWITCH] = "entity_not_found"
-                elif self.hass.states.get(cooling_switch) is None:
-                    errors[CONF_COOLING_SWITCH] = "entity_not_found"
-            else:
-                user_input[CONF_COOLING_SWITCH] = ""
-
             if not errors:
                 self._data.update(user_input)
                 return await self.async_step_temperatures()
 
-        enable_cooling_current = (user_input or {}).get(CONF_ENABLE_COOLING, False)
-        schema_dict: dict = {
+        schema = vol.Schema({
             vol.Optional(CONF_OUTDOOR_TEMP_SENSOR, default=""): selector.selector({
                 "entity": {"domain": "sensor"}
             }),
-            vol.Optional(CONF_ENABLE_COOLING, default=False): selector.selector({
-                "boolean": {}
-            }),
-        }
-        if enable_cooling_current:
-            schema_dict[vol.Optional(CONF_COOLING_SWITCH, default=(user_input or {}).get(CONF_COOLING_SWITCH, ""))] = selector.selector({
-                "entity": {"domain": ["switch", "input_boolean"]}
-            })
-        schema = vol.Schema(schema_dict)
+        })
 
         return self.async_show_form(
             step_id="user",
@@ -270,7 +247,7 @@ class IHCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_temperatures(
         self, user_input: Optional[dict[str, Any]] = None
     ) -> config_entries.FlowResult:
-        """Step 3: Global temperature settings (away, vacation)."""
+        """Step 2: Global temperature settings (away, vacation)."""
         if user_input is not None:
             self._data.update(user_input)
             # Add default heating curve and empty rooms list
@@ -336,29 +313,16 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
         errors: dict = {}
 
         if user_input is not None:
-            if not user_input.get(CONF_ENABLE_COOLING, False):
-                user_input[CONF_COOLING_SWITCH] = ""
-
             if not errors:
                 self._options.update(user_input)
                 return self.async_create_entry(title="", data=self._options)
 
-        enable_cooling_current = (user_input or cfg).get(CONF_ENABLE_COOLING, False)
         schema_dict: dict = {
             vol.Optional(
                 CONF_OUTDOOR_TEMP_SENSOR,
                 default=cfg.get(CONF_OUTDOOR_TEMP_SENSOR, "")
             ): selector.selector({"text": {}}),
-            vol.Optional(
-                CONF_ENABLE_COOLING,
-                default=bool(enable_cooling_current)
-            ): selector.selector({"boolean": {}}),
         }
-        if enable_cooling_current:
-            cooling_default = (user_input or cfg).get(CONF_COOLING_SWITCH, "")
-            schema_dict[vol.Optional(CONF_COOLING_SWITCH, default=cooling_default)] = selector.selector(
-                {"text": {}}
-            )
         schema_dict.update({
             vol.Optional(
                 CONF_AWAY_TEMP,
@@ -500,12 +464,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 default=float(cfg.get(CONF_ENERGY_PRICE_ECO_OFFSET, DEFAULT_ENERGY_PRICE_ECO_OFFSET))
             ): selector.selector({
                 "number": {"min": 0.5, "max": 6, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
-            }),
-            vol.Optional(
-                CONF_COOLING_TARGET_TEMP,
-                default=float(cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP))
-            ): selector.selector({
-                "number": {"min": 18, "max": 30, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             # --- Weather integration ---
             vol.Optional(

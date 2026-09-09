@@ -26,7 +26,6 @@ _LOGGER = logging.getLogger(__name__)
 SYSTEM_MODE_LABELS = {
     "auto": "Automatisch",
     "heat": "Heizen",
-    "cool": "Kühlen",
     "off": "Aus",
     "away": "Abwesend",
     "vacation": "Urlaub",

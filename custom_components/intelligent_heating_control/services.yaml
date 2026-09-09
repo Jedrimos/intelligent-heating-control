@@ -956,14 +956,13 @@ set_system_mode:
   fields:
     mode:
       name: Modus
-      description: "auto, heat, cool, off, away, vacation, guest"
+      description: "auto, heat, off, away, vacation, guest"
       required: true
       selector:
         select:
           options:
             - "auto"
             - "heat"
-            - "cool"
             - "off"
             - "away"
             - "vacation"
@@ -1197,23 +1196,12 @@ update_global_settings:
       selector:
         entity:
           domain: sun
-    cooling_switch:
-      name: Kühlschalter
-      required: false
-      selector:
-        entity:
-          domain: switch
     outdoor_temp_sensor:
       name: Außentemperatursensor
       required: false
       selector:
         entity:
           domain: sensor
-    enable_cooling:
-      name: Kühlung aktiviert
-      required: false
-      selector:
-        boolean:
     show_panel:
       name: Frontend-Panel anzeigen
       required: false
@@ -1295,14 +1283,6 @@ update_global_settings:
       required: false
       selector:
         text:
-    cooling_target_temp:
-      name: Kühl-Zieltemperatur (°C)
-      required: false
-      selector:
-        number:
-          min: 18
-          max: 28
-          step: 0.5
     price_forecast_attribute:
       name: Preis-Prognose-Attribut
       description: "Attributname für Stundenpreise (Tibber/Nordpool, Standard: today_prices)"

@@ -11,8 +11,8 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.0.0`
-- **Repository:** https://github.com/Jedrimos/intelligent-heating-controll
+- **Version:** `2.1.0`
+- **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
 - **Integration-Pfad:** `custom_components/intelligent_heating_control/`
@@ -22,6 +22,13 @@ die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 > Min-Ein-Ausschaltzeiten), die Vorlauftemperatur-PID-Regelung und der nie fertiggestellte
 > Wärmeerzeuger-Modus (Roadmap 3.0) wurden vollständig entfernt. Kapitel 14 und 15 dieser Datei
 > sind daher **historisch** – sie beschreiben eine Architektur, die es nicht mehr gibt.
+>
+> **v2.1.0 – Kühlung entfernt:** TRVs können nicht kühlen, daher wurde auch die optionale
+> Kühlfunktion (`CONF_ENABLE_COOLING`/`CONF_COOLING_SWITCH`/`CONF_COOLING_TARGET_TEMP`,
+> Systemmodus `cool`) komplett entfernt. **Nicht verwechseln** mit der thermischen-Masse-
+> Lernfunktion (`avg_cooling_rate` / "Abkühlrate", Kapitel 13) – die ist eine völlig andere,
+> weiterhin aktive Funktion (misst wie schnell ein Raum bei ausgeschalteter Heizung auskühlt,
+> für Optimum-Stop-Berechnungen) und hat mit aktiver Kühlung nichts zu tun.
 
 ### Was kann es?
 - Pro-Zimmer Heizplanung mit Zeitplänen (eigenes Format + HA schedule entities)
@@ -31,7 +38,6 @@ die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 - Schimmelschutz (Humidity-Sensor), CO₂-Überwachung, HKV-Sensor
 - Boost-Modus pro Zimmer (temporäre Erhöhung)
 - Direkte TRV-Steuerung (Thermostatic Radiator Valves) – der einzige Steuerungsmodus
-- Optionale Kühlung über einen separaten Kühlschalter (TRVs können nicht kühlen)
 - Nachtabsenkung, Sommerautomatik, Frostschutz, Vorheizung
 - Vollständiges Web-Frontend (Single-Page-App in `ihc-panel.js`)
 
@@ -232,7 +238,7 @@ _callService("update_room",            { id, schedules, ha_schedules, ... })
 _callService("remove_room",            { id })
 _callService("set_room_mode",          { id, mode })
 _callService("boost_room",             { id, duration_minutes, temp?, cancel? })
-_callService("update_global_settings", { outdoor_temp_sensor, cooling_switch, ... })
+_callService("update_global_settings", { outdoor_temp_sensor, away_temp, ... })
 _callService("set_system_mode",        { mode })
 _callService("reload",                 {})
 ```
@@ -245,14 +251,12 @@ _callService("reload",                 {})
 | Konstante | Typ | Default | Beschreibung |
 |-----------|-----|---------|--------------|
 | `CONF_OUTDOOR_TEMP_SENSOR` | str | – | Außentemperatursensor entity_id |
-| `CONF_COOLING_SWITCH` | str | – | Kühlschalter entity_id (TRVs können nicht kühlen, das ist der einzige Kühl-Aktor) |
 | `CONF_HEATING_CURVE` | list | DEFAULT_HEATING_CURVE | Heizkurvenpunkte (Außentemp → Zimmer-Zieltemperatur) |
 | `CONF_SYSTEM_MODE` | str | "auto" | Systemmodus |
 | `CONF_AWAY_TEMP` | float | 16.0 | Abwesend-Temperatur global |
 | `CONF_VACATION_TEMP` | float | 14.0 | Urlaubstemperatur |
 | `CONF_PRESENCE_ENTITY` | str | – | Globale Anwesenheit entity_id |
 | `CONF_PRESENCE_ENTITIES` | list | – | Liste Anwesenheits-Entitäten |
-| `CONF_ENABLE_COOLING` | bool | False | Kühlung aktiviert |
 | `CONF_SUMMER_MODE_ENABLED` | bool | False | Sommerautomatik |
 | `CONF_SUMMER_THRESHOLD` | float | 18.0 | Sommer-Schwelle °C |
 | `CONF_SHOW_PANEL` | bool | True | Frontend-Panel anzeigen |
@@ -277,7 +281,6 @@ _callService("reload",                 {})
 | `CONF_WEATHER_COLD_BOOST` | float | 0.0 | Boost bei Kältewarnung °C |
 | `CONF_ADAPTIVE_PREHEAT_ENABLED` | bool | True | Adaptive Vorheizung |
 | `CONF_ETA_PREHEAT_ENABLED` | bool | False | ETA-basierte Vorheizung |
-| `CONF_COOLING_TARGET_TEMP` | float | 24.0 | Kühl-Zieltemperatur °C |
 | `CONF_PRICE_FORECAST_ATTRIBUTE` | str | "today_prices" | Tibber-Preis-Attribut |
 | `CONF_OUTDOOR_HUMIDITY_SENSOR` | str | – | Außen-Feuchtigkeitssensor |
 | `CONF_GUEST_DURATION_HOURS` | int | 24 | Gäste-Modus Dauer (h) |
@@ -339,7 +342,7 @@ _callService("reload",                 {})
 | `CONF_PRESENCE_AWAY_DELAY_MINUTES` | int | 0 | Minuten Verzögerung vor Auto-Away (Blueprint: `input_presence_reaction_off_time`) |
 
 ### Systemmodi (`SYSTEM_MODES`)
-`auto` | `heat` | `cool` | `off` | `away` | `vacation` | `guest`
+`auto` | `heat` | `off` | `away` | `vacation` | `guest`
 
 ### Zimmermodi (`ROOM_MODES`)
 `auto` | `comfort` | `eco` | `sleep` | `away` | `off` | `manual`
@@ -382,7 +385,7 @@ id (required), mode (required): auto|comfort|eco|sleep|away|off|manual
 
 ### `set_system_mode`
 ```
-mode (required): auto|heat|cool|off|away|vacation
+mode (required): auto|heat|off|away|vacation|guest
 ```
 
 ### `boost_room`
@@ -689,7 +692,8 @@ Passive Heizen (Winter/Herbst):
         → Heizung erst zuschalten wenn Raumtemp trotzdem nicht steigt (nach X min)
 
 Passive Kühlen (Sommer):
-  WENN Systemmodus = cool ODER Sommerautomatik aktiv
+  WENN Sommerautomatik aktiv (kein "cool"-Systemmodus mehr seit v2.1.0 – TRVs kühlen nicht aktiv,
+  das hier ist reine Beschattung zur Vermeidung von Aufheizung, kein Kühlbetrieb)
   UND sun.elevation > CONF_SOLAR_MIN_ELEVATION
   UND Sonne trifft auf Fensterausrichtung
   UND Raumtemp > comfort_temp - CONF_SOLAR_SHADE_OFFSET (z.B. 1°C darunter vorsorglich)

@@ -20,7 +20,7 @@ const MODE_ICONS = {
   vacation: "🏖️", guest: "👥", boost: "⚡"
 };
 const SYSTEM_MODE_LABELS = {
-  auto: "Automatisch", heat: "Heizen", cool: "Kühlen",
+  auto: "Automatisch", heat: "Heizen",
   off: "Aus", away: "Abwesend", vacation: "Urlaub", guest: "Gäste-Modus"
 };
 
@@ -159,7 +159,6 @@ const STYLES = `
   .sysmode-pill:hover { border-color: var(--primary-color); color: var(--primary-color); }
   .sysmode-pill.active-auto     { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
   .sysmode-pill.active-heat     { background: #ef5350; color: #fff; border-color: #ef5350; }
-  .sysmode-pill.active-cool     { background: #42a5f5; color: #fff; border-color: #42a5f5; }
   .sysmode-pill.active-away     { background: #ffa726; color: #fff; border-color: #ffa726; }
   .sysmode-pill.active-vacation { background: #66bb6a; color: #fff; border-color: #66bb6a; }
   .sysmode-pill.active-off      { background: #9e9e9e; color: #fff; border-color: #9e9e9e; }
@@ -776,7 +775,7 @@ class IHCPanel extends HTMLElement {
           <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
         </button>
         <span class="topbar-title">Intelligent Heating Control</span>
-        <span class="topbar-version">v2.0.0</span>
+        <span class="topbar-version">v2.1.0</span>
       `;
       shadow.appendChild(topbar);
       // Toggle HA sidebar – single event only (dispatching multiple events causes double-toggle)
@@ -1741,7 +1740,7 @@ class IHCPanel extends HTMLElement {
 
     // Quick system-mode pills
     const sysModes = [
-      ["auto","⚙️","Automatisch"], ["heat","🔥","Heizen"], ["cool","❄️","Kühlen"],
+      ["auto","⚙️","Automatisch"], ["heat","🔥","Heizen"],
       ["away","🚶","Abwesend"], ["vacation","✈️","Urlaub"], ["off","⛔","Aus"], ["guest","🎉","Gäste"],
     ];
     const modeDisplay = SYSTEM_MODE_LABELS[g.system_mode] || g.system_mode;
@@ -3630,7 +3629,6 @@ class IHCPanel extends HTMLElement {
             <div class="form-row">
               <select class="form-select" id="diag-system-mode-select">
                 ${Object.entries(SYSTEM_MODE_LABELS)
-                  .filter(([k]) => k !== "cool" || a.enable_cooling)
                   .map(([k, v]) => `<option value="${k}" ${curMode === k || curMode === v ? "selected" : ""}>${v}</option>`)
                   .join("")}
               </select>
@@ -4049,23 +4047,6 @@ class IHCPanel extends HTMLElement {
                 step="0.5" min="0" max="5" value="${a.weather_cold_boost ?? 0}">
               <span class="form-hint">Bei Kältewarnung werden alle Zimmer um diesen Wert zusätzlich aufgeheizt (0 = kein Boost).</span>
             </div>
-            <div id="cooling-section">
-            <div class="settings-item">
-              <label>Kühlung aktivieren</label>
-              <select class="form-select" id="enable-cooling">
-                <option value="false" ${!a.enable_cooling ? "selected" : ""}>Deaktiviert</option>
-                <option value="true" ${a.enable_cooling ? "selected" : ""}>Aktiviert</option>
-              </select>
-              <span class="form-hint">Aktiviert Kühl-Modus im System. Erfordert einen separaten Kühlschalter (z.B. Klimaanlage).</span>
-            </div>
-            <div class="settings-item" id="cooling-switch-item" style="${a.enable_cooling ? "" : "opacity:0.5"}">
-              <label>Kühlschalter</label>
-              <input type="text" class="form-input" id="cooling-switch"
-                placeholder="switch.klimaanlage"
-                value="${a.cooling_switch ?? ''}" data-ep-domains="switch,input_boolean" autocomplete="off">
-              <span class="form-hint">Wird eingeschaltet wenn Kühlung aktiv ist.</span>
-            </div>
-            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-hardware-settings">💾 Hardware speichern</button>
@@ -4373,11 +4354,6 @@ class IHCPanel extends HTMLElement {
               <label>Fester Energiepreis (€/kWh) <span style="font-size:10px;color:var(--secondary-text-color)">(optional)</span></label>
               <input type="number" class="form-input" id="static-energy-price" min="0.01" max="2" step="0.01" value="${a.static_energy_price ?? ''}" placeholder="z.B. 0.09 (leer = nur kWh)">
               <span class="form-hint">Wenn kein dynamischer Preis-Sensor vorhanden: fester Preis für die Kostenanzeige (Gas ≈ 0,09 €/kWh, Fernwärme ≈ 0,11 €/kWh).</span>
-            </div>
-            <div class="settings-item">
-              <label>Kühl-Zieltemperatur (°C)</label>
-              <input type="number" class="form-input" id="cooling-target-temp" min="18" max="30" step="0.5" value="${a.cooling_target_temp ?? 24}">
-              <span class="form-hint">Zimmer werden auf diese Temperatur heruntergekühlt wenn Kühlung aktiv ist.</span>
             </div>
           </div>
           <hr class="divider">
@@ -4715,18 +4691,10 @@ class IHCPanel extends HTMLElement {
       </details>
     `;
 
-    // Toggle cooling-switch opacity based on enable-cooling select
-    content.querySelector("#enable-cooling")?.addEventListener("change", e => {
-      const item = content.querySelector("#cooling-switch-item");
-      if (item) item.style.opacity = e.target.value === "true" ? "1" : "0.5";
-    });
-
     content.querySelector("#save-hardware-settings").addEventListener("click", () => {
       this._callService("update_global_settings", {
         outdoor_temp_sensor:          content.querySelector("#outdoor-sensor").value.trim(),
         outdoor_temp_smoothing_minutes: parseInt(content.querySelector("#outdoor-smoothing").value, 10) || 0,
-        enable_cooling:           content.querySelector("#enable-cooling").value === "true",
-        cooling_switch:           content.querySelector("#cooling-switch").value.trim(),
         weather_entity:           content.querySelector("#weather-entity").value.trim(),
         weather_cold_threshold:   parseFloat(content.querySelector("#weather-cold-threshold").value) || 0,
         weather_cold_boost:       parseFloat(content.querySelector("#weather-cold-boost").value) || 0,
@@ -4837,7 +4805,6 @@ class IHCPanel extends HTMLElement {
         energy_price_entity:     content.querySelector("#energy-price-entity").value.trim(),
         energy_price_threshold:  priceThresh,
         energy_price_eco_offset: priceEco,
-        cooling_target_temp:     parseFloat(content.querySelector("#cooling-target-temp").value) || 24,
         ...((!isNaN(staticPrice) && staticPrice > 0) ? { static_energy_price: staticPrice } : {}),
         price_forecast_attribute: content.querySelector("#price-forecast-attribute")?.value.trim() || "today_prices",
       });

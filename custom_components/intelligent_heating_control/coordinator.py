@@ -42,7 +42,6 @@ from .const import (
     DOMAIN,
     UPDATE_INTERVAL,
     CONF_OUTDOOR_TEMP_SENSOR,
-    CONF_COOLING_SWITCH,
     CONF_HEATING_CURVE,
     CONF_ROOMS,
     CONF_ROOM_ID,
@@ -60,7 +59,6 @@ from .const import (
     CONF_SCHEDULES,
     CONF_MIN_TEMP,
     CONF_MAX_TEMP,
-    CONF_ENABLE_COOLING,
     CONF_SYSTEM_MODE,
     STORAGE_KEY,
     CONF_AWAY_TEMP,
@@ -142,12 +140,11 @@ from .const import (
     ROOM_MODE_AWAY,
     ROOM_MODE_OFF,
     ROOM_MODE_MANUAL,
+    SYSTEM_MODES,
     SYSTEM_MODE_AUTO,
     SYSTEM_MODE_OFF,
     SYSTEM_MODE_AWAY,
     SYSTEM_MODE_VACATION,
-    SYSTEM_MODE_COOL,
-    SYSTEM_MODE_HEAT,
     # Roadmap 1.2 – Vacation assistant
     CONF_VACATION_START,
     CONF_VACATION_END,
@@ -217,9 +214,7 @@ from .const import (
     DEFAULT_PEAK_SHAVING_ENABLED,
     CONF_PEAK_SHAVING_DELAY_MINUTES,
     DEFAULT_PEAK_SHAVING_DELAY_MINUTES,
-    # v1.5 – Cooling target, price forecast
-    CONF_COOLING_TARGET_TEMP,
-    DEFAULT_COOLING_TARGET_TEMP,
+    # v1.5 – Price forecast
     CONF_PRICE_FORECAST_ATTRIBUTE,
     DEFAULT_PRICE_FORECAST_ATTRIBUTE,
     # v2.x – per-room advanced settings
@@ -497,7 +492,10 @@ class IHCCoordinator(
         data = await self._store.async_load()
         if not data:
             return
-        self._system_mode = data.get("system_mode", SYSTEM_MODE_AUTO)
+        # "cool" was a valid system mode before v2.1.0 (cooling support removed) -
+        # coerce any persisted value from an older install back to auto.
+        loaded_mode = data.get("system_mode", SYSTEM_MODE_AUTO)
+        self._system_mode = loaded_mode if loaded_mode in SYSTEM_MODES else SYSTEM_MODE_AUTO
         self._room_modes = data.get("room_modes", {})
         self._room_manual_temps = data.get("room_manual_temps", {})
         # Populate manual tracking for rooms that were in MANUAL mode before restart.
@@ -1149,22 +1147,6 @@ class IHCCoordinator(
         return None
 
     # ------------------------------------------------------------------
-    # Control output
-    # ------------------------------------------------------------------
-
-    def _set_cooling_switch(self, active: bool) -> None:
-        cfg = self.get_config()
-        switch_entity = cfg.get(CONF_COOLING_SWITCH)
-        if not switch_entity:
-            return
-        service = "turn_on" if active else "turn_off"
-        self.hass.async_create_task(
-            self.hass.services.async_call(
-                "homeassistant", service, {"entity_id": switch_entity}
-            )
-        )
-
-    # ------------------------------------------------------------------
     # Main update cycle
     # ------------------------------------------------------------------
 
@@ -1588,14 +1570,8 @@ class IHCCoordinator(
             }
 
         cfg = self.get_config()
-        enable_cooling = bool(cfg.get(CONF_ENABLE_COOLING, False))
         # Sommerautomatik / Heizperiode: block heating if outdoor temp exceeds threshold or period inactive
         heating_period_active = self._is_heating_period_active()
-        should_cool = self._controller.should_cool(self._system_mode) if enable_cooling else False
-
-        # Startup grace: suppress all heating while sensors haven't reported yet
-        if startup_grace_active:
-            should_cool = False
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
 
@@ -1703,9 +1679,6 @@ class IHCCoordinator(
                 trv_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
                 self._set_valve_entities(room, trv_target)
 
-        if enable_cooling:
-            self._set_cooling_switch(should_cool)
-
         # Kalkschutz: periodisch Ventile bewegen um Verkalkungs-Festfressen zu verhindern
         self._run_limescale_protection(room_data)
 
@@ -1796,7 +1769,6 @@ class IHCCoordinator(
             "total_demand": total_demand,
             "rooms_demanding": rooms_demanding,
             "heating_active": any_room_heating,
-            "cooling_active": should_cool,
             "summer_mode": summer_mode,
             "forecast_coldnight_active": forecast_coldnight_active,
             "forecast_advance_hours": int(cfg.get(CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS)),

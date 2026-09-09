@@ -44,7 +44,6 @@ from .const import (
     CONF_SCHEDULES,
     CONF_PREHEAT_MINUTES,
     CONF_NIGHT_SETBACK_OFFSET,
-    CONF_COOLING_TARGET_TEMP,
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_ADAPTIVE_PREHEAT_ENABLED,
     CONF_TEMP_HISTORY_SIZE,
@@ -71,7 +70,6 @@ from .const import (
     DEFAULT_HA_SCHEDULE_OFF_MODE,
     DEFAULT_PREHEAT_MINUTES,
     DEFAULT_NIGHT_SETBACK_OFFSET,
-    DEFAULT_COOLING_TARGET_TEMP,
     DEFAULT_OFF_USE_FROST_PROTECTION,
     DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
     CONF_OPTIMUM_START_ENABLED,
@@ -86,7 +84,6 @@ from .const import (
     ROOM_MODE_OFF,
     ROOM_MODE_MANUAL,
     SYSTEM_MODE_OFF,
-    SYSTEM_MODE_COOL,
     SYSTEM_MODE_AWAY,
     SYSTEM_MODE_VACATION,
     SYSTEM_MODE_GUEST,
@@ -502,13 +499,6 @@ class RoomLogicMixin:
             else:
                 # Default: valves are turned off completely (handled in update loop)
                 return frost_temp, {"source": "system_off", "schedule_active": False}
-
-        if system_mode == SYSTEM_MODE_COOL:
-            # Cooling mode: target is the configured cooling temperature (room wants to stay BELOW this)
-            cooling_target = float(cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP))
-            return min(max_temp, max(min_temp, cooling_target)), {
-                "source": "cooling_mode", "schedule_active": False
-            }
 
         if system_mode == SYSTEM_MODE_AWAY:
             away_temp = float(cfg.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP))

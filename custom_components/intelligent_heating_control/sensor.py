@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DOMAIN, CONF_ROOM_ID, CONF_ROOM_NAME,
-    CONF_OUTDOOR_TEMP_SENSOR, CONF_COOLING_SWITCH, CONF_ENABLE_COOLING,
+    CONF_OUTDOOR_TEMP_SENSOR,
     CONF_AWAY_TEMP, CONF_VACATION_TEMP,
     CONF_SUMMER_MODE_ENABLED, CONF_SUMMER_THRESHOLD,
     CONF_FROST_PROTECTION_TEMP, CONF_OFF_USE_FROST_PROTECTION, CONF_NIGHT_SETBACK_ENABLED,
@@ -38,8 +38,6 @@ from .const import (
     # v1.4 ETA pre-heat
     CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED,
     CONF_ETA_PREHEAT_THRESHOLD_MINUTES, DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES,
-    # v1.5 Cooling target
-    CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP,
     # Roadmap 2.0
     CONF_GUEST_DURATION_HOURS, DEFAULT_GUEST_DURATION_HOURS,
     CONF_VACATION_RETURN_PREHEAT_DAYS, DEFAULT_VACATION_RETURN_PREHEAT_DAYS,
@@ -148,7 +146,7 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
         "vacation_range",
         "weather_forecast",
         # All global config mirrors (never need historical recording – only current value matters)
-        "outdoor_temp_sensor", "cooling_switch",
+        "outdoor_temp_sensor",
         "solar_entity", "energy_price_entity",
         "vacation_calendar", "weather_entity", "sun_entity",
         "outdoor_humidity_sensor", "summer_mode_entity",
@@ -171,7 +169,6 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
         return {
             "rooms_demanding":        d.get("rooms_demanding", 0),
             "heating_active":         d.get("heating_active", False),
-            "cooling_active":         d.get("cooling_active", False),
             "summer_mode":            d.get("summer_mode", False),
             "forecast_coldnight_active": d.get("forecast_coldnight_active", False),
             "startup_grace_active":   d.get("startup_grace_active", False),
@@ -207,8 +204,6 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
         return {
             # System hardware (needed by Settings tab to pre-fill inputs)
             "outdoor_temp_sensor":         cfg.get(CONF_OUTDOOR_TEMP_SENSOR, ""),
-            "cooling_switch":              cfg.get(CONF_COOLING_SWITCH, ""),
-            "enable_cooling":              cfg.get(CONF_ENABLE_COOLING, False),
             # Temperature presets
             "away_temp":                   cfg.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP),
             "vacation_temp":               cfg.get(CONF_VACATION_TEMP, DEFAULT_VACATION_TEMP),
@@ -249,7 +244,6 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "vacation_calendar":           cfg.get(CONF_VACATION_CALENDAR, ""),
             "vacation_calendar_keyword":   cfg.get(CONF_VACATION_CALENDAR_KEYWORD, DEFAULT_VACATION_CALENDAR_KEYWORD),
             "price_forecast_attribute":    cfg.get(CONF_PRICE_FORECAST_ATTRIBUTE, DEFAULT_PRICE_FORECAST_ATTRIBUTE),
-            "cooling_target_temp":         cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP),
             "static_energy_price":         cfg.get(CONF_STATIC_ENERGY_PRICE),
             # Startup grace for Zigbee/Z-Wave sensors
             "startup_grace_seconds":       cfg.get(CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS),

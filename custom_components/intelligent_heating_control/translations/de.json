@@ -3,16 +3,12 @@
     "step": {
       "user": {
         "title": "Grundeinstellungen",
-        "description": "Konfigurieren Sie den Außentemperatursensor und optional die Kühlung.",
+        "description": "Konfigurieren Sie den Außentemperatursensor.",
         "data": {
-          "outdoor_temp_sensor": "Außentemperatur-Sensor",
-          "enable_cooling": "Kühlung aktivieren",
-          "cooling_switch": "Kühlungsschalter"
+          "outdoor_temp_sensor": "Außentemperatur-Sensor"
         },
         "data_description": {
-          "outdoor_temp_sensor": "Sensor der die aktuelle Außentemperatur misst. Wird für die Heizkurve benötigt – je kälter draußen, desto höher die Zieltemperatur.",
-          "enable_cooling": "Aktivieren Sie diese Option, wenn Ihre Anlage auch kühlen kann (z.B. Wärmepumpe mit Kühlbetrieb).",
-          "cooling_switch": "Der Schalter, der den Kühlbetrieb startet. Wird nur aktiviert, wenn die Räume zu warm sind."
+          "outdoor_temp_sensor": "Sensor der die aktuelle Außentemperatur misst. Wird für die Heizkurve benötigt – je kälter draußen, desto höher die Zieltemperatur."
         }
       },
       "temperatures": {
@@ -53,8 +49,6 @@
         "title": "Globale Einstellungen",
         "data": {
           "outdoor_temp_sensor": "Außentemperatur-Sensor",
-          "enable_cooling": "Kühlung aktivieren",
-          "cooling_switch": "Kühlungsschalter",
           "away_temp": "Abwesend-Temperatur (°C)",
           "vacation_temp": "Urlaubs-Temperatur (°C)",
           "summer_mode_enabled": "Sommerautomatik aktivieren",
@@ -69,8 +63,6 @@
         },
         "data_description": {
           "outdoor_temp_sensor": "Sensor der die aktuelle Außentemperatur misst. Wird für die Heizkurve benötigt.",
-          "enable_cooling": "Aktivieren wenn Ihre Anlage auch kühlen kann (z.B. Wärmepumpe mit Kühlbetrieb).",
-          "cooling_switch": "Der Schalter, der den Kühlbetrieb startet.",
           "away_temp": "Zieltemperatur im Abwesend-Modus für alle Zimmer. Typisch: 16–18 °C.",
           "vacation_temp": "Zieltemperatur im Urlaubs-Modus. Nur Frostschutz. Typisch: 14–16 °C.",
           "summer_mode_enabled": "Wenn aktiv, wird die Heizung automatisch gesperrt sobald die Außentemperatur den Schwellenwert überschreitet.",

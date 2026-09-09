@@ -191,7 +191,6 @@
             <div class="form-row">
               <select class="form-select" id="diag-system-mode-select">
                 ${Object.entries(SYSTEM_MODE_LABELS)
-                  .filter(([k]) => k !== "cool" || a.enable_cooling)
                   .map(([k, v]) => `<option value="${k}" ${curMode === k || curMode === v ? "selected" : ""}>${v}</option>`)
                   .join("")}
               </select>

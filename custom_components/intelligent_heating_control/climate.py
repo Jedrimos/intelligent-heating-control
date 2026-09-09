@@ -320,7 +320,6 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         demand = d.get("demand", 0)
         current_temp = d.get("current_temp")
         target_temp = d.get("target_temp")
-        data = self.coordinator.data
 
         # demand > 0, TRV reports heating action, or valve physically open.
         # Valve > 8% is the most reliable signal – TRV's own controller has decided to heat.
@@ -337,8 +336,6 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
                 and current_temp is not None and target_temp is not None
                 and current_temp < target_temp):
             return HVACAction.HEATING
-        if data and data.get("cooling_active"):
-            return HVACAction.COOLING
         return HVACAction.IDLE
 
     @property
