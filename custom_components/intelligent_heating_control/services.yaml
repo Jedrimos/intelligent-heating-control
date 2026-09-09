@@ -83,16 +83,6 @@ add_room:
           min: 0.1
           max: 2.0
           step: 0.1
-    weight:
-      name: Gewichtung
-      description: Gewichtung dieses Zimmers bei der Gesamtanforderungsberechnung
-      required: false
-      default: 1.0
-      selector:
-        number:
-          min: 0.1
-          max: 5.0
-          step: 0.1
     valve_entities:
       name: Thermostate/Ventile (Liste)
       required: false
@@ -393,11 +383,6 @@ add_room:
           min: -5
           max: 5
           step: 0.5
-    trv_valve_demand:
-      name: TRV-Ventilposition als Anforderung
-      required: false
-      selector:
-        boolean:
     trv_min_send_interval:
       name: TRV Min. Sendeinterval (s)
       required: false
@@ -614,14 +599,6 @@ update_room:
           min: 0.1
           max: 2.0
           step: 0.1
-    weight:
-      name: Gewichtung
-      required: false
-      selector:
-        number:
-          min: 0.1
-          max: 5.0
-          step: 0.1
     ha_schedule_off_mode:
       name: Zeitplan-Aus-Modus
       required: false
@@ -719,11 +696,6 @@ update_room:
           min: -5
           max: 5
           step: 0.5
-    trv_valve_demand:
-      name: TRV-Ventilposition als Anforderung
-      required: false
-      selector:
-        boolean:
     trv_min_send_interval:
       name: TRV Min. Sendeinterval (s)
       required: false
@@ -1029,46 +1001,6 @@ update_global_settings:
   name: Globale Einstellungen aktualisieren
   description: Aktualisiert globale Einstellungen der Heizungssteuerung ohne Neustart.
   fields:
-    demand_threshold:
-      name: Einschaltschwelle (%)
-      required: false
-      selector:
-        number:
-          min: 1
-          max: 100
-          step: 1
-    demand_hysteresis:
-      name: Hysterese (%)
-      required: false
-      selector:
-        number:
-          min: 1
-          max: 30
-          step: 1
-    min_on_time:
-      name: Min. Einschaltzeit (min)
-      required: false
-      selector:
-        number:
-          min: 1
-          max: 60
-          step: 1
-    min_off_time:
-      name: Min. Ausschaltzeit (min)
-      required: false
-      selector:
-        number:
-          min: 1
-          max: 60
-          step: 1
-    min_rooms_demand:
-      name: Min. Zimmer mit Anforderung
-      required: false
-      selector:
-        number:
-          min: 1
-          max: 20
-          step: 1
     away_temp:
       name: Abwesend-Temperatur (°C)
       required: false
@@ -1265,12 +1197,6 @@ update_global_settings:
       selector:
         entity:
           domain: sun
-    heating_switch:
-      name: Heizungsschalter
-      required: false
-      selector:
-        entity:
-          domain: switch
     cooling_switch:
       name: Kühlschalter
       required: false
@@ -1299,14 +1225,6 @@ update_global_settings:
       required: false
       selector:
         object:
-    boiler_kw:
-      name: Kesselleistung (kW)
-      required: false
-      selector:
-        number:
-          min: 1
-          max: 100
-          step: 0.5
     solar_entity:
       name: Solar-Leistungssensor
       required: false
@@ -1352,44 +1270,6 @@ update_global_settings:
           min: 0
           max: 5
           step: 0.5
-    flow_temp_entity:
-      name: Vorlauftemperatur-Sollwert (number entity)
-      description: number.* Entität an die der PID-Sollwert geschrieben wird
-      required: false
-      selector:
-        entity:
-          domain: number
-    flow_temp_sensor:
-      name: Vorlauftemperatur-Istwert (sensor entity)
-      description: sensor.* mit der aktuellen Vorlauftemperatur (PID-Rückführung)
-      required: false
-      selector:
-        entity:
-          domain: sensor
-    pid_kp:
-      name: PID Proportionalanteil
-      required: false
-      selector:
-        number:
-          min: 0
-          max: 10
-          step: 0.1
-    pid_ki:
-      name: PID Integrationsanteil
-      required: false
-      selector:
-        number:
-          min: 0
-          max: 2
-          step: 0.01
-    pid_kd:
-      name: PID Differentialanteil
-      required: false
-      selector:
-        number:
-          min: 0
-          max: 5
-          step: 0.1
     vacation_start:
       name: Urlaubsstart
       description: "ISO-Datum YYYY-MM-DD"
@@ -1423,46 +1303,17 @@ update_global_settings:
           min: 18
           max: 28
           step: 0.5
-    smart_meter_entity:
-      name: Smart-Meter kWh-Sensor
-      required: false
-      selector:
-        entity:
-          domain: sensor
     price_forecast_attribute:
       name: Preis-Prognose-Attribut
       description: "Attributname für Stundenpreise (Tibber/Nordpool, Standard: today_prices)"
       required: false
       selector:
         text:
-    adaptive_curve_enabled:
-      name: Adaptive Heizkurve aktiviert
-      required: false
-      selector:
-        boolean:
-    adaptive_curve_max_delta:
-      name: Adaptive Heizkurve Max-Verschiebung (°C)
-      required: false
-      selector:
-        number:
-          min: 0.5
-          max: 8
-          step: 0.5
     adaptive_preheat_enabled:
       name: Adaptive Vorheizung aktiviert
       required: false
       selector:
         boolean:
-    controller_mode:
-      name: Steuerungsmodus
-      description: "switch = Heizungsschalter, trv = TRVs direkt, hg = Wärmeerzeuger (WIP)"
-      required: false
-      selector:
-        select:
-          options:
-            - "switch"
-            - "trv"
-            - "hg"
     guest_duration_hours:
       name: Gäste-Modus Standarddauer (h)
       required: false
@@ -1586,14 +1437,6 @@ deactivate_guest_mode:
 reset_stats:
   name: Statistik zurücksetzen
   description: Setzt alle Laufzeit- und Energiestatistiken auf Null zurück.
-  fields:
-    reset_curve:
-      name: Heizkurvenadaption zurücksetzen
-      description: Wenn true, wird auch die adaptive Heizkurvenkorrektur auf 0 zurückgesetzt
-      required: false
-      default: false
-      selector:
-        boolean:
 
 # ── v1.7 Heizgruppen ──────────────────────────────────────────────────────────
 
