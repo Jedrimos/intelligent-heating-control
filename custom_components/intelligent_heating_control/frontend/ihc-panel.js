@@ -776,7 +776,7 @@ class IHCPanel extends HTMLElement {
           <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
         </button>
         <span class="topbar-title">Intelligent Heating Control</span>
-        <span class="topbar-version">v1.9.4</span>
+        <span class="topbar-version">v1.9.5</span>
       `;
       shadow.appendChild(topbar);
       // Toggle HA sidebar – single event only (dispatching multiple events causes double-toggle)
@@ -980,6 +980,7 @@ class IHCPanel extends HTMLElement {
         mold_protection_enabled: state.attributes.mold_protection_enabled !== false,
         // Boost config
         boost_default_duration: state.attributes.boost_default_duration ?? 60,
+        boost_temp: state.attributes.boost_temp ?? 0,
         // HA schedule blocks (from schedule.* entity config entries)
         ha_schedule_blocks: state.attributes.ha_schedule_blocks || {},
         // Per-room advanced settings
@@ -1010,6 +1011,7 @@ class IHCPanel extends HTMLElement {
         co2_threshold_good:    state.attributes.co2_threshold_good ?? 800,
         co2_threshold_bad:     state.attributes.co2_threshold_bad ?? 1200,
         co2_ventilation_eta_minutes: state.attributes.co2_ventilation_eta_minutes ?? null,
+        co2_preheat_boost:     state.attributes.co2_preheat_boost === true,
         // PIR presence sensor
         presence_sensor:            state.attributes.presence_sensor || "",
         presence_sensor_on_delay:   state.attributes.presence_sensor_on_delay ?? 300,
@@ -2239,6 +2241,24 @@ class IHCPanel extends HTMLElement {
                 value="${room.absolute_min_temp ?? 15}" step="0.5" min="5" max="25">
             </div>
             <div class="settings-item">
+              <label>HA Klimaregler – Min.-Temperatur (°C)</label>
+              <input type="number" class="form-input" id="rs-min-temp"
+                value="${room.min_temp ?? 5}" step="0.5" min="4" max="15">
+              <span class="form-hint">Untergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
+            </div>
+            <div class="settings-item">
+              <label>HA Klimaregler – Max.-Temperatur (°C)</label>
+              <input type="number" class="form-input" id="rs-max-temp"
+                value="${room.max_temp ?? 30}" step="0.5" min="20" max="35">
+              <span class="form-hint">Obergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
+            </div>
+            <div class="settings-item">
+              <label>Sensor-Kalibrierungsoffset (°C)</label>
+              <input type="number" class="form-input" id="rs-temp-calibration"
+                value="${room.temp_calibration ?? 0}" step="0.1" min="-5" max="5">
+              <span class="form-hint">Korrigiert einen zu warm/kalt messenden Temperatursensor</span>
+            </div>
+            <div class="settings-item">
               <label>Zimmergröße (m²)</label>
               <input type="number" class="form-input" id="rs-room-qm"
                 value="${room.room_qm ?? 0}" step="1" min="0" max="200">
@@ -2327,14 +2347,20 @@ class IHCPanel extends HTMLElement {
         <details class="modal-collapsible" ${room.boost_default_duration !== 60 ? "open" : ""}>
           <summary class="modal-section-title">⚡ Boost</summary>
           <p style="margin:0 0 8px;font-size:0.85em;color:var(--secondary-text-color)">
-            Aktiviert den nativen HA-Boost-Modus auf den TRVs des Zimmers für die gewünschte Dauer.
-            Ohne native Boost-Unterstützung des TRVs wird stattdessen die Komforttemperatur genutzt.
+            Aktiviert den nativen HA-Boost-Modus auf den TRVs des Zimmers für die gewünschte Dauer,
+            oder eine feste Zieltemperatur wenn unten gesetzt.
           </p>
           <div class="settings-grid">
             <div class="settings-item">
               <label>Boost-Dauer (min)</label>
               <input type="number" class="form-input" id="rs-boost-dur"
                 value="${room.boost_default_duration ?? 60}" min="5" max="480" step="5">
+            </div>
+            <div class="settings-item">
+              <label>Boost-Zieltemperatur (°C)</label>
+              <input type="number" class="form-input" id="rs-boost-temp"
+                value="${room.boost_temp ?? 0}" min="0" max="30" step="0.5" placeholder="0 = Komfort-Temperatur">
+              <span class="form-hint">0 = deaktiviert, nutzt stattdessen die Komfort-Temperatur.</span>
             </div>
           </div>
           <div class="form-row" style="gap:8px;margin-top:8px">
@@ -2633,6 +2659,9 @@ class IHCPanel extends HTMLElement {
         deadband:                 parseFloat(container.querySelector("#rs-deadband")?.value),
         weight:                   parseFloat(container.querySelector("#rs-weight")?.value),
         absolute_min_temp:        parseFloat(container.querySelector("#rs-absolute-min-temp")?.value) || 15,
+        min_temp:                 parseFloat(container.querySelector("#rs-min-temp")?.value) || 5,
+        max_temp:                 parseFloat(container.querySelector("#rs-max-temp")?.value) || 30,
+        temp_calibration:         parseFloat(container.querySelector("#rs-temp-calibration")?.value ?? "0") || 0,
         room_qm:                  parseFloat(container.querySelector("#rs-room-qm")?.value) || 0,
         room_preheat_minutes:     parseInt(container.querySelector("#rs-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:     parseInt(container.querySelector("#rs-window-reaction-time")?.value, 10) || 30,
@@ -2649,6 +2678,7 @@ class IHCPanel extends HTMLElement {
         room_presence_entities:   (container.querySelector("#rs-presence-entities")?.value || "")
                                     .split(",").map(s => s.trim()).filter(Boolean),
         boost_default_duration:   parseInt(container.querySelector("#rs-boost-dur")?.value, 10) || 60,
+        boost_temp:               parseFloat(container.querySelector("#rs-boost-temp")?.value) || 0,
         trv_temp_weight:          parseFloat(container.querySelector("#rs-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(container.querySelector("#rs-trv-temp-offset")?.value ?? "-2"),
         trv_valve_demand:         container.querySelector("#rs-trv-valve-demand")?.checked === true,
