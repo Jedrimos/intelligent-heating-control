@@ -29,7 +29,7 @@ async def async_setup_entry(
 
 class IHCHeatingSwitch(CoordinatorEntity, SwitchEntity):
     """
-    Mirror of the heating active state.
+    Mirror of the heating active state (ON whenever any room's TRV is heating).
     Turning it OFF forces the system into OFF mode.
     Turning it ON returns to AUTO mode.
     """

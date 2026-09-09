@@ -152,7 +152,6 @@ class TRVControllerMixin:
         room: dict,
         room_temp: Optional[float],
         trv_data: dict,
-        trv_mode: bool = False,
     ) -> tuple[Optional[float], Optional[float], Optional[float]]:
         """Return (display_temp, demand_temp, raw_trv_temp) for a room.
 
@@ -163,7 +162,7 @@ class TRVControllerMixin:
                           last-resort fallback when no room sensor is configured.
 
         demand_temp   – temperature fed into the demand calculation.
-                        → TRV temp available (any mode, no explicit weight):
+                        → TRV temp available (no explicit weight):
                             Use TRV temp directly. The TRV sensor at the radiator
                             reacts immediately. If TRV reports 21°C while target is
                             19°C the demand is correctly 0 % — even if the wall
@@ -172,9 +171,6 @@ class TRVControllerMixin:
                         → No TRV data: same as display_temp (room sensor fallback).
 
         raw_trv_temp  – unmodified average TRV temperature for diagnostics.
-
-        The trv_mode parameter is kept for potential future differentiation but
-        demand_temp now uses TRV temp whenever available, regardless of mode.
         """
         trv_avg = trv_data.get("trv_avg_temp")
         weight = float(room.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT))
@@ -203,38 +199,20 @@ class TRVControllerMixin:
 
         return display_temp, demand_temp, trv_avg
 
-    def _apply_trv_valve_demand(self, demand: float, trv_data: dict, trv_mode: bool = False) -> float:
+    def _apply_trv_valve_demand(self, demand: float, trv_data: dict) -> float:
         """Correct demand based on TRV valve position.
 
-        In TRV controller mode (auto-applied when valve data is available):
-          The valve position IS the most accurate demand signal – it reflects what
-          the TRV's own thermostat decided, reacts instantly, and is not affected by
-          sensor lag or room stratification.
-          Blending: 40 % temp-based (target context) + 60 % valve-based (actual demand).
-
-        In switch mode (opt-in via CONF_TRV_VALVE_DEMAND):
-          Conservative correction – only clamps extreme outliers.
-          - Valve > 85 %: TRV fully open → raise demand floor to 30
-          - Valve < 8 %: TRV nearly closed → cap demand at 30
-          - In between: 70 % temp-based + 30 % valve-based
+        The valve position IS the most accurate demand signal – it reflects what
+        the TRV's own thermostat decided, reacts instantly, and is not affected by
+        sensor lag or room stratification.
+        Blending: 40 % temp-based (target context) + 60 % valve-based (actual demand).
         """
         avg_valve = trv_data.get("trv_avg_valve")
         if avg_valve is None:
             return demand
 
         valve_demand = avg_valve  # valve position maps directly to demand 0-100
-
-        if trv_mode:
-            # Valve is dominant: fast-reacting, physically accurate
-            blended = demand * 0.40 + valve_demand * 0.60
-            return round(max(0.0, min(100.0, blended)), 1)
-
-        # Switch mode: conservative
-        if avg_valve > 85:
-            return max(demand, 30.0)
-        if avg_valve < 8:
-            return min(demand, 30.0)
-        blended = demand * 0.70 + valve_demand * 0.30
+        blended = demand * 0.40 + valve_demand * 0.60
         return round(max(0.0, min(100.0, blended)), 1)
 
     def _set_valve_entity(

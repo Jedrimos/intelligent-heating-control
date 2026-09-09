@@ -6,14 +6,8 @@ PLATFORMS: Final = ["climate", "sensor", "binary_sensor", "switch", "number", "s
 
 # Config keys - global
 CONF_OUTDOOR_TEMP_SENSOR: Final = "outdoor_temp_sensor"
-CONF_HEATING_SWITCH: Final = "heating_switch"
 CONF_COOLING_SWITCH: Final = "cooling_switch"
 CONF_HEATING_CURVE: Final = "heating_curve"
-CONF_DEMAND_THRESHOLD: Final = "demand_threshold"
-CONF_DEMAND_HYSTERESIS: Final = "demand_hysteresis"
-CONF_MIN_ON_TIME: Final = "min_on_time"
-CONF_MIN_OFF_TIME: Final = "min_off_time"
-CONF_MIN_ROOMS_DEMAND: Final = "min_rooms_demand"
 CONF_SYSTEM_MODE: Final = "system_mode"
 CONF_AWAY_TEMP: Final = "away_temp"
 CONF_VACATION_TEMP: Final = "vacation_temp"
@@ -45,7 +39,6 @@ CONF_TEMP_SENSOR: Final = "temp_sensor"
 CONF_VALVE_ENTITY: Final = "valve_entity"
 CONF_ROOM_OFFSET: Final = "room_offset"
 CONF_DEADBAND: Final = "deadband"
-CONF_WEIGHT: Final = "weight"
 CONF_MIN_TEMP: Final = "min_temp"
 CONF_MAX_TEMP: Final = "max_temp"
 CONF_COMFORT_TEMP: Final = "comfort_temp"
@@ -83,13 +76,7 @@ CONF_CURVE_OUTDOOR_TEMP: Final = "outdoor_temp"
 CONF_CURVE_TARGET_TEMP: Final = "target_temp"
 
 # Defaults
-DEFAULT_DEMAND_THRESHOLD: Final = 15.0
-DEFAULT_DEMAND_HYSTERESIS: Final = 5.0
-DEFAULT_MIN_ON_TIME: Final = 5
-DEFAULT_MIN_OFF_TIME: Final = 5
-DEFAULT_MIN_ROOMS_DEMAND: Final = 1
 DEFAULT_DEADBAND: Final = 0.5
-DEFAULT_WEIGHT: Final = 1.0
 DEFAULT_COMFORT_TEMP: Final = 21.0
 DEFAULT_AWAY_TEMP_ROOM: Final = 16.0
 DEFAULT_AWAY_TEMP: Final = 16.0
@@ -196,7 +183,6 @@ SERVICE_DEACTIVATE_GUEST_MODE: Final = "deactivate_guest_mode"
 SERVICE_RESET_STATS: Final = "reset_stats"
 
 # Roadmap 1.3 – Energy optimisation
-CONF_BOILER_KW: Final = "boiler_kw"                             # kW output of the heating system
 CONF_SOLAR_ENTITY: Final = "solar_entity"                       # solar power sensor (W)
 CONF_SOLAR_SURPLUS_THRESHOLD: Final = "solar_surplus_threshold" # W above which surplus is detected
 CONF_SOLAR_BOOST_TEMP: Final = "solar_boost_temp"               # °C boost added when solar surplus
@@ -208,8 +194,6 @@ CONF_STATIC_ENERGY_PRICE: Final = "static_energy_price"         # fallback price
 # Roadmap 1.4 – Advanced room control
 CONF_TEMP_CALIBRATION: Final = "temp_calibration"               # per-room sensor offset (°C)
 CONF_ROOM_PRESENCE_ENTITIES: Final = "room_presence_entities"   # per-room presence list
-CONF_FLOW_TEMP_ENTITY: Final = "flow_temp_entity"               # boiler flow-temp number entity
-CONF_FLOW_TEMP_SENSOR: Final = "flow_temp_sensor"               # sensor.* to read actual flow temp (PID feedback)
 
 # Roadmap 1.1 – Temperature history (7 days × 24 hours of hourly snapshots)
 CONF_TEMP_HISTORY_SIZE: Final = 168                             # 7 × 24 hourly readings per room
@@ -230,12 +214,6 @@ CONF_HOLIDAY_CALENDAR: Final = "holiday_calendar"            # calendar.* entity
 CONF_HOLIDAY_SCHEDULE_MODE: Final = "holiday_schedule_mode"  # "weekend" | "comfort"
 DEFAULT_HOLIDAY_SCHEDULE_MODE: Final = "weekend"
 
-# v1.3 – Adaptive heating curve
-CONF_ADAPTIVE_CURVE_ENABLED: Final = "adaptive_curve_enabled"
-CONF_ADAPTIVE_CURVE_MAX_DELTA: Final = "adaptive_curve_max_delta"   # max total °C shift allowed
-DEFAULT_ADAPTIVE_CURVE_ENABLED: Final = False
-DEFAULT_ADAPTIVE_CURVE_MAX_DELTA: Final = 3.0
-
 # v1.3 – Predictive pre-heating (uses warmup history when available)
 CONF_ADAPTIVE_PREHEAT_ENABLED: Final = "adaptive_preheat_enabled"
 DEFAULT_ADAPTIVE_PREHEAT_ENABLED: Final = True
@@ -254,23 +232,11 @@ DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES: Final = 90  # start preheating when arriv
 CONF_COOLING_TARGET_TEMP: Final = "cooling_target_temp"
 DEFAULT_COOLING_TARGET_TEMP: Final = 24.0
 
-# v1.5 – PID flow temperature controller
-CONF_PID_KP: Final = "pid_kp"
-CONF_PID_KI: Final = "pid_ki"
-CONF_PID_KD: Final = "pid_kd"
-DEFAULT_PID_KP: Final = 2.0
-DEFAULT_PID_KI: Final = 0.1
-DEFAULT_PID_KD: Final = 0.5
-
-# v1.5 – Smart meter integration
-CONF_SMART_METER_ENTITY: Final = "smart_meter_entity"   # sensor.* with accumulated kWh (TOTAL_INCREASING)
-
 # v1.5 – Tibber / dynamic price forecast attribute
 CONF_PRICE_FORECAST_ATTRIBUTE: Final = "price_forecast_attribute"
 DEFAULT_PRICE_FORECAST_ATTRIBUTE: Final = "today_prices"
 
 # Defaults for new options
-DEFAULT_BOILER_KW: Final = 20.0
 DEFAULT_SOLAR_SURPLUS_THRESHOLD: Final = 1000   # W
 DEFAULT_SOLAR_BOOST_TEMP: Final = 1.0           # °C
 DEFAULT_ENERGY_PRICE_THRESHOLD: Final = 0.30   # €/kWh
@@ -319,13 +285,6 @@ ATTR_ROOMS_DEMANDING: Final = "rooms_demanding"
 ATTR_SYSTEM_MODE: Final = "system_mode"
 
 # Roadmap 2.0 – New features
-
-# TRV-Modus: Klimabaustein controller output mode
-CONF_CONTROLLER_MODE: Final = "controller_mode"
-CONTROLLER_MODE_SWITCH: Final = "switch"   # control a boiler switch (default)
-CONTROLLER_MODE_TRV: Final = "trv"         # control TRVs directly (close them when no demand)
-CONTROLLER_MODE_HG: Final = "hg"           # Heat Generator mode – Roadmap 3.0 (WIP)
-DEFAULT_CONTROLLER_MODE: Final = CONTROLLER_MODE_SWITCH
 
 # Boost-Modus (per room) – uses HA native climate boost preset
 CONF_BOOST_DEFAULT_DURATION: Final = "boost_default_duration"  # minutes

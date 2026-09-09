@@ -14,14 +14,8 @@ from homeassistant.helpers import selector
 from .const import (
     DOMAIN,
     CONF_OUTDOOR_TEMP_SENSOR,
-    CONF_HEATING_SWITCH,
     CONF_COOLING_SWITCH,
     CONF_ENABLE_COOLING,
-    CONF_DEMAND_THRESHOLD,
-    CONF_DEMAND_HYSTERESIS,
-    CONF_MIN_ON_TIME,
-    CONF_MIN_OFF_TIME,
-    CONF_MIN_ROOMS_DEMAND,
     CONF_AWAY_TEMP,
     CONF_VACATION_TEMP,
     CONF_SUMMER_MODE_ENABLED,
@@ -60,15 +54,12 @@ from .const import (
     CONF_NIGHT_SETBACK_OFFSET,
     CONF_SUN_ENTITY,
     CONF_PREHEAT_MINUTES,
-    CONF_BOILER_KW,
     CONF_SOLAR_ENTITY,
     CONF_SOLAR_SURPLUS_THRESHOLD,
     CONF_SOLAR_BOOST_TEMP,
     CONF_ENERGY_PRICE_ENTITY,
     CONF_ENERGY_PRICE_THRESHOLD,
     CONF_ENERGY_PRICE_ECO_OFFSET,
-    CONF_FLOW_TEMP_ENTITY,
-    DEFAULT_BOILER_KW,
     DEFAULT_SOLAR_SURPLUS_THRESHOLD,
     DEFAULT_SOLAR_BOOST_TEMP,
     DEFAULT_ENERGY_PRICE_THRESHOLD,
@@ -84,7 +75,6 @@ from .const import (
     CONF_WINDOW_SENSORS,
     CONF_ROOM_OFFSET,
     CONF_DEADBAND,
-    CONF_WEIGHT,
     CONF_COMFORT_TEMP,
     CONF_AWAY_TEMP_ROOM,
     CONF_ECO_OFFSET,
@@ -120,19 +110,14 @@ from .const import (
     CONF_ROOM_PRESENCE_ENTITIES,
     CONF_TRV_TEMP_WEIGHT,
     CONF_TRV_TEMP_OFFSET,
-    CONF_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     # Global advanced settings missing from original flow
-    CONF_CONTROLLER_MODE,
     CONF_WEATHER_ENTITY,
     CONF_WEATHER_COLD_THRESHOLD,
     CONF_WEATHER_COLD_BOOST,
-    CONF_SMART_METER_ENTITY,
-    CONF_FLOW_TEMP_SENSOR,
     CONF_COOLING_TARGET_TEMP,
     CONF_OUTDOOR_HUMIDITY_SENSOR,
     CONF_VENTILATION_ADVICE_ENABLED,
-    CONF_ADAPTIVE_CURVE_ENABLED,
     CONF_ADAPTIVE_PREHEAT_ENABLED,
     CONF_ETA_PREHEAT_ENABLED,
     CONF_ETA_PREHEAT_THRESHOLD_MINUTES,
@@ -167,13 +152,7 @@ from .const import (
     DEFAULT_LIMESCALE_TIME,
     CONF_LIMESCALE_DURATION_MINUTES,
     DEFAULT_LIMESCALE_DURATION_MINUTES,
-    DEFAULT_DEMAND_THRESHOLD,
-    DEFAULT_DEMAND_HYSTERESIS,
-    DEFAULT_MIN_ON_TIME,
-    DEFAULT_MIN_OFF_TIME,
-    DEFAULT_MIN_ROOMS_DEMAND,
     DEFAULT_DEADBAND,
-    DEFAULT_WEIGHT,
     DEFAULT_COMFORT_TEMP,
     DEFAULT_AWAY_TEMP_ROOM,
     DEFAULT_AWAY_TEMP,
@@ -196,16 +175,13 @@ from .const import (
     DEFAULT_BOOST_DEFAULT_DURATION,
     DEFAULT_TRV_TEMP_WEIGHT,
     DEFAULT_TRV_TEMP_OFFSET,
-    DEFAULT_TRV_VALVE_DEMAND,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
     DEFAULT_SUMMER_THRESHOLD,
-    DEFAULT_CONTROLLER_MODE,
     DEFAULT_WEATHER_COLD_THRESHOLD,
     DEFAULT_WEATHER_COLD_BOOST,
     CONF_STARTUP_GRACE_SECONDS,
     DEFAULT_STARTUP_GRACE_SECONDS,
     DEFAULT_COOLING_TARGET_TEMP,
-    DEFAULT_ADAPTIVE_CURVE_ENABLED,
     DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
     DEFAULT_ETA_PREHEAT_ENABLED,
     DEFAULT_VACATION_CALENDAR_KEYWORD,
@@ -246,7 +222,7 @@ class IHCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: Optional[dict[str, Any]] = None
     ) -> config_entries.FlowResult:
-        """Step 1: Basic settings (outdoor sensor, heating switch)."""
+        """Step 1: Basic settings (outdoor sensor, optional cooling switch)."""
         errors: dict = {}
 
         if user_input is not None:
@@ -254,10 +230,6 @@ class IHCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             outdoor_sensor = user_input.get(CONF_OUTDOOR_TEMP_SENSOR, "")
             if outdoor_sensor and self.hass.states.get(outdoor_sensor) is None:
                 errors[CONF_OUTDOOR_TEMP_SENSOR] = "entity_not_found"
-
-            heating_switch = user_input.get(CONF_HEATING_SWITCH, "")
-            if heating_switch and self.hass.states.get(heating_switch) is None:
-                errors[CONF_HEATING_SWITCH] = "entity_not_found"
 
             enable_cooling = user_input.get(CONF_ENABLE_COOLING, False)
             if enable_cooling:
@@ -271,15 +243,12 @@ class IHCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             if not errors:
                 self._data.update(user_input)
-                return await self.async_step_controller()
+                return await self.async_step_temperatures()
 
         enable_cooling_current = (user_input or {}).get(CONF_ENABLE_COOLING, False)
         schema_dict: dict = {
             vol.Optional(CONF_OUTDOOR_TEMP_SENSOR, default=""): selector.selector({
                 "entity": {"domain": "sensor"}
-            }),
-            vol.Optional(CONF_HEATING_SWITCH, default=""): selector.selector({
-                "text": {}
             }),
             vol.Optional(CONF_ENABLE_COOLING, default=False): selector.selector({
                 "boolean": {}
@@ -296,40 +265,6 @@ class IHCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=schema,
             errors=errors,
             description_placeholders={},
-        )
-
-    async def async_step_controller(
-        self, user_input: Optional[dict[str, Any]] = None
-    ) -> config_entries.FlowResult:
-        """Step 2: Klimabaustein / controller settings."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_temperatures()
-
-        schema = vol.Schema({
-            vol.Optional(CONF_CONTROLLER_MODE, default=DEFAULT_CONTROLLER_MODE): selector.selector({
-                "select": {"options": ["switch", "trv"]}
-            }),
-            vol.Optional(CONF_DEMAND_THRESHOLD, default=DEFAULT_DEMAND_THRESHOLD): selector.selector({
-                "number": {"min": 1, "max": 100, "step": 1, "unit_of_measurement": "%", "mode": "slider"}
-            }),
-            vol.Optional(CONF_DEMAND_HYSTERESIS, default=DEFAULT_DEMAND_HYSTERESIS): selector.selector({
-                "number": {"min": 1, "max": 30, "step": 1, "unit_of_measurement": "%", "mode": "slider"}
-            }),
-            vol.Optional(CONF_MIN_ON_TIME, default=DEFAULT_MIN_ON_TIME): selector.selector({
-                "number": {"min": 1, "max": 60, "step": 1, "unit_of_measurement": "min", "mode": "box"}
-            }),
-            vol.Optional(CONF_MIN_OFF_TIME, default=DEFAULT_MIN_OFF_TIME): selector.selector({
-                "number": {"min": 1, "max": 60, "step": 1, "unit_of_measurement": "min", "mode": "box"}
-            }),
-            vol.Optional(CONF_MIN_ROOMS_DEMAND, default=DEFAULT_MIN_ROOMS_DEMAND): selector.selector({
-                "number": {"min": 1, "max": 20, "step": 1, "mode": "box"}
-            }),
-        })
-
-        return self.async_show_form(
-            step_id="controller",
-            data_schema=schema,
         )
 
     async def async_step_temperatures(
@@ -415,10 +350,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 default=cfg.get(CONF_OUTDOOR_TEMP_SENSOR, "")
             ): selector.selector({"text": {}}),
             vol.Optional(
-                CONF_HEATING_SWITCH,
-                default=cfg.get(CONF_HEATING_SWITCH, "")
-            ): selector.selector({"text": {}}),
-            vol.Optional(
                 CONF_ENABLE_COOLING,
                 default=bool(enable_cooling_current)
             ): selector.selector({"boolean": {}}),
@@ -429,36 +360,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 {"text": {}}
             )
         schema_dict.update({
-            vol.Optional(
-                CONF_DEMAND_THRESHOLD,
-                default=float(cfg.get(CONF_DEMAND_THRESHOLD, DEFAULT_DEMAND_THRESHOLD))
-            ): selector.selector({
-                "number": {"min": 1, "max": 100, "step": 1, "unit_of_measurement": "%", "mode": "slider"}
-            }),
-            vol.Optional(
-                CONF_DEMAND_HYSTERESIS,
-                default=float(cfg.get(CONF_DEMAND_HYSTERESIS, DEFAULT_DEMAND_HYSTERESIS))
-            ): selector.selector({
-                "number": {"min": 1, "max": 30, "step": 1, "unit_of_measurement": "%", "mode": "slider"}
-            }),
-            vol.Optional(
-                CONF_MIN_ON_TIME,
-                default=int(cfg.get(CONF_MIN_ON_TIME, DEFAULT_MIN_ON_TIME))
-            ): selector.selector({
-                "number": {"min": 1, "max": 60, "step": 1, "unit_of_measurement": "min", "mode": "box"}
-            }),
-            vol.Optional(
-                CONF_MIN_OFF_TIME,
-                default=int(cfg.get(CONF_MIN_OFF_TIME, DEFAULT_MIN_OFF_TIME))
-            ): selector.selector({
-                "number": {"min": 1, "max": 60, "step": 1, "unit_of_measurement": "min", "mode": "box"}
-            }),
-            vol.Optional(
-                CONF_MIN_ROOMS_DEMAND,
-                default=int(cfg.get(CONF_MIN_ROOMS_DEMAND, DEFAULT_MIN_ROOMS_DEMAND))
-            ): selector.selector({
-                "number": {"min": 1, "max": 20, "step": 1, "mode": "box"}
-            }),
             vol.Optional(
                 CONF_AWAY_TEMP,
                 default=float(cfg.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP))
@@ -569,12 +470,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             # --- Roadmap 1.3: Energy optimisation ---
             vol.Optional(
-                CONF_BOILER_KW,
-                default=float(cfg.get(CONF_BOILER_KW, DEFAULT_BOILER_KW))
-            ): selector.selector({
-                "number": {"min": 1, "max": 100, "step": 1, "unit_of_measurement": "kW", "mode": "box"}
-            }),
-            vol.Optional(
                 CONF_SOLAR_ENTITY,
                 default=cfg.get(CONF_SOLAR_ENTITY, "")
             ): selector.selector({"text": {}}),
@@ -606,33 +501,12 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "number": {"min": 0.5, "max": 6, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            # --- Flow temperature control ---
-            vol.Optional(
-                CONF_FLOW_TEMP_ENTITY,
-                default=cfg.get(CONF_FLOW_TEMP_ENTITY, "")
-            ): selector.selector({"text": {}}),
-            vol.Optional(
-                CONF_FLOW_TEMP_SENSOR,
-                default=cfg.get(CONF_FLOW_TEMP_SENSOR, "")
-            ): selector.selector({"text": {}}),
             vol.Optional(
                 CONF_COOLING_TARGET_TEMP,
                 default=float(cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP))
             ): selector.selector({
                 "number": {"min": 18, "max": 30, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            # --- Controller mode ---
-            vol.Optional(
-                CONF_CONTROLLER_MODE,
-                default=cfg.get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
-            ): selector.selector({
-                "select": {"options": ["switch", "trv"]}
-            }),
-            # --- Smart meter ---
-            vol.Optional(
-                CONF_SMART_METER_ENTITY,
-                default=cfg.get(CONF_SMART_METER_ENTITY, "")
-            ): selector.selector({"text": {}}),
             # --- Weather integration ---
             vol.Optional(
                 CONF_WEATHER_ENTITY,
@@ -659,11 +533,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_VENTILATION_ADVICE_ENABLED,
                 default=bool(cfg.get(CONF_VENTILATION_ADVICE_ENABLED, DEFAULT_VENTILATION_ADVICE_ENABLED))
             ): selector.selector({"boolean": {}}),
-            # --- Adaptive curve / preheat ---
-            vol.Optional(
-                CONF_ADAPTIVE_CURVE_ENABLED,
-                default=bool(cfg.get(CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED))
-            ): selector.selector({"boolean": {}}),
+            # --- Predictive pre-heat ---
             vol.Optional(
                 CONF_ADAPTIVE_PREHEAT_ENABLED,
                 default=bool(cfg.get(CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED))
@@ -829,7 +699,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_VALVE_ENTITIES: [single_valve] if single_valve else [],
                 CONF_ROOM_OFFSET: float(user_input.get(CONF_ROOM_OFFSET, 0.0)),
                 CONF_DEADBAND: float(user_input.get(CONF_DEADBAND, DEFAULT_DEADBAND)),
-                CONF_WEIGHT: float(user_input.get(CONF_WEIGHT, DEFAULT_WEIGHT)),
                 CONF_COMFORT_TEMP: float(user_input.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)),
                 CONF_AWAY_TEMP_ROOM: float(user_input.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
                 CONF_ECO_OFFSET: float(user_input.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET)),
@@ -862,7 +731,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_ROOM_PRESENCE_ENTITIES: user_input.get(CONF_ROOM_PRESENCE_ENTITIES, []),
                 CONF_TRV_TEMP_WEIGHT: float(user_input.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT)),
                 CONF_TRV_TEMP_OFFSET: float(user_input.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET)),
-                CONF_TRV_VALVE_DEMAND: bool(user_input.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND)),
                 CONF_TRV_MIN_SEND_INTERVAL: int(user_input.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL)),
                 CONF_TRV_CALIBRATIONS: user_input.get(CONF_TRV_CALIBRATIONS) or {},
                 CONF_WINDOW_OPEN_TEMP: float(user_input.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP)),
@@ -901,9 +769,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_DEADBAND, default=DEFAULT_DEADBAND): selector.selector({
                 "number": {"min": 0.1, "max": 2.0, "step": 0.1, "unit_of_measurement": "°C", "mode": "box"}
-            }),
-            vol.Optional(CONF_WEIGHT, default=DEFAULT_WEIGHT): selector.selector({
-                "number": {"min": 0.1, "max": 5.0, "step": 0.1, "mode": "box"}
             }),
             vol.Optional(CONF_COMFORT_TEMP, default=DEFAULT_COMFORT_TEMP): selector.selector({
                 "number": {"min": 15, "max": 30, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
@@ -1006,7 +871,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_TRV_TEMP_OFFSET, default=DEFAULT_TRV_TEMP_OFFSET): selector.selector({
                 "number": {"min": -10, "max": 5, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            vol.Optional(CONF_TRV_VALVE_DEMAND, default=DEFAULT_TRV_VALVE_DEMAND): selector.selector({"boolean": {}}),
             vol.Optional(CONF_TRV_MIN_SEND_INTERVAL, default=DEFAULT_TRV_MIN_SEND_INTERVAL): selector.selector({
                 "number": {"min": 0, "max": 1800, "step": 60, "unit_of_measurement": "s", "mode": "box"}
             }),
@@ -1094,9 +958,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_DEADBAND, default=float(room.get(CONF_DEADBAND, DEFAULT_DEADBAND))): selector.selector({
                 "number": {"min": 0.1, "max": 2.0, "step": 0.1, "unit_of_measurement": "°C", "mode": "box"}
-            }),
-            vol.Optional(CONF_WEIGHT, default=float(room.get(CONF_WEIGHT, DEFAULT_WEIGHT))): selector.selector({
-                "number": {"min": 0.1, "max": 5.0, "step": 0.1, "mode": "box"}
             }),
             vol.Optional(CONF_COMFORT_TEMP, default=float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP))): selector.selector({
                 "number": {"min": 15, "max": 30, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
@@ -1200,7 +1061,6 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_TRV_TEMP_OFFSET, default=float(room.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET))): selector.selector({
                 "number": {"min": -10, "max": 5, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            vol.Optional(CONF_TRV_VALVE_DEMAND, default=bool(room.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_TRV_MIN_SEND_INTERVAL, default=int(room.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL))): selector.selector({
                 "number": {"min": 0, "max": 1800, "step": 60, "unit_of_measurement": "s", "mode": "box"}
             }),

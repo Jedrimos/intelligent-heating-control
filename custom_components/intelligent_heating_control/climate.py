@@ -205,7 +205,6 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         "room_id",
         "room_offset",
         "deadband",
-        "weight",
         "absolute_min_temp",
         "min_temp",
         "max_temp",
@@ -324,35 +323,24 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         current_temp = d.get("current_temp")
         target_temp = d.get("target_temp")
         data = self.coordinator.data
-        controller_mode = (data or {}).get("controller_mode", "switch")
 
-        if controller_mode == "trv":
-            # TRV mode: demand > 0, TRV reports heating action, or valve physically open.
-            # Valve > 8% is the most reliable signal – TRV's own controller has decided to heat.
-            trv_avg_valve = d.get("trv_avg_valve")
-            trv_any_heating = d.get("trv_any_heating", False)
-            if (demand > 0
-                    or trv_any_heating
-                    or (trv_avg_valve is not None and trv_avg_valve > 8)):
-                return HVACAction.HEATING
-            # Fallback for TRVs that don't report valve position or hvac_action:
-            # show HEATING whenever IHC is actively trying to heat the room
-            # (target above current – the TRV received a setpoint above room temp).
-            if (trv_avg_valve is None and not trv_any_heating
-                    and current_temp is not None and target_temp is not None
-                    and current_temp < target_temp):
-                return HVACAction.HEATING
-        else:
-            # Switch mode: show HEATING when the room demands heat OR the central boiler
-            # is actively running. In a central heating system the boiler distributes heat
-            # to all radiators simultaneously, so HEATING is the correct action for the
-            # whole house whenever the boiler fires – even for rooms that just reached
-            # target and dropped their individual demand to 0.
-            heating_active = bool((data or {}).get("heating_active", False))
-            if demand > 0 or heating_active:
-                return HVACAction.HEATING
-            if data and data.get("cooling_active"):
-                return HVACAction.COOLING
+        # demand > 0, TRV reports heating action, or valve physically open.
+        # Valve > 8% is the most reliable signal – TRV's own controller has decided to heat.
+        trv_avg_valve = d.get("trv_avg_valve")
+        trv_any_heating = d.get("trv_any_heating", False)
+        if (demand > 0
+                or trv_any_heating
+                or (trv_avg_valve is not None and trv_avg_valve > 8)):
+            return HVACAction.HEATING
+        # Fallback for TRVs that don't report valve position or hvac_action:
+        # show HEATING whenever IHC is actively trying to heat the room
+        # (target above current – the TRV received a setpoint above room temp).
+        if (trv_avg_valve is None and not trv_any_heating
+                and current_temp is not None and target_temp is not None
+                and current_temp < target_temp):
+            return HVACAction.HEATING
+        if data and data.get("cooling_active"):
+            return HVACAction.COOLING
         return HVACAction.IDLE
 
     @property
@@ -404,7 +392,6 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "away_temp_eff": d.get("away_temp_eff"),
             "room_offset": room_cfg.get("room_offset", 0.0),
             "deadband": room_cfg.get("deadband", 0.5),
-            "weight": room_cfg.get("weight", 1.0),
             # Per-room advanced settings
             "absolute_min_temp": room_cfg.get(CONF_ABSOLUTE_MIN_TEMP, DEFAULT_ABSOLUTE_MIN_TEMP),
             "min_temp": room_cfg.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP),
@@ -413,8 +400,6 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "room_preheat_minutes": room_cfg.get(CONF_ROOM_PREHEAT_MINUTES, DEFAULT_ROOM_PREHEAT_MINUTES),
             "window_reaction_time": room_cfg.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME),
             "window_close_delay": room_cfg.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY),
-            # Derived effective weight (from qm if weight is default)
-            "effective_weight": d.get("effective_weight", room_cfg.get("weight", 1.0)),
             "schedules": room_cfg.get("schedules", []),
             "ha_schedules": room_cfg.get("ha_schedules", []),
             "ha_schedule_blocks": d.get("ha_schedule_blocks", {}),

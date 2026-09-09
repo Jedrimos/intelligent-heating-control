@@ -14,7 +14,6 @@ Responsible for:
 from __future__ import annotations
 
 import logging
-import math
 import time
 import uuid
 from collections import deque
@@ -38,20 +37,13 @@ from .energy_manager import EnergyManagerMixin
 from .comfort_manager import ComfortManagerMixin
 from .vacation_manager import VacationManagerMixin
 from .climate_adjustments import ClimateAdjustmentsMixin
-from .heat_generator_stub import HeatGeneratorMixin
 
 from .const import (
     DOMAIN,
     UPDATE_INTERVAL,
     CONF_OUTDOOR_TEMP_SENSOR,
-    CONF_HEATING_SWITCH,
     CONF_COOLING_SWITCH,
     CONF_HEATING_CURVE,
-    CONF_DEMAND_THRESHOLD,
-    CONF_DEMAND_HYSTERESIS,
-    CONF_MIN_ON_TIME,
-    CONF_MIN_OFF_TIME,
-    CONF_MIN_ROOMS_DEMAND,
     CONF_ROOMS,
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
@@ -59,7 +51,6 @@ from .const import (
     CONF_VALVE_ENTITY,
     CONF_ROOM_OFFSET,
     CONF_DEADBAND,
-    CONF_WEIGHT,
     CONF_COMFORT_TEMP,
     CONF_AWAY_TEMP_ROOM,
     CONF_WINDOW_SENSOR,
@@ -104,7 +95,6 @@ from .const import (
     CONF_SUN_ENTITY,
     CONF_PREHEAT_MINUTES,
     # Roadmap 1.3 – Energy
-    CONF_BOILER_KW,
     CONF_SOLAR_ENTITY,
     CONF_SOLAR_SURPLUS_THRESHOLD,
     CONF_SOLAR_BOOST_TEMP,
@@ -114,7 +104,6 @@ from .const import (
     # Roadmap 1.4
     CONF_TEMP_CALIBRATION,
     CONF_ROOM_PRESENCE_ENTITIES,
-    CONF_FLOW_TEMP_ENTITY,
     # Roadmap 1.1
     CONF_TEMP_HISTORY_SIZE,
     CONF_OUTDOOR_TEMP_SMOOTHING_MINUTES,
@@ -133,18 +122,11 @@ from .const import (
     DEFAULT_OFF_USE_FROST_PROTECTION,
     DEFAULT_NIGHT_SETBACK_OFFSET,
     DEFAULT_PREHEAT_MINUTES,
-    DEFAULT_BOILER_KW,
     DEFAULT_SOLAR_SURPLUS_THRESHOLD,
     DEFAULT_SOLAR_BOOST_TEMP,
     DEFAULT_ENERGY_PRICE_THRESHOLD,
     DEFAULT_ENERGY_PRICE_ECO_OFFSET,
-    DEFAULT_DEMAND_THRESHOLD,
-    DEFAULT_DEMAND_HYSTERESIS,
-    DEFAULT_MIN_ON_TIME,
-    DEFAULT_MIN_OFF_TIME,
-    DEFAULT_MIN_ROOMS_DEMAND,
     DEFAULT_DEADBAND,
-    DEFAULT_WEIGHT,
     DEFAULT_COMFORT_TEMP,
     DEFAULT_AWAY_TEMP_ROOM,
     DEFAULT_AWAY_TEMP,
@@ -169,11 +151,6 @@ from .const import (
     # Roadmap 1.2 – Vacation assistant
     CONF_VACATION_START,
     CONF_VACATION_END,
-    # Roadmap 2.0 – New features
-    CONF_CONTROLLER_MODE,
-    CONTROLLER_MODE_SWITCH,
-    CONTROLLER_MODE_TRV,
-    DEFAULT_CONTROLLER_MODE,
     SYSTEM_MODE_GUEST,
     CONF_GUEST_DURATION_HOURS,
     DEFAULT_GUEST_DURATION_HOURS,
@@ -220,11 +197,7 @@ from .const import (
     CONF_HKV_FACTOR,
     DEFAULT_RADIATOR_KW,
     DEFAULT_HKV_FACTOR,
-    # v1.3 – Adaptive curve & predictive pre-heat
-    CONF_ADAPTIVE_CURVE_ENABLED,
-    CONF_ADAPTIVE_CURVE_MAX_DELTA,
-    DEFAULT_ADAPTIVE_CURVE_ENABLED,
-    DEFAULT_ADAPTIVE_CURVE_MAX_DELTA,
+    # v1.3 – Predictive pre-heat
     CONF_ADAPTIVE_PREHEAT_ENABLED,
     CONF_OPTIMUM_START_ENABLED,
     DEFAULT_OPTIMUM_START_ENABLED,
@@ -244,26 +217,16 @@ from .const import (
     DEFAULT_PEAK_SHAVING_ENABLED,
     CONF_PEAK_SHAVING_DELAY_MINUTES,
     DEFAULT_PEAK_SHAVING_DELAY_MINUTES,
-    # v1.5 – Cooling target, PID, smart meter, price forecast
+    # v1.5 – Cooling target, price forecast
     CONF_COOLING_TARGET_TEMP,
     DEFAULT_COOLING_TARGET_TEMP,
-    CONF_FLOW_TEMP_SENSOR,
-    CONF_PID_KP,
-    CONF_PID_KI,
-    CONF_PID_KD,
-    DEFAULT_PID_KP,
-    DEFAULT_PID_KI,
-    DEFAULT_PID_KD,
-    CONF_SMART_METER_ENTITY,
     CONF_PRICE_FORECAST_ATTRIBUTE,
     DEFAULT_PRICE_FORECAST_ATTRIBUTE,
     # v2.x – per-room advanced settings
     CONF_ABSOLUTE_MIN_TEMP,
-    CONF_ROOM_QM,
     CONF_ROOM_PREHEAT_MINUTES,
     CONF_WINDOW_CLOSE_DELAY,
     DEFAULT_ABSOLUTE_MIN_TEMP,
-    DEFAULT_ROOM_QM,
     DEFAULT_ROOM_PREHEAT_MINUTES,
     DEFAULT_WINDOW_CLOSE_DELAY,
     DEFAULT_WINDOW_REACTION_TIME,
@@ -272,8 +235,6 @@ from .const import (
     DEFAULT_TRV_TEMP_WEIGHT,
     CONF_TRV_TEMP_OFFSET,
     DEFAULT_TRV_TEMP_OFFSET,
-    CONF_TRV_VALVE_DEMAND,
-    DEFAULT_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
     CONF_BOOST_DEFAULT_DURATION,
@@ -293,7 +254,6 @@ from .const import (
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
 from .heating_controller import HeatingController
-from .flow_temp_pid import FlowTempPID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -312,7 +272,6 @@ class IHCCoordinator(
     ComfortManagerMixin,
     VacationManagerMixin,
     ClimateAdjustmentsMixin,
-    HeatGeneratorMixin,
     DataUpdateCoordinator,
 ):
     """Central coordinator for Intelligent Heating Control."""
@@ -368,6 +327,7 @@ class IHCCoordinator(
         self._heating_runtime_yesterday: float = 0.0   # total seconds yesterday (Roadmap 2.0)
         self._room_demand_started: Dict[str, datetime] = {}  # room_id → when demand went > 0
         self._room_runtime_today: Dict[str, float] = {}      # room_id → seconds today
+        self._room_runtime_yesterday: Dict[str, float] = {}  # room_id → seconds yesterday
         self._runtime_day: int = dt_util.now().day             # to detect day rollover
         # HKV (Heizkostenverteiler) – per-room reading at start of current day
         self._hkv_day_start: Dict[str, Optional[float]] = {}  # room_id → Einheiten at 00:00
@@ -393,17 +353,6 @@ class IHCCoordinator(
         self._cooling_rate_history: Dict[str, List[float]] = {}    # room_id → [rate, ...]
         self._cooling_start: Dict[str, tuple] = {}                  # room_id → (start_time, start_temp, outdoor)
         self._cooling_prev_demand: Dict[str, float] = {}            # room_id → demand from last cycle
-
-        # v1.3 – Adaptive heating curve: cumulative offset applied so far
-        self._curve_adaptation_delta: float = 0.0   # °C total shift applied
-        self._curve_last_adapted: Optional[int] = None  # day-of-year when last adapted
-
-        # v1.5 – PID controller for flow temperature
-        self._flow_pid: FlowTempPID = FlowTempPID()
-        self._flow_pid_last_setpoint: Optional[float] = None  # detect large setpoint jumps
-
-        # v1.5 – Smart meter daily baseline
-        self._smart_meter_day_start: Optional[float] = None
 
         # v1.4 – Vacation calendar last-check (to avoid calling service every minute)
         self._vac_calendar_last_check: Optional[int] = None  # day-of-year
@@ -533,14 +482,8 @@ class IHCCoordinator(
             schedules = room.get(CONF_SCHEDULES, [])
             self._schedule_managers[rid] = ScheduleManager(schedules)
 
-        # Heating controller (Klimabaustein)
-        self._controller = HeatingController(
-            demand_threshold=float(opts.get(CONF_DEMAND_THRESHOLD, DEFAULT_DEMAND_THRESHOLD)),
-            demand_hysteresis=float(opts.get(CONF_DEMAND_HYSTERESIS, DEFAULT_DEMAND_HYSTERESIS)),
-            min_on_time=int(opts.get(CONF_MIN_ON_TIME, DEFAULT_MIN_ON_TIME)),
-            min_off_time=int(opts.get(CONF_MIN_OFF_TIME, DEFAULT_MIN_OFF_TIME)),
-            min_rooms_demand=int(opts.get(CONF_MIN_ROOMS_DEMAND, DEFAULT_MIN_ROOMS_DEMAND)),
-        )
+        # Per-room demand engine + cooling-switch gate
+        self._controller = HeatingController()
 
         # Re-subscribe window sensor listeners whenever config changes so that newly
         # added sensors are monitored immediately (without needing an HA restart).
@@ -582,6 +525,7 @@ class IHCCoordinator(
         self._heating_runtime_today = data.get("heating_runtime_today", 0.0)
         self._heating_runtime_yesterday = data.get("heating_runtime_yesterday", 0.0)
         self._room_runtime_today = data.get("room_runtime_today", {})
+        self._room_runtime_yesterday = data.get("room_runtime_yesterday", {})
         self._return_preheat_active = data.get("return_preheat_active", False)
         # Restore the day number so we don't falsely roll over on first update
         stored_day = data.get("runtime_day")
@@ -655,6 +599,7 @@ class IHCCoordinator(
             "heating_runtime_today": self._heating_runtime_today,
             "heating_runtime_yesterday": self._heating_runtime_yesterday,
             "room_runtime_today": self._room_runtime_today,
+            "room_runtime_yesterday": self._room_runtime_yesterday,
             "runtime_day": self._runtime_day,
             "return_preheat_active": self._return_preheat_active,
             "guest_mode_until": self._guest_mode_until.isoformat() if self._guest_mode_until else None,
@@ -1128,76 +1073,12 @@ class IHCCoordinator(
     # NOTE: _apply_room_calibration and _check_room_presence are in ComfortManagerMixin
     # and PresenceManagerMixin respectively.
 
-    def _set_flow_temp(self, flow_temp: float) -> None:
-        """Set the boiler flow temperature via a number entity."""
-        cfg = self.get_config()
-        flow_entity = cfg.get(CONF_FLOW_TEMP_ENTITY)
-        if not flow_entity:
-            return
-        self.hass.async_create_task(
-            self.hass.services.async_call(
-                "number", "set_value",
-                {"entity_id": flow_entity, "value": round(flow_temp, 1)},
-            )
-        )
-
-    def _calculate_flow_temp(self, outdoor_temp: Optional[float], total_demand: float) -> Optional[float]:
-        """
-        Calculate boiler flow temperature setpoint.
-
-        Uses a linear weather-compensation curve as the desired setpoint, then
-        applies a PID correction if a flow-temp sensor (CONF_FLOW_TEMP_SENSOR) is
-        configured. Without the sensor, the raw curve value is returned directly.
-
-        Weather-compensation base: cold outside → higher flow temp.
-        Demand modulation: ±10°C depending on current aggregate demand.
-        """
-        if outdoor_temp is None:
-            return None
-        # Weather-compensation base (linear)
-        setpoint = 70.0 - (outdoor_temp * 1.5)
-        setpoint = max(30.0, min(80.0, setpoint))
-        # Modulate by demand (0–100 → ±10°C)
-        setpoint += (total_demand / 100.0) * 10.0 - 5.0
-        setpoint = round(max(30.0, min(80.0, setpoint)), 1)
-
-        # PID correction when a measurement sensor is available
-        cfg = self.get_config()
-        flow_sensor = cfg.get(CONF_FLOW_TEMP_SENSOR)
-        if flow_sensor:
-            state = self.hass.states.get(flow_sensor)
-            if state and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-                try:
-                    measured = float(state.state)
-                    # Reset PID if setpoint shifted significantly (> 5°C jump)
-                    if self._flow_pid_last_setpoint is not None and abs(setpoint - self._flow_pid_last_setpoint) > 5:
-                        self._flow_pid.reset()
-                    self._flow_pid_last_setpoint = setpoint
-                    kp = float(cfg.get(CONF_PID_KP, DEFAULT_PID_KP))
-                    ki = float(cfg.get(CONF_PID_KI, DEFAULT_PID_KI))
-                    kd = float(cfg.get(CONF_PID_KD, DEFAULT_PID_KD))
-                    self._flow_pid.kp = kp
-                    self._flow_pid.ki = ki
-                    self._flow_pid.kd = kd
-                    return round(self._flow_pid.compute(setpoint, measured), 1)
-                except (ValueError, TypeError):
-                    pass  # fall through to raw setpoint
-
-        return setpoint
-
     # NOTE: _reset_runtime_if_new_day, _update_runtime_tracking, get_heating_runtime_today_minutes,
     # get_heating_runtime_yesterday_minutes, get_room_runtime_today_minutes, reset_runtime_stats,
-    # _calculate_room_energy_today, _get_smart_meter_energy_today, calculate_efficiency_score
-    # are now in EnergyManagerMixin.
+    # _calculate_room_energy_today, calculate_efficiency_score are now in EnergyManagerMixin.
 
-    def reset_curve_adaptation(self) -> None:
-        """Reset only the adaptive heating curve offset back to 0.0 °C."""
-        self._curve_adaptation_delta = 0.0
-        self._curve_last_adapted = None
-        _LOGGER.info("IHC: Adaptive curve offset reset to 0 by user.")
-
-    # NOTE: _calculate_room_energy_today, _get_smart_meter_energy_today, _get_price_forecast_offset,
-    # _get_eta_preheat_minutes, _adapt_heating_curve, _async_check_vacation_calendar,
+    # NOTE: _calculate_room_energy_today, _get_price_forecast_offset,
+    # _get_eta_preheat_minutes, _async_check_vacation_calendar,
     # calculate_efficiency_score are now in EnergyManagerMixin, ClimateAdjustmentsMixin,
     # and VacationManagerMixin respectively.
 
@@ -1271,18 +1152,6 @@ class IHCCoordinator(
     # Control output
     # ------------------------------------------------------------------
 
-    def _set_heating_switch(self, active: bool) -> None:
-        cfg = self.get_config()
-        switch_entity = cfg.get(CONF_HEATING_SWITCH)
-        if not switch_entity:
-            return
-        service = "turn_on" if active else "turn_off"
-        self.hass.async_create_task(
-            self.hass.services.async_call(
-                "homeassistant", service, {"entity_id": switch_entity}
-            )
-        )
-
     def _set_cooling_switch(self, active: bool) -> None:
         cfg = self.get_config()
         switch_entity = cfg.get(CONF_COOLING_SWITCH)
@@ -1346,10 +1215,6 @@ class IHCCoordinator(
         # Rückkehr-Vorheizung: pre-heat before returning from vacation (Roadmap 2.0)
         self._update_vacation_return_preheat()
 
-        # v1.3 – Adaptive heating curve (once per day, skip in TRV mode – curve unused there)
-        if self.get_config().get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE) != CONTROLLER_MODE_TRV:
-            self._adapt_heating_curve()
-
         # Persist temperature history once per hour (survives HA restarts)
         now = datetime.now()
         if self._history_last_saved is None or (now - self._history_last_saved).total_seconds() >= 3600:
@@ -1393,9 +1258,6 @@ class IHCCoordinator(
         # v1.4 – ETA pre-heat: minutes until someone arrives home
         eta_minutes = self._get_eta_preheat_minutes()
         self._current_eta_minutes = eta_minutes
-        # Controller mode – needed inside the room loop for TRV-specific behaviour
-        _loop_ctrl_mode = self.get_config().get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
-        _loop_trv_mode = _loop_ctrl_mode == CONTROLLER_MODE_TRV
 
         # Fenster-Kaskade Pre-Pass: window_opened_at aktualisieren + aktive Kaskaden berechnen
         _now_cascade = datetime.now()
@@ -1452,7 +1314,7 @@ class IHCCoordinator(
             #   trv_raw_temp  – Unmodified TRV average for diagnostics.
             trv_data = self._get_trv_data(room)
             current_temp, demand_temp, trv_raw_temp = self._blend_trv_temp(
-                room, calibrated_temp, trv_data, trv_mode=_loop_trv_mode
+                room, calibrated_temp, trv_data
             )
 
             window_open = self._is_window_open(room, current_temp)
@@ -1488,13 +1350,6 @@ class IHCCoordinator(
                         self.set_room_mode(room_id, ROOM_MODE_AUTO)
                         room_mode = ROOM_MODE_AUTO
             # ─────────────────────────────────────────────────────────────────
-            configured_weight = float(room.get(CONF_WEIGHT, DEFAULT_WEIGHT))
-            room_qm_val = float(room.get(CONF_ROOM_QM, DEFAULT_ROOM_QM))
-            # If weight is at its default (1.0) and room_qm is set, derive weight from area
-            if configured_weight == DEFAULT_WEIGHT and room_qm_val > 0:
-                weight = round(math.sqrt(room_qm_val / 15.0), 2)  # 15 m² = weight 1.0
-            else:
-                weight = configured_weight
 
             # Update temperature history (Roadmap 1.1)
             self._update_temp_history(room_id, current_temp)
@@ -1600,7 +1455,6 @@ class IHCCoordinator(
                 current_temp=demand_temp,
                 target_temp=target_temp,
                 deadband=deadband,
-                weight=weight,
                 window_open=window_open,
                 room_mode=room_mode,
                 manual_temp=self.get_room_manual_temp(room_id),
@@ -1609,12 +1463,9 @@ class IHCCoordinator(
             # Warmup tracking: update predictive pre-heat data (Roadmap 1.1)
             demand = controller_state["demand"]
 
-            # Correct demand using TRV valve position (optional, graceful fallback).
-            # In TRV mode: auto-applied when valve data is available (trv_avg_valve != None).
-            #   If TRV does not report valve position → returns demand unchanged (no effect).
-            # In switch mode: only applied when CONF_TRV_VALVE_DEMAND explicitly enabled.
-            if _loop_trv_mode or room.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND):
-                demand = self._apply_trv_valve_demand(demand, trv_data, trv_mode=_loop_trv_mode)
+            # Correct demand using TRV valve position (graceful fallback: if the TRV
+            # does not report valve position, returns demand unchanged).
+            demand = self._apply_trv_valve_demand(demand, trv_data)
 
             # Safety gate: if room sensor is within deadband (current >= target - deadband),
             # the room is comfortable enough → force demand to 0 regardless of TRV valve
@@ -1669,11 +1520,9 @@ class IHCCoordinator(
             if mold_data and mold_data.get("humidity") is not None and current_temp is not None:
                 felt_temperature = self._calculate_felt_temperature(current_temp, mold_data["humidity"])
 
-            # In TRV mode: quantise displayed target to 0.5 °C steps to stay consistent
-            # with the actual setpoint sent to TRVs (avoids "21.1°C SOLL, but TRV gets 21.0°C")
-            display_target = target_temp
-            if _loop_trv_mode:
-                display_target = round(target_temp / TRV_SETPOINT_STEP) * TRV_SETPOINT_STEP
+            # Quantise displayed target to 0.5 °C steps to stay consistent with the
+            # actual setpoint sent to TRVs (avoids "21.1°C SOLL, but TRV gets 21.0°C")
+            display_target = round(target_temp / TRV_SETPOINT_STEP) * TRV_SETPOINT_STEP
 
             # target_history logged with the FINAL display_target (includes all boosts/adjustments)
             self._update_target_history(room_id, display_target)
@@ -1721,7 +1570,6 @@ class IHCCoordinator(
                 "eco_temp_eff": eco_eff,
                 "sleep_temp_eff": sleep_eff,
                 "away_temp_eff": away_eff,
-                "effective_weight": weight,
                 # Ensure night_setback is always present (meta may omit it for mode overrides)
                 "night_setback": 0.0,
                 # Fenster-Kaskade: Status ob dieser Raum gerade durch ein anderes Zimmer abgesenkt wird
@@ -1739,30 +1587,33 @@ class IHCCoordinator(
                 **meta,
             }
 
-        # Klimabaustein decision
         cfg = self.get_config()
         enable_cooling = bool(cfg.get(CONF_ENABLE_COOLING, False))
-        controller_mode = cfg.get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
         # Sommerautomatik / Heizperiode: block heating if outdoor temp exceeds threshold or period inactive
         heating_period_active = self._is_heating_period_active()
-        should_heat = False if (summer_mode or not heating_period_active) else self._controller.should_heat(self._system_mode)
         should_cool = self._controller.should_cool(self._system_mode) if enable_cooling else False
 
         # Startup grace: suppress all heating while sensors haven't reported yet
         if startup_grace_active:
-            should_heat = False
             should_cool = False
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
 
-        # v1.8 – Peak Shaving: stagger room demand during first N minutes after boiler start
+        # There is no central boiler switch in TRV mode: "heating active" means
+        # any room is currently heating, using the same signal hierarchy as
+        # climate.hvac_action (valve position > TRV hvac_action > demand > 0).
+        any_room_heating = False if (summer_mode or not heating_period_active or startup_grace_active) else any(
+            self._trv_room_is_heating(rd) for rd in room_data.values()
+        )
+
+        # v1.8 – Peak Shaving: stagger room demand during the first N minutes after
+        # heating starts (trigger: any room just went from idle to demanding heat)
         peak_shaving_active = False
         peak_shaving_enabled = bool(cfg.get(CONF_PEAK_SHAVING_ENABLED, DEFAULT_PEAK_SHAVING_ENABLED))
         if peak_shaving_enabled:
-            if should_heat and not self._was_heating:
-                # Boiler just started
+            if any_room_heating and not self._was_heating:
                 self._heating_start_time = dt_util.utcnow()
-            elif not should_heat:
+            elif not any_room_heating:
                 self._heating_start_time = None
             delay = int(cfg.get(CONF_PEAK_SHAVING_DELAY_MINUTES, DEFAULT_PEAK_SHAVING_DELAY_MINUTES))
             if (self._heating_start_time is not None and
@@ -1779,10 +1630,10 @@ class IHCCoordinator(
                 for i, (rid, _) in enumerate(all_demanding):
                     if i >= cutoff:
                         room_data[rid]["demand"] = min(room_data[rid]["demand"], 30.0)
-        self._was_heating = should_heat
+        self._was_heating = any_room_heating
 
         # Track energy / runtime
-        self._update_runtime_tracking(should_heat, room_data)
+        self._update_runtime_tracking(room_data)
 
         # Add per-room runtime to room_data
         for room_id in room_data:
@@ -1804,95 +1655,53 @@ class IHCCoordinator(
         off_use_frost = bool(cfg.get(CONF_OFF_USE_FROST_PROTECTION, DEFAULT_OFF_USE_FROST_PROTECTION))
         system_is_off = (self._system_mode == SYSTEM_MODE_OFF)
 
-        # Apply TRV setpoints and/or control heating switch
-        if controller_mode == CONTROLLER_MODE_TRV:
-            # TRV mode: each TRV self-regulates — always send the desired target temp.
-            # The TRV opens/closes its valve based on its own thermostat (current vs target).
-            # We do NOT suppress setpoints based on should_heat because:
-            #   - There is no central boiler in TRV mode
-            #   - TRVs decide themselves whether to heat
-            # Exception: room OFF, window open, system OFF, or summer mode → close TRV.
+        # Apply TRV setpoints. Each TRV self-regulates — we always send the desired
+        # target temp and the TRV opens/closes its own valve (current vs target).
+        # Setpoints are NOT suppressed based on aggregate demand: there is no
+        # central boiler here, TRVs decide themselves whether to heat.
+        # Exception: room OFF, window open, system OFF, or summer mode → close TRV.
+        if startup_grace_active:
+            # Startup grace: hold all TRVs at frost-protection temp until sensors report.
+            # Windows might be open — don't blast heat into unknown room states.
+            _frost = self._get_frost_protection_temp()
+            for _room in self.get_rooms():
+                self._set_valve_entities(_room, _frost)
+        for room in self.get_rooms():
+            room_id = room.get(CONF_ROOM_ID, "")
+            if not room_id or room_id not in room_data:
+                continue
             if startup_grace_active:
-                # Startup grace: hold all TRVs at frost-protection temp until sensors report.
-                # Windows might be open — don't blast heat into unknown room states.
-                _frost = self._get_frost_protection_temp()
-                for _room in self.get_rooms():
-                    self._set_valve_entities(_room, _frost)
-            for room in self.get_rooms():
-                room_id = room.get(CONF_ROOM_ID, "")
-                if not room_id or room_id not in room_data:
-                    continue
-                if startup_grace_active:
-                    continue  # already handled above
-                rdata = room_data[room_id]
-                room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
-                window_open = rdata.get("window_open", False)
-                window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
-                frost_temp = self._get_frost_protection_temp()
-                if window_open and window_open_temp > 0:
-                    # Window open but configured min-temp: hold at that temp (e.g. 15°C) instead of frost
-                    actual = max(window_open_temp, frost_temp)
-                    rdata["target_temp"] = actual
-                    self._set_valve_entities(room, actual)
-                elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
-                    # Turn TRV off (or frost-protect if off mode not supported by the device)
-                    if window_open:
-                        rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
-                    self._turn_off_valve_entities(room)
-                elif summer_mode or not self._is_heating_period_active():
-                    # Sommerautomatik or heating period disabled: turn TRVs off completely.
-                    # Setting frost temp keeps them in HEAT mode which misleads users.
-                    self._turn_off_valve_entities(room)
-                elif self.get_boost_remaining_minutes(room_id) > 0:
-                    # Boost active: try native HA boost preset first.
-                    # Fallback (TRV doesn't support boost preset): send max_temp so the
-                    # TRV opens the valve fully and heats as fast as possible.
-                    if not self._boost_valve_entities(room):
-                        max_temp = float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
-                        self._set_valve_entities(room, max_temp)
-                else:
-                    # Always send the desired target – TRV decides whether to heat
-                    trv_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
-                    self._set_valve_entities(room, trv_target)
-            # TRV mode: if a heating_switch is configured, use it to fire the central boiler
-            # when any room demands heat. This supports setups with TRVs + central boiler:
-            # the boiler must run to supply hot water, while TRVs distribute it per-room.
-            if cfg.get(CONF_HEATING_SWITCH) and not summer_mode and self._is_heating_period_active():
-                trv_heat_needed = any(
-                    rd.get("demand", 0) > 0
-                    and not rd.get("window_open", False)
-                    and rd.get("room_mode") != ROOM_MODE_OFF
-                    for rd in room_data.values()
-                )
-                self._set_heating_switch(trv_heat_needed and not system_is_off)
-        else:
-            # Switch mode: propagate setpoints to TRVs, control central heating switch
-            for room in self.get_rooms():
-                room_id = room.get(CONF_ROOM_ID, "")
-                if not room_id or room_id not in room_data:
-                    continue
-                if startup_grace_active:
-                    # Hold TRVs at frost-protection temp until sensors have reported
-                    self._set_valve_entities(room, self._get_frost_protection_temp())
-                    continue
-                rdata = room_data[room_id]
-                room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
-                window_open = rdata.get("window_open", False)
-                window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
-                frost_temp_sw = self._get_frost_protection_temp()
-                if window_open and window_open_temp > 0:
-                    actual_sw = max(window_open_temp, frost_temp_sw)
-                    rdata["target_temp"] = actual_sw
-                    self._set_valve_entities(room, actual_sw)
-                elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
-                    # Turn off TRVs when window open, room off, or system off (without frost-protect)
-                    if window_open:
-                        rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
-                    self._turn_off_valve_entities(room)
-                else:
-                    sw_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
-                    self._set_valve_entities(room, sw_target)
-            self._set_heating_switch(should_heat)
+                continue  # already handled above
+            rdata = room_data[room_id]
+            room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
+            window_open = rdata.get("window_open", False)
+            window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
+            frost_temp = self._get_frost_protection_temp()
+            if window_open and window_open_temp > 0:
+                # Window open but configured min-temp: hold at that temp (e.g. 15°C) instead of frost
+                actual = max(window_open_temp, frost_temp)
+                rdata["target_temp"] = actual
+                self._set_valve_entities(room, actual)
+            elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost):
+                # Turn TRV off (or frost-protect if off mode not supported by the device)
+                if window_open:
+                    rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
+                self._turn_off_valve_entities(room)
+            elif summer_mode or not self._is_heating_period_active():
+                # Sommerautomatik or heating period disabled: turn TRVs off completely.
+                # Setting frost temp keeps them in HEAT mode which misleads users.
+                self._turn_off_valve_entities(room)
+            elif self.get_boost_remaining_minutes(room_id) > 0:
+                # Boost active: try native HA boost preset first.
+                # Fallback (TRV doesn't support boost preset): send max_temp so the
+                # TRV opens the valve fully and heats as fast as possible.
+                if not self._boost_valve_entities(room):
+                    max_temp = float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
+                    self._set_valve_entities(room, max_temp)
+            else:
+                # Always send the desired target – TRV decides whether to heat
+                trv_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
+                self._set_valve_entities(room, trv_target)
 
         if enable_cooling:
             self._set_cooling_switch(should_cool)
@@ -1900,40 +1709,27 @@ class IHCCoordinator(
         # Kalkschutz: periodisch Ventile bewegen um Verkalkungs-Festfressen zu verhindern
         self._run_limescale_protection(room_data)
 
-        # Roadmap 1.4 – Set boiler flow temp
-        flow_temp = self._calculate_flow_temp(outdoor_temp, total_demand)
-        if should_heat and flow_temp is not None:
-            self._set_flow_temp(flow_temp)
-
         night_setback_active = self._is_night_setback_active()
 
-        # Energy cost estimate
-        boiler_kw = float(cfg.get(CONF_BOILER_KW, DEFAULT_BOILER_KW))
-
-        # Per-room energy calculation (works for both switch and TRV mode)
+        # Per-room energy calculation, summed for the global today/yesterday estimate
+        # (no central boiler kW here - every room has its own radiator/HKV reading)
         rooms_list = self.get_rooms()
         for room in rooms_list:
             room_id = room.get(CONF_ROOM_ID, "")
             if room_id and room_id in room_data:
                 room_data[room_id]["energy_today_kwh"] = self._calculate_room_energy_today(room, room_id)
 
-        if controller_mode == CONTROLLER_MODE_TRV:
-            # TRV/Mietwohnung: total = sum of all rooms (no central boiler kW)
-            energy_today_kwh = round(
-                sum(rd.get("energy_today_kwh", 0.0) for rd in room_data.values()), 2
-            )
-            # Yesterday not easily tracked per-room; fall back to runtime-based with boiler_kw
-            energy_yesterday_kwh = round(
-                self.get_heating_runtime_yesterday_minutes() / 60.0 * boiler_kw, 2
-            )
-        else:
-            # Switch mode: prefer smart meter if available, else runtime × boiler_kw
-            sm_energy = self._get_smart_meter_energy_today()
-            if sm_energy is not None:
-                energy_today_kwh = round(sm_energy, 2)
-            else:
-                energy_today_kwh = round(self.get_heating_runtime_today_minutes() / 60.0 * boiler_kw, 2)
-            energy_yesterday_kwh = round(self.get_heating_runtime_yesterday_minutes() / 60.0 * boiler_kw, 2)
+        energy_today_kwh = round(
+            sum(rd.get("energy_today_kwh", 0.0) for rd in room_data.values()), 2
+        )
+        energy_yesterday_kwh = round(
+            sum(
+                self._calculate_room_energy_yesterday(room, room.get(CONF_ROOM_ID, ""))
+                for room in rooms_list
+                if room.get(CONF_ROOM_ID, "")
+            ),
+            2,
+        )
 
         efficiency_score = self.calculate_efficiency_score(outdoor_temp)
 
@@ -1999,7 +1795,7 @@ class IHCCoordinator(
             "curve_target": curve_target,
             "total_demand": total_demand,
             "rooms_demanding": rooms_demanding,
-            "heating_active": should_heat,
+            "heating_active": any_room_heating,
             "cooling_active": should_cool,
             "summer_mode": summer_mode,
             "forecast_coldnight_active": forecast_coldnight_active,
@@ -2018,7 +1814,6 @@ class IHCCoordinator(
             "vacation_range": self.get_vacation_range(),
             "return_preheat_active": self._return_preheat_active,
             "system_mode": self._system_mode,
-            "controller_mode": controller_mode,
             "guest_mode_active": self._guest_mode_active,
             "guest_remaining_minutes": guest_remaining_minutes,
             "heating_runtime_today": self.get_heating_runtime_today_minutes(),
@@ -2031,11 +1826,8 @@ class IHCCoordinator(
             "solar_power": self._get_solar_power(),
             "energy_price": self._get_current_energy_price(),
             "energy_price_eco_offset": price_eco_offset,
-            "flow_temp": flow_temp,
             "weather_forecast": weather_forecast,
             "eta_preheat_minutes": eta_minutes,          # v1.4 – ETA-based pre-heat
-            "adaptive_curve_delta": self._curve_adaptation_delta,  # v1.3 – debug info
-            "curve_adaptation_enabled": cfg.get(CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED),
             "outdoor_humidity": outdoor_humidity_out,
             # v1.8 – Holiday calendar
             "holiday_active": holiday_active,

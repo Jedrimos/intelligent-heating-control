@@ -42,7 +42,6 @@ from .const import (
     CONF_VALVE_ENTITY,
     CONF_ROOM_OFFSET,
     CONF_DEADBAND,
-    CONF_WEIGHT,
     CONF_SCHEDULES,
     CONF_WINDOW_SENSOR,
     CONF_WINDOW_SENSORS,
@@ -52,7 +51,6 @@ from .const import (
     CONF_MIN_TEMP,
     CONF_MAX_TEMP,
     DEFAULT_DEADBAND,
-    DEFAULT_WEIGHT,
     DEFAULT_COMFORT_TEMP,
     DEFAULT_AWAY_TEMP_ROOM,
     DEFAULT_MIN_TEMP,
@@ -99,7 +97,6 @@ from .const import (
     DEFAULT_BOOST_TEMP,
     CONF_TRV_TEMP_WEIGHT,
     CONF_TRV_TEMP_OFFSET,
-    CONF_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     CONF_TRV_CALIBRATIONS,
     CONF_ROOM_TEMP_THRESHOLD,
@@ -139,7 +136,6 @@ from .const import (
     DEFAULT_BOOST_DEFAULT_DURATION,
     DEFAULT_TRV_TEMP_WEIGHT,
     DEFAULT_TRV_TEMP_OFFSET,
-    DEFAULT_TRV_VALVE_DEMAND,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
     DEFAULT_MOLD_HUMIDITY_THRESHOLD,
     CONF_TEMP_CALIBRATION,
@@ -316,7 +312,6 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_VALVE_ENTITIES: call.data.get(CONF_VALVE_ENTITIES, []),
             CONF_ROOM_OFFSET: float(call.data.get(CONF_ROOM_OFFSET, 0.0)),
             CONF_DEADBAND: float(call.data.get(CONF_DEADBAND, DEFAULT_DEADBAND)),
-            CONF_WEIGHT: float(call.data.get(CONF_WEIGHT, DEFAULT_WEIGHT)),
             CONF_COMFORT_TEMP: float(call.data.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)),
             CONF_AWAY_TEMP_ROOM: float(call.data.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
             CONF_ECO_OFFSET: float(call.data.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET)),
@@ -351,7 +346,6 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_MOLD_HUMIDITY_THRESHOLD: float(call.data.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD)),
             CONF_TRV_TEMP_WEIGHT: float(call.data.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT)),
             CONF_TRV_TEMP_OFFSET: float(call.data.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET)),
-            CONF_TRV_VALVE_DEMAND: _coerce_bool(call.data.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND)),
             CONF_TRV_MIN_SEND_INTERVAL: int(call.data.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL)),
             CONF_TRV_CALIBRATIONS: call.data.get(CONF_TRV_CALIBRATIONS) or {},
             CONF_WINDOW_OPEN_TEMP: float(call.data.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP)),
@@ -387,7 +381,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         raw = {k: v for k, v in call.data.items() if k != CONF_ROOM_ID}
         # Apply type coercion so coordinator always gets correct types
         _FLOAT_FIELDS = {
-            CONF_ROOM_OFFSET, CONF_DEADBAND, CONF_WEIGHT, CONF_COMFORT_TEMP,
+            CONF_ROOM_OFFSET, CONF_DEADBAND, CONF_COMFORT_TEMP,
             CONF_AWAY_TEMP_ROOM, CONF_ECO_OFFSET, CONF_SLEEP_OFFSET, CONF_AWAY_OFFSET,
             CONF_ECO_MAX_TEMP, CONF_SLEEP_MAX_TEMP, CONF_AWAY_MAX_TEMP,
             CONF_MIN_TEMP, CONF_MAX_TEMP, CONF_ABSOLUTE_MIN_TEMP, CONF_ROOM_QM,
@@ -403,7 +397,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_PRESENCE_SENSOR_ON_DELAY, CONF_PRESENCE_SENSOR_OFF_DELAY,
             CONF_WINDOW_CASCADE_DELAY_MINUTES,
         }
-        _BOOL_FIELDS = {CONF_MOLD_PROTECTION_ENABLED, CONF_TRV_VALVE_DEMAND, CONF_AGGRESSIVE_MODE_ENABLED}
+        _BOOL_FIELDS = {CONF_MOLD_PROTECTION_ENABLED, CONF_AGGRESSIVE_MODE_ENABLED}
         updates: dict = {}
         for k, v in raw.items():
             try:
@@ -446,38 +440,32 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     async def handle_update_global_settings(call: ServiceCall) -> None:
         # All valid global setting keys – explicitly listed so arbitrary data can't be injected
         allowed = {
-            "demand_threshold", "demand_hysteresis", "min_on_time", "min_off_time",
-            "min_rooms_demand", "away_temp", "vacation_temp",
+            "away_temp", "vacation_temp",
             "summer_mode_enabled", "summer_threshold",
             "frost_protection_temp", "off_use_frost_protection",
             "night_setback_enabled", "night_setback_offset", "sun_entity",
             "preheat_minutes",
             "presence_entities",
-            "heating_switch", "cooling_switch", "outdoor_temp_sensor",
+            "cooling_switch", "outdoor_temp_sensor",
             "enable_cooling", "show_panel",
             # Heating curve
             "heating_curve",
             # Roadmap 1.3 – Energy
-            "boiler_kw", "solar_entity", "solar_surplus_threshold", "solar_boost_temp",
+            "solar_entity", "solar_surplus_threshold", "solar_boost_temp",
             "energy_price_entity", "energy_price_threshold", "energy_price_eco_offset",
-            # Flow temp + PID feedback sensor
-            "flow_temp_entity", "flow_temp_sensor",
-            "pid_kp", "pid_ki", "pid_kd",
             # Vacation assistant + calendar integration
             "vacation_start", "vacation_end",
             "vacation_calendar", "vacation_calendar_keyword",
-            # v1.5 – Cooling target, smart meter, price forecast attribute
+            # v1.5 – Cooling target, price forecast attribute
             "cooling_target_temp",
-            "smart_meter_entity",
             "price_forecast_attribute",
-            # v1.3 – Adaptive heating curve & predictive pre-heat
-            "adaptive_curve_enabled", "adaptive_curve_max_delta",
+            # Predictive pre-heat
             "adaptive_preheat_enabled",
             # v1.4 – ETA-based pre-heat
             "eta_preheat_enabled",
             "eta_preheat_threshold_minutes",
             # Roadmap 2.0
-            "controller_mode", "guest_duration_hours",
+            "guest_duration_hours",
             "vacation_return_preheat_days",
             "weather_entity", "weather_cold_threshold", "weather_cold_boost",
             # Ventilation advice
@@ -541,8 +529,6 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     async def handle_reset_stats(call: ServiceCall) -> None:
         """Reset energy and runtime statistics to zero."""
         coordinator.reset_runtime_stats()
-        if call.data.get("reset_curve", False):
-            coordinator.reset_curve_adaptation()
         await coordinator.async_request_refresh()
 
     # v1.7 – Heizgruppen
