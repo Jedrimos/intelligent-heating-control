@@ -7,7 +7,6 @@
  */
 
   _showAddRoomModal() {
-    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     this._showModal(`
       <div class="modal-title">+ Zimmer hinzufügen</div>
 
@@ -250,14 +249,6 @@
             <span class="form-hint">Korrektur für Nähe zum Heizkörper (meist negativ)</span>
           </div>
           <div class="settings-item">
-            <label>Ventil-Position als Demand</label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="m-trv-valve-demand">
-              <span>Aktiviert</span>
-            </label>
-            <span class="form-hint">TRV-Ventilöffnung in Heizbedarf-Berechnung einbeziehen</span>
-          </div>
-          <div class="settings-item">
             <label>Min. Sendeintervall (s)</label>
             <input type="number" class="form-input" id="m-trv-min-send-interval" value="0" step="60" min="0" max="1800">
             <span class="form-hint">0 = nur Temperatur-Hysterese · z.B. 300 = max alle 5 min</span>
@@ -285,11 +276,6 @@
           <div class="settings-item">
             <label>Totband (°C)</label>
             <input type="number" class="form-input" id="m-deadband" value="0.5" step="0.1" min="0.1" max="2">
-          </div>
-          <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
-            <label>Gewichtung</label>
-            <input type="number" class="form-input" id="m-weight" value="1.0" step="0.1" min="0.1" max="5">
-            <span class="form-hint">Nur im Heizungsschalter-Modus relevant (Einfluss auf Kessel-Anforderung)</span>
           </div>
         </div>
       </div>
@@ -470,7 +456,6 @@
         away_max_temp:          parseFloat(modal.querySelector("#m-away-max")?.value) || 18.0,
         ha_schedule_off_mode:   modal.querySelector("#m-sched-off-mode")?.value || "eco",
         deadband:               parseFloat(modal.querySelector("#m-deadband")?.value) || 0.5,
-        weight:                 parseFloat(modal.querySelector("#m-weight")?.value) || 1.0,
         absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15.0,
         min_temp:               parseFloat(modal.querySelector("#m-min-temp")?.value) || 5.0,
         max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
@@ -505,7 +490,6 @@
         boost_temp:             parseFloat(modal.querySelector("#m-boost-temp")?.value) || 0,
         trv_temp_weight:        parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
-        trv_valve_demand:       modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         trv_calibrations:       (() => { try { const v = modal.querySelector("#m-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
         temp_calibration:       parseFloat(modal.querySelector("#m-temp-calibration")?.value ?? "0") || 0,
@@ -528,7 +512,6 @@
   }
 
   _showEditRoomModal(entityId) {
-    const isTrv = (this._getGlobal()?.controller_mode || 'switch') === 'trv';
     const rooms = this._getRoomData();
     const room  = rooms[entityId];
     if (!room) return;
@@ -716,11 +699,6 @@
             <div class="settings-item">
               <label>Totband (°C)</label>
               <input type="number" class="form-input" id="m-deadband" value="${room.deadband}" step="0.1" min="0.1" max="2">
-            </div>
-            <div class="settings-item" style="${isTrv ? 'display:none' : ''}">
-              <label>Gewichtung</label>
-              <input type="number" class="form-input" id="m-weight" value="${room.weight}" step="0.1" min="0.1" max="5">
-              <span class="form-hint">Nur im Heizungsschalter-Modus relevant · Auto aus qm wenn 1.0 &amp; qm gesetzt${room.effective_weight && room.effective_weight !== room.weight ? ` · aktuell: ${room.effective_weight}` : ""}</span>
             </div>
           </div>
         </div>
@@ -1029,7 +1007,7 @@
         </div>
       </details>
 
-      <details class="modal-collapsible" ${(room.trv_temp_weight > 0 || room.trv_valve_demand || room.trv_min_send_interval > 0) ? "open" : ""}>
+      <details class="modal-collapsible" ${(room.trv_temp_weight > 0 || room.trv_min_send_interval > 0) ? "open" : ""}>
         <summary>🌡️ TRV-Sensordaten &amp; Batterieschutz (optional)</summary>
         <div class="modal-collapsible-body">
           <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
@@ -1049,13 +1027,6 @@
                 value="${room.trv_temp_offset ?? -2}" min="-10" max="5" step="0.5"
                 placeholder="-2.0">
               <span class="form-hint">TRV sitzt am Heizkörper → misst wärmer. Typischer Wert: −2 bis −5 °C. Wird vor dem Mischen abgezogen.</span>
-            </div>
-            <div class="settings-item" style="grid-column:1/-1">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                <input type="checkbox" id="m-trv-valve-demand" ${room.trv_valve_demand ? "checked" : ""}>
-                Ventilstellung für Anforderungsberechnung nutzen
-              </label>
-              <span class="form-hint">Wenn das TRV seinen Öffnungsgrad meldet (0–100 %), wird dieser zur Korrektur der Heizanforderung verwendet. Voll offen → min. 30 % Anforderung. Fast geschlossen → max. 30 %.</span>
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label>🔋 Batterieschutz: Mindestabstand zwischen Funkbefehlen (Sekunden)</label>
@@ -1116,7 +1087,6 @@
         ha_schedule_off_mode:  modal.querySelector("#m-sched-off-mode")?.value || "eco",
         room_offset:    parseFloat(modal.querySelector("#m-offset").value),
         deadband:       parseFloat(modal.querySelector("#m-deadband").value),
-        weight:         parseFloat(modal.querySelector("#m-weight").value),
         absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15,
         min_temp:               parseFloat(modal.querySelector("#m-min-temp")?.value) || 5.0,
         max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
@@ -1151,7 +1121,6 @@
         boost_temp:               parseFloat(modal.querySelector("#m-boost-temp")?.value) || 0,
         trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
         trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
-        trv_valve_demand:         modal.querySelector("#m-trv-valve-demand")?.checked === true,
         trv_min_send_interval:    parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
         trv_calibrations:         (() => { try { const v = modal.querySelector("#m-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
         temp_calibration:         parseFloat(modal.querySelector("#m-temp-calibration")?.value ?? "0") || 0,

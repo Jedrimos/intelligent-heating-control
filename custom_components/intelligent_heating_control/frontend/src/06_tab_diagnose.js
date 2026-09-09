@@ -31,7 +31,6 @@
       g.energy_price_eco_active ? {icon:"💶", label:"Preis-Eco aktiv",   cls:"warn"} : null,
       g.cold_boost > 0          ? {icon:"❄️", label:`Kälte-Boost +${g.cold_boost}°`, cls:""} : null,
       (g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90) ? {icon:"🕒", label:`ETA ${Math.round(g.eta_preheat_minutes)} min`, cls:"info"} : null,
-      (g.adaptive_curve_delta && Math.abs(g.adaptive_curve_delta) >= 0.1) ? {icon:"📈", label:`Kurve ${g.adaptive_curve_delta > 0 ? "+" : ""}${g.adaptive_curve_delta.toFixed(1)}°`, cls:""} : null,
     ].filter(Boolean);
 
     const flagsHtml = flags.length
@@ -253,11 +252,6 @@
             <div class="settings-item">
               <label>Aktueller Energiepreis</label>
               <div style="font-size:22px;font-weight:700;color:${g.energy_price_eco_active ? "#c62828" : "#43a047"}">${g.energy_price.toFixed(3)} €/kWh</div>
-            </div>` : ""}
-            ${g.flow_temp != null ? `
-            <div class="settings-item">
-              <label>Vorlauftemperatur</label>
-              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${g.flow_temp.toFixed(1)} °C</div>
             </div>` : ""}
             ${g.outdoor_humidity != null ? `
             <div class="settings-item">

@@ -61,8 +61,6 @@ from .const import (
     DEFAULT_TRV_TEMP_WEIGHT,
     CONF_TRV_TEMP_OFFSET,
     DEFAULT_TRV_TEMP_OFFSET,
-    CONF_TRV_VALVE_DEMAND,
-    DEFAULT_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
     CONF_TRV_CALIBRATIONS,
@@ -454,7 +452,6 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             # TRV sensor data integration (optional)
             "trv_temp_weight": room_cfg.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT),
             "trv_temp_offset": room_cfg.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET),
-            "trv_valve_demand": room_cfg.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND),
             "trv_min_send_interval": room_cfg.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL),
             "trv_calibrations": room_cfg.get(CONF_TRV_CALIBRATIONS, {}),
             "temp_calibration": room_cfg.get(CONF_TEMP_CALIBRATION, 0.0),
