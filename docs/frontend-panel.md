@@ -187,7 +187,7 @@ Alle globalen Parameter auf einen Blick, u. a.:
 - **Backup & Restore**: Export als JSON-Datei-Download, Import via Datei-Upload; Reset gelernter Werte (Heizkurven-Korrektur, Aufheizhistorie) und Statistiken (Laufzeiten/Energie heute) getrennt voneinander
 
 Es gibt **keinen** Bereich für einen zentralen Heizungsschalter, Hysterese/Mindestzeiten oder
-Kühlung – diese Funktionen existieren seit v2.0.0/v2.1.0 nicht mehr.
+Kühlung – diese Funktionen existieren seit v2.0.0 nicht mehr.
 
 ---
 

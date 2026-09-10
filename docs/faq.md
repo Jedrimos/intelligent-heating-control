@@ -147,7 +147,7 @@ Zeitpläne müssen **pro Zimmer gespeichert** werden bevor du zum nächsten Zimm
 ### Kann ich IHC für Kühlsysteme verwenden?
 
 Nein. IHC steuert ausschließlich TRVs direkt, und TRVs können physisch nicht aktiv kühlen. Die
-aktive Kühlfunktion (`enable_cooling`/`cooling_switch`, Systemmodus `cool`) wurde in v2.1.0
+aktive Kühlfunktion (`enable_cooling`/`cooling_switch`, Systemmodus `cool`) wurde in v2.0.0
 vollständig entfernt. Für passive Sommer-Beschattung siehe die geplante Rollosteuerung in
 [ROADMAP.md](../ROADMAP.md).
 

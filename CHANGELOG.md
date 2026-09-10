@@ -9,72 +9,16 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
-### Hinzugefügt
-- **Wärmebrücken-Erkennung**: vergleicht die gelernte Abkühlrate eines Zimmers mit dem
-  Durchschnitt der übrigen Zimmer und zeigt einen Hinweis im Analyse-Tab, wenn es auffällig
-  schneller auskühlt (`thermal_bridge`-Attribut, rein informativ, ändert das Heizverhalten nicht)
-- **TRV-Offset-Kalibrierungsassistent**: sammelt im Leerlauf (Heizung aus, Fenster zu) die
-  Differenz zwischen Raumsensor und TRV-Temperatur und schlägt im Analyse-Tab einen besser
-  passenden `trv_temp_offset` vor, sobald genug Messungen vorliegen (`trv_suggested_offset`,
-  rein informativ – übernimmt den Wert nicht automatisch)
-
-### Geändert
-- **Interne Entwicklerqualität** (kein Verhaltensunterschied für Nutzer):
-  - `coordinator.py`: `_async_update_data()` (vormals ~660 Zeilen) in 8 benannte Phasen-Methoden
-    zerlegt (`_update_phase_startup_and_timers`, `_update_phase_outdoor_and_adjustments`,
-    `_update_phase_window_cascade`, `_process_room`, `_update_phase_aggregate_and_runtime`,
-    `_update_phase_apply_trv_setpoints`, `_update_phase_energy_and_ventilation`,
-    `_build_update_result`) – reine Extraktion, Reihenfolge und Logik unverändert
-  - `pytest`-Testsuite (37 Tests) für `heating_curve.py`, `schedule_manager.py`,
-    `heating_controller.py` hinzugefügt, importierbar ohne Home-Assistant-Installation
-  - GitHub Actions: hassfest- und HACS-Validierung, pytest-Matrix, JSON/YAML-Sanity-Checks
-  - Französische und niederländische Übersetzung ergänzt (`translations/fr.json`, `nl.json`)
-
-### Gefixt
-- `schedule_manager.get_next_period()` gab `None` zurück statt zum nächsten Wochen-Vorkommen
-  zu springen, wenn ein Zimmer nur an einem einzigen Wochentag einen Zeitplan hat und dessen
-  letzte Periode für heute bereits vorbei ist
-- `translations/de.json` fehlten ~23 Schlüssel neuerer Einstellungen (Solar, Strompreis,
-  ETA-Vorheizen, Kalkschutz, Ventil-Fehler-Timeout u. a.) – deutschsprachige Nutzer sahen dort
-  rohe Schlüsselnamen statt übersetzter Labels im Options-Dialog
-- Frontend-Panel-Cache-Busting-Parameter (`ihc-panel.js?v=...`) war auf `1.6.3` eingefroren
-  obwohl der Code bei 2.1.0 steht – Browser konnten nach einem Update eine veraltete
-  Panel-Version zwischenspeichern
-
 ### Geplant
 Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent,
 Schlaf-Temperaturprofil, Passive Solarheizung via Rollosteuerung, u. v. m.).
 
 ---
 
-## [2.1.0] - 2026-09-09
+## [2.0.0] - 2026-09-10
 
-### Entfernt
-
-#### Aktive Kühlung
-- TRVs können nicht aktiv kühlen — die optionale Kühlfunktion widersprach der TRV-only-Architektur
-  und wurde komplett gestrichen: `CONF_ENABLE_COOLING`, `CONF_COOLING_SWITCH`,
-  `CONF_COOLING_TARGET_TEMP`, Systemmodus `cool`
-- Betroffen: `const.py`, `coordinator.py` (inkl. `_set_cooling_switch()`), `climate.py`
-  (`HVACAction.COOLING`), `sensor.py`, `config_flow.py`, `select.py`, `services.yaml`,
-  `strings.json`/Übersetzungen, sowie das Frontend (Einstellungen-Tab, Dashboard-Systemmodus-Pills,
-  Diagnose-Tab)
-- **Nicht betroffen**: die thermische-Masse-Lernfunktion (`avg_cooling_rate`) — eine völlig andere,
-  weiterhin aktive Funktion, die die passive Abkühlrate eines Zimmers für Optimum-Stop-Berechnungen
-  misst und nichts mit aktiver Kühlung zu tun hat
-
-### Gefixt
-- Persistierter `system_mode: "cool"` aus einer Installation vor 2.1.0 wird beim Laden jetzt
-  automatisch auf `auto` zurückgesetzt, statt einen ungültigen Modus zu behalten
-
-### Geändert
-- `hacs.json`: fehlende `binary_sensor`-Domain ergänzt, `homeassistant`-Mindestversion auf
-  `2024.2.0` korrigiert (durch `ClimateEntityFeature.TURN_OFF`/`TURN_ON` in `climate.py` bedingt)
-- Repository-URLs in `manifest.json`/`hacs.json` korrigiert (Tippfehler `intelligent-heatingcontroll`)
-
----
-
-## [2.0.0] - 2026-09-09
+Erster Release seit v1.9.2 – markiert den Umstieg von der alten Heizungsschalter-Architektur auf
+**TRV-only**. Alles was seit v1.9.2 passiert ist, landet gebündelt in diesem einen Major-Release.
 
 ### Entfernt — TRV-only-Architektur
 
@@ -88,6 +32,15 @@ Schlaf-Temperaturprofil, Passive Solarheizung via Rollosteuerung, u. v. m.).
 - Switch-only-Einstellungen (Hysterese, Vorlauf-PID) aus Frontend (`05_tab_settings.js`) und
   `services.yaml` entfernt
 - `binary_sensor`-Plattform ergänzt (Lüftungsempfehlung, CO₂-Warnung, Ventil-Fehler pro Zimmer)
+- **Aktive Kühlung**: TRVs können nicht aktiv kühlen — die optionale Kühlfunktion widersprach der
+  TRV-only-Architektur und wurde komplett gestrichen: `CONF_ENABLE_COOLING`, `CONF_COOLING_SWITCH`,
+  `CONF_COOLING_TARGET_TEMP`, Systemmodus `cool`. Betroffen: `const.py`, `coordinator.py`
+  (inkl. `_set_cooling_switch()`), `climate.py` (`HVACAction.COOLING`), `sensor.py`,
+  `config_flow.py`, `select.py`, `services.yaml`, `strings.json`/Übersetzungen, sowie das Frontend
+  (Einstellungen-Tab, Dashboard-Systemmodus-Pills, Diagnose-Tab).
+  **Nicht betroffen**: die thermische-Masse-Lernfunktion (`avg_cooling_rate`) — eine völlig andere,
+  weiterhin aktive Funktion, die die passive Abkühlrate eines Zimmers für Optimum-Stop-Berechnungen
+  misst und nichts mit aktiver Kühlung zu tun hat
 
 ### Warum
 
@@ -95,6 +48,43 @@ TRVs regeln bereits selbst am Heizkörper; ein zusätzlicher zentraler Kessel-Sc
 für reine TRV-Setups keinen Mehrwert und verdoppelte jede Konfigurationsänderung (siehe
 `CLAUDE.md`, Kapitel 9 „Bug-Analyse"). Der Wärmeerzeuger-Modus wurde nie über den Entwurfsstand
 hinaus implementiert.
+
+### Hinzugefügt
+- **Wärmebrücken-Erkennung**: vergleicht die gelernte Abkühlrate eines Zimmers mit dem
+  Durchschnitt der übrigen Zimmer und zeigt einen Hinweis im Analyse-Tab, wenn es auffällig
+  schneller auskühlt (`thermal_bridge`-Attribut, rein informativ, ändert das Heizverhalten nicht)
+- **TRV-Offset-Kalibrierungsassistent**: sammelt im Leerlauf (Heizung aus, Fenster zu) die
+  Differenz zwischen Raumsensor und TRV-Temperatur und schlägt im Analyse-Tab einen besser
+  passenden `trv_temp_offset` vor, sobald genug Messungen vorliegen (`trv_suggested_offset`,
+  rein informativ – übernimmt den Wert nicht automatisch)
+
+### Geändert
+- `hacs.json`: fehlende `binary_sensor`-Domain ergänzt, `homeassistant`-Mindestversion auf
+  `2024.2.0` korrigiert (durch `ClimateEntityFeature.TURN_OFF`/`TURN_ON` in `climate.py` bedingt)
+- Repository-URLs in `manifest.json`/`hacs.json` korrigiert (Tippfehler `intelligent-heatingcontroll`)
+- **Interne Entwicklerqualität** (kein Verhaltensunterschied für Nutzer):
+  - `coordinator.py`: `_async_update_data()` (vormals ~660 Zeilen) in 8 benannte Phasen-Methoden
+    zerlegt (`_update_phase_startup_and_timers`, `_update_phase_outdoor_and_adjustments`,
+    `_update_phase_window_cascade`, `_process_room`, `_update_phase_aggregate_and_runtime`,
+    `_update_phase_apply_trv_setpoints`, `_update_phase_energy_and_ventilation`,
+    `_build_update_result`) – reine Extraktion, Reihenfolge und Logik unverändert
+  - `pytest`-Testsuite (37 Tests) für `heating_curve.py`, `schedule_manager.py`,
+    `heating_controller.py` hinzugefügt, importierbar ohne Home-Assistant-Installation
+  - GitHub Actions: hassfest- und HACS-Validierung, pytest-Matrix, JSON/YAML-Sanity-Checks
+  - Französische und niederländische Übersetzung ergänzt (`translations/fr.json`, `nl.json`)
+
+### Gefixt
+- Persistierter `system_mode: "cool"` aus einer Installation vor 2.0.0 wird beim Laden jetzt
+  automatisch auf `auto` zurückgesetzt, statt einen ungültigen Modus zu behalten
+- `schedule_manager.get_next_period()` gab `None` zurück statt zum nächsten Wochen-Vorkommen
+  zu springen, wenn ein Zimmer nur an einem einzigen Wochentag einen Zeitplan hat und dessen
+  letzte Periode für heute bereits vorbei ist
+- `translations/de.json` fehlten ~23 Schlüssel neuerer Einstellungen (Solar, Strompreis,
+  ETA-Vorheizen, Kalkschutz, Ventil-Fehler-Timeout u. a.) – deutschsprachige Nutzer sahen dort
+  rohe Schlüsselnamen statt übersetzter Labels im Options-Dialog
+- Frontend-Panel-Cache-Busting-Parameter (`ihc-panel.js?v=...`) war auf `1.6.3` eingefroren
+  obwohl der Code weit darüber steht – Browser konnten nach einem Update eine veraltete
+  Panel-Version zwischenspeichern
 
 ---
 

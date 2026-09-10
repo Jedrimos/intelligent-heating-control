@@ -5,11 +5,11 @@ auf dem Tisch liegen.
 
 > **Hinweis zur Versionierung:** Frühere Versionen dieser Datei haben Features fest an
 > Versionsnummern gebunden („Version 1.6", „Version 3.0", …). Diese Leiter ist überholt:
-> Der Großteil der damals geplanten Funktionen ist inzwischen ausgeliefert, und die real
-> erschienenen Releases **2.0.0** (TRV-only – Heizungsschalter-/Switch-Modus und Wärmeerzeuger-
-> Modus entfernt) und **2.1.0** (aktive Kühlung entfernt) hatten mit den damals so benannten
+> Der Großteil der damals geplanten Funktionen ist inzwischen ausgeliefert, und der real
+> erschienene Release **2.0.0** (TRV-only – Heizungsschalter-/Switch-Modus, Wärmeerzeuger-Modus
+> und aktive Kühlung entfernt, erster Release seit v1.9.2) hatte mit den damals so benannten
 > Meilensteinen nichts zu tun. Diese Roadmap arbeitet deshalb mit Prioritäts-Buckets statt mit
-> Versionsversprechen. Aktueller Stand des Codes: **2.1.0**.
+> Versionsversprechen. Aktueller Stand des Codes: **2.0.0**.
 
 > **Architektur-Kontext:** IHC steuert ausschließlich **Thermostatventile (TRVs)** direkt.
 > Es gibt keinen zentralen Heizungsschalter-Modus, keine Vorlauftemperatur-PID-Regelung,
@@ -89,7 +89,7 @@ auf dem Tisch liegen.
       Analyse-Tab
 - [x] **Thermische Masse pro Zimmer**: gelernte Abkühlrate (`avg_cooling_rate`, °C/h je °C
       Differenz innen/außen) für präzisere Start-/Stopp-Zeitpunkte
-      *(nicht zu verwechseln mit der in 2.1.0 entfernten aktiven Kühlung – das ist ein
+      *(nicht zu verwechseln mit der in 2.0.0 entfernten aktiven Kühlung – das ist ein
       Lernmodell, keine Kühlfunktion)*
 - [x] **Peak Shaving** (`peak_shaving_enabled`, `peak_shaving_delay_minutes`): Wenn mehrere
       Zimmer gleichzeitig in die Anforderung gehen, wird die untere Hälfte (nach aktueller
@@ -120,12 +120,12 @@ auf dem Tisch liegen.
 - [x] Config-Flow und Frontend-Modale vollständig synchronisiert (Add-Room = Edit-Room)
 - [x] Alle Services vollständig in `services.yaml` dokumentiert
 
-### Architektur (2.x)
+### Architektur (2.0.0)
 
-- [x] **2.0.0 – TRV-only**: Heizungsschalter-/Switch-Modus, Klimabaustein (Hysterese,
+- [x] **TRV-only**: Heizungsschalter-/Switch-Modus, Klimabaustein (Hysterese,
       Min-Ein-/Ausschaltzeiten), adaptive Heizkurve, Vorlauftemperatur-PID und der nie
       fertiggestellte Wärmeerzeuger-Modus entfernt; `binary_sensor`-Plattform ergänzt
-- [x] **2.1.0 – Kühlung entfernt**: aktive Kühlung (`enable_cooling`, `cooling_switch`,
+- [x] **Kühlung entfernt**: aktive Kühlung (`enable_cooling`, `cooling_switch`,
       `cooling_target_temp`, Systemmodus `cool`) gestrichen – TRVs können nicht kühlen
 
 ---
@@ -174,7 +174,7 @@ Im Sommer umgekehrt: Rolladen runterfahren, um das Aufheizen durch die Sonne zu 
 - Opt-in pro Zimmer; IHC bewegt nur Rolladen, die es selbst gesetzt hat
 - Priorität: Fensteroffenerkennung > Rollosteuerung > Heizanforderung
 
-> **Nicht verwechseln** mit der in 2.1.0 entfernten aktiven Kühlung: Hier wird nichts
+> **Nicht verwechseln** mit der in 2.0.0 entfernten aktiven Kühlung: Hier wird nichts
 > gekühlt, sondern nur beschattet bzw. Sonneneinstrahlung genutzt. Diese Idee bleibt bestehen.
 
 ### Lovelace-Card (separate HACS-Komponente)

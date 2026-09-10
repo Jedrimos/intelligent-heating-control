@@ -497,7 +497,7 @@ class IHCCoordinator(
         data = await self._store.async_load()
         if not data:
             return
-        # "cool" was a valid system mode before v2.1.0 (cooling support removed) -
+        # "cool" was a valid system mode before v2.0.0 (cooling support removed) -
         # coerce any persisted value from an older install back to auto.
         loaded_mode = data.get("system_mode", SYSTEM_MODE_AUTO)
         self._system_mode = loaded_mode if loaded_mode in SYSTEM_MODES else SYSTEM_MODE_AUTO

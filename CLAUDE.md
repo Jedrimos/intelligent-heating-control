@@ -11,19 +11,20 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.1.0`
+- **Version:** `2.0.0`
 - **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
 - **Integration-Pfad:** `custom_components/intelligent_heating_control/`
 
-> **v2.0.0 – TRV-only:** Ab dieser Version steuert IHC ausschließlich Thermostatventile (TRVs)
-> direkt. Der zentrale Heizungsschalter-Modus ("Switch-Modus", Klimabaustein mit Hysterese/
-> Min-Ein-Ausschaltzeiten), die Vorlauftemperatur-PID-Regelung und der nie fertiggestellte
-> Wärmeerzeuger-Modus (Roadmap 3.0) wurden vollständig entfernt. Kapitel 14 und 15 dieser Datei
-> sind daher **historisch** – sie beschreiben eine Architektur, die es nicht mehr gibt.
+> **v2.0.0 – TRV-only, erster Release seit v1.9.2:** Ab dieser Version steuert IHC ausschließlich
+> Thermostatventile (TRVs) direkt. Der zentrale Heizungsschalter-Modus ("Switch-Modus",
+> Klimabaustein mit Hysterese/Min-Ein-Ausschaltzeiten), die Vorlauftemperatur-PID-Regelung und der
+> nie fertiggestellte Wärmeerzeuger-Modus (Roadmap 3.0) wurden vollständig entfernt. Kapitel 14
+> und 15 dieser Datei sind daher **historisch** – sie beschreiben eine Architektur, die es nicht
+> mehr gibt.
 >
-> **v2.1.0 – Kühlung entfernt:** TRVs können nicht kühlen, daher wurde auch die optionale
+> **Auch in 2.0.0 – Kühlung entfernt:** TRVs können nicht kühlen, daher wurde auch die optionale
 > Kühlfunktion (`CONF_ENABLE_COOLING`/`CONF_COOLING_SWITCH`/`CONF_COOLING_TARGET_TEMP`,
 > Systemmodus `cool`) komplett entfernt. **Nicht verwechseln** mit der thermischen-Masse-
 > Lernfunktion (`avg_cooling_rate` / "Abkühlrate", Kapitel 13) – die ist eine völlig andere,
@@ -700,7 +701,7 @@ Passive Heizen (Winter/Herbst):
         → Heizung erst zuschalten wenn Raumtemp trotzdem nicht steigt (nach X min)
 
 Passive Kühlen (Sommer):
-  WENN Sommerautomatik aktiv (kein "cool"-Systemmodus mehr seit v2.1.0 – TRVs kühlen nicht aktiv,
+  WENN Sommerautomatik aktiv (kein "cool"-Systemmodus mehr seit v2.0.0 – TRVs kühlen nicht aktiv,
   das hier ist reine Beschattung zur Vermeidung von Aufheizung, kein Kühlbetrieb)
   UND sun.elevation > CONF_SOLAR_MIN_ELEVATION
   UND Sonne trifft auf Fensterausrichtung
