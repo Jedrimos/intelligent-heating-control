@@ -1,0 +1,63 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    name: Pytest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+      - name: Run pytest
+        run: pytest -v
+
+  py-compile:
+    name: Byte-compile all integration files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Compile every .py file in the integration
+        run: python -m py_compile custom_components/intelligent_heating_control/*.py
+
+  json-yaml-lint:
+    name: Validate strings/translations/services.yaml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON files
+        run: |
+          python -c "
+          import json, sys
+          files = [
+              'custom_components/intelligent_heating_control/strings.json',
+              'custom_components/intelligent_heating_control/manifest.json',
+              'hacs.json',
+          ] + __import__('glob').glob('custom_components/intelligent_heating_control/translations/*.json')
+          for f in files:
+              json.load(open(f, encoding='utf-8'))
+              print('OK', f)
+          "
+      - name: Validate services.yaml
+        run: |
+          pip install pyyaml
+          python -c "
+          import yaml
+          yaml.safe_load(open('custom_components/intelligent_heating_control/services.yaml', encoding='utf-8'))
+          print('OK services.yaml')
+          "
+      - name: strings.json must match translations/en.json
+        run: diff custom_components/intelligent_heating_control/strings.json custom_components/intelligent_heating_control/translations/en.json
