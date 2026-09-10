@@ -1,5 +1,4 @@
 # TODO
 
-Alle Punkte aus dieser Datei sind in v1.2.0 umgesetzt.
-
-Offene Punkte und geplante Features: siehe [ROADMAP.md](ROADMAP.md)
+Diese Datei wird nicht mehr für die laufende Planung genutzt — alle offenen Punkte und geplanten
+Features stehen in [ROADMAP.md](ROADMAP.md), erledigte Änderungen in [CHANGELOG.md](CHANGELOG.md).
