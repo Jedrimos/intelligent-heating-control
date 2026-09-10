@@ -224,23 +224,5 @@
       "no_rooms": "No rooms configured",
       "room_not_found": "Room not found"
     }
-  },
-  "entity": {
-    "climate": {
-      "ihc_room_climate": {
-        "state_attributes": {
-          "preset_mode": {
-            "state": {
-              "Auto": "Auto",
-              "Comfort": "Comfort",
-              "Eco": "Eco",
-              "Sleep": "Sleep",
-              "Away": "Away",
-              "Manual": "Manual"
-            }
-          }
-        }
-      }
-    }
   }
 }

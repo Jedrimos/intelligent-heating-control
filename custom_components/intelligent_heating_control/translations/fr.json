@@ -224,23 +224,5 @@
       "no_rooms": "Aucune pièce configurée",
       "room_not_found": "Pièce introuvable"
     }
-  },
-  "entity": {
-    "climate": {
-      "ihc_room_climate": {
-        "state_attributes": {
-          "preset_mode": {
-            "state": {
-              "Auto": "Auto",
-              "Comfort": "Confort",
-              "Eco": "Éco",
-              "Sleep": "Nuit",
-              "Away": "Absent",
-              "Manual": "Manuel"
-            }
-          }
-        }
-      }
-    }
   }
 }

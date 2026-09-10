@@ -224,23 +224,5 @@
       "no_rooms": "Geen kamers geconfigureerd",
       "room_not_found": "Kamer niet gevonden"
     }
-  },
-  "entity": {
-    "climate": {
-      "ihc_room_climate": {
-        "state_attributes": {
-          "preset_mode": {
-            "state": {
-              "Auto": "Auto",
-              "Comfort": "Comfort",
-              "Eco": "Eco",
-              "Sleep": "Slaap",
-              "Away": "Afwezig",
-              "Manual": "Handmatig"
-            }
-          }
-        }
-      }
-    }
   }
 }

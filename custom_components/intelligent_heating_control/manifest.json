@@ -5,7 +5,7 @@
   "documentation": "https://github.com/Jedrimos/intelligent-heating-control/tree/main/docs",
   "issue_tracker": "https://github.com/Jedrimos/intelligent-heating-control/issues",
   "requirements": [],
-  "dependencies": [],
+  "dependencies": ["http"],
   "codeowners": ["@Jedrimos"],
   "iot_class": "local_push",
   "config_flow": true,

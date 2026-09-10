@@ -1,9 +1,5 @@
 {
   "name": "Intelligent Heating Control",
-  "description": "Multi-room heating control for TRVs (thermostatic radiator valves): outdoor-temperature-guided targets, schedules, window/mold/CO2 detection, presence, vacation, and learning warmup/thermal-mass models.",
   "render_readme": true,
-  "domains": ["climate", "sensor", "binary_sensor", "switch", "number", "select"],
-  "iot_class": "local_push",
-  "homeassistant": "2024.2.0",
-  "documentation": "https://github.com/Jedrimos/intelligent-heating-control/tree/main/docs"
+  "homeassistant": "2024.2.0"
 }
