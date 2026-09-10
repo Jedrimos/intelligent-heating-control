@@ -549,6 +549,23 @@
         </div>`;
       content.appendChild(stopCard);
     }
+
+    // ── Wärmebrücken-Erkennung ─────────────────────────────────────────────────
+    if (room.thermal_bridge && room.thermal_bridge.suspected) {
+      const bridgeCard = document.createElement("div");
+      bridgeCard.className = "card";
+      bridgeCard.style.marginTop = "0";
+      bridgeCard.style.borderLeft = "4px solid #ef5350";
+      bridgeCard.innerHTML = `
+        <div class="card-title">🧱 Mögliche Wärmebrücke erkannt</div>
+        <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
+          ${room.name} kühlt ca. <strong>${room.thermal_bridge.ratio}×</strong> schneller aus als der
+          Durchschnitt der übrigen Zimmer – ein Hinweis auf schlechte Dämmung, eine undichte
+          Fensterdichtung oder eine ungedämmte Außenwandecke. Basiert auf der gelernten Abkühlrate
+          (siehe oben) und ist rein informativ.
+        </div>`;
+      content.appendChild(bridgeCard);
+    }
   }
 
   // ── Einstellungen Tab ──────────────────────────────────────────────────────

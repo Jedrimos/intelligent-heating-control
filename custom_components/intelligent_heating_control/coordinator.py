@@ -1710,6 +1710,12 @@ class IHCCoordinator(
             self._demand_heatmap[room_id][_weekday][_hour] = round(0.9 * old + 0.1 * demand_now, 1)
             rdata["demand_heatmap"] = [list(day) for day in self._demand_heatmap[room_id]]
 
+        # Wärmebrücken-Erkennung: compare each room's learned cooling rate
+        # against the rest of the home's (informational only, see room_logic.py)
+        room_ids = list(room_data.keys())
+        for room_id, rdata in room_data.items():
+            rdata["thermal_bridge"] = self.get_thermal_bridge_status(room_id, room_ids)
+
         ctx.update({
             "heating_period_active": heating_period_active,
             "total_demand": total_demand,

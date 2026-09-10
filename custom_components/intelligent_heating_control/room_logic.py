@@ -92,6 +92,14 @@ from .schedule_manager import ScheduleManager
 
 _LOGGER = logging.getLogger(__name__)
 
+# Thermal-bridge heuristic (see get_thermal_bridge_status): a room's cooling
+# rate must be at least this many times the average of its neighbors' rates,
+# AND at least this much in absolute terms, before it's flagged as suspicious.
+# The absolute floor avoids flagging noisy near-zero rates (e.g. 0.02 vs.
+# 0.01 is technically "2x" but not a meaningful thermal bridge).
+THERMAL_BRIDGE_RATIO_THRESHOLD = 1.8
+THERMAL_BRIDGE_MIN_RATE = 0.1
+
 
 class RoomLogicMixin:
     """Mixin for room temperature calculation and schedule evaluation."""
@@ -232,6 +240,41 @@ class RoomLogicMixin:
         if n % 2 == 0:
             return round((sorted_h[mid - 1] + sorted_h[mid]) / 2.0, 4)
         return round(sorted_h[mid], 4)
+
+    def get_thermal_bridge_status(self, room_id: str, all_room_ids: list) -> dict:
+        """Compare a room's learned cooling rate against the rest of the home's.
+
+        A room that loses heat much faster than its neighbors (same learning
+        model as Optimum Stop/thermal mass, see avg_cooling_rate) is often a
+        sign of a thermal bridge - poor insulation, a badly sealed window, an
+        uninsulated exterior wall corner, etc. This is purely informational
+        (surfaced in the Analyse tab); it never changes heating behavior.
+
+        Needs at least 2 *other* rooms with a learned rate to compare against,
+        otherwise a single outlier room could never be judged reliably.
+        """
+        my_rate = self.get_avg_cooling_rate(room_id)
+        if my_rate is None:
+            return {"suspected": False, "ratio": None}
+
+        other_rates = [
+            rate for rate in (
+                self.get_avg_cooling_rate(other_id)
+                for other_id in all_room_ids
+                if other_id != room_id
+            )
+            if rate is not None
+        ]
+        if len(other_rates) < 2:
+            return {"suspected": False, "ratio": None}
+
+        avg_other = sum(other_rates) / len(other_rates)
+        if avg_other <= 0:
+            return {"suspected": False, "ratio": None}
+
+        ratio = round(my_rate / avg_other, 2)
+        suspected = ratio >= THERMAL_BRIDGE_RATIO_THRESHOLD and my_rate >= THERMAL_BRIDGE_MIN_RATE
+        return {"suspected": suspected, "ratio": ratio}
 
     def get_optimum_stop_info(
         self,

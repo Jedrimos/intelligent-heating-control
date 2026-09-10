@@ -218,6 +218,15 @@ fließt sowohl in Optimum Start als auch in Optimum Stop ein. **Nicht zu verwech
 Kühlung (Klimaanlage) – TRVs können nicht aktiv kühlen, diese Lernfunktion betrifft ausschließlich
 das passive Auskühlverhalten des Raums.
 
+### Wärmebrücken-Erkennung
+
+Sobald mindestens drei Zimmer eine gelernte Abkühlrate haben, vergleicht IHC jedes Zimmer mit dem
+Durchschnitt der jeweils *übrigen* Zimmer. Kühlt ein Zimmer mindestens 1,8× schneller aus als
+dieser Durchschnitt (und die Rate liegt über einer kleinen Rausch-Schwelle von 0,1), erscheint im
+Analyse-Tab ein Hinweis auf eine mögliche Wärmebrücke – z. B. eine ungedämmte Außenwandecke oder
+eine undichte Fensterdichtung. Das Attribut `thermal_bridge` liefert `{suspected, ratio}`; die
+Erkennung ist rein informativ und verändert das Heizverhalten nicht.
+
 ## Anforderungs-Heatmap
 
 Parallel dazu lernt IHC pro Zimmer einen gleitenden Durchschnitt (EMA) der Heizanforderung nach

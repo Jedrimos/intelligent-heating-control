@@ -465,6 +465,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "avg_warmup_minutes": d.get("avg_warmup_minutes"),          # flat average, no outdoor sensor needed
             "learned_preheat_minutes": d.get("learned_preheat_minutes"),
             "avg_cooling_rate": d.get("avg_cooling_rate"),
+            "thermal_bridge": d.get("thermal_bridge"),  # {"suspected": bool, "ratio": float|None}
             "warmup_curve": d.get("warmup_curve", []),
             # Optimum Stop (Abschaltzeit-Optimierung)
             "optimum_stop_active": d.get("optimum_stop_active", False),

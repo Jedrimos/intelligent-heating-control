@@ -35,6 +35,7 @@ Komforttemperatur, jeweils mit einstellbarer Obergrenze. Zusätzlich lernt IHC p
 | ⏹ **Optimum Stop** | Schaltet ein Zimmer vor Zeitplan-Ende bereits ab, wenn die Zieltemperatur bis dahin trotzdem gehalten wird |
 | 🔥 **Anforderungs-Heatmap** | Lernt pro Zimmer und Wochentag/Uhrzeit, wann typischerweise geheizt wird (Analyse-Tab) |
 | 🧱 **Thermische Masse** | Gelernte Abkühlrate pro Zimmer – Betonwände brauchen weniger Vorlauf als Dachzimmer |
+| 🧱 **Wärmebrücken-Erkennung** | Warnt im Analyse-Tab, wenn ein Zimmer auffällig schneller auskühlt als der Rest des Hauses |
 | ⚡ **Boost** | Zeitlich begrenzter Komfortmodus per Button oder Service |
 | 🚶 **Anwesenheit** | Automatischer Abwesend-Modus (mit einstellbarer Verzögerung) wenn niemand zuhause ist |
 | 🕒 **ETA-Vorheizen** | `device_tracker`-basiert: heizt vor, wenn jemand auf dem Heimweg ist |
@@ -393,6 +394,7 @@ Das Plugin registriert ein eigenes Panel unter dem Seitenleisten-Eintrag **IHC**
 #### 🔥 Analyse
 - Zimmer-Auswahl per Pill-Buttons
 - **Anforderungs-Heatmap**: gelernter Wochentag/Uhrzeit-Verlauf der Heizanforderung (EMA über mehrere Wochen)
+- **Wärmebrücken-Hinweis**: erscheint wenn ein Zimmer ≥1,8× schneller auskühlt als der Durchschnitt der übrigen Zimmer
 - **Optimum-Start-Lernkurve**: Ø-Aufheizzeit je Außentemperatur-Bucket, tabellarisch mit Messpunkten
 - **Optimum-Stop-Status**: zeigt an, wenn ein Zimmer wegen vorzeitiger Zieltemperatur-Erreichung schon vor Zeitplan-Ende abschaltet
 

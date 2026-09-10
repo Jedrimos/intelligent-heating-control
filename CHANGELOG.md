@@ -9,6 +9,11 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Hinzugefügt
+- **Wärmebrücken-Erkennung**: vergleicht die gelernte Abkühlrate eines Zimmers mit dem
+  Durchschnitt der übrigen Zimmer und zeigt einen Hinweis im Analyse-Tab, wenn es auffällig
+  schneller auskühlt (`thermal_bridge`-Attribut, rein informativ, ändert das Heizverhalten nicht)
+
 ### Geändert
 - **Interne Entwicklerqualität** (kein Verhaltensunterschied für Nutzer):
   - `coordinator.py`: `_async_update_data()` (vormals ~660 Zeilen) in 8 benannte Phasen-Methoden

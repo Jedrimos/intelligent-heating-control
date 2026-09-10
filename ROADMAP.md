@@ -111,6 +111,9 @@ auf dem Tisch liegen.
 - [x] Zeitpläne + Wochenansicht + Verlauf als Sub-Tabs im Zimmer-Detail
 - [x] Diagnose-Tab mit Live-ETA-Status, Energiepreis-Chart und Sensor-Übersicht
 - [x] Analyse-Tab pro Zimmer: Anforderungs-Heatmap, Optimum-Start-Lernkurve, Optimum-Stop-Status
+- [x] **Wärmebrücken-Erkennung**: vergleicht die gelernte Abkühlrate (`avg_cooling_rate`) eines
+      Zimmers mit dem Durchschnitt der übrigen Zimmer; kühlt es ≥1,8× schneller aus, erscheint
+      ein Hinweis im Analyse-Tab (`thermal_bridge: {suspected, ratio}`, rein informativ)
 - [x] Config-Flow und Frontend-Modale vollständig synchronisiert (Add-Room = Edit-Room)
 - [x] Alle Services vollständig in `services.yaml` dokumentiert
 
@@ -179,10 +182,9 @@ Im Sommer umgekehrt: Rolladen runterfahren, um das Aufheizen durch die Sonne zu 
 
 ### Erweiterte Anomalie-Erkennung
 
-- **Wärmebrücken-Erkennung**: Zimmer verliert Wärme ungewöhnlich schnell (nutzt `avg_cooling_rate`)
 - **Energieanomalie**: „Diese Woche 40 % mehr Verbrauch als der Durchschnitt – Ursache?"
 - **Push-Benachrichtigungen** über den HA-Notification-Service für alle Diagnose-Alarme
-- Baut auf der bestehenden Stuck-Valve-/Sensor-Erkennung auf
+- Baut auf der bestehenden Stuck-Valve-/Sensor-/Wärmebrücken-Erkennung auf
 
 ### Gebäude-thermisches Modell
 
