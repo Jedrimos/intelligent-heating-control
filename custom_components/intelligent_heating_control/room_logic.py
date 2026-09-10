@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import logging
 import math
-from collections import deque
 from datetime import datetime, timedelta
 from typing import Optional
 
 from homeassistant.const import STATE_ON
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_ROOM_ID,
@@ -44,7 +44,6 @@ from .const import (
     CONF_SCHEDULES,
     CONF_PREHEAT_MINUTES,
     CONF_NIGHT_SETBACK_OFFSET,
-    CONF_COOLING_TARGET_TEMP,
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_ADAPTIVE_PREHEAT_ENABLED,
     CONF_TEMP_HISTORY_SIZE,
@@ -71,11 +70,12 @@ from .const import (
     DEFAULT_HA_SCHEDULE_OFF_MODE,
     DEFAULT_PREHEAT_MINUTES,
     DEFAULT_NIGHT_SETBACK_OFFSET,
-    DEFAULT_COOLING_TARGET_TEMP,
     DEFAULT_OFF_USE_FROST_PROTECTION,
     DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
     CONF_OPTIMUM_START_ENABLED,
     DEFAULT_OPTIMUM_START_ENABLED,
+    CONF_BOOST_TEMP,
+    DEFAULT_BOOST_TEMP,
     ROOM_MODE_AUTO,
     ROOM_MODE_COMFORT,
     ROOM_MODE_ECO,
@@ -84,7 +84,6 @@ from .const import (
     ROOM_MODE_OFF,
     ROOM_MODE_MANUAL,
     SYSTEM_MODE_OFF,
-    SYSTEM_MODE_COOL,
     SYSTEM_MODE_AWAY,
     SYSTEM_MODE_VACATION,
     SYSTEM_MODE_GUEST,
@@ -92,6 +91,14 @@ from .const import (
 from .schedule_manager import ScheduleManager
 
 _LOGGER = logging.getLogger(__name__)
+
+# Thermal-bridge heuristic (see get_thermal_bridge_status): a room's cooling
+# rate must be at least this many times the average of its neighbors' rates,
+# AND at least this much in absolute terms, before it's flagged as suspicious.
+# The absolute floor avoids flagging noisy near-zero rates (e.g. 0.02 vs.
+# 0.01 is technically "2x" but not a meaningful thermal bridge).
+THERMAL_BRIDGE_RATIO_THRESHOLD = 1.8
+THERMAL_BRIDGE_MIN_RATE = 0.1
 
 
 class RoomLogicMixin:
@@ -234,6 +241,41 @@ class RoomLogicMixin:
             return round((sorted_h[mid - 1] + sorted_h[mid]) / 2.0, 4)
         return round(sorted_h[mid], 4)
 
+    def get_thermal_bridge_status(self, room_id: str, all_room_ids: list) -> dict:
+        """Compare a room's learned cooling rate against the rest of the home's.
+
+        A room that loses heat much faster than its neighbors (same learning
+        model as Optimum Stop/thermal mass, see avg_cooling_rate) is often a
+        sign of a thermal bridge - poor insulation, a badly sealed window, an
+        uninsulated exterior wall corner, etc. This is purely informational
+        (surfaced in the Analyse tab); it never changes heating behavior.
+
+        Needs at least 2 *other* rooms with a learned rate to compare against,
+        otherwise a single outlier room could never be judged reliably.
+        """
+        my_rate = self.get_avg_cooling_rate(room_id)
+        if my_rate is None:
+            return {"suspected": False, "ratio": None}
+
+        other_rates = [
+            rate for rate in (
+                self.get_avg_cooling_rate(other_id)
+                for other_id in all_room_ids
+                if other_id != room_id
+            )
+            if rate is not None
+        ]
+        if len(other_rates) < 2:
+            return {"suspected": False, "ratio": None}
+
+        avg_other = sum(other_rates) / len(other_rates)
+        if avg_other <= 0:
+            return {"suspected": False, "ratio": None}
+
+        ratio = round(my_rate / avg_other, 2)
+        suspected = ratio >= THERMAL_BRIDGE_RATIO_THRESHOLD and my_rate >= THERMAL_BRIDGE_MIN_RATE
+        return {"suspected": suspected, "ratio": ratio}
+
     def get_optimum_stop_info(
         self,
         room_id: str,
@@ -288,7 +330,22 @@ class RoomLogicMixin:
         if next_period is None:
             return result
 
-        next_target = float(next_period.get("temperature", current_temp))
+        # Resolve the period's mode to a temperature the same way _calculate_target_temp
+        # does for the active period — the raw "temperature" field is only meaningful for
+        # manual/legacy periods; comfort/eco/sleep/away periods are resolved dynamically
+        # from the live heating curve and can drift arbitrarily far from a stale stored value.
+        next_mode = next_period.get("mode", "manual")
+        comfort_base, eco_base, sleep_base, away_base = self._get_room_preset_temps(room, outdoor_temp)
+        mode_to_temp = {
+            ROOM_MODE_COMFORT: comfort_base,
+            ROOM_MODE_ECO:     eco_base,
+            ROOM_MODE_SLEEP:   sleep_base,
+            ROOM_MODE_AWAY:    away_base,
+        }
+        if next_mode in mode_to_temp:
+            next_target = mode_to_temp[next_mode]
+        else:
+            next_target = float(next_period.get("temperature", current_temp))
         # Only useful when next period has a LOWER target (otherwise no coast needed)
         if next_target >= current_temp - 0.3:
             return result
@@ -486,13 +543,6 @@ class RoomLogicMixin:
                 # Default: valves are turned off completely (handled in update loop)
                 return frost_temp, {"source": "system_off", "schedule_active": False}
 
-        if system_mode == SYSTEM_MODE_COOL:
-            # Cooling mode: target is the configured cooling temperature (room wants to stay BELOW this)
-            cooling_target = float(cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP))
-            return min(max_temp, max(min_temp, cooling_target)), {
-                "source": "cooling_mode", "schedule_active": False
-            }
-
         if system_mode == SYSTEM_MODE_AWAY:
             away_temp = float(cfg.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP))
             # Frost protection: away temp must be at least frost_temp
@@ -506,6 +556,32 @@ class RoomLogicMixin:
             return min(max_temp, max(min_temp, comfort_base + room_offset)), {
                 "source": "guest_mode", "schedule_active": False
             }
+
+        # --- 1c. Room temperature threshold override (Blueprint: input_mode_room_temperature_threshold) ---
+        # If current room temp is below threshold, force comfort heating regardless of room mode.
+        # Does NOT override system-level OFF/VACATION (handled above). MUST run before the
+        # presence-based away checks (1b/1b2) below: this is a hard safety floor against
+        # freezing rooms, and it must still apply while nobody is home (AUTO + presence-away),
+        # not just when a room is manually set to AWAY.
+        room_threshold = float(room.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD))
+        if room_threshold > 0.0 and room_mode in (ROOM_MODE_AUTO, ROOM_MODE_ECO, ROOM_MODE_SLEEP, ROOM_MODE_AWAY):
+            temp_sensor = room.get(CONF_TEMP_SENSOR, "")
+            current_temp = None
+            if temp_sensor:
+                s = self.hass.states.get(temp_sensor)
+                if s and s.state not in ("unknown", "unavailable"):
+                    try:
+                        current_temp = float(s.state)
+                    except (ValueError, TypeError):
+                        pass
+            if current_temp is not None and current_temp < room_threshold:
+                target = min(max_temp, max(min_temp, comfort_base + room_offset))
+                return target, {
+                    "source": "temp_threshold_override",
+                    "schedule_active": False,
+                    "threshold": room_threshold,
+                    "current_temp": current_temp,
+                }
 
         # --- 1b0. Holiday calendar override (v1.8) ---
         # When a public holiday / school holiday calendar event is active, treat the day
@@ -521,7 +597,7 @@ class RoomLogicMixin:
             # We set _holiday_force_weekend on self so that the schedule manager call below
             # uses a modified datetime with weekday=5 (Saturday) instead of the real day.
             # This is stored as a simple boolean flag and read just before ScheduleManager calls.
-            _today_weekday = datetime.now().weekday()  # 0=Mon … 4=Fri → use Sat; 5/6 already weekend
+            _today_weekday = dt_util.now().weekday()  # 0=Mon … 4=Fri → use Sat; 5/6 already weekend
             self._holiday_force_weekend = _today_weekday < 5
         else:
             self._holiday_force_weekend = False
@@ -546,29 +622,6 @@ class RoomLogicMixin:
                 "away_base": effective_pir_away,
             }
 
-        # --- 1c. Room temperature threshold override (Blueprint: input_mode_room_temperature_threshold) ---
-        # If current room temp is below threshold, force comfort heating regardless of room mode.
-        # Does NOT override system-level OFF/VACATION.
-        room_threshold = float(room.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD))
-        if room_threshold > 0.0 and room_mode in (ROOM_MODE_AUTO, ROOM_MODE_ECO, ROOM_MODE_SLEEP, ROOM_MODE_AWAY):
-            temp_sensor = room.get(CONF_TEMP_SENSOR, "")
-            current_temp = None
-            if temp_sensor:
-                s = self.hass.states.get(temp_sensor)
-                if s and s.state not in ("unknown", "unavailable"):
-                    try:
-                        current_temp = float(s.state)
-                    except (ValueError, TypeError):
-                        pass
-            if current_temp is not None and current_temp < room_threshold:
-                target = min(max_temp, max(min_temp, comfort_base + room_offset))
-                return target, {
-                    "source": "temp_threshold_override",
-                    "schedule_active": False,
-                    "threshold": room_threshold,
-                    "current_temp": current_temp,
-                }
-
         # --- 2. Room mode preset overrides ---
         if room_mode == ROOM_MODE_OFF:
             return min_temp, {"source": "room_off", "schedule_active": False}
@@ -582,6 +635,16 @@ class RoomLogicMixin:
             }
 
         if room_mode == ROOM_MODE_COMFORT:
+            # Boost mode switches room_mode to COMFORT (see coordinator.set_room_boost).
+            # If a custom boost temperature is configured, use it instead of the
+            # regular comfort target while the boost is actually active.
+            if room_id in getattr(self, "_boost_until", {}):
+                boost_temp = float(room.get(CONF_BOOST_TEMP, DEFAULT_BOOST_TEMP))
+                if boost_temp > 0.0:
+                    return min(max_temp, max(min_temp, boost_temp)), {
+                        "source": "boost", "schedule_active": False,
+                        "boost_temp": boost_temp,
+                    }
             return min(max_temp, max(min_temp, comfort_base + room_offset)), {
                 "source": "comfort", "schedule_active": False,
                 "comfort_base": comfort_base,
@@ -755,7 +818,7 @@ class RoomLogicMixin:
             # v1.8 – Holiday weekend override: treat today as Saturday for schedule lookup
             _sched_now = None
             if getattr(self, "_holiday_force_weekend", False):
-                _real_now = datetime.now()
+                _real_now = dt_util.now()
                 # Move to next Saturday: weekday=5; timedelta shifts days
                 _days_to_sat = (5 - _real_now.weekday()) % 7
                 if _days_to_sat == 0:

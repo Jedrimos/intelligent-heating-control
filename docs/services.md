@@ -14,8 +14,8 @@ data:
   name: "Wohnzimmer"                        # Pflichtfeld
   temp_sensor: sensor.wohnzimmer_temp       # optional
   valve_entity: climate.wohnzimmer_trv      # erstes TRV (Kompatibilität)
-  valve_entities:                           # alle TRVs (empfohlen)
-    - climate.wohnzimmer_trv_links
+  valve_entities:                           # alle TRVs (empfohlen) – IHC schreibt die
+    - climate.wohnzimmer_trv_links          # berechnete Solltemperatur auf jedes davon
     - climate.wohnzimmer_trv_rechts
   window_sensor: binary_sensor.fenster_wz   # erster Fenstersensor
   window_sensors:                           # alle Fenstersensoren
@@ -32,7 +32,6 @@ data:
   away_max_temp: 18.0                       # Standard: 18.0 → Abwesend nie über 18 °C
   ha_schedule_off_mode: eco                 # eco | sleep – Fallback bei inaktivem HA-Zeitplan
   deadband: 0.5                             # Standard: 0.5
-  weight: 1.5                               # Standard: 1.0
   min_temp: 5.0                             # Standard: 5.0
   max_temp: 30.0                            # Standard: 30.0
   schedules: []                             # Interne Zeitpläne (leer = keine)
@@ -45,7 +44,17 @@ data:
       condition_state: "on"
   humidity_sensor: sensor.wohnzimmer_luftfeuchte   # optional – für Schimmelschutz
   mold_protection_enabled: true             # Standard: true
+  co2_sensor: sensor.wohnzimmer_co2         # optional – für Lüftungsempfehlung
+  radiator_kw: 1.2                          # Standard: 1.0 – Basis für die Energieschätzung
+  room_presence_entities:                   # optional – Zimmer heizt nur wenn hier jemand ist
+    - person.max_mustermann
+  boost_temp: 23.0                          # optional – Zieltemperatur während Boost
+  trv_temp_weight: 0.0                      # Standard: 0.0 – siehe architecture.md#trv-steuerung
 ```
+
+Der vollständige Feldsatz (inkl. TRV-Kalibrierung, Fenster-Kaskade, Präsenzsensor,
+Kalkschutz-relevanter Felder pro Zimmer, dynamischer Sollwert-Entitäten u. v. m.) ist in
+[configuration.md](configuration.md#zimmer-verwalten) beschrieben.
 
 ---
 
@@ -115,7 +124,7 @@ data:
 | `eco` | Outdoor-geregelte Eco-Temperatur (Komfort − eco_offset, max eco_max_temp) |
 | `sleep` | Outdoor-geregelte Schlaf-Temperatur (Komfort − sleep_offset, max sleep_max_temp) |
 | `away` | Outdoor-geregelte Abwesend-Temperatur (Komfort − away_offset, max away_max_temp) |
-| `off` | Zimmer ausschalten (0 % Anforderung, nur Frostschutz) |
+| `off` | Zimmer ausschalten (0 % Anforderung, TRVs auf `hvac_mode: off`, Notfall-Frostschutz bleibt aktiv) |
 | `manual` | Manuell über `climate.*` eingestellte Temperatur |
 
 ---
@@ -127,17 +136,19 @@ Setzt den globalen Systemmodus.
 ```yaml
 service: intelligent_heating_control.set_system_mode
 data:
-  mode: away  # auto | heat | cool | off | away | vacation
+  mode: away  # auto | heat | off | away | vacation | guest
 ```
 
 | Modus | Beschreibung |
 |-------|-------------|
 | `auto` | Normale automatische Steuerung |
 | `heat` | Erzwingt Heizbetrieb (überschreibt Sommerautomatik) |
-| `cool` | Aktiviert Kühlbetrieb (wenn cooling_switch konfiguriert) |
 | `off` | Alle Zimmer aus (nur Frostschutz aktiv) |
 | `away` | Alle Zimmer auf globale Abwesend-Temperatur |
-| `vacation` | Alle Zimmer auf Urlaubs-Temperatur (minimaler Frostschutz) |
+| `vacation` | Alle Zimmer auf Urlaubs-Temperatur |
+| `guest` | Alle Zimmer auf Komfort-Temperatur für `guest_duration_hours` |
+
+> Es gibt keinen Modus `cool` – TRVs können nicht aktiv kühlen (siehe [Architektur](architecture.md)).
 
 ---
 
@@ -165,7 +176,53 @@ data:
   cancel: true
 ```
 
-Während des Boosts wird der Zimmermodus auf `comfort` gesetzt. Nach Ablauf kehrt das Zimmer automatisch zum vorherigen Modus zurück.
+Während des Boosts wird die Zieltemperatur auf `boost_temp` (falls konfiguriert, sonst Komfort) gesetzt. Nach Ablauf kehrt das Zimmer automatisch zum vorherigen Modus zurück.
+
+---
+
+## Heizgruppen
+
+Mehrere Zimmer als Gruppe bündeln (z. B. „Obergeschoss") und gemeinsam umschalten.
+
+### `add_group`
+
+```yaml
+service: intelligent_heating_control.add_group
+data:
+  group_name: "Obergeschoss"
+  group_rooms: ["abc12345", "def67890"]   # Liste von room_ids
+```
+
+### `update_group`
+
+```yaml
+service: intelligent_heating_control.update_group
+data:
+  group_id: "grp001"
+  group_name: "Obergeschoss neu"   # optional
+  group_rooms: ["abc12345"]        # optional
+```
+
+### `remove_group`
+
+```yaml
+service: intelligent_heating_control.remove_group
+data:
+  group_id: "grp001"
+```
+
+> Entfernt nur die Gruppe – die zugehörigen Zimmer bleiben unverändert bestehen.
+
+### `set_group_mode`
+
+```yaml
+service: intelligent_heating_control.set_group_mode
+data:
+  group_id: "grp001"
+  mode: eco   # gleiche Modi wie set_room_mode
+```
+
+Setzt den Zimmermodus für alle Zimmer der Gruppe gleichzeitig.
 
 ---
 
@@ -176,7 +233,7 @@ Aktiviert den Gäste-Modus (alle Zimmer auf Komfort-Temperatur für eine konfigu
 ```yaml
 service: intelligent_heating_control.activate_guest_mode
 data:
-  duration_hours: 4  # optional – Standard aus Einstellungen (guest_duration_hours)
+  duration_hours: 4  # optional – Standard aus Einstellungen (guest_duration_hours, Default 24)
 ```
 
 ---
@@ -198,77 +255,92 @@ Aktualisiert globale Einstellungen. Nur angegebene Parameter werden geändert.
 ```yaml
 service: intelligent_heating_control.update_global_settings
 data:
-  # Klimabaustein
-  demand_threshold: 20          # Einschaltschwelle in %
-  demand_hysteresis: 5          # Hysterese in %
-  min_on_time: 10               # Mindest-Einschaltzeit in Minuten
-  min_off_time: 5               # Mindest-Ausschaltzeit in Minuten
-  min_rooms_demand: 1           # Mindestanzahl Zimmer mit Anforderung
-
-  # Globale Temperaturen
-  away_temp: 16.0               # System-Abwesend-Temperatur
-  vacation_temp: 14.0           # System-Urlaubs-Temperatur
-  frost_protection_temp: 7.0    # Frostschutz-Temperatur
-
-  # Sommerautomatik
-  summer_mode_enabled: true
-  summer_threshold: 18.0        # °C Außentemperatur ab der Heizung gesperrt wird
-
-  # Nachtabsenkung
-  night_setback_enabled: true
-  night_setback_offset: 2.0     # °C Absenkung nachts
-  sun_entity: "sun.sun"         # Entity für Sonnenstand
-  preheat_minutes: 30           # Minuten Vorheizzeit vor Zeitplan
-
-  # Anwesenheit
-  presence_entities:
-    - person.max_mustermann
-    - person.erika_mustermann
-
-  # Heizkurve
+  # Verbundene Geräte / Heizkurve
+  outdoor_temp_sensor: sensor.aussentemperatur
   heating_curve:
     points:
       - outdoor_temp: -20
         target_temp: 24.0
-      - outdoor_temp: -10
-        target_temp: 23.0
       - outdoor_temp: 0
         target_temp: 22.0
-      - outdoor_temp: 10
-        target_temp: 20.5
-      - outdoor_temp: 15
-        target_temp: 19.5
       - outdoor_temp: 20
         target_temp: 18.0
-      - outdoor_temp: 25
-        target_temp: 16.0
 
-  # Energie & Solar
-  boiler_kw: 20.0
+  # Globale Temperaturen
+  away_temp: 16.0
+  vacation_temp: 14.0
+  frost_protection_temp: 7.0
+
+  # Sommerautomatik
+  summer_mode_enabled: true
+  summer_threshold: 18.0
+  summer_mode_entity: input_boolean.sommerbetrieb   # optional, überschreibt die Automatik
+
+  # Nachtabsenkung & Vorheizen
+  night_setback_enabled: true
+  night_setback_offset: 2.0
+  sun_entity: "sun.sun"
+  preheat_minutes: 30
+  optimum_start_enabled: true          # ersetzt preheat_minutes durch gelernte Vorheizzeit
+  adaptive_preheat_enabled: true
+
+  # Heizperiode & Anwesenheit
+  heating_period_entity: input_boolean.heizperiode
+  presence_entities:
+    - person.max_mustermann
+    - person.erika_mustermann
+  presence_away_delay_minutes: 30
+  eta_preheat_enabled: true
+  eta_preheat_threshold_minutes: 90
+
+  # Solar & Strompreis
   solar_entity: sensor.solar_leistung
-  solar_surplus_threshold: 1000  # Watt
-  solar_boost_temp: 1.0          # °C Boost
-
-  # Dynamischer Strompreis
+  solar_surplus_threshold: 1000
+  solar_boost_temp: 1.0
   energy_price_entity: sensor.strompreis_aktuell
-  energy_price_threshold: 0.30   # €/kWh
-  energy_price_eco_offset: 2.0   # °C Absenkung
+  energy_price_threshold: 0.30
+  energy_price_eco_offset: 2.0
 
-  # Vorlauftemperatur
-  flow_temp_entity: number.boiler_vorlauf
-
-  # Verbundene Geräte
-  heating_switch: switch.heizkessel
-  outdoor_temp_sensor: sensor.aussentemperatur
-
-  # Wettervorhersage & Kälte-Boost
+  # Wettervorhersage & Kälteprognose
   weather_entity: weather.home
-  weather_cold_threshold: 0.0   # °C – Vorhersage unter diesem Wert → Kälte-Boost
-  weather_cold_boost: 1.0       # °C – Boost bei Kältewarnung
+  weather_cold_threshold: 0.0
+  weather_cold_boost: 1.0
+  forecast_coldnight_enabled: true
+  forecast_coldnight_temp: 8.0
 
-  # Gäste-Modus Standarddauer
-  guest_duration_hours: 4
+  # Urlaub & Feiertage
+  vacation_start: "2026-12-23"
+  vacation_end: "2027-01-02"
+  vacation_calendar: calendar.familie
+  vacation_calendar_keyword: "urlaub"
+  vacation_return_preheat_days: 1
+  holiday_calendar: calendar.feiertage
+  holiday_schedule_mode: weekend       # weekend | comfort
+
+  # Gäste-Modus
+  guest_duration_hours: 24
+
+  # Diagnose & Wartung
+  stuck_valve_timeout: 1800
+  limescale_protection_enabled: true
+  limescale_interval_days: 14
+  limescale_time: "10:00"
+  limescale_duration_minutes: 5
+  peak_shaving_enabled: true
+  peak_shaving_delay_minutes: 3
+
+  # Lüftung
+  outdoor_humidity_sensor: sensor.aussenluftfeuchte
+  ventilation_advice_enabled: true
+
+  # Sonstiges
+  outdoor_temp_smoothing_minutes: 0
+  startup_grace_seconds: 60
+  show_panel: true
 ```
+
+Siehe [configuration.md](configuration.md) für die Bedeutung und Standardwerte der einzelnen
+Parameter im Detail.
 
 ---
 
@@ -281,6 +353,16 @@ service: intelligent_heating_control.export_config
 ```
 
 Der Export wird direkt als `.json`-Datei im Browser heruntergeladen. Er enthält alle Zimmer, Zeitpläne, Heizkurven-Punkte und Globaleinstellungen und kann über **Backup & Restore → Import** wieder eingespielt werden.
+
+---
+
+## `reset_stats`
+
+Setzt Laufzeit- und Energiestatistiken (heute) zurück.
+
+```yaml
+service: intelligent_heating_control.reset_stats
+```
 
 ---
 

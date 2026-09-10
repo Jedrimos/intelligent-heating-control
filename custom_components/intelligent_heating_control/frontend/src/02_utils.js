@@ -69,7 +69,6 @@
         away_temp_eff: state.attributes.away_temp_eff ?? null,
         room_offset: state.attributes.room_offset ?? 0,
         deadband: state.attributes.deadband ?? 0.5,
-        weight: state.attributes.weight ?? 1.0,
         schedules: state.attributes.schedules || [],
         ha_schedules: state.attributes.ha_schedules || [],
         next_period: state.attributes.next_period || null,
@@ -86,6 +85,7 @@
         mold_protection_enabled: state.attributes.mold_protection_enabled !== false,
         // Boost config
         boost_default_duration: state.attributes.boost_default_duration ?? 60,
+        boost_temp: state.attributes.boost_temp ?? 0,
         // HA schedule blocks (from schedule.* entity config entries)
         ha_schedule_blocks: state.attributes.ha_schedule_blocks || {},
         // Per-room advanced settings
@@ -94,11 +94,9 @@
         room_preheat_minutes: state.attributes.room_preheat_minutes ?? -1,
         window_reaction_time: state.attributes.window_reaction_time ?? 30,
         window_close_delay: state.attributes.window_close_delay ?? 0,
-        effective_weight: state.attributes.effective_weight ?? state.attributes.weight ?? 1.0,
         // TRV sensor data integration
         trv_temp_weight:      state.attributes.trv_temp_weight ?? 0,
         trv_temp_offset:      state.attributes.trv_temp_offset ?? -2,
-        trv_valve_demand:     state.attributes.trv_valve_demand === true,
         trv_min_send_interval: state.attributes.trv_min_send_interval ?? 0,
         trv_calibrations:     state.attributes.trv_calibrations ?? {},
         temp_calibration:     state.attributes.temp_calibration ?? 0,
@@ -116,6 +114,7 @@
         co2_threshold_good:    state.attributes.co2_threshold_good ?? 800,
         co2_threshold_bad:     state.attributes.co2_threshold_bad ?? 1200,
         co2_ventilation_eta_minutes: state.attributes.co2_ventilation_eta_minutes ?? null,
+        co2_preheat_boost:     state.attributes.co2_preheat_boost === true,
         // PIR presence sensor
         presence_sensor:            state.attributes.presence_sensor || "",
         presence_sensor_on_delay:   state.attributes.presence_sensor_on_delay ?? 300,
@@ -238,20 +237,16 @@
       solar_power:               ea.solar_power != null ? parseFloat(ea.solar_power) : null,
       energy_price:              ea.energy_price != null ? parseFloat(ea.energy_price) : null,
       energy_price_eco_active:   ea.energy_price_eco_active || false,
-      flow_temp:                 ea.flow_temp != null ? parseFloat(ea.flow_temp) : null,
       vacation_auto_active:      a.vacation_auto_active || false,
       return_preheat_active:     a.return_preheat_active || false,
       efficiency_score:          a.efficiency_score != null ? parseFloat(a.efficiency_score) : null,
-      controller_mode:           a.controller_mode || "switch",
       guest_mode_active:         a.guest_mode_active || false,
       guest_remaining_minutes:   a.guest_remaining_minutes != null ? a.guest_remaining_minutes : null,
       weather_forecast:          a.weather_forecast || null,
       cold_boost:                ea.cold_boost != null ? parseFloat(ea.cold_boost) : 0,
       eta_preheat_minutes:       ea.eta_preheat_minutes != null ? parseFloat(ea.eta_preheat_minutes) : null,
-      adaptive_curve_delta:      ea.adaptive_curve_delta != null ? parseFloat(ea.adaptive_curve_delta) : 0,
       outdoor_humidity:          a.outdoor_humidity != null ? parseFloat(a.outdoor_humidity) : null,
       static_energy_price:       a.static_energy_price != null ? parseFloat(a.static_energy_price) : null,
-      boiler_kw:                 a.boiler_kw != null ? parseFloat(a.boiler_kw) : null,
       groups:                    a.groups || [],
       // v1.8 – Holiday calendar + Peak Shaving
       holiday_active:            a.holiday_active || false,

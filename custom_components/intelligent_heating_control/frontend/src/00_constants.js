@@ -19,7 +19,7 @@ const MODE_ICONS = {
   vacation: "🏖️", guest: "👥", boost: "⚡"
 };
 const SYSTEM_MODE_LABELS = {
-  auto: "Automatisch", heat: "Heizen", cool: "Kühlen",
+  auto: "Automatisch", heat: "Heizen",
   off: "Aus", away: "Abwesend", vacation: "Urlaub", guest: "Gäste-Modus"
 };
 

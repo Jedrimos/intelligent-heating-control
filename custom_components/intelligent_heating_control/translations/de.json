@@ -3,36 +3,12 @@
     "step": {
       "user": {
         "title": "Grundeinstellungen",
-        "description": "Konfigurieren Sie den Außentemperatursensor und den Heizungsschalter.",
+        "description": "Konfigurieren Sie den Außentemperatursensor.",
         "data": {
-          "outdoor_temp_sensor": "Außentemperatur-Sensor",
-          "heating_switch": "Heizungsschalter",
-          "enable_cooling": "Kühlung aktivieren",
-          "cooling_switch": "Kühlungsschalter"
+          "outdoor_temp_sensor": "Außentemperatur-Sensor"
         },
         "data_description": {
-          "outdoor_temp_sensor": "Sensor der die aktuelle Außentemperatur misst. Wird für die Heizkurve benötigt – je kälter draußen, desto höher die Zieltemperatur.",
-          "heating_switch": "Der Schalter, der Ihre Heizung ein- und ausschaltet (z.B. Heizungsregler, Kesselsteuerung).",
-          "enable_cooling": "Aktivieren Sie diese Option, wenn Ihre Anlage auch kühlen kann (z.B. Wärmepumpe mit Kühlbetrieb).",
-          "cooling_switch": "Der Schalter, der den Kühlbetrieb startet. Wird nur aktiviert, wenn die Räume zu warm sind."
-        }
-      },
-      "controller": {
-        "title": "Klimabaustein Einstellungen",
-        "description": "Diese Einstellungen bestimmen, wann die Heizung ein- und ausschaltet. Die Heizanforderungen aller Zimmer werden zusammengerechnet und mit dem Schwellenwert verglichen.",
-        "data": {
-          "demand_threshold": "Einschaltschwelle (%)",
-          "demand_hysteresis": "Hysterese (%)",
-          "min_on_time": "Mindest-Einschaltzeit (min)",
-          "min_off_time": "Mindest-Ausschaltzeit (min)",
-          "min_rooms_demand": "Mindestanzahl Zimmer mit Anforderung"
-        },
-        "data_description": {
-          "demand_threshold": "Ab welchem Gesamtwärmebedarf (0–100 %) die Heizung einschalten soll. Empfehlung: 20–40 %. Niedrigere Werte = Heizung schaltet früher ein.",
-          "demand_hysteresis": "Puffer damit die Heizung nicht ständig ein- und ausschaltet. Die Heizung schaltet erst aus, wenn der Bedarf um diesen Wert unter die Einschaltschwelle fällt. Empfehlung: 5–10 %.",
-          "min_on_time": "Wie viele Minuten die Heizung mindestens eingeschaltet bleiben muss, bevor sie wieder ausschalten darf. Schützt den Brenner vor Kurzzyklen.",
-          "min_off_time": "Wie viele Minuten die Heizung mindestens ausgeschaltet bleiben muss, bevor sie wieder einschalten darf. Schützt den Brenner vor Kurzzyklen.",
-          "min_rooms_demand": "Wie viele Zimmer gleichzeitig Wärme anfordern müssen, damit die Heizung einschaltet. Verhindert, dass die Heizung für einen einzelnen Raum anläuft."
+          "outdoor_temp_sensor": "Sensor der die aktuelle Außentemperatur misst. Wird für die Heizkurve benötigt – je kälter draußen, desto höher die Zieltemperatur."
         }
       },
       "temperatures": {
@@ -73,14 +49,6 @@
         "title": "Globale Einstellungen",
         "data": {
           "outdoor_temp_sensor": "Außentemperatur-Sensor",
-          "heating_switch": "Heizungsschalter",
-          "enable_cooling": "Kühlung aktivieren",
-          "cooling_switch": "Kühlungsschalter",
-          "demand_threshold": "Einschaltschwelle (%)",
-          "demand_hysteresis": "Hysterese (%)",
-          "min_on_time": "Mindest-Einschaltzeit (min)",
-          "min_off_time": "Mindest-Ausschaltzeit (min)",
-          "min_rooms_demand": "Mindestanzahl Zimmer mit Anforderung",
           "away_temp": "Abwesend-Temperatur (°C)",
           "vacation_temp": "Urlaubs-Temperatur (°C)",
           "summer_mode_enabled": "Sommerautomatik aktivieren",
@@ -91,18 +59,32 @@
           "night_setback_enabled": "Nachtabsenkung aktivieren",
           "night_setback_offset": "Nachtabsenkung Offset (°C)",
           "sun_entity": "Sonnen-Entität",
-          "preheat_minutes": "Vorheiz-Vorlaufzeit (Minuten)"
+          "preheat_minutes": "Vorheiz-Vorlaufzeit (Minuten)",
+          "solar_entity": "Solar-Leistungssensor",
+          "solar_surplus_threshold": "Solar-Überschuss-Schwelle (W)",
+          "solar_boost_temp": "Solar-Boost-Temperatur (°C)",
+          "energy_price_entity": "Strompreis-Sensor",
+          "energy_price_threshold": "Schwelle für hohen Preis (€/kWh)",
+          "energy_price_eco_offset": "Eco-Abzug bei hohem Preis (°C)",
+          "weather_entity": "Wetter-Entität",
+          "weather_cold_threshold": "Kälte-Schwelle (°C)",
+          "weather_cold_boost": "Boost bei Kälte (°C)",
+          "outdoor_humidity_sensor": "Außenluftfeuchtigkeit-Sensor",
+          "ventilation_advice_enabled": "Lüftungsempfehlung aktivieren",
+          "adaptive_preheat_enabled": "Adaptives Vorheizen aktivieren",
+          "eta_preheat_enabled": "ETA-basiertes Vorheizen aktivieren",
+          "vacation_calendar": "Kalender-Entität für Urlaub",
+          "vacation_calendar_keyword": "Stichwort im Urlaubs-Kalender",
+          "startup_grace_seconds": "Startup-Gnadenfrist (s)",
+          "off_use_frost_protection": "Frostschutz im OFF-Modus verwenden",
+          "stuck_valve_timeout": "Timeout für Ventil-Fehler-Erkennung (s)",
+          "limescale_protection_enabled": "Kalkschutz aktivieren",
+          "limescale_interval_days": "Intervall Kalkschutz-Übung (Tage)",
+          "limescale_time": "Uhrzeit Kalkschutz-Übung (HH:MM)",
+          "limescale_duration_minutes": "Dauer Kalkschutz-Übung (Min.)"
         },
         "data_description": {
           "outdoor_temp_sensor": "Sensor der die aktuelle Außentemperatur misst. Wird für die Heizkurve benötigt.",
-          "heating_switch": "Der Schalter, der Ihre Heizung ein- und ausschaltet (z.B. Heizungsregler, Kesselsteuerung).",
-          "enable_cooling": "Aktivieren wenn Ihre Anlage auch kühlen kann (z.B. Wärmepumpe mit Kühlbetrieb).",
-          "cooling_switch": "Der Schalter, der den Kühlbetrieb startet.",
-          "demand_threshold": "Ab welchem Gesamtwärmebedarf (0–100 %) die Heizung einschalten soll. Empfehlung: 20–40 %.",
-          "demand_hysteresis": "Puffer gegen ständiges Ein-/Ausschalten. Empfehlung: 5–10 %.",
-          "min_on_time": "Mindest-Laufzeit der Heizung in Minuten. Schützt den Brenner vor Kurzzyklen.",
-          "min_off_time": "Mindest-Pausenzeit der Heizung in Minuten. Schützt den Brenner vor Kurzzyklen.",
-          "min_rooms_demand": "Wie viele Zimmer gleichzeitig Wärme anfordern müssen, damit die Heizung einschaltet.",
           "away_temp": "Zieltemperatur im Abwesend-Modus für alle Zimmer. Typisch: 16–18 °C.",
           "vacation_temp": "Zieltemperatur im Urlaubs-Modus. Nur Frostschutz. Typisch: 14–16 °C.",
           "summer_mode_enabled": "Wenn aktiv, wird die Heizung automatisch gesperrt sobald die Außentemperatur den Schwellenwert überschreitet.",
@@ -113,7 +95,29 @@
           "night_setback_enabled": "Wenn aktiv, werden Zieltemperaturen nachts automatisch um den Offset abgesenkt (wenn Sonne unter dem Horizont ist).",
           "night_setback_offset": "Um wie viele Grad die Zieltemperatur in der Nacht abgesenkt wird. Typisch: 2–4 °C.",
           "sun_entity": "Sonnen-Entität zur Erkennung von Tag/Nacht. Standard: sun.sun",
-          "preheat_minutes": "Wie viele Minuten vor einem Zeitplan-Start die Heizung bereits beginnt aufzuheizen. 0 = Vorheizen deaktiviert."
+          "preheat_minutes": "Wie viele Minuten vor einem Zeitplan-Start die Heizung bereits beginnt aufzuheizen. 0 = Vorheizen deaktiviert.",
+          "solar_entity": "Leistungssensor für Solarerzeugung (W). Übersteigt der Überschuss die Schwelle, werden Zimmertemperaturen leicht angehoben.",
+          "solar_surplus_threshold": "Minimaler Solar-Überschuss in Watt bevor der Solar-Boost angewendet wird.",
+          "solar_boost_temp": "Um wie viele Grad die Zieltemperatur bei Solar-Überschuss angehoben wird.",
+          "energy_price_entity": "Sensor der den aktuellen Strompreis liefert (€/kWh). Wird genutzt um bei hohen Preisen weniger zu heizen.",
+          "energy_price_threshold": "Strompreis ab dem IHC den Eco-Abzug anwendet um Energie zu sparen.",
+          "energy_price_eco_offset": "Um wie viele Grad die Zieltemperatur bei hohem Strompreis abgesenkt wird.",
+          "weather_entity": "Wetter-Integrations-Entität für prognosebasierte Heizanpassungen.",
+          "weather_cold_threshold": "Temperatur unterhalb derer IHC den Kälte-Boost auf Zimmer anwendet.",
+          "weather_cold_boost": "Zusätzliche Grad die bei sehr kaltem Wetter zur Zieltemperatur addiert werden.",
+          "outdoor_humidity_sensor": "Außenluftfeuchtigkeit-Sensor für Taupunktberechnung und Lüftungsempfehlung.",
+          "ventilation_advice_enabled": "Lüftungsempfehlungen basierend auf CO₂- und Feuchtigkeitssensordaten anzeigen.",
+          "adaptive_preheat_enabled": "IHC lernt wie lange Zimmer zum Aufheizen brauchen und passt Vorheizzeiten automatisch an.",
+          "eta_preheat_enabled": "Berechnete Ankunftszeit für dynamisches Vorheizen nutzen.",
+          "vacation_calendar": "Kalender-Entität (calendar.*) in der Urlaubs-Ereignisse per Stichwort erkannt werden.",
+          "vacation_calendar_keyword": "Stichwort das in Kalender-Ereignistiteln gesucht wird um Urlaubszeiträume zu erkennen (z.B. 'urlaub').",
+          "startup_grace_seconds": "Sekunden die beim HA-Start gewartet wird bevor Sensordaten verarbeitet werden. 60–120 s für Zigbee/Z-Wave-Sensoren die nach einem Neustart Zeit zum Melden brauchen.",
+          "off_use_frost_protection": "Wenn das System im OFF-Modus ist, trotzdem die Frostschutztemperatur halten statt komplett abzuschalten.",
+          "stuck_valve_timeout": "Sekunden ohne Ventilbewegung (bei Anforderung > 0) bevor eine Ventil-Fehler-Warnung ausgelöst wird. Standard: 1800 s (30 Min.).",
+          "limescale_protection_enabled": "Fährt TRV-Ventile periodisch durch ihren vollen Bereich um Verkalkung vorzubeugen. Läuft einmal pro konfiguriertem Intervall.",
+          "limescale_interval_days": "Anzahl Tage zwischen Kalkschutz-Übungen. Empfehlung: 14 Tage.",
+          "limescale_time": "Tageszeit (HH:MM) zu der die Kalkschutz-Übung läuft. Wähle einen Zeitpunkt an dem Zimmer üblicherweise unbenutzt sind.",
+          "limescale_duration_minutes": "Wie viele Minuten TRVs während der Übung auf Maximalposition gehalten werden. Standard: 5 Minuten."
         }
       },
       "heating_curve": {
@@ -145,7 +149,6 @@
           "window_sensor": "Fenster-Sensor (optional)",
           "room_offset": "Zimmer-Offset (°C)",
           "deadband": "Totband (°C)",
-          "weight": "Gewichtung",
           "comfort_temp": "Komfort-Temperatur (°C)",
           "eco_temp": "Eco-Temperatur (°C)",
           "sleep_temp": "Schlaf-Temperatur (°C)",
@@ -160,7 +163,6 @@
           "window_sensor": "Optionaler Fenster- oder Türsensor. Wenn das Fenster geöffnet ist, wird die Heizanforderung für diesen Raum deaktiviert.",
           "room_offset": "Korrekturwert falls der Sensor nicht ganz genau misst oder an einer ungünstigen Stelle montiert ist. Positiv = Sensor zeigt zu kalt an.",
           "deadband": "Empfindlichkeit der Regelung. Kleiner Wert = reagiert schnell aber schaltet öfter. Empfehlung: 0,5 °C.",
-          "weight": "Wie stark dieser Raum die Gesamtanforderung beeinflusst. Höherer Wert = dieser Raum hat mehr Einfluss. Empfehlung: 1,0 für normale Zimmer.",
           "comfort_temp": "Gewünschte Temperatur im Komfort-Modus (z.B. wenn jemand zuhause ist). Typisch: 20–22 °C.",
           "eco_temp": "Abgesenkte Temperatur im Eco-Modus (z.B. nachts oder kurze Abwesenheit). Typisch: 17–19 °C.",
           "sleep_temp": "Temperatur im Schlaf-Modus. Typisch kühler als Eco. Typisch: 16–18 °C.",
@@ -184,7 +186,6 @@
           "window_sensor": "Fenster-Sensor (optional)",
           "room_offset": "Zimmer-Offset (°C)",
           "deadband": "Totband (°C)",
-          "weight": "Gewichtung",
           "comfort_temp": "Komfort-Temperatur (°C)",
           "eco_temp": "Eco-Temperatur (°C)",
           "sleep_temp": "Schlaf-Temperatur (°C)",
@@ -199,7 +200,6 @@
           "window_sensor": "Optionaler Fenster- oder Türsensor. Wenn das Fenster geöffnet ist, wird die Heizanforderung für diesen Raum deaktiviert.",
           "room_offset": "Korrekturwert falls der Sensor nicht ganz genau misst oder an einer ungünstigen Stelle montiert ist. Positiv = Sensor zeigt zu kalt an.",
           "deadband": "Empfindlichkeit der Regelung. Kleiner Wert = reagiert schnell aber schaltet öfter. Empfehlung: 0,5 °C.",
-          "weight": "Wie stark dieser Raum die Gesamtanforderung beeinflusst. Höherer Wert = dieser Raum hat mehr Einfluss. Empfehlung: 1,0 für normale Zimmer.",
           "comfort_temp": "Gewünschte Temperatur im Komfort-Modus (z.B. wenn jemand zuhause ist). Typisch: 20–22 °C.",
           "eco_temp": "Abgesenkte Temperatur im Eco-Modus (z.B. nachts oder kurze Abwesenheit). Typisch: 17–19 °C.",
           "sleep_temp": "Temperatur im Schlaf-Modus. Typisch kühler als Eco. Typisch: 16–18 °C.",
@@ -221,7 +221,8 @@
       "no_rooms": "Keine Zimmer konfiguriert"
     },
     "abort": {
-      "no_rooms": "Keine Zimmer konfiguriert"
+      "no_rooms": "Keine Zimmer konfiguriert",
+      "room_not_found": "Zimmer nicht gefunden"
     }
   },
   "entity": {

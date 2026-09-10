@@ -231,21 +231,25 @@ class WindowManagerMixin:
 
             # If window opened: schedule a second refresh after reaction_time so IHC
             # actually acts on the open window without waiting up to 60s for the next
-            # regular update cycle.
-            if new_s == STATE_ON:
-                for room in self.get_rooms():
-                    room_sensors = list(room.get(CONF_WINDOW_SENSORS, []))
-                    single = room.get(CONF_WINDOW_SENSOR)
-                    if single and single not in room_sensors:
-                        room_sensors.append(single)
-                    if entity_id in room_sensors:
-                        reaction_time = int(room.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME))
-                        if reaction_time > 0:
-                            @callback
-                            def _delayed_refresh(_now) -> None:
-                                self.hass.async_create_task(self.async_request_refresh())
-                            async_call_later(self.hass, reaction_time, _delayed_refresh)
-                        break
+            # regular update cycle. Symmetrically, if it closed: schedule a refresh
+            # after close_delay so heating resumes the instant the delay is over
+            # instead of lagging behind the next periodic cycle.
+            for room in self.get_rooms():
+                room_sensors = list(room.get(CONF_WINDOW_SENSORS, []))
+                single = room.get(CONF_WINDOW_SENSOR)
+                if single and single not in room_sensors:
+                    room_sensors.append(single)
+                if entity_id in room_sensors:
+                    if new_s == STATE_ON:
+                        delay = int(room.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME))
+                    else:
+                        delay = int(room.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY))
+                    if delay > 0:
+                        @callback
+                        def _delayed_refresh(_now) -> None:
+                            self.hass.async_create_task(self.async_request_refresh())
+                        async_call_later(self.hass, delay, _delayed_refresh)
+                    break
 
         self._window_listener_unsub = async_track_state_change_event(
             self.hass, list(sensor_ids), _on_window_sensor_change

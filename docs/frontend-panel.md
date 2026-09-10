@@ -2,23 +2,26 @@
 
 Das IHC-Panel ist ein eigenes Dashboard das in der HA-Seitenleiste unter dem Menüpunkt **IHC** (🌡️) erscheint.
 
-Es ist als Vanilla JavaScript Web Component implementiert (`ihc-panel.js`) und benötigt keine externe Abhängigkeiten.
+Es ist als Vanilla JavaScript Web Component implementiert (`ihc-panel.js`) und benötigt keine externe Abhängigkeiten. Es hat sechs Tabs: 🏠 Dashboard, 🚪 Zimmer, 📊 Übersicht (Diagnose), 🔥 Analyse, ⚙️ Einstellungen, 📈 Heizkurve.
 
 ---
 
-## Tab: Übersicht
+## Tab: 🏠 Dashboard
 
-Der Übersicht-Tab ist der Hauptanzeigebereich und aktualisiert sich **automatisch alle 5 Sekunden**.
+Der Dashboard-Tab ist der Hauptanzeigebereich und aktualisiert sich **automatisch alle 5 Sekunden**.
+
+### Hero-Bereich
+
+Oben auf der Seite: Heizstatus, Gesamtanforderung und Systemmodus – der Systemmodus lässt sich
+direkt hier per Klick auf die Modus-Pills umschalten.
 
 ### Status-Leiste
-
-Oben auf der Seite werden die globalen Systemwerte angezeigt:
 
 | Kachel | Beschreibung |
 |--------|-------------|
 | Außentemp. | Aktuelle Außentemperatur |
 | Kurven-Ziel | Aktueller Heizkurven-Basiswert |
-| Anforderung | Gewichtete Gesamtanforderung in % |
+| Anforderung | Gesamtanforderung in % (Durchschnitt aller aktiven Zimmer) |
 | Heizung | `🔥 EIN` oder `✓ AUS` |
 | Zimmer aktiv | Anzahl Zimmer mit Anforderung > 0 |
 | Modus | Aktueller Systemmodus |
@@ -34,18 +37,28 @@ Wenn besondere Zustände aktiv sind, erscheinen farbige Banner:
 - 🚶 **Anwesenheits-Abwesend** – niemand zuhause (orange)
 - 🌞 **Solarüberschuss** – Zieltemperatur angehoben (gelb)
 - 💶 **Hoher Strompreis** – Eco-Modus aktiv (rot)
+- 🥶 **Kälteprognose** – Frühstart der Heizung aktiv
+- 🎉 **Gäste-Modus** aktiv
+
+### Alert-Leiste
+
+- 🔋 Schwache TRV-Batterien
+- 🔩 Festsitzendes Ventil (Stuck-Valve-Erkennung)
+- 🌊 Fenster-Kaskade aktiv, mit Countdown und Quell-Raum
 
 ### Raumkarten
 
 Jedes Zimmer hat eine eigene Karte mit:
 
-- **Name** + Statusbadge (Heizt / OK / Fenster offen / Boost / Eco / Abwesend / Aus)
+- **Name** + Statusbadge (Heizt / OK / Fenster offen / Boost / Eco / Abwesend / Aus / Manuell)
 - **Temperaturen**: Ist → Soll (große Anzeige)
 - **Anforderungsbalken**: farbkodiert (grün–gelb–orange–rot)
 - **Quelle**: woher die Zieltemperatur stammt (Zeitplan / Heizkurve / Preset / etc.)
 - **Nachtabsenkung**: „🌙 -2°" wenn aktiv
 - **Modus-Chips**: Schnellauswahl Auto / Komfort / Eco / Schlafen / Abwesend / Aus
-- **Boost-Button**: ⚡ aktiviert 60-Minuten-Komfortmodus
+- **Boost-Button**: ⚡ aktiviert den konfigurierten Boost
+- **Override-Banner**: wenn der Zimmermodus `manual` ist (nach TRV-Eingriff), inkl.
+  „↩ Reset HH:MM Uhr" bis zum nächsten Zeitplan-Eintrag
 - **Laufzeit** und **Ø Aufheizzeit** (unten links/rechts)
 - **Sparkline**: Mini-Temperaturverlauf der letzten Stunden
 
@@ -57,7 +70,7 @@ Jedes Zimmer hat eine eigene Karte mit:
 
 ---
 
-## Tab: Zimmer
+## Tab: 🚪 Zimmer
 
 Verwaltung aller konfigurierten Zimmer.
 
@@ -69,8 +82,11 @@ Klick auf **+ Zimmer hinzufügen** öffnet ein Modal mit:
 - **Temperatursensor** – mit Autocomplete (tippt man `sensor.` erscheinen Vorschläge)
 - **Thermostate/TRVs** – mehrere möglich, `+` für weitere Zeilen, mit Autocomplete
 - **Fenstersensoren** – mehrere möglich, `+` für weitere Zeilen, mit Autocomplete
-- **Temperatur-Presets**: Komfort, Eco, Schlafen, Abwesend
-- **Erweitert**: Zimmer-Offset, Totband, Gewichtung
+- **Temperatur-Presets**: Komfort, Eco-Offset/Max, Schlaf-Offset/Max, Abwesend-Offset/Max
+- **CO₂-Sensor, Feuchtigkeit-Sensor** (Schimmelschutz), Anwesenheits-Entitäten, Boost-Temperatur
+- **Erweitert**: Zimmer-Offset, Totband, TRV-Verhalten (`trv_temp_weight`, `trv_temp_offset`, `trv_min_send_interval`)
+
+Das Add-Modal ist vollständig mit dem Edit-Modal synchronisiert – kein Feld fehlt in einem der beiden.
 
 ### Zimmer bearbeiten
 
@@ -84,74 +100,20 @@ Klick auf **Bearbeiten** öffnet das Edit-Modal mit allen aktuellen Werten vorau
 
 **🗑** → Bestätigungs-Dialog → Zimmer und alle Entitäten werden entfernt.
 
----
+### Sub-Tabs im Zimmer-Detail
 
-## Tab: Einstellungen
+Nach Auswahl eines Zimmers stehen drei Sub-Tabs zur Verfügung:
 
-Alle globalen Parameter auf einen Blick.
+#### 📅 Zeitplan
 
-### Betriebsmodus
+Wöchentliche Zeitpläne für das ausgewählte Zimmer bearbeiten.
 
-System-Modus manuell setzen (Dropdown + „Setzen"-Button).
-
-### Temperaturen & Sommerautomatik
-
-- Abwesend-Temperatur (System-Abwesend)
-- Urlaubs-Temperatur
-- Frostschutz-Temperatur
-- Sommerautomatik: Ein/Aus + Schwellenwert
-
-### Nachtabsenkung & Vorheizen
-
-- Nachtabsenkung: Ein/Aus + Absenkung in °C
-- Vorheiz-Vorlaufzeit in Minuten
-
-### Klimabaustein
-
-- Einschaltschwelle (%)
-- Hysterese (%)
-- Mindest-Einschaltzeit (min)
-- Mindest-Ausschaltzeit (min)
-- Mindestanzahl Zimmer
-
-### Anwesenheitserkennung
-
-Checkboxen für alle verfügbaren `person.*`, `device_tracker.*` und `input_boolean.*` Entities.
-
-### Energie & Solar
-
-- Kesselleistung (kW)
-- Vorlauftemperatur-Entity
-- Solar-Sensor + Schwellenwert + Boost
-- Strompreis-Sensor + Schwellenwert + Eco-Absenkung
-
-### Energie-Statistik heute
-
-Zeigt Heizlaufzeit, Verbrauch, aktuelle Solar-Leistung und Strompreis (wenn konfiguriert).
-
-### Backup & Restore
-
-Export der kompletten Konfiguration als JSON in einer HA-Persistent-Notification.
-
----
-
-## Tab: Zeitpläne
-
-Wöchentliche Zeitpläne pro Zimmer bearbeiten.
-
-### Zimmer auswählen
-
-Tabs oben wählen das Zimmer. Jedes Zimmer hat eigene Zeitpläne.
-
-### Tagesgruppen
-
+**Tagesgruppen:**
 - Mehrere Tagesgruppen möglich (z.B. „Mo–Fr" und „Sa–So")
 - Tage per Klick auf die Wochentags-Chips auswählen/abwählen
 - **+ Gruppe hinzufügen** für weitere Tagesgruppen
 
-### Zeiträume
-
-Pro Gruppe: beliebig viele Zeiträume:
+**Zeiträume** pro Gruppe:
 
 | Spalte | Beschreibung |
 |--------|-------------|
@@ -163,15 +125,73 @@ Pro Gruppe: beliebig viele Zeiträume:
 
 > Übernacht-Zeiträume (z.B. 22:00–06:00) sind möglich.
 
-### Speichern
-
 **💾 Zeitpläne speichern** speichert die Zeitpläne des aktuell ausgewählten Zimmers.
 
-> **Hinweis:** Zeitpläne werden zimmerweise gespeichert. Das Wechseln zu einem anderen Zimmer-Tab **verliert ungespeicherte Änderungen**.
+> **Hinweis:** Zeitpläne werden zimmerweise gespeichert. Das Wechseln zu einem anderen Zimmer **verliert ungespeicherte Änderungen**.
+
+#### 🗓️ Wochenansicht
+
+Kalenderartige Übersicht des Zimmer-Zeitplans über die Woche.
+
+#### 📈 Verlauf
+
+SVG-Chart mit der 7-Tage-Historie (stündlich): Ist-Temperatur und Solltemperatur-Verlauf,
+inkl. Min/Max/Ø-Statistik.
 
 ---
 
-## Tab: Heizkurve
+## Tab: 📊 Übersicht (Diagnose)
+
+Aktualisiert sich ebenfalls automatisch alle 5 Sekunden.
+
+- Systemstatus aller Zimmer auf einen Blick
+- Anforderungen, Betriebszustände, Sensor-Werte
+- Energie- und Laufzeit-Statistiken
+- Strompreis-Chart (Tibber/Nordpool-Stundenpreise)
+- Live-ETA-Vorheiz-Status mit Ankunfts-Tabelle
+
+---
+
+## Tab: 🔥 Analyse
+
+Zimmer-Auswahl per Pill-Buttons oben, dann pro Zimmer:
+
+- **Anforderungs-Heatmap**: gelernter Wochentag/Uhrzeit-Verlauf der Heizanforderung (EMA über
+  mehrere Wochen). Blau = niedrige, Rot = hohe Anforderung
+- **Optimum-Start-Lernkurve**: Ø-Aufheizzeit (flach, ohne Außensensor) und außentemperatur-
+  korrigierte Vorheizzeit, tabellarisch mit Außentemperatur-Bucket, Ø-Minuten und Messpunkten
+- **Abkühlrate** (thermische Masse): °C/h je °C Differenz innen/außen
+- **Optimum-Stop-Status**: erscheint nur, wenn gerade aktiv – zeigt wie viele Minuten früher
+  abgeschaltet wurde und die vorhergesagte Temperatur bei Zeitplan-Ende
+
+Dieser Tab hat **keinen** automatischen Refresh (die Lerndaten ändern sich nur langsam).
+
+---
+
+## Tab: ⚙️ Einstellungen
+
+Alle globalen Parameter auf einen Blick, u. a.:
+
+- **Hardware & Steuerung**: Außensensor, TRV-Sendeintervall, Ventilpositions-Auswertung
+- **Systemmodus** manuell setzen
+- **Temperaturen**: Abwesend, Urlaub, Frostschutz
+- **Sommerautomatik**: Ein/Aus + Schwellenwert + externer Schalter, Kälteprognose-Frühstart
+- **Nachtabsenkung & Vorheizen**: Absenkung in °C, Vorheiz-Vorlaufzeit, Optimum Start
+- **Anwesenheitserkennung**: `person.*`/`device_tracker.*` auswählen, Verzögerung, ETA-Vorheizen
+- **Gäste-Modus & Urlaubs-Assistent**: Dauer, Datumsbereich, Kalenderintegration, Feiertagskalender
+- **Energie & Solar**: Solar-Sensor + Schwellenwert + Boost, Strompreis-Sensor + Schwellenwert + Eco-Absenkung
+- **Lüftungsempfehlung**: CO₂-/Feuchte-Schwellen
+- **Intelligente Regelung**: Adaptives Vorheizen, ETA-Schwelle
+- **Kalkschutz & Stuck-Valve-Erkennung**: Ventil-Übungszyklus, Timeout für die Fehlererkennung
+- **Peak Shaving**: Ein/Aus + Verzögerung
+- **Backup & Restore**: Export als JSON-Datei-Download, Import via Datei-Upload; Reset gelernter Werte (Heizkurven-Korrektur, Aufheizhistorie) und Statistiken (Laufzeiten/Energie heute) getrennt voneinander
+
+Es gibt **keinen** Bereich für einen zentralen Heizungsschalter, Hysterese/Mindestzeiten oder
+Kühlung – diese Funktionen existieren seit v2.0.0 nicht mehr.
+
+---
+
+## Tab: 📈 Heizkurve
 
 Grafischer Editor für die Außentemperatur-Heizkurve.
 
@@ -197,13 +217,13 @@ Jede Zeile: Außentemperatur → Zieltemperatur. Mindestens 2 Punkte erforderlic
 
 ## Technische Details
 
-### Warum kein Auto-Refresh in anderen Tabs?
+### Warum kein Auto-Refresh in allen Tabs?
 
 HA sendet State-Updates sehr häufig (mehrmals pro Sekunde). Würde das Panel bei jedem Update neu rendern, würden DOM-Elemente während Klicks ersetzt und Buttons wären unbenutzbar.
 
 **Lösung:**
-- Nur der Übersicht-Tab refreshed automatisch (alle 5 s, pausiert während User interagiert)
-- Alle anderen Tabs rendern nur beim Tab-Wechsel
+- Nur Dashboard und Übersicht (Diagnose) refreshen automatisch (alle 5 s, pausiert während der Nutzer interagiert)
+- Alle anderen Tabs (Zimmer, Analyse, Einstellungen, Heizkurve) rendern nur beim Tab-Wechsel
 - Modals leben in einem separaten `#modal-root` Container und überleben Tab-Wechsel
 
 ### Entity-Autocomplete
@@ -217,4 +237,4 @@ Beim Tippen filtert der Browser automatisch die Vorschläge.
 
 ### Fehlerbehandlung
 
-Alle Service-Calls sind in try/catch gewrappt. Fehler erscheinen als Toast-Benachrichtigung am unteren Bildschirmrand.
+Alle Service-Calls sind in try/catch gewrappt. Fehler erscheinen als Toast-Benachrichtigung am unteren Bildschirmrand. Ein Rendering-Fehler in einem Tab zeigt eine Fehlermeldung statt eines leeren/schwarzen Bildschirms an.

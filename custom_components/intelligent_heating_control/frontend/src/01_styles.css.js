@@ -113,7 +113,6 @@ const STYLES = `
   .sysmode-pill:hover { border-color: var(--primary-color); color: var(--primary-color); }
   .sysmode-pill.active-auto     { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
   .sysmode-pill.active-heat     { background: #ef5350; color: #fff; border-color: #ef5350; }
-  .sysmode-pill.active-cool     { background: #42a5f5; color: #fff; border-color: #42a5f5; }
   .sysmode-pill.active-away     { background: #ffa726; color: #fff; border-color: #ffa726; }
   .sysmode-pill.active-vacation { background: #66bb6a; color: #fff; border-color: #66bb6a; }
   .sysmode-pill.active-off      { background: #9e9e9e; color: #fff; border-color: #9e9e9e; }

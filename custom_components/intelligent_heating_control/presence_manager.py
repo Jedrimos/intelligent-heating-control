@@ -98,6 +98,13 @@ class PresenceManagerMixin:
                 _LOGGER.info("IHC: Person returned during away-pending window – cancelling")
                 self._presence_arrive_pending_since = None
 
+        elif not someone_home and self._presence_arrive_pending_since is not None:
+            # Person left again before the arrival delay elapsed – cancel the pending
+            # arrival timer, otherwise the next real arrival would reuse this stale
+            # timestamp and skip the configured arrival delay entirely.
+            _LOGGER.info("IHC: Person left again during arrival-delay window – cancelling pending arrival")
+            self._presence_arrive_pending_since = None
+
     async def _async_startup_presence_sync(self) -> None:
         """Called ONCE at startup to sync presence state from current HA states.
         Fixes the bug where after HA restart, if someone is home but system mode

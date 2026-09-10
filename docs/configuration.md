@@ -2,34 +2,26 @@
 
 ## Setup-Wizard (Ersteinrichtung)
 
-Nach dem Hinzufügen der Integration erscheint ein 3-Schritt-Assistent:
+Nach dem Hinzufügen der Integration erscheint ein **2-Schritt-Assistent**. Er ist bewusst kurz
+gehalten – alles Weitere wird danach im **IHC-Panel** oder unter **Konfigurieren** eingestellt.
 
-### Schritt 1: Außensensor & Heizungsschalter
+### Schritt 1: Außensensor
 
 | Feld | Beschreibung | Beispiel |
 |------|-------------|---------|
-| `outdoor_temp_sensor` | Entity-ID des Außentemperatursensors | `sensor.aussentemperatur` |
-| `heating_switch` | Switch zum Ein-/Ausschalten des Kessels | `switch.heizung` |
-| `cooling_switch` | Switch für Kühlung (optional) | `switch.klimaanlage` |
+| `outdoor_temp_sensor` | Entity-ID des Außentemperatursensors (optional, aber empfohlen: speist die Heizkurve) | `sensor.aussentemperatur` |
 
-> Der `heating_switch` wird von IHC direkt gesteuert. Es kann eine `switch.*`, `input_boolean.*` oder jede andere schaltbare Entity sein.
+> Ohne Außensensor fällt jedes Zimmer auf seine konfigurierte `comfort_temp` (fester Wert) zurück.
 
-### Schritt 2: Klimabaustein-Parameter
-
-| Parameter | Standard | Beschreibung |
-|-----------|---------|-------------|
-| `demand_threshold` | 15 % | Ab welcher Gesamtanforderung schaltet die Heizung ein |
-| `demand_hysteresis` | 5 % | Heizung bleibt an bis Anforderung unter `threshold - hysteresis` fällt |
-| `min_on_time` | 5 min | Mindest-Einschaltdauer (Kesselschutz) |
-| `min_off_time` | 5 min | Mindest-Ausschaltdauer (Kesselschutz) |
-| `min_rooms_demand` | 1 | Mindestanzahl Zimmer mit Anforderung > 0 |
-
-### Schritt 3: Globale Temperaturen
+### Schritt 2: Globale Temperaturen
 
 | Parameter | Standard | Beschreibung |
 |-----------|---------|-------------|
 | `away_temp` | 16 °C | Temperatur für alle Zimmer im System-Abwesend-Modus |
 | `vacation_temp` | 14 °C | Temperatur für alle Zimmer im Urlaubs-Modus |
+
+Es gibt **keinen** zentralen Heizungsschalter- oder Kühlungs-Schritt mehr im Wizard – IHC steuert
+ausschließlich TRVs direkt (siehe [Architektur](architecture.md)).
 
 ---
 
@@ -52,7 +44,7 @@ oder über **Einstellungen → Integrationen → IHC → Konfigurieren → Zimme
 | Feld | Beschreibung | Beispiel |
 |------|-------------|---------|
 | `temp_sensor` | Temperatursensor im Zimmer | `sensor.wohnzimmer_temp` |
-| `valve_entities` | Liste der Thermostate/TRVs | `[climate.wohnzimmer_trv]` |
+| `valve_entities` | Liste der Thermostate/TRVs – IHC schreibt die berechnete Solltemperatur direkt auf jeden davon | `[climate.wohnzimmer_trv]` |
 | `window_sensors` | Liste der Fenstersensoren | `[binary_sensor.fenster_wz]` |
 
 #### Temperatur-Presets (outdoor-geregelt)
@@ -81,15 +73,35 @@ away_base    = min(away_max_temp,   comfort_base − away_offset)
 
 Die berechneten Effektivwerte werden als `comfort_temp_eff`, `eco_temp_eff`, `sleep_temp_eff`, `away_temp_eff` in den Climate-Attributen exponiert.
 
+**Dynamische Sollwert-Entitäten (optional):** Statt der festen `comfort_temp`/`eco_offset`-Werte
+können `comfort_temp_entity` bzw. `eco_temp_entity` (je eine `input_number.*`- oder `sensor.*`-Entity)
+gesetzt werden – ihr Live-Wert überschreibt dann den Heizkurven-Wert für diesen Modus.
+
+**Temperaturschwelle (optional):** `room_temp_threshold` (Standard 0 °C = deaktiviert) verhindert
+Heizen unterhalb einer absoluten Grenztemperatur, unabhängig vom sonst berechneten Sollwert.
+
 #### Erweiterte Einstellungen
 
 | Feld | Standard | Beschreibung |
 |------|---------|-------------|
 | `room_offset` | 0 °C | Korrektur-Offset zum Heizkurven-Basiswert (±5 °C) |
-| `deadband` | 0,5 °C | Totband für Anforderungsberechnung |
-| `weight` | 1,0 | Gewichtung im Klimabaustein (1,0 = normal, 2,0 = doppelt) |
+| `deadband` | 0,5 °C | Totband für die Anforderungsberechnung (siehe [Erweiterte Konfiguration](advanced.md#anforderungsberechnung-pro-zimmer)) |
 | `min_temp` | 5 °C | Minimale Temperaturgrenze |
 | `max_temp` | 30 °C | Maximale Temperaturgrenze |
+| `room_qm` | 0 m² | Zimmerfläche (fließt in Vorheiz-/Energieschätzung ein) |
+| `temp_calibration` | 0 °C | Kalibrierungs-Offset für den Temperatursensor |
+
+#### TRV-Verhalten
+
+| Feld | Standard | Beschreibung |
+|------|---------|-------------|
+| `trv_temp_weight` | 0.0 | 0 = Raumsensor primär (TRV-Temp nur Fallback); > 0 = Blend aus Raumsensor und TRV-Temperatur |
+| `trv_temp_offset` | 0 °C | Kalibrierung der TRV-eigenen Temperatur (TRVs sitzen am Heizkörper, oft wärmer als der Raum) |
+| `trv_min_send_interval` | – | Mindestabstand (Sekunden) zwischen zwei Sollwert-Übertragungen an den TRV |
+| `stuck_valve_timeout` | 1800 s | Nach dieser Zeit ohne TRV-Reaktion trotz Anforderung → `binary_sensor.ihc_<zimmer>_ventil_fehler` |
+
+Details zur Ventilpositions-Auswertung und zum Temperatur-Blending siehe
+[Architektur → TRV-Steuerung](architecture.md#trv-steuerung).
 
 #### HA Zeitpläne (schedule.* Entities)
 
@@ -110,14 +122,38 @@ Jede Bindung konfiguriert:
 
 > HA-Zeitpläne haben Vorrang vor internen Zeitplänen im Auto-Modus.
 
-#### Schimmelschutz
+#### Schimmelschutz, CO₂ & Lüftung
 
 | Feld | Standard | Beschreibung |
 |------|---------|-------------|
 | `humidity_sensor` | — | Optionaler Luftfeuchtigkeit-Sensor (`sensor.*`) |
 | `mold_protection_enabled` | true | Automatische Temperaturerhöhung bei Schimmelrisiko aktivieren |
+| `mold_humidity_threshold` | 70 % | Ab welcher relativen Feuchte das Schimmelrisiko als aktiv gilt |
+| `co2_sensor` | — | Optionaler CO₂-Sensor (`sensor.*`) |
+| `co2_threshold_good` / `co2_threshold_bad` | 800 / 1200 ppm | Schwellen für die Lüftungsempfehlung |
 
-Wenn `humidity_sensor` konfiguriert ist, berechnet IHC laufend den Taupunkt. Bei Schimmelgefahr (relative Feuchte nahe Taupunkt) wird die Zieltemperatur automatisch angehoben. Der aktuelle Status ist im Attribut `mold` der Climate-Entity abrufbar.
+Wenn `humidity_sensor` konfiguriert ist, berechnet IHC laufend den Taupunkt. Bei Schimmelgefahr
+wird die Zieltemperatur automatisch angehoben. Der aktuelle Status ist im Attribut `mold` der
+Climate-Entity abrufbar.
+
+#### Energieschätzung
+
+| Feld | Standard | Beschreibung |
+|------|---------|-------------|
+| `radiator_kw` | 1.0 kW | Heizkörperleistung dieses Zimmers – Basis für `Laufzeit × radiator_kw` |
+| `hkv_sensor` | — | Optional: HA-Sensor mit HKV-Einheiten (Heizkostenverteiler) statt Laufzeit-Schätzung |
+| `hkv_factor` | 0,083 kWh/Einheit | Umrechnungsfaktor laut Jahresabrechnung |
+
+#### Zimmer-spezifische Anwesenheit, Boost & Fenster-Kaskade
+
+| Feld | Beschreibung |
+|------|-------------|
+| `room_presence_entities` | `person.*`/`device_tracker.*`-Liste – heizt nur wenn jemand hier ist (z. B. Homeoffice) |
+| `boost_temp` | Zieltemperatur während des Boosts (Standard: Komfort) |
+| `boost_default_duration` | Standard-Boost-Dauer in Minuten (Standard: 60) |
+| `window_cascade_rooms` | Zimmer, die bei zu langem Lüften dieses Zimmers automatisch absenken |
+| `window_cascade_delay_minutes` / `window_cascade_offset` | Verzögerung bis zur Kaskade / Absenkung in °C |
+| `window_restore_mode` | `schedule` (Standard, Zeitplan neu berechnen) oder `previous` (Sollwert vor dem Öffnen wiederherstellen) |
 
 ### Zimmer bearbeiten
 
@@ -130,6 +166,11 @@ Alle oben genannten Felder sind nachträglich änderbar. Änderungen werden sofo
 **IHC Panel → Zimmer → 🗑** oder per Service `remove_room`.
 
 > ⚠️ Das Entfernen löscht alle zugehörigen HA-Entitäten (`climate.*`, `sensor.*`, etc.).
+
+### Heizgruppen
+
+Mehrere Zimmer können zu einer Gruppe zusammengefasst werden (z. B. „Obergeschoss"), um sie
+gemeinsam auf einen Modus zu schalten – siehe [Services → Heizgruppen](services.md#heizgruppen).
 
 ---
 
@@ -166,7 +207,7 @@ Zimmer-Ziel = Heizkurven-Basis + Zimmer-Offset - Nachtabsenkung
 
 ## Zeitpläne konfigurieren
 
-**IHC Panel → Zeitpläne**
+**IHC Panel → Zimmer → Zimmer auswählen → Sub-Tab 📅 Zeitplan**
 
 ### Konzept
 
@@ -194,9 +235,15 @@ Zeiträume die über Mitternacht gehen (z.B. 22:00–06:00) werden unterstützt.
 
 ### Vorheizen (Pre-Heat)
 
-Wenn `preheat_minutes > 0` eingestellt ist, startet die Heizung entsprechend früher um die Zieltemperatur pünktlich zum Zeitplan-Start zu erreichen.
+Wenn `preheat_minutes > 0` eingestellt ist, startet die Heizung entsprechend früher um die Zieltemperatur pünktlich zum Zeitplan-Start zu erreichen. Ist zusätzlich **Optimum Start** (`optimum_start_enabled`) aktiviert, lernt IHC die tatsächliche Aufheizzeit je Außentemperatur-Bucket und ersetzt den festen Wert durch eine gelernte Vorlaufzeit (siehe [Erweiterte Konfiguration](advanced.md)).
 
 **Einstellung:** IHC Panel → Einstellungen → Nachtabsenkung & Vorheizen
+
+### Feiertage & Schulferien
+
+Ein `holiday_calendar` (`calendar.*`-Entity) kann global konfiguriert werden. Ist der Kalender an
+einem Tag aktiv, verwendet IHC statt des Werktagsplans wahlweise den Wochenend-Zeitplan oder
+durchgehend den Komfort-Modus (`holiday_schedule_mode`: `weekend` | `comfort`).
 
 ---
 
@@ -208,7 +255,7 @@ Aktiviert vorübergehend den Komfortbetrieb für alle Zimmer ohne Konfigurations
 
 | Parameter | Standard | Beschreibung |
 |-----------|---------|-------------|
-| `guest_duration_hours` | 4 | Dauer des Gäste-Modus in Stunden |
+| `guest_duration_hours` | 24 | Dauer des Gäste-Modus in Stunden |
 
 ```yaml
 # Gäste-Modus per Service aktivieren
@@ -230,10 +277,27 @@ Konfiguriere eine oder mehrere `person.*` oder `device_tracker.*` Entitäten.
 
 **Logik:**
 - Mindestens eine Person `home` → System im normalen Modus
-- Alle Personen `not_home` → System automatisch auf Abwesend-Modus
+- Alle Personen `not_home` → System automatisch auf Abwesend-Modus (nach optionaler Verzögerung)
 - Erste Person kehrt zurück → System zurück auf Auto-Modus
 
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `presence_away_delay_minutes` | 0 | Minuten bis zum Auto-Away, nachdem alle als abwesend gelten (0 = sofort) |
+
 > Wenn keine Entities konfiguriert sind, ist die Funktion deaktiviert (System läuft immer normal).
+
+Für zimmerspezifische Anwesenheit siehe `room_presence_entities` weiter oben. Für ETA-basiertes
+Vorheizen (Ankunft eines `device_tracker.*` timen) siehe [Erweiterte Konfiguration](advanced.md).
+
+---
+
+## Heizperiode (Winter-/Sommer-Schalter)
+
+**Einstellungen → Integrationen → IHC → Konfigurieren**
+
+| Parameter | Beschreibung |
+|-----------|-------------|
+| `heating_period_entity` | Optionale `input_boolean.*`/`binary_sensor.*`-Entity: steht sie auf OFF, ist die Heizperiode inaktiv und es wird nicht geheizt (unabhängig von der Sommerautomatik) |
 
 ---
 
@@ -248,6 +312,20 @@ Konfiguriere eine oder mehrere `person.*` oder `device_tracker.*` Entitäten.
 | `sun_entity` | `sun.sun` | Welche Entity den Sonnenstand liefert |
 
 **Logik:** Wenn `sun.sun` den Status `below_horizon` hat, wird die Zieltemperatur jedes Zimmers um `night_setback_offset` reduziert.
+
+---
+
+## Sommerautomatik
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `summer_mode_enabled` | false | Sperrt die Heizung oberhalb der Außentemperatur-Schwelle |
+| `summer_threshold` | 18 °C | Außentemperatur ab der die Sommerautomatik greift |
+| `summer_mode_entity` | — | Optional: externer `input_boolean.*`/`binary_sensor.*`, überschreibt die Temperatur-Automatik |
+
+Ergänzend kann eine **Kälteprognose-Frühstart**-Funktion die Sommerautomatik bei einer kalten
+Wetterprognose deaktivieren und die Heizung entsprechend früher starten lassen (Wetter-Entity
+erforderlich, siehe [Erweiterte Konfiguration](advanced.md)).
 
 ---
 
@@ -271,7 +349,7 @@ Bei hohem Strompreis wird der Eco-Modus aktiviert:
 |-----------|---------|-------------|
 | `energy_price_entity` | — | Sensor der den aktuellen Strompreis liefert (€/kWh) |
 | `energy_price_threshold` | 0,30 €/kWh | Ab wann Eco-Modus aktiv wird |
-| `energy_price_eco_offset` | -2 °C | Temperaturabsenkung bei hohem Preis |
+| `energy_price_eco_offset` | 2 °C | Temperaturabsenkung bei hohem Preis |
 
 ---
 
@@ -294,7 +372,6 @@ Alle Einstellungen können auch per HA-Service gesetzt werden:
 ```yaml
 service: intelligent_heating_control.update_global_settings
 data:
-  demand_threshold: 20
   away_temp: 15
   frost_protection_temp: 8
   night_setback_enabled: true

@@ -19,7 +19,7 @@ const _DB_MODE_ICONS = {
   away: "🚶", off: "⛔", manual: "✏️",
 };
 const _SYS_MODE_LABELS = {
-  auto: "Automatisch", heat: "Heizen", cool: "Kühlen",
+  auto: "Automatisch", heat: "Heizen",
   off: "Aus", away: "Abwesend", vacation: "Urlaub", guest: "Gäste",
 };
 const _WEATHER_ICONS = {
@@ -270,14 +270,12 @@ class IhcDashboardCard extends HTMLElement {
       vacation_auto_active:   a.vacation_auto_active || false,
       return_preheat_active:  a.return_preheat_active || false,
       eta_preheat_minutes:    a.eta_preheat_minutes ?? null,
-      adaptive_curve_delta:   a.adaptive_curve_delta ?? 0,
       energy_price_eco_active: ea.energy_price_eco_active || false,
       solar_boost:            ea.solar_boost || 0,
       weather_forecast:       a.weather_forecast || null,
       heating_runtime_today:  rt ? parseFloat(rt.state) || 0 : (a.heating_runtime_today || 0),
       energy_today_kwh:       egy ? parseFloat(egy.state) || 0 : 0,
       energy_yesterday_kwh:   ea.energy_yesterday_kwh || 0,
-      flow_temp:              ea.flow_temp != null ? parseFloat(ea.flow_temp) : null,
       outdoor_humidity:       a.outdoor_humidity != null ? parseFloat(a.outdoor_humidity) : null,
     };
   }
@@ -331,7 +329,6 @@ class IhcDashboardCard extends HTMLElement {
           <div class="stat-val">${g.rooms_demanding}</div>
           <div class="stat-lbl">Zimmer</div>
         </div>
-        ${g.flow_temp !== null ? `<div class="stat"><div class="stat-val">${g.flow_temp.toFixed(1)}°</div><div class="stat-lbl">Vorlauf</div></div>` : ""}
         ${g.outdoor_humidity !== null ? `<div class="stat"><div class="stat-val">${g.outdoor_humidity.toFixed(0)}%</div><div class="stat-lbl">Außenfeuchte</div></div>` : ""}
       </div>
     `;
@@ -373,8 +370,6 @@ class IhcDashboardCard extends HTMLElement {
       banners.push(`<div class="banner banner-eco">☀️ Solar-Boost +${g.solar_boost.toFixed(1)}°C aktiv</div>`);
     if (g.eta_preheat_minutes !== null && g.eta_preheat_minutes <= 90)
       banners.push(`<div class="banner banner-info">🚗 Ankunft in ${g.eta_preheat_minutes} min – Vorheizen aktiv</div>`);
-    if (g.adaptive_curve_delta && Math.abs(g.adaptive_curve_delta) >= 0.1)
-      banners.push(`<div class="banner banner-eco">📈 Adaptive Kurve: ${g.adaptive_curve_delta > 0 ? "+" : ""}${g.adaptive_curve_delta.toFixed(1)}°C Anpassung</div>`);
     return banners.join("");
   }
 

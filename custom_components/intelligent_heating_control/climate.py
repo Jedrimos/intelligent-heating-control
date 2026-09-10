@@ -55,12 +55,12 @@ from .const import (
     CONF_AWAY_TEMP_ROOM,
     DEFAULT_AWAY_TEMP_ROOM,
     CONF_BOOST_DEFAULT_DURATION,
+    CONF_BOOST_TEMP,
+    DEFAULT_BOOST_TEMP,
     CONF_TRV_TEMP_WEIGHT,
     DEFAULT_TRV_TEMP_WEIGHT,
     CONF_TRV_TEMP_OFFSET,
     DEFAULT_TRV_TEMP_OFFSET,
-    CONF_TRV_VALVE_DEMAND,
-    DEFAULT_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
     CONF_TRV_CALIBRATIONS,
@@ -203,7 +203,6 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         "room_id",
         "room_offset",
         "deadband",
-        "weight",
         "absolute_min_temp",
         "min_temp",
         "max_temp",
@@ -321,36 +320,22 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         demand = d.get("demand", 0)
         current_temp = d.get("current_temp")
         target_temp = d.get("target_temp")
-        data = self.coordinator.data
-        controller_mode = (data or {}).get("controller_mode", "switch")
 
-        if controller_mode == "trv":
-            # TRV mode: demand > 0, TRV reports heating action, or valve physically open.
-            # Valve > 8% is the most reliable signal – TRV's own controller has decided to heat.
-            trv_avg_valve = d.get("trv_avg_valve")
-            trv_any_heating = d.get("trv_any_heating", False)
-            if (demand > 0
-                    or trv_any_heating
-                    or (trv_avg_valve is not None and trv_avg_valve > 8)):
-                return HVACAction.HEATING
-            # Fallback for TRVs that don't report valve position or hvac_action:
-            # show HEATING whenever IHC is actively trying to heat the room
-            # (target above current – the TRV received a setpoint above room temp).
-            if (trv_avg_valve is None and not trv_any_heating
-                    and current_temp is not None and target_temp is not None
-                    and current_temp < target_temp):
-                return HVACAction.HEATING
-        else:
-            # Switch mode: show HEATING when the room demands heat OR the central boiler
-            # is actively running. In a central heating system the boiler distributes heat
-            # to all radiators simultaneously, so HEATING is the correct action for the
-            # whole house whenever the boiler fires – even for rooms that just reached
-            # target and dropped their individual demand to 0.
-            heating_active = bool((data or {}).get("heating_active", False))
-            if demand > 0 or heating_active:
-                return HVACAction.HEATING
-            if data and data.get("cooling_active"):
-                return HVACAction.COOLING
+        # demand > 0, TRV reports heating action, or valve physically open.
+        # Valve > 8% is the most reliable signal – TRV's own controller has decided to heat.
+        trv_avg_valve = d.get("trv_avg_valve")
+        trv_any_heating = d.get("trv_any_heating", False)
+        if (demand > 0
+                or trv_any_heating
+                or (trv_avg_valve is not None and trv_avg_valve > 8)):
+            return HVACAction.HEATING
+        # Fallback for TRVs that don't report valve position or hvac_action:
+        # show HEATING whenever IHC is actively trying to heat the room
+        # (target above current – the TRV received a setpoint above room temp).
+        if (trv_avg_valve is None and not trv_any_heating
+                and current_temp is not None and target_temp is not None
+                and current_temp < target_temp):
+            return HVACAction.HEATING
         return HVACAction.IDLE
 
     @property
@@ -402,7 +387,6 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "away_temp_eff": d.get("away_temp_eff"),
             "room_offset": room_cfg.get("room_offset", 0.0),
             "deadband": room_cfg.get("deadband", 0.5),
-            "weight": room_cfg.get("weight", 1.0),
             # Per-room advanced settings
             "absolute_min_temp": room_cfg.get(CONF_ABSOLUTE_MIN_TEMP, DEFAULT_ABSOLUTE_MIN_TEMP),
             "min_temp": room_cfg.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP),
@@ -411,8 +395,6 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "room_preheat_minutes": room_cfg.get(CONF_ROOM_PREHEAT_MINUTES, DEFAULT_ROOM_PREHEAT_MINUTES),
             "window_reaction_time": room_cfg.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME),
             "window_close_delay": room_cfg.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY),
-            # Derived effective weight (from qm if weight is default)
-            "effective_weight": d.get("effective_weight", room_cfg.get("weight", 1.0)),
             "schedules": room_cfg.get("schedules", []),
             "ha_schedules": room_cfg.get("ha_schedules", []),
             "ha_schedule_blocks": d.get("ha_schedule_blocks", {}),
@@ -455,17 +437,18 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "aggressive_mode_offset": room_cfg.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET),
             # Boost config
             "boost_default_duration": room_cfg.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION),
+            "boost_temp": room_cfg.get(CONF_BOOST_TEMP, DEFAULT_BOOST_TEMP),
             # Ventilation advice + CO2
             "co2_sensor": room_cfg.get(CONF_CO2_SENSOR, ""),
             "co2_threshold_good": room_cfg.get(CONF_CO2_THRESHOLD_GOOD, DEFAULT_CO2_THRESHOLD_GOOD),
             "co2_threshold_bad": room_cfg.get(CONF_CO2_THRESHOLD_BAD, DEFAULT_CO2_THRESHOLD_BAD),
             "co2_ppm": d.get("co2_ppm"),
             "co2_ventilation_eta_minutes": d.get("co2_ventilation_eta_minutes"),
+            "co2_preheat_boost": d.get("co2_preheat_boost", False),
             "ventilation": d.get("ventilation"),
             # TRV sensor data integration (optional)
             "trv_temp_weight": room_cfg.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT),
             "trv_temp_offset": room_cfg.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET),
-            "trv_valve_demand": room_cfg.get(CONF_TRV_VALVE_DEMAND, DEFAULT_TRV_VALVE_DEMAND),
             "trv_min_send_interval": room_cfg.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL),
             "trv_calibrations": room_cfg.get(CONF_TRV_CALIBRATIONS, {}),
             "temp_calibration": room_cfg.get(CONF_TEMP_CALIBRATION, 0.0),
@@ -476,12 +459,14 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "trv_min_battery": d.get("trv_min_battery"),
             "trv_low_battery": d.get("trv_low_battery", False),
             "trv_stuck_valves": d.get("trv_stuck_valves", []),
+            "trv_suggested_offset": d.get("trv_suggested_offset"),  # calibration assistant, see architecture.md
             # Demand heatmap (7 days × 24 hours EMA)
             "demand_heatmap": d.get("demand_heatmap", []),
             # Optimum Start & Thermal Mass learning data
             "avg_warmup_minutes": d.get("avg_warmup_minutes"),          # flat average, no outdoor sensor needed
             "learned_preheat_minutes": d.get("learned_preheat_minutes"),
             "avg_cooling_rate": d.get("avg_cooling_rate"),
+            "thermal_bridge": d.get("thermal_bridge"),  # {"suspected": bool, "ratio": float|None}
             "warmup_curve": d.get("warmup_curve", []),
             # Optimum Stop (Abschaltzeit-Optimierung)
             "optimum_stop_active": d.get("optimum_stop_active", False),

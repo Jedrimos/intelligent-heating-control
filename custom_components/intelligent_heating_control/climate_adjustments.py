@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_NIGHT_SETBACK_ENABLED,
@@ -20,16 +21,11 @@ from .const import (
     CONF_WEATHER_ENTITY,
     CONF_WEATHER_COLD_THRESHOLD,
     CONF_WEATHER_COLD_BOOST,
-    CONF_ADAPTIVE_CURVE_ENABLED,
-    CONF_ADAPTIVE_CURVE_MAX_DELTA,
     CONF_ADAPTIVE_PREHEAT_ENABLED,
     CONF_ETA_PREHEAT_ENABLED,
     CONF_ETA_PREHEAT_THRESHOLD_MINUTES,
     DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES,
     CONF_PRESENCE_ENTITIES,
-    CONF_PREHEAT_MINUTES,
-    CONF_HEATING_CURVE,
-    CONF_CURVE_POINTS,
     CONF_PRICE_FORECAST_ATTRIBUTE,
     DEFAULT_FROST_PROTECTION_TEMP,
     DEFAULT_SOLAR_SURPLUS_THRESHOLD,
@@ -38,13 +34,9 @@ from .const import (
     DEFAULT_ENERGY_PRICE_ECO_OFFSET,
     DEFAULT_WEATHER_COLD_THRESHOLD,
     DEFAULT_WEATHER_COLD_BOOST,
-    DEFAULT_ADAPTIVE_CURVE_ENABLED,
-    DEFAULT_ADAPTIVE_CURVE_MAX_DELTA,
     DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
     DEFAULT_ETA_PREHEAT_ENABLED,
-    DEFAULT_PREHEAT_MINUTES,
     DEFAULT_PRICE_FORECAST_ATTRIBUTE,
-    DEFAULT_HEATING_CURVE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -193,68 +185,6 @@ class ClimateAdjustmentsMixin:
                 result["cold_warning"] = True
         return result
 
-    def _adapt_heating_curve(self) -> None:
-        """
-        Adaptive heating curve: subtly adjust the curve up/down based on whether
-        rooms are systematically warm-up faster or slower than expected.
-
-        Logic:
-          - Compute the average warmup minutes across all rooms.
-          - If avg > preheat_minutes + 15 min  → rooms heat too slowly → shift curve +0.5°C
-          - If avg < preheat_minutes - 15 min  → rooms heat too quickly → shift curve -0.5°C
-          - Maximum total shift: ±CONF_ADAPTIVE_CURVE_MAX_DELTA (default ±3°C)
-          - Runs at most once per day.
-        """
-        cfg = self.get_config()
-        if not cfg.get(CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED):
-            return
-        today_yday = datetime.now().timetuple().tm_yday
-        if self._curve_last_adapted == today_yday:
-            return
-        self._curve_last_adapted = today_yday
-
-        # Need at least 3 rooms with warmup data
-        all_warmups = [wm for wms in self._warmup_history.values() for wm in wms if wm > 0]
-        if len(all_warmups) < 3:
-            return
-
-        avg_warmup = sum(all_warmups) / len(all_warmups)
-        target_warmup = float(cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES)) or 30.0
-        max_delta = float(cfg.get(CONF_ADAPTIVE_CURVE_MAX_DELTA, DEFAULT_ADAPTIVE_CURVE_MAX_DELTA))
-        step = 0.5  # °C per adaptation step
-
-        if avg_warmup > target_warmup + 15:
-            delta = step
-        elif avg_warmup < target_warmup - 15:
-            delta = -step
-        else:
-            return
-
-        # Enforce maximum cumulative delta
-        new_total = self._curve_adaptation_delta + delta
-        if abs(new_total) > max_delta:
-            return
-
-        # Apply shift to all curve points
-        current_points = cfg.get(CONF_HEATING_CURVE, {}).get(CONF_CURVE_POINTS, DEFAULT_HEATING_CURVE)
-        new_points = [
-            {"outdoor_temp": p["outdoor_temp"], "target_temp": round(p["target_temp"] + delta, 1)}
-            for p in current_points
-        ]
-        self._curve_adaptation_delta = new_total
-        self._heating_curve.update_points(new_points)
-
-        # Persist curve via config entry options
-        new_options = dict(self._config_entry.options)
-        new_options[CONF_HEATING_CURVE] = {CONF_CURVE_POINTS: new_points}
-        self._suppress_reload = True
-        self.hass.config_entries.async_update_entry(self._config_entry, options=new_options)
-        _LOGGER.info(
-            "Adaptive heating curve: shifted %.1f°C (total %.1f°C). avg_warmup=%.1f min",
-            delta, self._curve_adaptation_delta, avg_warmup,
-        )
-        self.hass.async_create_task(self._async_save_runtime_state())
-
     def _get_price_forecast_offset(self) -> float:
         """
         Dynamic price-based temperature offset using hourly price forecast.
@@ -281,7 +211,7 @@ class ClimateAdjustmentsMixin:
         forecast_attr = cfg.get(CONF_PRICE_FORECAST_ATTRIBUTE, DEFAULT_PRICE_FORECAST_ATTRIBUTE)
         today_prices = state.attributes.get(forecast_attr, [])
         if today_prices and isinstance(today_prices, list):
-            current_hour = datetime.now().hour
+            current_hour = dt_util.now().hour
             if current_hour < len(today_prices):
                 current_price = float(today_prices[current_hour])
                 avg_price = sum(float(p) for p in today_prices) / len(today_prices)
@@ -324,10 +254,14 @@ class ClimateAdjustmentsMixin:
                 continue
             try:
                 eta_dt = datetime.fromisoformat(str(eta_attr).replace("Z", "+00:00"))
-                # Normalise to naive local time for comparison (consistent with datetime.now() usage)
+                # Normalise to HA's configured timezone (not the OS/process timezone,
+                # which can differ, e.g. a UTC-configured Docker host running an
+                # Europe/Berlin Home Assistant instance).
                 if eta_dt.tzinfo is not None:
-                    eta_dt = eta_dt.astimezone().replace(tzinfo=None)
-                minutes = (eta_dt - datetime.now()).total_seconds() / 60
+                    eta_dt = dt_util.as_local(eta_dt)
+                else:
+                    eta_dt = eta_dt.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+                minutes = (eta_dt - dt_util.now()).total_seconds() / 60
                 threshold = int(cfg.get(CONF_ETA_PREHEAT_THRESHOLD_MINUTES, DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES))
                 if 0 < minutes <= threshold:
                     min_minutes = min(min_minutes or minutes, minutes)

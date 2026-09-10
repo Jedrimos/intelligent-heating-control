@@ -1,0 +1,246 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Paramètres de base",
+        "description": "Configurez le capteur de température extérieure.",
+        "data": {
+          "outdoor_temp_sensor": "Capteur de température extérieure"
+        },
+        "data_description": {
+          "outdoor_temp_sensor": "Capteur mesurant la température extérieure actuelle. Utilisé pour la courbe de chauffe – plus il fait froid dehors, plus la température cible est élevée."
+        }
+      },
+      "temperatures": {
+        "title": "Températures prédéfinies",
+        "description": "Températures globales pour les modes absent et vacances.",
+        "data": {
+          "away_temp": "Température en mode absent (°C)",
+          "vacation_temp": "Température en mode vacances (°C)"
+        },
+        "data_description": {
+          "away_temp": "Température cible pour toutes les pièces lorsque le mode « Absent » est actif (par ex. personne à la maison la journée). Typique : 16–18 °C.",
+          "vacation_temp": "Température cible pour toutes les pièces en mode vacances. Protection hors-gel uniquement. Typique : 14–16 °C."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Entité introuvable. Veuillez vérifier l'identifiant de l'entité.",
+      "cannot_connect": "Échec de la connexion",
+      "unknown": "Erreur inconnue"
+    },
+    "abort": {
+      "already_configured": "Intégration déjà configurée"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options IHC",
+        "menu_options": {
+          "global_settings": "Paramètres globaux",
+          "heating_curve": "Modifier la courbe de chauffe",
+          "add_room": "Ajouter une pièce",
+          "edit_room": "Modifier une pièce",
+          "remove_room": "Supprimer une pièce"
+        }
+      },
+      "global_settings": {
+        "title": "Paramètres globaux",
+        "data": {
+          "outdoor_temp_sensor": "Capteur de température extérieure",
+          "away_temp": "Température en mode absent (°C)",
+          "vacation_temp": "Température en mode vacances (°C)",
+          "summer_mode_enabled": "Activer le mode été",
+          "summer_threshold": "Seuil du mode été (°C)",
+          "show_panel": "Afficher le tableau de bord IHC dans le menu latéral",
+          "presence_entities": "Entités de présence",
+          "frost_protection_temp": "Température de protection hors-gel (°C)",
+          "night_setback_enabled": "Activer le réduit de nuit",
+          "night_setback_offset": "Décalage du réduit de nuit (°C)",
+          "sun_entity": "Entité soleil",
+          "preheat_minutes": "Temps de préchauffe (minutes)",
+          "solar_entity": "Capteur de production solaire",
+          "solar_surplus_threshold": "Seuil de surplus solaire (W)",
+          "solar_boost_temp": "Boost de température solaire (°C)",
+          "energy_price_entity": "Capteur de prix de l'électricité",
+          "energy_price_threshold": "Seuil de prix élevé (€/kWh)",
+          "energy_price_eco_offset": "Réduction éco en cas de prix élevé (°C)",
+          "weather_entity": "Entité météo",
+          "weather_cold_threshold": "Seuil de froid (°C)",
+          "weather_cold_boost": "Boost en cas de froid (°C)",
+          "outdoor_humidity_sensor": "Capteur d'humidité extérieure",
+          "ventilation_advice_enabled": "Activer les recommandations de ventilation",
+          "adaptive_preheat_enabled": "Activer la préchauffe adaptative",
+          "eta_preheat_enabled": "Activer la préchauffe basée sur l'heure d'arrivée",
+          "vacation_calendar": "Entité calendrier des vacances",
+          "vacation_calendar_keyword": "Mot-clé du calendrier des vacances",
+          "startup_grace_seconds": "Délai de grâce au démarrage (s)",
+          "off_use_frost_protection": "Utiliser la protection hors-gel en mode ARRÊT",
+          "stuck_valve_timeout": "Délai de détection d'une vanne bloquée (s)",
+          "limescale_protection_enabled": "Activer la protection anti-calcaire",
+          "limescale_interval_days": "Intervalle d'exercice anti-calcaire (jours)",
+          "limescale_time": "Heure de l'exercice anti-calcaire (HH:MM)",
+          "limescale_duration_minutes": "Durée de l'exercice anti-calcaire (min)"
+        },
+        "data_description": {
+          "outdoor_temp_sensor": "Capteur mesurant la température extérieure actuelle. Utilisé pour la courbe de chauffe.",
+          "away_temp": "Température cible en mode absent pour toutes les pièces. Typique : 16–18 °C.",
+          "vacation_temp": "Température cible en mode vacances. Protection hors-gel uniquement. Typique : 14–16 °C.",
+          "summer_mode_enabled": "Lorsqu'activé, le chauffage est automatiquement bloqué quand la température extérieure dépasse le seuil.",
+          "summer_threshold": "Température extérieure au-delà de laquelle le mode été désactive le chauffage. Typique : 15–20 °C.",
+          "show_panel": "Lorsque désactivé, le tableau de bord IHC est retiré du menu latéral. Toutes les entités restent disponibles.",
+          "presence_entities": "Entités personne ou traqueur d'appareil pour la détection de présence. Quand tout le monde est absent, IHC passe automatiquement en mode absent. Laisser vide pour désactiver.",
+          "frost_protection_temp": "Température de sécurité minimale. Même en mode ARRÊT ou Absent, cette température n'est jamais franchie vers le bas. Recommandation : 7 °C.",
+          "night_setback_enabled": "Lorsqu'activé, les températures cibles sont automatiquement réduites la nuit (quand le soleil est sous l'horizon).",
+          "night_setback_offset": "De combien de degrés la température cible est réduite la nuit. Typique : 2–4 °C.",
+          "sun_entity": "Entité soleil utilisée pour détecter le jour/la nuit. Par défaut : sun.sun",
+          "preheat_minutes": "Combien de minutes avant le début d'une période planifiée le chauffage commence à préchauffer. 0 = préchauffe désactivée.",
+          "solar_entity": "Capteur de puissance pour la production solaire (W). Quand le surplus dépasse le seuil, les températures des pièces sont légèrement augmentées.",
+          "solar_surplus_threshold": "Surplus solaire minimal en watts avant l'application du boost solaire.",
+          "solar_boost_temp": "Combien de degrés ajouter aux températures cibles en cas de surplus solaire.",
+          "energy_price_entity": "Capteur fournissant le prix actuel de l'électricité (€/kWh). Utilisé pour réduire le chauffage quand les prix sont élevés.",
+          "energy_price_threshold": "Prix de l'électricité au-delà duquel IHC applique la réduction éco pour économiser l'énergie.",
+          "energy_price_eco_offset": "Combien de degrés réduire les températures cibles quand l'électricité est chère.",
+          "weather_entity": "Entité d'intégration météo pour les ajustements de chauffage basés sur les prévisions.",
+          "weather_cold_threshold": "Température en dessous de laquelle IHC applique le boost de froid aux pièces.",
+          "weather_cold_boost": "Degrés supplémentaires ajoutés aux températures cibles par temps très froid.",
+          "outdoor_humidity_sensor": "Capteur d'humidité extérieure pour le calcul du point de rosée et les recommandations de ventilation.",
+          "ventilation_advice_enabled": "Afficher des recommandations de ventilation basées sur les données de CO₂ et d'humidité.",
+          "adaptive_preheat_enabled": "IHC apprend le temps de chauffe des pièces et ajuste automatiquement les temps de préchauffe.",
+          "eta_preheat_enabled": "Utiliser l'heure d'arrivée estimée pour une préchauffe dynamique.",
+          "vacation_calendar": "Entité calendrier (calendar.*) où les événements de vacances sont détectés par mot-clé.",
+          "vacation_calendar_keyword": "Mot-clé à rechercher dans les titres des événements du calendrier pour détecter les périodes de vacances (par ex. « vacances »).",
+          "startup_grace_seconds": "Secondes à attendre au démarrage de HA avant de traiter les données des capteurs. Utilisez 60–120 s pour les capteurs Zigbee/Z-Wave qui ont besoin de temps pour répondre après un redémarrage.",
+          "off_use_frost_protection": "Quand le système est en mode ARRÊT, maintenir quand même la température de protection hors-gel au lieu d'un arrêt complet.",
+          "stuck_valve_timeout": "Secondes sans mouvement de vanne (alors que la demande > 0) avant qu'une alerte de vanne bloquée soit déclenchée. Par défaut : 1800 s (30 min).",
+          "limescale_protection_enabled": "Fait périodiquement parcourir toute leur plage aux vannes thermostatiques pour éviter le calcaire. S'exécute une fois par intervalle configuré.",
+          "limescale_interval_days": "Nombre de jours entre les exercices anti-calcaire. Recommandation : 14 jours.",
+          "limescale_time": "Heure de la journée (HH:MM) à laquelle l'exercice anti-calcaire s'exécute. Choisissez un moment où les pièces sont généralement inoccupées.",
+          "limescale_duration_minutes": "Combien de minutes maintenir les vannes en position maximale pendant l'exercice. Par défaut : 5 minutes."
+        }
+      },
+      "heating_curve": {
+        "title": "Courbe de chauffe",
+        "description": "Définissez jusqu'à 7 points de la courbe de chauffe. outdoor = température extérieure, target = température cible de base (avant décalage de pièce).",
+        "data": {
+          "outdoor_0": "Point 1 : Température extérieure (°C)",
+          "target_0": "Point 1 : Température cible (°C)",
+          "outdoor_1": "Point 2 : Température extérieure (°C)",
+          "target_1": "Point 2 : Température cible (°C)",
+          "outdoor_2": "Point 3 : Température extérieure (°C)",
+          "target_2": "Point 3 : Température cible (°C)",
+          "outdoor_3": "Point 4 : Température extérieure (°C)",
+          "target_3": "Point 4 : Température cible (°C)",
+          "outdoor_4": "Point 5 : Température extérieure (°C)",
+          "target_4": "Point 5 : Température cible (°C)",
+          "outdoor_5": "Point 6 : Température extérieure (°C)",
+          "target_5": "Point 6 : Température cible (°C)",
+          "outdoor_6": "Point 7 : Température extérieure (°C)",
+          "target_6": "Point 7 : Température cible (°C)"
+        }
+      },
+      "add_room": {
+        "title": "Ajouter une pièce",
+        "data": {
+          "name": "Nom de la pièce",
+          "temp_sensor": "Capteur de température",
+          "valve_entity": "Thermostat / vanne (optionnel)",
+          "window_sensor": "Capteur de fenêtre (optionnel)",
+          "room_offset": "Décalage de la pièce (°C)",
+          "deadband": "Bande morte (°C)",
+          "comfort_temp": "Température confort (°C)",
+          "eco_temp": "Température éco (°C)",
+          "sleep_temp": "Température nuit (°C)",
+          "away_temp_room": "Température absent (°C)",
+          "min_temp": "Température minimale (°C)",
+          "max_temp": "Température maximale (°C)"
+        },
+        "data_description": {
+          "name": "Un nom unique pour cette pièce, par ex. « Salon » ou « Chambre ».",
+          "temp_sensor": "Capteur de température dans cette pièce mesurant la température actuelle.",
+          "valve_entity": "Thermostat de radiateur (TRV) ou entité climate optionnelle dans cette pièce. Si renseignée, la consigne est ajustée automatiquement.",
+          "window_sensor": "Capteur de fenêtre ou de porte optionnel. Quand il est ouvert, la demande de chauffage pour cette pièce est désactivée.",
+          "room_offset": "Valeur de correction si le capteur est légèrement imprécis ou mal placé. Positif = le capteur indique trop froid.",
+          "deadband": "Sensibilité de la régulation. Une valeur plus petite réagit plus vite mais commute plus souvent. Recommandation : 0,5 °C.",
+          "comfort_temp": "Température souhaitée en mode confort (par ex. quand quelqu'un est présent). Typique : 20–22 °C.",
+          "eco_temp": "Température réduite en mode éco (par ex. la nuit ou en cas d'absence courte). Typique : 17–19 °C.",
+          "sleep_temp": "Température en mode nuit. Généralement plus fraîche que le mode éco. Typique : 16–18 °C.",
+          "away_temp_room": "Température de protection hors-gel quand cette pièce est en mode « Absent ». Typique : 15–16 °C.",
+          "min_temp": "Température la plus basse qui ne doit jamais être franchie (protection hors-gel). Recommandation : 7–10 °C.",
+          "max_temp": "Température la plus haute à ne pas dépasser. Protection contre la surchauffe. Recommandation : 25–28 °C."
+        }
+      },
+      "edit_room": {
+        "title": "Sélectionner une pièce",
+        "data": {
+          "room_id": "Pièce"
+        }
+      },
+      "edit_room_details": {
+        "title": "Modifier la pièce",
+        "data": {
+          "name": "Nom de la pièce",
+          "temp_sensor": "Capteur de température",
+          "valve_entity": "Thermostat / vanne (optionnel)",
+          "window_sensor": "Capteur de fenêtre (optionnel)",
+          "room_offset": "Décalage de la pièce (°C)",
+          "deadband": "Bande morte (°C)",
+          "comfort_temp": "Température confort (°C)",
+          "eco_temp": "Température éco (°C)",
+          "sleep_temp": "Température nuit (°C)",
+          "away_temp_room": "Température absent (°C)",
+          "min_temp": "Température minimale (°C)",
+          "max_temp": "Température maximale (°C)"
+        },
+        "data_description": {
+          "name": "Un nom unique pour cette pièce, par ex. « Salon » ou « Chambre ».",
+          "temp_sensor": "Capteur de température dans cette pièce mesurant la température actuelle.",
+          "valve_entity": "Thermostat de radiateur (TRV) ou entité climate optionnelle dans cette pièce. Si renseignée, la consigne est ajustée automatiquement.",
+          "window_sensor": "Capteur de fenêtre ou de porte optionnel. Quand il est ouvert, la demande de chauffage pour cette pièce est désactivée.",
+          "room_offset": "Valeur de correction si le capteur est légèrement imprécis ou mal placé. Positif = le capteur indique trop froid.",
+          "deadband": "Sensibilité de la régulation. Une valeur plus petite réagit plus vite mais commute plus souvent. Recommandation : 0,5 °C.",
+          "comfort_temp": "Température souhaitée en mode confort (par ex. quand quelqu'un est présent). Typique : 20–22 °C.",
+          "eco_temp": "Température réduite en mode éco (par ex. la nuit ou en cas d'absence courte). Typique : 17–19 °C.",
+          "sleep_temp": "Température en mode nuit. Généralement plus fraîche que le mode éco. Typique : 16–18 °C.",
+          "away_temp_room": "Température de protection hors-gel quand cette pièce est en mode « Absent ». Typique : 15–16 °C.",
+          "min_temp": "Température la plus basse qui ne doit jamais être franchie (protection hors-gel). Recommandation : 7–10 °C.",
+          "max_temp": "Température la plus haute à ne pas dépasser. Protection contre la surchauffe. Recommandation : 25–28 °C."
+        }
+      },
+      "remove_room": {
+        "title": "Supprimer une pièce",
+        "data": {
+          "room_id": "Sélectionner une pièce"
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Entité introuvable",
+      "invalid_curve": "Données de courbe de chauffe invalides",
+      "no_rooms": "Aucune pièce configurée"
+    },
+    "abort": {
+      "no_rooms": "Aucune pièce configurée",
+      "room_not_found": "Pièce introuvable"
+    }
+  },
+  "entity": {
+    "climate": {
+      "ihc_room_climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "Auto": "Auto",
+              "Comfort": "Confort",
+              "Eco": "Éco",
+              "Sleep": "Nuit",
+              "Away": "Absent",
+              "Manual": "Manuel"
+            }
+          }
+        }
+      }
+    }
+  }
+}

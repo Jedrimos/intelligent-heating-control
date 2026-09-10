@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DOMAIN, CONF_ROOM_ID, CONF_ROOM_NAME,
-    CONF_OUTDOOR_TEMP_SENSOR, CONF_HEATING_SWITCH, CONF_COOLING_SWITCH, CONF_ENABLE_COOLING,
+    CONF_OUTDOOR_TEMP_SENSOR,
     CONF_AWAY_TEMP, CONF_VACATION_TEMP,
     CONF_SUMMER_MODE_ENABLED, CONF_SUMMER_THRESHOLD,
     CONF_FROST_PROTECTION_TEMP, CONF_OFF_USE_FROST_PROTECTION, CONF_NIGHT_SETBACK_ENABLED,
@@ -26,22 +26,19 @@ from .const import (
     CONF_HEATING_PERIOD_ENTITY,
     CONF_PRESENCE_AWAY_DELAY_MINUTES, DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES, DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES,
-    CONF_BOILER_KW, CONF_SOLAR_ENTITY, CONF_SOLAR_SURPLUS_THRESHOLD, CONF_SOLAR_BOOST_TEMP,
+    CONF_SOLAR_ENTITY, CONF_SOLAR_SURPLUS_THRESHOLD, CONF_SOLAR_BOOST_TEMP,
     CONF_ENERGY_PRICE_ENTITY, CONF_ENERGY_PRICE_THRESHOLD, CONF_ENERGY_PRICE_ECO_OFFSET,
-    CONF_FLOW_TEMP_ENTITY, CONF_FLOW_TEMP_SENSOR,
     CONF_VACATION_START, CONF_VACATION_END,
     CONF_VACATION_CALENDAR,
-    # v1.3 Adaptive curve + pre-heat
-    CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED,
+    CONF_VACATION_CALENDAR_KEYWORD, DEFAULT_VACATION_CALENDAR_KEYWORD,
+    CONF_PRICE_FORECAST_ATTRIBUTE, DEFAULT_PRICE_FORECAST_ATTRIBUTE,
+    CONF_STATIC_ENERGY_PRICE,
+    # v1.3 Predictive pre-heat
     CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED,
     # v1.4 ETA pre-heat
     CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED,
     CONF_ETA_PREHEAT_THRESHOLD_MINUTES, DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES,
-    # v1.5 Cooling target + smart meter
-    CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP,
-    CONF_SMART_METER_ENTITY,
     # Roadmap 2.0
-    CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE,
     CONF_GUEST_DURATION_HOURS, DEFAULT_GUEST_DURATION_HOURS,
     CONF_VACATION_RETURN_PREHEAT_DAYS, DEFAULT_VACATION_RETURN_PREHEAT_DAYS,
     CONF_WEATHER_ENTITY, CONF_WEATHER_COLD_THRESHOLD, DEFAULT_WEATHER_COLD_THRESHOLD,
@@ -52,7 +49,7 @@ from .const import (
     DEFAULT_AWAY_TEMP, DEFAULT_VACATION_TEMP,
     DEFAULT_SUMMER_THRESHOLD, DEFAULT_FROST_PROTECTION_TEMP, DEFAULT_OFF_USE_FROST_PROTECTION,
     DEFAULT_NIGHT_SETBACK_OFFSET, DEFAULT_PREHEAT_MINUTES,
-    DEFAULT_BOILER_KW, DEFAULT_SOLAR_SURPLUS_THRESHOLD, DEFAULT_SOLAR_BOOST_TEMP,
+    DEFAULT_SOLAR_SURPLUS_THRESHOLD, DEFAULT_SOLAR_BOOST_TEMP,
     DEFAULT_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_ECO_OFFSET,
     CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS,
     CONF_STUCK_VALVE_TIMEOUT, DEFAULT_STUCK_VALVE_TIMEOUT,
@@ -66,9 +63,6 @@ from .const import (
     CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP,
     CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS,
     CONF_OPTIMUM_START_ENABLED, DEFAULT_OPTIMUM_START_ENABLED,
-    # PID flow-temp controller
-    CONF_PID_KP, CONF_PID_KI, CONF_PID_KD,
-    DEFAULT_PID_KP, DEFAULT_PID_KI, DEFAULT_PID_KD,
     # v1.8 – Holiday calendar
     CONF_HOLIDAY_CALENDAR,
     CONF_HOLIDAY_SCHEDULE_MODE,
@@ -152,9 +146,9 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
         "vacation_range",
         "weather_forecast",
         # All global config mirrors (never need historical recording – only current value matters)
-        "outdoor_temp_sensor", "heating_switch", "cooling_switch",
-        "solar_entity", "energy_price_entity", "flow_temp_entity", "flow_temp_sensor",
-        "vacation_calendar", "smart_meter_entity", "weather_entity", "sun_entity",
+        "outdoor_temp_sensor",
+        "solar_entity", "energy_price_entity",
+        "vacation_calendar", "weather_entity", "sun_entity",
         "outdoor_humidity_sensor", "summer_mode_entity",
     })
 
@@ -172,11 +166,9 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         d = self.coordinator.data or {}
-        debug = d.get("debug", {})
         return {
             "rooms_demanding":        d.get("rooms_demanding", 0),
             "heating_active":         d.get("heating_active", False),
-            "cooling_active":         d.get("cooling_active", False),
             "summer_mode":            d.get("summer_mode", False),
             "forecast_coldnight_active": d.get("forecast_coldnight_active", False),
             "startup_grace_active":   d.get("startup_grace_active", False),
@@ -192,7 +184,6 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "heating_runtime_today":       d.get("heating_runtime_today", 0.0),
             "heating_runtime_yesterday":   d.get("heating_runtime_yesterday", 0.0),
             "return_preheat_active":       d.get("return_preheat_active", False),
-            "controller_mode":             d.get("controller_mode", "switch"),
             "guest_mode_active":           d.get("guest_mode_active", False),
             "guest_remaining_minutes":     d.get("guest_remaining_minutes"),
             "weather_forecast":            d.get("weather_forecast"),
@@ -203,12 +194,6 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "peak_shaving_active":         d.get("peak_shaving_active", False),
             # v1.7 – Heizgruppen (read by frontend panel)
             "groups":                      d.get("groups", []),
-            # Controller settings (read by frontend panel)
-            "demand_threshold":     debug.get("demand_threshold"),
-            "demand_hysteresis":    debug.get("demand_hysteresis"),
-            "min_on_time_minutes":  debug.get("min_on_time_minutes"),
-            "min_off_time_minutes": debug.get("min_off_time_minutes"),
-            "min_rooms_demand":     debug.get("min_rooms_demand"),
             # Global config settings (read by frontend panel for pre-populating forms)
             **self._get_global_config_attrs(),
         }
@@ -219,9 +204,6 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
         return {
             # System hardware (needed by Settings tab to pre-fill inputs)
             "outdoor_temp_sensor":         cfg.get(CONF_OUTDOOR_TEMP_SENSOR, ""),
-            "heating_switch":              cfg.get(CONF_HEATING_SWITCH, ""),
-            "cooling_switch":              cfg.get(CONF_COOLING_SWITCH, ""),
-            "enable_cooling":              cfg.get(CONF_ENABLE_COOLING, False),
             # Temperature presets
             "away_temp":                   cfg.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP),
             "vacation_temp":               cfg.get(CONF_VACATION_TEMP, DEFAULT_VACATION_TEMP),
@@ -237,18 +219,15 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "night_setback_offset":        cfg.get(CONF_NIGHT_SETBACK_OFFSET, DEFAULT_NIGHT_SETBACK_OFFSET),
             "preheat_minutes":             cfg.get(CONF_PREHEAT_MINUTES, DEFAULT_PREHEAT_MINUTES),
             "presence_entities":           cfg.get(CONF_PRESENCE_ENTITIES, []),
-            "boiler_kw":                   cfg.get(CONF_BOILER_KW, DEFAULT_BOILER_KW),
             "solar_entity":                cfg.get(CONF_SOLAR_ENTITY, ""),
             "solar_surplus_threshold":     cfg.get(CONF_SOLAR_SURPLUS_THRESHOLD, DEFAULT_SOLAR_SURPLUS_THRESHOLD),
             "solar_boost_temp":            cfg.get(CONF_SOLAR_BOOST_TEMP, DEFAULT_SOLAR_BOOST_TEMP),
             "energy_price_entity":         cfg.get(CONF_ENERGY_PRICE_ENTITY, ""),
             "energy_price_threshold":      cfg.get(CONF_ENERGY_PRICE_THRESHOLD, DEFAULT_ENERGY_PRICE_THRESHOLD),
             "energy_price_eco_offset":     cfg.get(CONF_ENERGY_PRICE_ECO_OFFSET, DEFAULT_ENERGY_PRICE_ECO_OFFSET),
-            "flow_temp_entity":            cfg.get(CONF_FLOW_TEMP_ENTITY, ""),
             "vacation_start":              cfg.get(CONF_VACATION_START, ""),
             "vacation_end":               cfg.get(CONF_VACATION_END, ""),
             # Roadmap 2.0
-            "controller_mode":             cfg.get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE),
             "guest_duration_hours":        cfg.get(CONF_GUEST_DURATION_HOURS, DEFAULT_GUEST_DURATION_HOURS),
             "vacation_return_preheat_days": cfg.get(CONF_VACATION_RETURN_PREHEAT_DAYS, DEFAULT_VACATION_RETURN_PREHEAT_DAYS),
             "weather_entity":              cfg.get(CONF_WEATHER_ENTITY, ""),
@@ -258,19 +237,14 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             # Ventilation advice
             "outdoor_humidity_sensor":     cfg.get(CONF_OUTDOOR_HUMIDITY_SENSOR, ""),
             "ventilation_advice_enabled":  cfg.get(CONF_VENTILATION_ADVICE_ENABLED, DEFAULT_VENTILATION_ADVICE_ENABLED),
-            # Intelligent control (adaptive curve, ETA pre-heat)
-            "adaptive_curve_enabled":      cfg.get(CONF_ADAPTIVE_CURVE_ENABLED, DEFAULT_ADAPTIVE_CURVE_ENABLED),
+            # Intelligent control (predictive pre-heat)
             "adaptive_preheat_enabled":    cfg.get(CONF_ADAPTIVE_PREHEAT_ENABLED, DEFAULT_ADAPTIVE_PREHEAT_ENABLED),
             "eta_preheat_enabled":              cfg.get(CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED),
             "eta_preheat_threshold_minutes":   cfg.get(CONF_ETA_PREHEAT_THRESHOLD_MINUTES, DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES),
             "vacation_calendar":           cfg.get(CONF_VACATION_CALENDAR, ""),
-            "flow_temp_sensor":            cfg.get(CONF_FLOW_TEMP_SENSOR, ""),
-            "pid_kp":                      cfg.get(CONF_PID_KP, DEFAULT_PID_KP),
-            "pid_ki":                      cfg.get(CONF_PID_KI, DEFAULT_PID_KI),
-            "pid_kd":                      cfg.get(CONF_PID_KD, DEFAULT_PID_KD),
-            "smart_meter_entity":          cfg.get(CONF_SMART_METER_ENTITY, ""),
-            "cooling_target_temp":         cfg.get(CONF_COOLING_TARGET_TEMP, DEFAULT_COOLING_TARGET_TEMP),
-            "static_energy_price":         cfg.get("static_energy_price"),
+            "vacation_calendar_keyword":   cfg.get(CONF_VACATION_CALENDAR_KEYWORD, DEFAULT_VACATION_CALENDAR_KEYWORD),
+            "price_forecast_attribute":    cfg.get(CONF_PRICE_FORECAST_ATTRIBUTE, DEFAULT_PRICE_FORECAST_ATTRIBUTE),
+            "static_energy_price":         cfg.get(CONF_STATIC_ENERGY_PRICE),
             # Startup grace for Zigbee/Z-Wave sensors
             "startup_grace_seconds":       cfg.get(CONF_STARTUP_GRACE_SECONDS, DEFAULT_STARTUP_GRACE_SECONDS),
             # Stuck-valve detection
@@ -488,7 +462,7 @@ class IHCHeatingRuntimeSensor(_IHCBase, SensorEntity):
 
 
 class IHCEnergyTodaySensor(_IHCBase, SensorEntity):
-    """Estimated energy consumption today in kWh (runtime × boiler_kw)."""
+    """Estimated energy consumption today in kWh (HKV sensor or runtime × radiator_kw, summed per room)."""
 
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -515,10 +489,8 @@ class IHCEnergyTodaySensor(_IHCBase, SensorEntity):
             "solar_power":              d.get("solar_power"),
             "energy_price":             d.get("energy_price"),
             "energy_price_eco_active":  (d.get("energy_price_eco_offset") or 0.0) < 0,
-            "flow_temp":                d.get("flow_temp"),
             "energy_yesterday_kwh":     d.get("energy_yesterday_kwh", 0.0),
             "eta_preheat_minutes":      d.get("eta_preheat_minutes"),
-            "adaptive_curve_delta":     d.get("adaptive_curve_delta", 0.0),
             "price_forecast":           d.get("price_forecast", []),
         }
 

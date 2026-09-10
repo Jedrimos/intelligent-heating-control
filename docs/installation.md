@@ -2,10 +2,11 @@
 
 ## Voraussetzungen
 
-- Home Assistant **2023.6** oder neuer
+- Home Assistant **2024.2** oder neuer
 - [HACS](https://hacs.xyz/) (für die empfohlene Installation)
-- Mindestens ein Außentemperatursensor als HA-Entity (`sensor.*`)
-- Optional: Ein Switch/Input-Boolean zum Steuern des Heizkessels
+- Mindestens ein konfiguriertes Zimmer mit Thermostatventil (`climate.*`, TRV) – IHC steuert
+  ausschließlich TRVs direkt, es gibt keinen zentralen Heizungsschalter
+- Optional, aber empfohlen: ein Außentemperatursensor (`sensor.*`) für die Heizkurve
 
 ---
 
@@ -13,7 +14,7 @@
 
 1. HACS öffnen (Seitenleiste)
 2. **Integrationen** → **⋮ (Menü)** → **Benutzerdefinierte Repositories**
-3. URL eingeben: `https://github.com/Jedrimos/intelligent-heatingcontroll`
+3. URL eingeben: `https://github.com/Jedrimos/intelligent-heating-control`
 4. Kategorie: **Integration** → **Hinzufügen**
 5. Suche nach **Intelligent Heating Control** → **Herunterladen**
 6. Home Assistant **neu starten**
@@ -25,10 +26,10 @@
 
 ```bash
 # 1. Repository klonen oder ZIP herunterladen
-git clone https://github.com/Jedrimos/intelligent-heatingcontroll.git
+git clone https://github.com/Jedrimos/intelligent-heating-control.git
 
 # 2. Ordner kopieren
-cp -r intelligent-heatingcontroll/custom_components/intelligent_heating_control \
+cp -r intelligent-heating-control/custom_components/intelligent_heating_control \
       /pfad/zu/ha/config/custom_components/
 
 # 3. Home Assistant neu starten
@@ -70,5 +71,6 @@ Neuen `custom_components/intelligent_heating_control`-Ordner einfach überschrei
 → Prüfe HA-Logs auf Fehler mit dem Keyword `ihc_static`.
 
 ### Fehler beim Setup-Wizard
-→ Stelle sicher dass der Außentemperatursensor verfügbar ist (nicht `unavailable`).
+→ Der Außensensor ist optional – der Wizard lässt sich auch ohne ihn abschließen (dann gilt `comfort_temp` je Zimmer als Fallback).
+→ Falls doch ein Sensor ausgewählt wurde: stelle sicher dass er verfügbar ist (nicht `unavailable`).
 → Überprüfe die HA-Logs unter **Einstellungen → System → Protokolle**.

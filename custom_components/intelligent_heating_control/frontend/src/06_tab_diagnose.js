@@ -31,7 +31,6 @@
       g.energy_price_eco_active ? {icon:"💶", label:"Preis-Eco aktiv",   cls:"warn"} : null,
       g.cold_boost > 0          ? {icon:"❄️", label:`Kälte-Boost +${g.cold_boost}°`, cls:""} : null,
       (g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90) ? {icon:"🕒", label:`ETA ${Math.round(g.eta_preheat_minutes)} min`, cls:"info"} : null,
-      (g.adaptive_curve_delta && Math.abs(g.adaptive_curve_delta) >= 0.1) ? {icon:"📈", label:`Kurve ${g.adaptive_curve_delta > 0 ? "+" : ""}${g.adaptive_curve_delta.toFixed(1)}°`, cls:""} : null,
     ].filter(Boolean);
 
     const flagsHtml = flags.length
@@ -192,7 +191,6 @@
             <div class="form-row">
               <select class="form-select" id="diag-system-mode-select">
                 ${Object.entries(SYSTEM_MODE_LABELS)
-                  .filter(([k]) => k !== "cool" || a.enable_cooling)
                   .map(([k, v]) => `<option value="${k}" ${curMode === k || curMode === v ? "selected" : ""}>${v}</option>`)
                   .join("")}
               </select>
@@ -253,11 +251,6 @@
             <div class="settings-item">
               <label>Aktueller Energiepreis</label>
               <div style="font-size:22px;font-weight:700;color:${g.energy_price_eco_active ? "#c62828" : "#43a047"}">${g.energy_price.toFixed(3)} €/kWh</div>
-            </div>` : ""}
-            ${g.flow_temp != null ? `
-            <div class="settings-item">
-              <label>Vorlauftemperatur</label>
-              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${g.flow_temp.toFixed(1)} °C</div>
             </div>` : ""}
             ${g.outdoor_humidity != null ? `
             <div class="settings-item">
@@ -555,6 +548,41 @@
             </div>` : ""}
         </div>`;
       content.appendChild(stopCard);
+    }
+
+    // ── Wärmebrücken-Erkennung ─────────────────────────────────────────────────
+    if (room.thermal_bridge && room.thermal_bridge.suspected) {
+      const bridgeCard = document.createElement("div");
+      bridgeCard.className = "card";
+      bridgeCard.style.marginTop = "0";
+      bridgeCard.style.borderLeft = "4px solid #ef5350";
+      bridgeCard.innerHTML = `
+        <div class="card-title">🧱 Mögliche Wärmebrücke erkannt</div>
+        <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
+          ${room.name} kühlt ca. <strong>${room.thermal_bridge.ratio}×</strong> schneller aus als der
+          Durchschnitt der übrigen Zimmer – ein Hinweis auf schlechte Dämmung, eine undichte
+          Fensterdichtung oder eine ungedämmte Außenwandecke. Basiert auf der gelernten Abkühlrate
+          (siehe oben) und ist rein informativ.
+        </div>`;
+      content.appendChild(bridgeCard);
+    }
+
+    // ── TRV-Offset-Kalibrierungsassistent ───────────────────────────────────────
+    const suggestedOffset = room.trv_suggested_offset;
+    const currentOffset = room.trv_temp_offset ?? 0;
+    if (suggestedOffset != null && Math.abs(suggestedOffset - currentOffset) >= 0.5) {
+      const offsetCard = document.createElement("div");
+      offsetCard.className = "card";
+      offsetCard.style.marginTop = "0";
+      offsetCard.innerHTML = `
+        <div class="card-title">🎯 TRV-Offset-Vorschlag</div>
+        <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
+          Basierend auf ${room.name}s Raumsensor-vs-TRV-Differenz im Leerlauf (Heizung aus,
+          Fenster zu) über die letzten Messungen wäre <strong>${suggestedOffset > 0 ? "+" : ""}${suggestedOffset} °C</strong>
+          ein besserer <code>trv_temp_offset</code> als der aktuelle Wert (${currentOffset > 0 ? "+" : ""}${currentOffset} °C).
+          Zum Übernehmen: Zimmer bearbeiten → TRV-Verhalten → Temperatur-Offset.
+        </div>`;
+      content.appendChild(offsetCard);
     }
   }
 

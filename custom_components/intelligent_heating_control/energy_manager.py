@@ -6,19 +6,16 @@ from datetime import datetime
 from typing import Optional
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_HKV_SENSOR,
     CONF_HKV_FACTOR,
     CONF_RADIATOR_KW,
     CONF_ROOM_QM,
-    CONF_SMART_METER_ENTITY,
-    CONF_CONTROLLER_MODE,
     DEFAULT_HKV_FACTOR,
     DEFAULT_RADIATOR_KW,
     DEFAULT_ROOM_QM,
-    DEFAULT_CONTROLLER_MODE,
-    CONTROLLER_MODE_TRV,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,11 +25,12 @@ class EnergyManagerMixin:
     """Mixin for heating runtime tracking and energy estimation."""
 
     def _reset_runtime_if_new_day(self) -> None:
-        today = datetime.now().day
+        today = dt_util.now().day
         if today != self._runtime_day:
             # Save today's runtime as yesterday before reset
             self._heating_runtime_yesterday = self._heating_runtime_today
             self._heating_runtime_today = 0.0
+            self._room_runtime_yesterday = dict(self._room_runtime_today)
             self._room_runtime_today = {}
             self._runtime_day = today
             # Reset HKV day-start so sensor deltas are measured from midnight
@@ -64,19 +62,17 @@ class EnergyManagerMixin:
         target = rdata.get("target_temp")
         return current is not None and target is not None and current < target
 
-    def _update_runtime_tracking(self, should_heat: bool, room_data: dict) -> None:
-        """Track heating on-times for energy statistics."""
+    def _update_runtime_tracking(self, room_data: dict) -> None:
+        """Track heating on-times for energy statistics.
+
+        There is no central boiler switch in TRV mode, so "heating" is defined
+        as "any room heating" using the same signal hierarchy as climate.hvac_action
+        (_trv_room_is_heating), both globally and per room.
+        """
         now = datetime.now()
         self._reset_runtime_if_new_day()
-        controller_mode = self.get_config().get(CONF_CONTROLLER_MODE, DEFAULT_CONTROLLER_MODE)
 
-        # Global heating runtime
-        # In TRV mode there is no central switch; treat "any room heating" as active.
-        # Uses the same signal logic as climate.hvac_action so runtime is counted
-        # whenever the climate entity shows HEATING.
-        global_heat = should_heat if controller_mode != CONTROLLER_MODE_TRV else any(
-            self._trv_room_is_heating(rd) for rd in room_data.values()
-        )
+        global_heat = any(self._trv_room_is_heating(rd) for rd in room_data.values())
         if global_heat:
             if self._heating_started_at is None:
                 self._heating_started_at = now
@@ -87,14 +83,8 @@ class EnergyManagerMixin:
                 self._heating_started_at = None
 
         # Per-room demand runtime
-        # TRV mode: use same signal hierarchy as climate.hvac_action (_trv_room_is_heating).
-        # Switch mode: count only when central heater is also on (demand > 0 AND should_heat).
         for room_id, rdata in room_data.items():
-            demand = rdata.get("demand", 0.0)
-            if controller_mode == CONTROLLER_MODE_TRV:
-                room_heating = self._trv_room_is_heating(rdata)
-            else:
-                room_heating = demand > 0 and should_heat
+            room_heating = self._trv_room_is_heating(rdata)
             if room_heating:
                 if room_id not in self._room_demand_started:
                     self._room_demand_started[room_id] = now
@@ -124,6 +114,10 @@ class EnergyManagerMixin:
         if started is not None:
             total += (datetime.now() - started).total_seconds()
         return round(total / 60.0, 1)
+
+    def get_room_runtime_yesterday_minutes(self, room_id: str) -> float:
+        """Room heating demand runtime yesterday in minutes."""
+        return round(self._room_runtime_yesterday.get(room_id, 0.0) / 60.0, 1)
 
     def reset_runtime_stats(self) -> None:
         """Reset today's heating runtime and energy statistics to zero."""
@@ -183,30 +177,20 @@ class EnergyManagerMixin:
         room_runtime_min = self.get_room_runtime_today_minutes(room_id)
         return round(room_runtime_min / 60.0 * radiator_kw, 3)
 
-    def _get_smart_meter_energy_today(self) -> Optional[float]:
+    def _calculate_room_energy_yesterday(self, room: dict, room_id: str) -> float:
         """
-        Return today's energy consumption in kWh from a smart meter sensor.
+        Estimate yesterday's energy for one room from its heating runtime.
 
-        The sensor must have state_class = TOTAL_INCREASING (e.g. utility_meter.*
-        or any sensor.* that accumulates kWh since a fixed point).
-        A daily baseline is stored at midnight and subtracted to get the day delta.
-        Returns None when no sensor is configured.
+        Unlike _calculate_room_energy_today, this cannot use the HKV sensor
+        (that needs a live delta since midnight, not available for a past day)
+        - it always uses runtime × radiator_kw.
         """
-        cfg = self.get_config()
-        meter_entity = cfg.get(CONF_SMART_METER_ENTITY)
-        if not meter_entity:
-            return None
-        state = self.hass.states.get(meter_entity)
-        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return None
-        try:
-            current = float(state.state)
-        except (ValueError, TypeError):
-            return None
-        if self._smart_meter_day_start is None:
-            self._smart_meter_day_start = current
-            return 0.0
-        return round(max(0.0, current - self._smart_meter_day_start), 3)
+        radiator_kw = float(room.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW))
+        room_qm_e = float(room.get(CONF_ROOM_QM, DEFAULT_ROOM_QM))
+        if room_qm_e > 0 and radiator_kw == DEFAULT_RADIATOR_KW:
+            radiator_kw = round(room_qm_e * 0.065, 2)  # 65 W/m² → kW
+        room_runtime_min = self.get_room_runtime_yesterday_minutes(room_id)
+        return round(room_runtime_min / 60.0 * radiator_kw, 3)
 
     def calculate_efficiency_score(self, outdoor_temp: Optional[float]) -> Optional[int]:
         """

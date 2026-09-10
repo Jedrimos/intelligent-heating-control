@@ -10,8 +10,148 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### Geplant
-- Passive Solar Heating via Rollosteuerung (v2.1)
-- Wärmeerzeuger-Modus: Heizkreise, Puffer, Wärmepumpe, TWW (v3.0)
+Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent,
+Schlaf-Temperaturprofil, Passive Solarheizung via Rollosteuerung, u. v. m.).
+
+---
+
+## [2.0.0] - 2026-09-10
+
+Erster Release seit v1.9.2 – markiert den Umstieg von der alten Heizungsschalter-Architektur auf
+**TRV-only**. Alles was seit v1.9.2 passiert ist, landet gebündelt in diesem einen Major-Release.
+
+### Entfernt — TRV-only-Architektur
+
+- **Heizungsschalter-/Switch-Modus** komplett entfernt: zentraler Klimabaustein mit Hysterese,
+  Min-Ein-/Ausschaltzeiten, Vorlauftemperatur-PID-Regelung
+- **Wärmeerzeuger-Modus** (nie fertiggestellt, war für v3.0 geplant: Heizkreise, Pufferspeicher,
+  Mischventile, KNX-Raumregler, Wärmepumpen-COP-Optimierung) ersatzlos aus der Roadmap gestrichen
+- `CONF_CONTROLLER_MODE` und die komplette switch/trv/hg-Fallunterscheidung im Code entfernt — es
+  gibt seit dieser Version nur noch einen Steuerungsmodus: direkte TRV-Ansteuerung
+- Dateien entfernt: `flow_temp_pid.py`, `heat_generator_stub.py`
+- Switch-only-Einstellungen (Hysterese, Vorlauf-PID) aus Frontend (`05_tab_settings.js`) und
+  `services.yaml` entfernt
+- `binary_sensor`-Plattform ergänzt (Lüftungsempfehlung, CO₂-Warnung, Ventil-Fehler pro Zimmer)
+- **Aktive Kühlung**: TRVs können nicht aktiv kühlen — die optionale Kühlfunktion widersprach der
+  TRV-only-Architektur und wurde komplett gestrichen: `CONF_ENABLE_COOLING`, `CONF_COOLING_SWITCH`,
+  `CONF_COOLING_TARGET_TEMP`, Systemmodus `cool`. Betroffen: `const.py`, `coordinator.py`
+  (inkl. `_set_cooling_switch()`), `climate.py` (`HVACAction.COOLING`), `sensor.py`,
+  `config_flow.py`, `select.py`, `services.yaml`, `strings.json`/Übersetzungen, sowie das Frontend
+  (Einstellungen-Tab, Dashboard-Systemmodus-Pills, Diagnose-Tab).
+  **Nicht betroffen**: die thermische-Masse-Lernfunktion (`avg_cooling_rate`) — eine völlig andere,
+  weiterhin aktive Funktion, die die passive Abkühlrate eines Zimmers für Optimum-Stop-Berechnungen
+  misst und nichts mit aktiver Kühlung zu tun hat
+
+### Warum
+
+TRVs regeln bereits selbst am Heizkörper; ein zusätzlicher zentraler Kessel-Schalter-Modus ergab
+für reine TRV-Setups keinen Mehrwert und verdoppelte jede Konfigurationsänderung (siehe
+`CLAUDE.md`, Kapitel 9 „Bug-Analyse"). Der Wärmeerzeuger-Modus wurde nie über den Entwurfsstand
+hinaus implementiert.
+
+### Hinzugefügt
+- **Wärmebrücken-Erkennung**: vergleicht die gelernte Abkühlrate eines Zimmers mit dem
+  Durchschnitt der übrigen Zimmer und zeigt einen Hinweis im Analyse-Tab, wenn es auffällig
+  schneller auskühlt (`thermal_bridge`-Attribut, rein informativ, ändert das Heizverhalten nicht)
+- **TRV-Offset-Kalibrierungsassistent**: sammelt im Leerlauf (Heizung aus, Fenster zu) die
+  Differenz zwischen Raumsensor und TRV-Temperatur und schlägt im Analyse-Tab einen besser
+  passenden `trv_temp_offset` vor, sobald genug Messungen vorliegen (`trv_suggested_offset`,
+  rein informativ – übernimmt den Wert nicht automatisch)
+
+### Geändert
+- `hacs.json`: fehlende `binary_sensor`-Domain ergänzt, `homeassistant`-Mindestversion auf
+  `2024.2.0` korrigiert (durch `ClimateEntityFeature.TURN_OFF`/`TURN_ON` in `climate.py` bedingt)
+- Repository-URLs in `manifest.json`/`hacs.json` korrigiert (Tippfehler `intelligent-heatingcontroll`)
+- **Interne Entwicklerqualität** (kein Verhaltensunterschied für Nutzer):
+  - `coordinator.py`: `_async_update_data()` (vormals ~660 Zeilen) in 8 benannte Phasen-Methoden
+    zerlegt (`_update_phase_startup_and_timers`, `_update_phase_outdoor_and_adjustments`,
+    `_update_phase_window_cascade`, `_process_room`, `_update_phase_aggregate_and_runtime`,
+    `_update_phase_apply_trv_setpoints`, `_update_phase_energy_and_ventilation`,
+    `_build_update_result`) – reine Extraktion, Reihenfolge und Logik unverändert
+  - `pytest`-Testsuite (37 Tests) für `heating_curve.py`, `schedule_manager.py`,
+    `heating_controller.py` hinzugefügt, importierbar ohne Home-Assistant-Installation
+  - GitHub Actions: hassfest- und HACS-Validierung, pytest-Matrix, JSON/YAML-Sanity-Checks
+  - Französische und niederländische Übersetzung ergänzt (`translations/fr.json`, `nl.json`)
+
+### Gefixt
+- Persistierter `system_mode: "cool"` aus einer Installation vor 2.0.0 wird beim Laden jetzt
+  automatisch auf `auto` zurückgesetzt, statt einen ungültigen Modus zu behalten
+- `schedule_manager.get_next_period()` gab `None` zurück statt zum nächsten Wochen-Vorkommen
+  zu springen, wenn ein Zimmer nur an einem einzigen Wochentag einen Zeitplan hat und dessen
+  letzte Periode für heute bereits vorbei ist
+- `translations/de.json` fehlten ~23 Schlüssel neuerer Einstellungen (Solar, Strompreis,
+  ETA-Vorheizen, Kalkschutz, Ventil-Fehler-Timeout u. a.) – deutschsprachige Nutzer sahen dort
+  rohe Schlüsselnamen statt übersetzter Labels im Options-Dialog
+- Frontend-Panel-Cache-Busting-Parameter (`ihc-panel.js?v=...`) war auf `1.6.3` eingefroren
+  obwohl der Code weit darüber steht – Browser konnten nach einem Update eine veraltete
+  Panel-Version zwischenspeichern
+
+---
+
+## [1.9.0] - 2026-04-12
+
+### Hinzugefügt
+
+- **Fenster-Kaskade**: Lüftet ein Zimmer zu lange, senken konfigurierbare Nachbarräume automatisch
+  ab (Ziel-Räume, Verzögerung, Absenkung pro Zimmer konfigurierbar); Dashboard-Alert-Chips mit
+  Countdown und Quell-Raum-Anzeige
+- **Optimum Start – Lernkurve nach Außentemperatur**: Aufheizzeiten werden getrennt nach
+  Außentemperatur-Bucket gelernt (`warmup_curve`), sichtbar als Kurve im Verlauf-Tab
+- **Thermische Masse**: gelernte Abkühlrate pro Zimmer (`avg_cooling_rate`) für präzisere
+  Vorheiz-Zeitschätzung
+- **Fenster-Restore-Modus**: Sollwert nach Fenster-schließen wahlweise aus Zeitplan oder vom Wert
+  vor dem Öffnen wiederherstellen
+- **Sommermodus – externer Schalter** (`CONF_SUMMER_MODE_ENTITY`) überschreibt die
+  Temperatur-Automatik
+- **Kälteprognose-Frühstart**: bei kalter Wetterprognose startet die Heizung X Stunden früher,
+  Sommerautomatik wird deaktiviert
+- **Mehrere Komfort-Verlängerungs-Einträge** (`comfort_extend_entries`): beliebig viele
+  Entitäten+Zustände als Auslöser
+- **CO₂-Vorheiz-Boost**: kurzes Vorheizen vor dem Lüften bei hohem CO₂-Wert gegen den Kälteschock
+- **v1.8 – Feiertags-/Schulferienkalender**: HA-Kalender-Entität → Wochenend-Zeitplan oder
+  Komfort-Modus an Feiertagen
+- **v1.8 – CO₂-Prognose**: `co2_ventilation_eta_minutes` berechnet die voraussichtliche Zeit bis
+  zur Lüftungsempfehlung
+- **v1.8 – Energiepreis-Chart**: Tibber/Nordpool-Stundenpreise als Balkendiagramm im Diagnose-Tab
+- **v1.8 – Peak Shaving**: gestaffelter Heizungsstart verhindert Lastspitzen bei synchronem
+  Anforderungsanstieg
+
+### Gefixt
+- `forecast_coldnight_active` war nie im Frontend sichtbar → Kälteprognose-Banner blieb immer aus
+- `pid_kp`/`ki`/`kd` wurden nach Panel-Reload immer auf Standardwerte zurückgesetzt
+- TRV: kein falsches „manuell" mehr während des Vorheizfensters
+- Laufzeit/kWh folgt jetzt exakt dem HVAC-Heating-Signal statt der berechneten Anforderung (TRV-Modus)
+- HVAC-Idle-Bug: `hvac_action` zeigte „heating" obwohl der Raum bereits beim Sollwert war
+- `avg_warmup_minutes` war im Frontend unsichtbar trotz vorhandener Backend-Daten
+- Startup-Crash bei unavailable Zigbee/Z-Wave-Sensoren behoben (letzter bekannter Wert 30 min)
+- Massiv reduziertes Schreibvolumen in HA-Recorder/`.storage` (Performance)
+- Mehrere Panel-Einstellungen-Bugs (Sichtbarkeit, Felder, `services.yaml`)
+- Stuck-Valve-`AttributeError` bei Ventilen ohne `valve_position`-Attribut
+- Komfort-Verlängerung: Grund wird jetzt im Dashboard angezeigt
+- `min_temp`/`max_temp` fehlten in Add/Edit-Room-Modals und climate-Attributen
+
+---
+
+## [1.6.3] - 2026-04-03
+
+### Hinzugefügt
+
+- **Bestätigungs-basierte TRV-Override-Erkennung**: `_trv_cmd_pending[entity_id]` verfolgt
+  gesendete Sollwerte; ein Override wird erst erkannt, wenn der TRV den Wert zurückmeldet (oder
+  nach 600 s Timeout) — kein falsches „manuell" mehr nach einem Zeitplanwechsel bei langsamen
+  Zigbee2MQTT-, Z-Wave- oder Homematic-TRVs
+- **ETA-Vorheizen vollständig**: nicht nur Zeitplanfenster-Verlängerung, sondern auch
+  HA-Schedule-Off-Mode-Fallback und IHC-Schedule-kein-nächster-Zeitraum-Fallback heizen bei naher
+  Ankunft (`CONF_ETA_PREHEAT_THRESHOLD_MINUTES`, Standard 90 min) auf Komfort vor; Diagnose-Tab
+  zeigt Live-ETA-Status mit Ankunfts-Tabelle
+- **Solltemperatur-Verlauf im Chart**: `target_history` parallel zu `temp_history`, gleicher
+  Ringpuffer-Takt, persistiert über HA-Neustarts hinweg; oranger Stufenlinienzug im Verlauf-Tab
+- **Presence Away Pending Status**: neue Attribute `presence_away_pending` und
+  `presence_away_pending_minutes_remaining` in `sensor.ihc_gesamtanforderung`
+- `services.yaml` um alle bisher fehlenden Felder ergänzt (`trv_*`, `window_*`,
+  `room_temp_threshold`, `comfort_temp_entity`, `eco_temp_entity`, `boost_temp`,
+  `aggressive_mode_*`, `presence_*`, `eta_preheat_*`, `heating_period_entity`,
+  `startup_grace_seconds`)
 
 ---
 

@@ -6,6 +6,7 @@ import time
 from typing import Optional
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_ROOM_ID,
@@ -16,8 +17,6 @@ from .const import (
     DEFAULT_TRV_TEMP_WEIGHT,
     CONF_TRV_TEMP_OFFSET,
     DEFAULT_TRV_TEMP_OFFSET,
-    CONF_TRV_VALVE_DEMAND,
-    DEFAULT_TRV_VALVE_DEMAND,
     CONF_TRV_MIN_SEND_INTERVAL,
     DEFAULT_TRV_MIN_SEND_INTERVAL,
     CONF_TRV_CALIBRATIONS,
@@ -37,7 +36,6 @@ from .const import (
     DEFAULT_AGGRESSIVE_MODE_RANGE,
     CONF_AGGRESSIVE_MODE_OFFSET,
     DEFAULT_AGGRESSIVE_MODE_OFFSET,
-    ROOM_MODE_OFF,
     ROOM_MODE_MANUAL,
 )
 
@@ -47,6 +45,12 @@ _LOGGER = logging.getLogger(__name__)
 TRV_TEMP_HYSTERESIS = 0.3       # °C – only send update if setpoint changes by at least this much
 TRV_LARGE_CHANGE_THRESHOLD = 1.0  # °C – above this, always send immediately (mode change etc.)
 TRV_SETPOINT_STEP = 0.5         # °C – quantise setpoint to TRV resolution (most TRVs: 0.5 °C)
+
+# TRV offset calibration assistant (see _update_trv_offset_calibration /
+# get_suggested_trv_offset): rolling sample cap and the minimum sample count
+# before a suggestion is considered reliable enough to show.
+TRV_OFFSET_CALIBRATION_MAX_SAMPLES = 100
+TRV_OFFSET_CALIBRATION_MIN_SAMPLES = 20
 
 
 class TRVControllerMixin:
@@ -152,7 +156,6 @@ class TRVControllerMixin:
         room: dict,
         room_temp: Optional[float],
         trv_data: dict,
-        trv_mode: bool = False,
     ) -> tuple[Optional[float], Optional[float], Optional[float]]:
         """Return (display_temp, demand_temp, raw_trv_temp) for a room.
 
@@ -163,7 +166,7 @@ class TRVControllerMixin:
                           last-resort fallback when no room sensor is configured.
 
         demand_temp   – temperature fed into the demand calculation.
-                        → TRV temp available (any mode, no explicit weight):
+                        → TRV temp available (no explicit weight):
                             Use TRV temp directly. The TRV sensor at the radiator
                             reacts immediately. If TRV reports 21°C while target is
                             19°C the demand is correctly 0 % — even if the wall
@@ -172,9 +175,6 @@ class TRVControllerMixin:
                         → No TRV data: same as display_temp (room sensor fallback).
 
         raw_trv_temp  – unmodified average TRV temperature for diagnostics.
-
-        The trv_mode parameter is kept for potential future differentiation but
-        demand_temp now uses TRV temp whenever available, regardless of mode.
         """
         trv_avg = trv_data.get("trv_avg_temp")
         weight = float(room.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT))
@@ -203,38 +203,62 @@ class TRVControllerMixin:
 
         return display_temp, demand_temp, trv_avg
 
-    def _apply_trv_valve_demand(self, demand: float, trv_data: dict, trv_mode: bool = False) -> float:
+    def _update_trv_offset_calibration(
+        self,
+        room_id: str,
+        room_temp: Optional[float],
+        trv_avg: Optional[float],
+        demand: float,
+        window_open: bool,
+    ) -> None:
+        """Record one (room_temp - trv_avg) sample for the offset calibration
+        assistant, so get_suggested_trv_offset() has data to suggest a
+        trv_temp_offset value from instead of the user having to guess it.
+
+        Only samples while the room is idle (demand == 0) and the window is
+        closed: while actively heating, the TRV sensor sits right at the hot
+        radiator and reads warmer than steady-state, which would bias the
+        difference away from what a display-temperature offset should
+        actually correct for.
+        """
+        if room_temp is None or trv_avg is None or window_open or demand > 0:
+            return
+        history = self._trv_offset_samples.setdefault(room_id, [])
+        history.append(round(room_temp - trv_avg, 2))
+        if len(history) > TRV_OFFSET_CALIBRATION_MAX_SAMPLES:
+            history.pop(0)
+
+    def get_suggested_trv_offset(self, room_id: str) -> Optional[float]:
+        """Return a suggested trv_temp_offset (median idle-time room-vs-TRV
+        difference, quantised to 0.5 °C to match TRV_SETPOINT_STEP), or None
+        if there aren't enough idle samples yet to trust the suggestion.
+
+        This never changes the configured offset itself - it's a read-only
+        hint surfaced in the frontend for the user to apply if they agree.
+        """
+        history = self._trv_offset_samples.get(room_id)
+        if not history or len(history) < TRV_OFFSET_CALIBRATION_MIN_SAMPLES:
+            return None
+        sorted_h = sorted(history)
+        n = len(sorted_h)
+        mid = n // 2
+        median = (sorted_h[mid - 1] + sorted_h[mid]) / 2.0 if n % 2 == 0 else sorted_h[mid]
+        return round(median / TRV_SETPOINT_STEP) * TRV_SETPOINT_STEP
+
+    def _apply_trv_valve_demand(self, demand: float, trv_data: dict) -> float:
         """Correct demand based on TRV valve position.
 
-        In TRV controller mode (auto-applied when valve data is available):
-          The valve position IS the most accurate demand signal – it reflects what
-          the TRV's own thermostat decided, reacts instantly, and is not affected by
-          sensor lag or room stratification.
-          Blending: 40 % temp-based (target context) + 60 % valve-based (actual demand).
-
-        In switch mode (opt-in via CONF_TRV_VALVE_DEMAND):
-          Conservative correction – only clamps extreme outliers.
-          - Valve > 85 %: TRV fully open → raise demand floor to 30
-          - Valve < 8 %: TRV nearly closed → cap demand at 30
-          - In between: 70 % temp-based + 30 % valve-based
+        The valve position IS the most accurate demand signal – it reflects what
+        the TRV's own thermostat decided, reacts instantly, and is not affected by
+        sensor lag or room stratification.
+        Blending: 40 % temp-based (target context) + 60 % valve-based (actual demand).
         """
         avg_valve = trv_data.get("trv_avg_valve")
         if avg_valve is None:
             return demand
 
         valve_demand = avg_valve  # valve position maps directly to demand 0-100
-
-        if trv_mode:
-            # Valve is dominant: fast-reacting, physically accurate
-            blended = demand * 0.40 + valve_demand * 0.60
-            return round(max(0.0, min(100.0, blended)), 1)
-
-        # Switch mode: conservative
-        if avg_valve > 85:
-            return max(demand, 30.0)
-        if avg_valve < 8:
-            return min(demand, 30.0)
-        blended = demand * 0.70 + valve_demand * 0.30
+        blended = demand * 0.40 + valve_demand * 0.60
         return round(max(0.0, min(100.0, blended)), 1)
 
     def _set_valve_entity(
@@ -475,7 +499,7 @@ class TRVControllerMixin:
             last_ihc = self._last_sent_temps.get(entity_id)
             if last_ihc is None:
                 # First cycle – record current TRV temp as baseline, no detection yet
-                self._last_ihc_set_temps[room_id] = trv_target
+                self._last_sent_temps[entity_id] = trv_target
                 continue
 
             # Confirmation-based pending check (replaces time-based grace):
@@ -648,8 +672,6 @@ class TRVControllerMixin:
         – No room is currently demanding heat (to avoid interrupting heating).
         – The TRV entity is reachable.
         """
-        from datetime import date, datetime as dt
-
         cfg = self.get_config()
         if not cfg.get(CONF_LIMESCALE_PROTECTION_ENABLED, DEFAULT_LIMESCALE_PROTECTION_ENABLED):
             return
@@ -658,7 +680,11 @@ class TRVControllerMixin:
         exercise_time_str = cfg.get(CONF_LIMESCALE_TIME, DEFAULT_LIMESCALE_TIME)
         exercise_duration_s = int(cfg.get(CONF_LIMESCALE_DURATION_MINUTES, DEFAULT_LIMESCALE_DURATION_MINUTES)) * 60
 
-        now_dt = dt.now()
+        # Use HA's configured timezone, not the OS/process timezone (which can
+        # differ, e.g. a UTC-configured Docker host running an Europe/Berlin
+        # Home Assistant instance) — otherwise the exercise window fires at the
+        # wrong wall-clock time relative to what the user configured.
+        now_dt = dt_util.now()
         today = now_dt.date()
         now_mono = time.monotonic()
 

@@ -250,12 +250,13 @@ class ComfortManagerMixin:
             return None
 
         rate = (n * sum_tv - sum_t * sum_v) / denom  # ppm per minute
-        if rate <= 0.1:  # Not rising meaningfully
-            return None
 
         bad_threshold = float(room.get(CONF_CO2_THRESHOLD_BAD, DEFAULT_CO2_THRESHOLD_BAD))
         if current_co2 >= bad_threshold:
-            return 0.0  # Already bad
+            return 0.0  # Already bad, regardless of whether it's still rising
+
+        if rate <= 0.1:  # Not rising meaningfully and not yet bad
+            return None
 
         eta_minutes = (bad_threshold - current_co2) / rate
         return round(eta_minutes, 1)

@@ -11,20 +11,34 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `1.9.0`
-- **Repository:** https://github.com/Jedrimos/intelligent-heating-controll
+- **Version:** `2.0.0`
+- **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
 - **Integration-Pfad:** `custom_components/intelligent_heating_control/`
 
+> **v2.0.0 – TRV-only, erster Release seit v1.9.2:** Ab dieser Version steuert IHC ausschließlich
+> Thermostatventile (TRVs) direkt. Der zentrale Heizungsschalter-Modus ("Switch-Modus",
+> Klimabaustein mit Hysterese/Min-Ein-Ausschaltzeiten), die Vorlauftemperatur-PID-Regelung und der
+> nie fertiggestellte Wärmeerzeuger-Modus (Roadmap 3.0) wurden vollständig entfernt. Kapitel 14
+> und 15 dieser Datei sind daher **historisch** – sie beschreiben eine Architektur, die es nicht
+> mehr gibt.
+>
+> **Auch in 2.0.0 – Kühlung entfernt:** TRVs können nicht kühlen, daher wurde auch die optionale
+> Kühlfunktion (`CONF_ENABLE_COOLING`/`CONF_COOLING_SWITCH`/`CONF_COOLING_TARGET_TEMP`,
+> Systemmodus `cool`) komplett entfernt. **Nicht verwechseln** mit der thermischen-Masse-
+> Lernfunktion (`avg_cooling_rate` / "Abkühlrate", Kapitel 13) – die ist eine völlig andere,
+> weiterhin aktive Funktion (misst wie schnell ein Raum bei ausgeschalteter Heizung auskühlt,
+> für Optimum-Stop-Berechnungen) und hat mit aktiver Kühlung nichts zu tun.
+
 ### Was kann es?
 - Pro-Zimmer Heizplanung mit Zeitplänen (eigenes Format + HA schedule entities)
 - Mehrere Betriebsmodi: auto, comfort, eco, sleep, away, vacation, guest, boost
-- Heizkurve (Außentemperatur → Vorlauftemperatur)
+- Heizkurve (Außentemperatur → Zimmer-Zieltemperatur, nicht zu verwechseln mit der entfernten Vorlauf-PID)
 - Fenstererkennung mit Reaktions- und Schließverzögerung
 - Schimmelschutz (Humidity-Sensor), CO₂-Überwachung, HKV-Sensor
 - Boost-Modus pro Zimmer (temporäre Erhöhung)
-- TRV-Modus: Thermostatic Radiator Valves direkt steuern ODER Switch-Modus
+- Direkte TRV-Steuerung (Thermostatic Radiator Valves) – der einzige Steuerungsmodus
 - Nachtabsenkung, Sommerautomatik, Frostschutz, Vorheizung
 - Vollständiges Web-Frontend (Single-Page-App in `ihc-panel.js`)
 
@@ -49,6 +63,14 @@ custom_components/intelligent_heating_control/
 │
 ├── coordinator.py           # Orchestrator: ruft Mixin-Methoden auf, Update-Zyklus, Service-Handler
 │                            # → Hier: _async_update_data(), alle Service-Handler, TRV-Sendlogik
+│                            # → _async_update_data() ist nur noch der Ablaufplan: sie ruft
+│                            #   8 benannte Phasen-Methoden auf (_update_phase_startup_and_timers,
+│                            #   _update_phase_outdoor_and_adjustments, _update_phase_window_cascade,
+│                            #   _process_room [pro Zimmer], _update_phase_aggregate_and_runtime,
+│                            #   _update_phase_apply_trv_setpoints, _update_phase_energy_and_ventilation,
+│                            #   _build_update_result). Der Zustand wird als `ctx`-Dict durchgereicht,
+│                            #   nicht über lange Parameterlisten – neue Werte, die eine spätere Phase
+│                            #   braucht, gehören ins `ctx.update({...})` der Phase die sie berechnet.
 │
 ├── config_flow.py           # HA ConfigFlow (Setup-Wizard + Options-Dialog)
 │                            # → Neue Einstellungen? Hier in Schema + save-handler eintragen
@@ -84,10 +106,11 @@ custom_components/intelligent_heating_control/
     │                            # → _check_mold_protection(), _check_co2(), _check_ventilation()
     ├── vacation_manager.py      # Urlaubs-Modus, Kalender-Integration, Gäste-Modus
     │                            # → _check_vacation_mode(), _check_calendar_vacation()
-    ├── climate_adjustments.py   # Solar-Boost, Energiepreis-Eco, Adaptive Heizkurve
-    │                            # → _get_solar_boost(), _get_energy_price_eco_offset(), _adapt_heating_curve()
-    └── heat_generator_stub.py   # Wärmeerzeuger-Modus Stub (Roadmap 3.0, WIP)
+    └── climate_adjustments.py   # Solar-Boost, Energiepreis-Eco
+    │                            # → _get_solar_boost(), _get_energy_price_eco_offset()
 ```
+> `flow_temp_pid.py` und `heat_generator_stub.py` existieren nicht mehr (entfernt in v2.0.0
+> zusammen mit dem Switch-Modus, siehe Kapitel 1).
 
 ### Frontend-Dateien
 
@@ -113,11 +136,7 @@ custom_components/intelligent_heating_control/frontend/
     │                        # _renderRoomScheduleInline(), _renderRoomCalendarInline()
     │                        # → Zimmer-Detail, Zeitplan-Editor, Kalender-Ansicht
     ├── 05_tab_settings.js   # Einstellungen-Tab: _renderSettings()
-    │                        # → MODUS-ABHÄNGIG: Abschnitte werden je nach controller_mode
-    │                        #   (trv/switch/hg) ein-/ausgeblendet
-    │                        # → TRV: nur Basis-Einstellungen sichtbar
-    │                        # → Switch: + Heizungsregelung, Vorlauf, Kalibrierung
-    │                        # → HG (WIP): + Wärmeerzeuger-Sektion mit WIP-Badge
+    │                        # → Keine Modus-Fallunterscheidung mehr (seit v2.0.0 nur TRV)
     ├── 06_tab_diagnose.js   # Diagnose-Tab: _renderDiagnose()
     │                        # → System-Status, Sensor-Werte, Energie-Statistiken
     ├── 07_tab_curve.js      # Heizkurve-Tab: _renderCurve(), _drawCurve()
@@ -228,7 +247,7 @@ _callService("update_room",            { id, schedules, ha_schedules, ... })
 _callService("remove_room",            { id })
 _callService("set_room_mode",          { id, mode })
 _callService("boost_room",             { id, duration_minutes, temp?, cancel? })
-_callService("update_global_settings", { outdoor_temp_sensor, controller_mode, ... })
+_callService("update_global_settings", { outdoor_temp_sensor, away_temp, ... })
 _callService("set_system_mode",        { mode })
 _callService("reload",                 {})
 ```
@@ -241,20 +260,12 @@ _callService("reload",                 {})
 | Konstante | Typ | Default | Beschreibung |
 |-----------|-----|---------|--------------|
 | `CONF_OUTDOOR_TEMP_SENSOR` | str | – | Außentemperatursensor entity_id |
-| `CONF_HEATING_SWITCH` | str | – | Heizungsschalter entity_id |
-| `CONF_COOLING_SWITCH` | str | – | Kühlschalter entity_id |
-| `CONF_HEATING_CURVE` | list | DEFAULT_HEATING_CURVE | Heizkurvenpunkte |
-| `CONF_DEMAND_THRESHOLD` | float | 15.0 | Einschaltschwelle % |
-| `CONF_DEMAND_HYSTERESIS` | float | 5.0 | Hysterese % |
-| `CONF_MIN_ON_TIME` | int | 5 | Min. Einschaltzeit (min) |
-| `CONF_MIN_OFF_TIME` | int | 5 | Min. Ausschaltzeit (min) |
-| `CONF_MIN_ROOMS_DEMAND` | int | 1 | Min. Zimmer mit Anforderung |
+| `CONF_HEATING_CURVE` | list | DEFAULT_HEATING_CURVE | Heizkurvenpunkte (Außentemp → Zimmer-Zieltemperatur) |
 | `CONF_SYSTEM_MODE` | str | "auto" | Systemmodus |
 | `CONF_AWAY_TEMP` | float | 16.0 | Abwesend-Temperatur global |
 | `CONF_VACATION_TEMP` | float | 14.0 | Urlaubstemperatur |
 | `CONF_PRESENCE_ENTITY` | str | – | Globale Anwesenheit entity_id |
 | `CONF_PRESENCE_ENTITIES` | list | – | Liste Anwesenheits-Entitäten |
-| `CONF_ENABLE_COOLING` | bool | False | Kühlung aktiviert |
 | `CONF_SUMMER_MODE_ENABLED` | bool | False | Sommerautomatik |
 | `CONF_SUMMER_THRESHOLD` | float | 18.0 | Sommer-Schwelle °C |
 | `CONF_SHOW_PANEL` | bool | True | Frontend-Panel anzeigen |
@@ -263,16 +274,12 @@ _callService("reload",                 {})
 | `CONF_NIGHT_SETBACK_OFFSET` | float | 2.0 | Nachtabsenkungs-Offset °C |
 | `CONF_SUN_ENTITY` | str | "sun.sun" | Sonnen-Entität |
 | `CONF_PREHEAT_MINUTES` | int | 0 | Globale Vorheizzeit (min) |
-| `CONF_CONTROLLER_MODE` | str | "switch" | "switch" oder "trv" |
-| `CONF_BOILER_KW` | float | 20.0 | Kesselleistung kW |
 | `CONF_SOLAR_ENTITY` | str | – | Solar-Leistungssensor |
 | `CONF_SOLAR_SURPLUS_THRESHOLD` | int | 1000 | Solar-Überschuss W |
 | `CONF_SOLAR_BOOST_TEMP` | float | 1.0 | Boost bei Solar-Überschuss °C |
 | `CONF_ENERGY_PRICE_ENTITY` | str | – | Dynamischer Strompreissensor |
 | `CONF_ENERGY_PRICE_THRESHOLD` | float | 0.30 | Teuer-Schwelle €/kWh |
 | `CONF_ENERGY_PRICE_ECO_OFFSET` | float | 2.0 | Eco-Abzug bei hohem Preis °C |
-| `CONF_FLOW_TEMP_ENTITY` | str | – | Vorlauftemperatur **number entity** (Schreiben: PID schickt Sollwert hierher, z.B. `number.heizung_vorlauf`) |
-| `CONF_FLOW_TEMP_SENSOR` | str | – | Vorlauftemperatur **sensor entity** (Lesen: aktueller IST-Wert, z.B. `sensor.vorlauftemperatur`) |
 | `CONF_VACATION_START` | str | – | Urlaubsstart ISO-Datum |
 | `CONF_VACATION_END` | str | – | Urlaubsende ISO-Datum |
 | `CONF_VACATION_CALENDAR` | str | – | Kalender-Entität für Urlaub |
@@ -281,15 +288,8 @@ _callService("reload",                 {})
 | `CONF_WEATHER_ENTITY` | str | – | Wetter-Entität |
 | `CONF_WEATHER_COLD_THRESHOLD` | float | 0.0 | Kalt-Warnung °C |
 | `CONF_WEATHER_COLD_BOOST` | float | 0.0 | Boost bei Kältewarnung °C |
-| `CONF_ADAPTIVE_CURVE_ENABLED` | bool | False | Adaptive Heizkurve |
-| `CONF_ADAPTIVE_CURVE_MAX_DELTA` | float | 3.0 | Max. Kurvenverschiebung °C |
 | `CONF_ADAPTIVE_PREHEAT_ENABLED` | bool | True | Adaptive Vorheizung |
 | `CONF_ETA_PREHEAT_ENABLED` | bool | False | ETA-basierte Vorheizung |
-| `CONF_COOLING_TARGET_TEMP` | float | 24.0 | Kühl-Zieltemperatur °C |
-| `CONF_PID_KP` | float | 2.0 | PID Proportionalanteil |
-| `CONF_PID_KI` | float | 0.1 | PID Integrationsanteil |
-| `CONF_PID_KD` | float | 0.5 | PID Differentialanteil |
-| `CONF_SMART_METER_ENTITY` | str | – | Smart-Meter kWh-Sensor |
 | `CONF_PRICE_FORECAST_ATTRIBUTE` | str | "today_prices" | Tibber-Preis-Attribut |
 | `CONF_OUTDOOR_HUMIDITY_SENSOR` | str | – | Außen-Feuchtigkeitssensor |
 | `CONF_GUEST_DURATION_HOURS` | int | 24 | Gäste-Modus Dauer (h) |
@@ -309,7 +309,6 @@ _callService("reload",                 {})
 | `CONF_WINDOW_CLOSE_DELAY` | int | 0 | Sekunden nach Schließen |
 | `CONF_ROOM_OFFSET` | float | 0.0 | Offset zur Heizkurve °C |
 | `CONF_DEADBAND` | float | 0.5 | Totband °C |
-| `CONF_WEIGHT` | float | 1.0 | Gewichtung in Gesamtanforderung |
 | `CONF_MIN_TEMP` | float | 5.0 | Minimale Temperatur °C |
 | `CONF_MAX_TEMP` | float | 30.0 | Maximale Temperatur °C |
 | `CONF_COMFORT_TEMP` | float | 21.0 | Komfort-Temperatur °C |
@@ -352,13 +351,15 @@ _callService("reload",                 {})
 | `CONF_PRESENCE_AWAY_DELAY_MINUTES` | int | 0 | Minuten Verzögerung vor Auto-Away (Blueprint: `input_presence_reaction_off_time`) |
 
 ### Systemmodi (`SYSTEM_MODES`)
-`auto` | `heat` | `cool` | `off` | `away` | `vacation` | `guest`
+`auto` | `heat` | `off` | `away` | `vacation` | `guest`
 
 ### Zimmermodi (`ROOM_MODES`)
 `auto` | `comfort` | `eco` | `sleep` | `away` | `off` | `manual`
 
-### Controller-Modi
-`switch` (Heizungsschalter steuern) | `trv` (TRVs direkt steuern, bei kein Bedarf zudrehen)
+### Controller-Modus
+Es gibt seit v2.0.0 nur noch einen Modus: direkte TRV-Steuerung. Es gibt kein `CONF_CONTROLLER_MODE`
+mehr und keine Fallunterscheidung im Code – die frühere Auswahl zwischen `switch`/`trv`/`hg` wurde
+komplett entfernt (siehe Kapitel 1).
 
 ---
 
@@ -368,7 +369,7 @@ _callService("reload",                 {})
 Neues Zimmer hinzufügen.
 ```
 name (required), temp_sensor, valve_entity, window_sensor,
-room_offset, comfort_temp, eco_temp, sleep_temp, deadband, weight
+room_offset, comfort_temp, eco_temp, sleep_temp, deadband
 ```
 
 ### `remove_room`
@@ -381,7 +382,7 @@ Bestehendes Zimmer aktualisieren – alle Felder optional außer `id`.
 ```
 id (required), temp_sensor, valve_entity, valve_entities, window_sensor, window_sensors,
 comfort_temp, eco_offset, eco_max_temp, sleep_offset, sleep_max_temp, away_offset, away_max_temp,
-room_offset, deadband, weight, ha_schedule_off_mode, schedules, ha_schedules,
+room_offset, deadband, ha_schedule_off_mode, schedules, ha_schedules,
 humidity_sensor, mold_protection_enabled, co2_sensor, radiator_kw,
 hkv_sensor, hkv_factor, room_presence_entities, boost_temp, boost_default_duration
 ```
@@ -393,7 +394,7 @@ id (required), mode (required): auto|comfort|eco|sleep|away|off|manual
 
 ### `set_system_mode`
 ```
-mode (required): auto|heat|cool|off|away|vacation
+mode (required): auto|heat|off|away|vacation|guest
 ```
 
 ### `boost_room`
@@ -403,7 +404,6 @@ id (required), duration_minutes (default:60), cancel (bool, default:false)
 
 ### `update_global_settings`
 ```
-demand_threshold, demand_hysteresis, min_on_time, min_off_time, min_rooms_demand,
 away_temp, vacation_temp, frost_protection_temp, summer_mode_enabled, summer_threshold,
 night_setback_enabled, night_setback_offset, preheat_minutes
 ```
@@ -631,12 +631,11 @@ vp = attrs.get("valve_position") or attrs.get("position") or attrs.get("pi_heati
 - Z-Wave TRVs: `position` (0–100)
 - Eurotronic/Spirit: `pi_heating_demand` (0–100)
 
-### Blending-Logik (coordinator.py `_apply_trv_valve_demand`)
+### Blending-Logik (trv_controller.py `_apply_trv_valve_demand`)
 ```
-TRV-Modus (auto):    demand = temp_demand * 0.40 + valve_position * 0.60
-Switch-Modus (opt):  demand = temp_demand * 0.70 + valve_position * 0.30
-                     + Klammerung: valve>85% → min 30, valve<8% → max 30
+demand = temp_demand * 0.40 + valve_position * 0.60
 ```
+Wird unbedingt angewendet (kein Modus-Flag mehr nötig – TRV ist der einzige Modus).
 
 ### Temperatur-Blending (`_blend_trv_temp`)
 ```
@@ -646,15 +645,11 @@ trv_temp_offset (default 0):     Kalibrierung: TRV sitzt am Heizkörper → oft 
                                   Negativer Offset (z.B. -2.0) kompensiert Nahwärme
 ```
 
-### Laufzeitmessung in TRV-Modus (coordinator.py `_update_runtime_tracking`)
-```python
-# TRV-Modus: Ventilposition > 8% = Zimmer heizt (direktes Signal)
-avg_valve = rdata.get("trv_avg_valve")
-if avg_valve is not None:
-    room_heating = avg_valve > 8
-else:
-    room_heating = demand > 0  # Fallback
-```
+### Laufzeitmessung (energy_manager.py `_trv_room_is_heating`)
+Da es keinen zentralen Kessel mehr gibt, ist "heizt gerade" rein TRV-signalbasiert (gleiche
+Priorität wie `climate.py` hvac_action): Ventilposition > 8 % → TRV meldet `hvac_action=="heating"`
+→ berechnete Anforderung > 0 → Fallback: Raumtemp < Zieltemp. Wird global (`heating_active`,
+d.h. "irgendein Zimmer heizt") und pro Zimmer (`get_room_runtime_today_minutes`) verwendet.
 
 ### Wo TRV-Daten im room_data dict landen
 Nach `_async_update_data()` enthält jedes room_data-Entry:
@@ -670,10 +665,10 @@ Nach `_async_update_data()` enthält jedes room_data-Entry:
 ### Geplant / Roadmap
 - 1.1: Temperaturverlauf 7 Tage (168h Snapshots)
 - 1.2: Urlaubs-Assistent (Datumsbereich, Kalender-Keyword)
-- 1.3: Adaptive Heizkurve, Solarüberschuss-Integration, Energiepreisoptimierung
+- 1.3: Solarüberschuss-Integration, Energiepreisoptimierung
 - 1.4: ETA-basierte Vorheizung
-- 1.5: PID Vorlauftemperaturregelung, Smart-Meter, Tibber-Forecast
-- 2.0: Wettervorhersage-Integration, Gäste-Modus erweitert
+- 1.5: Tibber-Forecast
+- 2.0: TRV-only (Switch-Modus entfernt), Wettervorhersage-Integration, Gäste-Modus erweitert
 - 2.1: Passive Solar Heating / Rollosteuerung (siehe Notizen unten)
 
 ---
@@ -706,7 +701,8 @@ Passive Heizen (Winter/Herbst):
         → Heizung erst zuschalten wenn Raumtemp trotzdem nicht steigt (nach X min)
 
 Passive Kühlen (Sommer):
-  WENN Systemmodus = cool ODER Sommerautomatik aktiv
+  WENN Sommerautomatik aktiv (kein "cool"-Systemmodus mehr seit v2.0.0 – TRVs kühlen nicht aktiv,
+  das hier ist reine Beschattung zur Vermeidung von Aufheizung, kein Kühlbetrieb)
   UND sun.elevation > CONF_SOLAR_MIN_ELEVATION
   UND Sonne trifft auf Fensterausrichtung
   UND Raumtemp > comfort_temp - CONF_SOLAR_SHADE_OFFSET (z.B. 1°C darunter vorsorglich)
@@ -784,320 +780,14 @@ done
 
 ---
 
-## 14. Architektur-Vision: Zwei Haupt-Betriebsmodi
+## 14. Architektur-Vision (ARCHIVIERT – seit v2.0.0 nicht mehr aktuell)
 
-> **Status (2026-03-17):** TRV-Modus ist implementiert und wird weiter verfeinert.
-> Wärmeerzeuger-Modus ist auf der Roadmap (3.0). Beide Modi sollen sich fundamental unterscheiden.
-
-### Überblick der Betriebsmodi
-
-```
-CONTROLLER_MODE_TRV    = "trv"    → Jetzt implementiert
-CONTROLLER_MODE_SWITCH = "switch" → Jetzt implementiert (Heizungsschalter-Modus)
-CONTROLLER_MODE_HG     = "hg"     → Roadmap 3.0: Wärmeerzeuger-Modus (Heat Generator)
-```
-
-### Modus-Vergleich: Was ist wo aktiv?
-
-| Feature | TRV-Modus | Switch-Modus | Wärmeerzeuger-Modus (3.0) |
-|---------|:---------:|:------------:|:------------------------:|
-| Raumtemperatur-Sollwert | ✅ | ✅ | ✅ |
-| Zeitpläne (IHC + HA) | ✅ | ✅ | ✅ |
-| Manuell-Override mit Auto-Reset | ✅ | ✅ | ✅ |
-| Fenstererkennung | ✅ | ✅ | ✅ |
-| Schimmelschutz / CO₂ | ✅ | ✅ | ✅ |
-| Anwesenheit / Urlaub / Gäste | ✅ | ✅ | ✅ |
-| Boost-Modus | ✅ | ✅ | ✅ |
-| Nachtabsenkung | ✅ | ✅ | ✅ |
-| Adaptives Vorheizen (lernt Aufheizzeit) | ✅ | ✅ | ✅ |
-| TRV-Ventilposition als Demand-Signal | ✅ | optional | — |
-| TRV-Sensor-Blending | ✅ | optional | — |
-| Heizungsschalter (EIN/AUS) | optional¹ | ✅ | — |
-| Klimabaustein (Hysterese, Min-Zeiten) | optional¹ | ✅ | — |
-| Adaptive Heizkurve | ❌ | ✅ | ✅ |
-| Sommerautomatik (schließt TRVs) | ✅² | ✅ | ✅ |
-| Vorlauftemperatur-Regelung (PID) | ❌ | ✅ | ✅ |
-| Solarüberschuss-Nutzung | optional | ✅ | ✅ |
-| Dynamischer Energiepreis | optional | ✅ | ✅ |
-| Heizkreis-Pumpensteuerung | ❌ | ❌ | ✅ |
-| Mehrkreis-Heizung (HK1/HK2/FBH) | ❌ | ❌ | ✅ |
-| Mischventil-Regelung | ❌ | ❌ | ✅ |
-| KNX-Thermostat-Integration | ❌ | ❌ | ✅ |
-| Pufferspeicher-Management | ❌ | ❌ | ✅ |
-| Warmwasser-Priorisierung (TWW) | ❌ | ❌ | ✅ |
-| Wärmepumpe-Optimierung (COP) | ❌ | ❌ | ✅ |
-| Hydraulischer Abgleich | ❌ | ❌ | ✅ |
-
-¹ Wenn `CONF_HEATING_SWITCH` konfiguriert → Kessel mit TRVs (Hybrid-Setup)
-² Sendet Frost-Schutz-Temperatur statt Zieltemperatur → TRV schließt
-
----
-
-## 15. Roadmap 3.0 – Wärmeerzeuger-Modus (Heat Generator Mode)
-
-> **Ziel:** Einen vollständigen dritten Betriebsmodus für professionelle Zentralheizungsanlagen
-> mit mehren Heizkreisen, Wärmepumpen, KNX-Integration und hydraulischem Abgleich.
-
-### 15.1 Anwendungsfälle (Wer braucht den Wärmeerzeuger-Modus?)
-
-```
-Typische Setups:
-  A) Einfamilienhaus mit Gas/Öl-Kessel + Fußbodenheizung (mehrere Kreise)
-  B) Haus mit Wärmepumpe + Niedertemperatur-Heizkörper oder FBH
-  C) KNX-Haus mit Raumtemperaturreglern (KNX-Thermostate, Präsenzmelder)
-  D) Gebäude mit mehreren Heizkreisen (z.B. HK1 = Heizkörper 60°C, HK2 = FBH 35°C)
-  E) Solar-thermisch + Pufferspeicher + Gas-Kessel (Hybrid-Heizung)
-  F) Pellet-/Holzheizung mit Pufferspeicher und mehreren Entnahmepunkten
-```
-
-### 15.2 Neue Konzepte im Wärmeerzeuger-Modus
-
-#### Heizkreis (CONF_HEATING_CIRCUIT)
-Ein Heizkreis ist eine Gruppe von Räumen die über eine gemeinsame Pumpe/Mischventil versorgt werden.
-
-```python
-# Neues Konzept: Heizkreis-Konfiguration
-CONF_CIRCUITS = "circuits"        # Liste aller Heizkreise
-CONF_CIRCUIT_ID = "circuit_id"
-CONF_CIRCUIT_NAME = "circuit_name"
-CONF_CIRCUIT_PUMP = "circuit_pump"           # switch.heizkreis_pumpe
-CONF_CIRCUIT_MIXER_ENTITY = "circuit_mixer"  # number.mischventil_position
-CONF_CIRCUIT_FLOW_SENSOR = "circuit_flow"    # sensor.vorlauf_HK1
-CONF_CIRCUIT_RETURN_SENSOR = "circuit_return" # sensor.rücklauf_HK1
-CONF_CIRCUIT_TYPE = "circuit_type"           # "radiator" | "underfloor" | "mixed"
-CONF_CIRCUIT_MAX_FLOW = "circuit_max_flow"   # max. Vorlauftemperatur °C
-CONF_CIRCUIT_ROOMS = "circuit_rooms"         # Zimmer-IDs die zu diesem HK gehören
-CONF_CIRCUIT_DESIGN_TEMP = "circuit_design"  # Auslegungstemperatur (Norm-AT)
-
-# Vorlauftemperatur je Heizkreis (eigene Heizkurve pro Kreis)
-circuit_comfort_base = heating_curve_hk.get_target_temp(outdoor_temp)
-# FBH-Kreis läuft z.B. bei 35°C, Heizkörper-Kreis bei 60°C
-```
-
-#### Mischventil-Regelung
-```python
-# Mischventil: Vorlauftemperatur des Kreises regulieren
-# Regelungsart: PID oder Zwei-Punkt mit Hysterese
-# Aktuatoren: number.* entity für Ventil-Position (0-100%)
-
-CONF_MIXER_KP = "mixer_kp"           # PID Proportional
-CONF_MIXER_KI = "mixer_ki"           # PID Integral
-CONF_MIXER_KD = "mixer_kd"           # PID Differential
-CONF_MIXER_RUN_TIME = "mixer_runtime" # Motorlaufzeit Sekunden (typisch 60-120s)
-```
-
-#### Hydraulischer Abgleich (automatisch)
-```python
-# IHC lernt aus Rücklauftemperatur-Differenzen:
-# Wenn Rücklauf >> Vorlauf − Delta_soll → Ventil öffnet zu schnell → Drosseln
-# Speichert optimale kV-Werte pro Zimmer/Heizkreis
-
-CONF_HYDRAULIC_BALANCE_ENABLED = "hydraulic_balance"  # bool
-CONF_HYDRAULIC_DELTA_SOLL = "hydraulic_delta"         # °C Soll-Spreizung (typisch 10-15°C)
-```
-
-#### Wärmepumpe-Optimierung
-```python
-# WP läuft am effizientesten bei niedrigen Vorlauftemperaturen (besserer COP)
-# IHC minimiert Vorlauftemperatur → WP-Effizienz steigt
-
-CONF_HEATPUMP_ENTITY = "heatpump_entity"          # climate.wärmepumpe
-CONF_HEATPUMP_COP_SENSOR = "heatpump_cop"         # sensor.wp_cop
-CONF_HEATPUMP_MODE = "heatpump_mode"              # "flow_opt" | "room_prio"
-CONF_HEATPUMP_MIN_FLOW = "heatpump_min_flow"      # min. Vorlauftemp. WP (z.B. 25°C)
-CONF_HEATPUMP_BIVALENZ_TEMP = "bivalenz_temp"     # AT unter der Zusatz-Heizung startet
-CONF_HEATPUMP_BIVALENZ_ENTITY = "bivalenz_entity" # switch.elektro_heizstab
-
-# COP-geführte Optimierung:
-# Wenn COP < threshold → WP nicht für Spitzenlast nutzen → Heizstab besser
-```
-
-#### Pufferspeicher-Management
-```python
-CONF_BUFFER_TEMP_TOP = "buffer_temp_top"     # sensor.puffer_oben
-CONF_BUFFER_TEMP_MID = "buffer_temp_mid"     # sensor.puffer_mitte (optional)
-CONF_BUFFER_TEMP_BOT = "buffer_temp_bot"     # sensor.puffer_unten
-CONF_BUFFER_TARGET = "buffer_target"         # gewünschte Mindest-Puffertemperatur
-CONF_BUFFER_HYSTERESIS = "buffer_hysteresis" # Puffer-Hysterese
-
-# Logik:
-# Wenn Puffer oben < buffer_target - hysteresis → Erzeuger einschalten
-# Wenn Puffer oben > buffer_target + hysteresis → Erzeuger ausschalten
-# Heizkreis-Pumpen laufen solange Puffer warm genug (oben > HK-Vorlauf-Soll)
-```
-
-#### Warmwasser-Priorisierung (TWW = Trinkwarmwasser)
-```python
-CONF_TWW_ENABLED = "tww_enabled"
-CONF_TWW_SENSOR = "tww_sensor"               # sensor.boiler_temp
-CONF_TWW_TARGET = "tww_target"               # Ziel-Warmwassertemperatur
-CONF_TWW_HYSTERESIS = "tww_hysteresis"       # typisch 5°C
-CONF_TWW_PRIORITY_ENTITY = "tww_priority"    # switch.tww_umschaltventil
-CONF_TWW_SCHEDULE = "tww_schedule"           # Zeitpläne für TWW-Aufheizung
-
-# Logik:
-# Wenn TWW-Sensor < target - hysteresis → TWW-Priorisierung EIN
-# Heizkreise werden für TWW-Dauer gestoppt (Pumpen aus)
-# TWW-Umschaltventil auf "TWW" schalten
-# Wenn TWW-Sensor > target → zurückschalten auf Heizkreis
-```
-
-#### KNX-Integration
-```python
-# KNX-Thermostate liefern Raum-Sollwert und Ist-Temperatur via KNX-Integration in HA
-# IHC liest KNX-Thermostate als normale climate.*-Entitäten
-# IHC überschreibt KNX-Thermostate NICHT (sie haben ihre eigene Logik)
-# Stattdessen: KNX-Thermostat-Anforderung (Heizanforderung) als Input für IHC
-
-CONF_KNX_ROOM_DEMAND_ENTITY = "knx_demand"   # binary_sensor.* oder number.* (0-100%)
-# Wenn KNX-Thermostat Anforderung gibt → IHC öffnet Stellantrieb + regelt Kreis-Pumpe
-
-# Stellantriebe (KNX-Ventile für FBH):
-CONF_KNX_ACTUATOR_ENTITY = "knx_actuator"    # switch.* oder number.* (0-100%)
-# IHC berechnet Ventilposition aus PID-Regelung und schreibt auf KNX-Gruppe
-```
-
-### 15.3 Neue Architektur-Dateien für 3.0
-
-```
-custom_components/intelligent_heating_control/
-├── coordinator.py        → erweitert: Heizkreis-Logik, Puffer, TWW, WP
-├── circuit_manager.py    → NEU: Heizkreis-Verwaltung + Mischventil-PID
-├── buffer_manager.py     → NEU: Pufferspeicher-Logik
-├── heatpump_optimizer.py → NEU: WP-COP-Optimierung + Bivalenz
-├── tww_manager.py        → NEU: Trinkwarmwasser-Priorisierung
-├── hydraulic_balance.py  → NEU: Automatischer hydraulischer Abgleich
-└── frontend/
-    └── ihc-panel.js      → erweitert: Heizkreis-Tab, Puffer-Dashboard, KNX-Konfig
-```
-
-### 15.4 Frontend-Erweiterungen für 3.0
-
-Neue Tabs/Sektionen:
-```
-🔥 Wärmeerzeugung      → Erzeuger-Status, Pufferspeicher-Visualisierung, TWW
-🔄 Heizkreise          → Übersicht aller HKs, Vorlauf/Rücklauf, Pumpen-Status
-⚙️ Einstellungen       → neuer Bereich "Wärmeerzeuger" mit Heizkreis-Konfigurator
-```
-
-### 15.5 Neue Konstanten (3.0)
-
-```python
-# Betriebsmodus
-CONTROLLER_MODE_HG = "hg"  # Heat Generator Mode
-
-# System-Level
-CONF_CIRCUITS = "circuits"
-CONF_TWW_ENABLED = "tww_enabled"
-CONF_TWW_SENSOR = "tww_sensor"
-CONF_TWW_TARGET = "tww_target"
-CONF_TWW_HYSTERESIS = "tww_hysteresis"
-CONF_TWW_PRIORITY_ENTITY = "tww_priority_entity"
-CONF_BUFFER_TEMP_TOP = "buffer_temp_top"
-CONF_BUFFER_TEMP_MID = "buffer_temp_mid"
-CONF_BUFFER_TEMP_BOT = "buffer_temp_bot"
-CONF_BUFFER_TARGET = "buffer_target"
-CONF_BUFFER_HYSTERESIS = "buffer_hysteresis"
-CONF_HEATPUMP_ENTITY = "heatpump_entity"
-CONF_HEATPUMP_COP_SENSOR = "heatpump_cop_sensor"
-CONF_HEATPUMP_BIVALENZ_TEMP = "heatpump_bivalenz_temp"
-CONF_HEATPUMP_BIVALENZ_ENTITY = "heatpump_bivalenz_entity"
-CONF_HYDRAULIC_BALANCE_ENABLED = "hydraulic_balance_enabled"
-CONF_HYDRAULIC_DELTA_SOLL = "hydraulic_delta_soll"
-
-# Pro Heizkreis
-CONF_CIRCUIT_ID = "circuit_id"
-CONF_CIRCUIT_NAME = "circuit_name"
-CONF_CIRCUIT_TYPE = "circuit_type"  # "radiator" | "underfloor" | "mixed"
-CONF_CIRCUIT_PUMP = "circuit_pump"
-CONF_CIRCUIT_MIXER_ENTITY = "circuit_mixer_entity"
-CONF_CIRCUIT_FLOW_SENSOR = "circuit_flow_sensor"
-CONF_CIRCUIT_RETURN_SENSOR = "circuit_return_sensor"
-CONF_CIRCUIT_MAX_FLOW_TEMP = "circuit_max_flow_temp"
-CONF_CIRCUIT_DESIGN_TEMP = "circuit_design_temp"
-CONF_CIRCUIT_ROOMS = "circuit_rooms"
-CONF_MIXER_KP = "mixer_kp"
-CONF_MIXER_KI = "mixer_ki"
-CONF_MIXER_KD = "mixer_kd"
-CONF_MIXER_RUNTIME_SECONDS = "mixer_runtime_seconds"
-```
-
-### 15.6 Implementierungs-Prioritäten (3.0)
-
-Reihenfolge für die Implementierung:
-
-```
-Phase 3.1 – Grundstruktur:
-  [ ] CONTROLLER_MODE_HG in const.py + config_flow
-  [ ] Heizkreis-Konfigurator (circuit_manager.py)
-  [ ] Heizkreis-Pumpensteuerung (analog zu heating_switch)
-  [ ] Pro-Heizkreis Vorlauftemperatur-Berechnung (Heizkurve pro Kreis)
-  [ ] Frontend: Heizkreis-Tab im Einstellungen
-
-Phase 3.2 – Mischventil & Flow:
-  [ ] Mischventil-PID-Regelung (circuit_manager.py)
-  [ ] Vorlauftemperatur-Messung + Regelkreis
-  [ ] Rücklauftemperatur-Überwachung
-  [ ] Frontend: Heizkreis-Dashboard mit Vorlauf/Rücklauf-Anzeige
-
-Phase 3.3 – Pufferspeicher:
-  [ ] buffer_manager.py
-  [ ] Dreischicht-Temperaturüberwachung
-  [ ] Erzeuger-Anforderung aus Puffer-Logik
-  [ ] Frontend: Puffer-Visualisierung (Schichtung + Temperaturen)
-
-Phase 3.4 – Warmwasser (TWW):
-  [ ] tww_manager.py
-  [ ] TWW-Priorisierung (Heizkreise stoppen)
-  [ ] Zeitplan-geführte TWW-Aufheizung
-  [ ] Frontend: TWW-Status + Zeitplan
-
-Phase 3.5 – Wärmepumpe:
-  [ ] heatpump_optimizer.py
-  [ ] COP-Berechnung + -Überwachung
-  [ ] Bivalenz-Punkt-Logik
-  [ ] Vorlauftemperatur-Minimierung für WP-Effizienz
-  [ ] Frontend: WP-Status + COP-Kurve
-
-Phase 3.6 – Hydraulischer Abgleich:
-  [ ] hydraulic_balance.py
-  [ ] Rücklauftemperatur-basiertes Lernen
-  [ ] Automatische kV-Wert-Optimierung
-  [ ] Frontend: Abgleich-Assistent
-
-Phase 3.7 – KNX-Integration:
-  [ ] KNX-Thermostat-Anforderungslesung
-  [ ] KNX-Stellantrieb-Steuerung
-  [ ] Frontend: KNX-Konfigurations-Sektion
-```
-
-### 15.7 Wichtige Designentscheidungen für 3.0
-
-**1. Rückwärtskompatibilität:**
-- Bestehende Switch-Modus und TRV-Modus Konfigurationen dürfen NICHT brechen
-- Wärmeerzeuger-Modus ist ein vollständig neuer Modus-Typ, keine Erweiterung von Switch
-- Upgrade-Pfad: Switch-Modus → Wärmeerzeuger-Modus via Config-Flow-Migration
-
-**2. Heizkreis-Hierarchie:**
-```
-Wärmeerzeuger (Kessel/WP/Pellet)
-    └── Pufferspeicher (optional)
-         ├── Heizkreis 1: Heizkörper (60°C, Mischventil)
-         │    ├── Raum A (Stellantrieb / TRV)
-         │    └── Raum B (Stellantrieb / TRV)
-         ├── Heizkreis 2: Fußbodenheizung (35°C, Mischventil)
-         │    ├── Raum C (Stellantrieb)
-         │    └── Raum D (Stellantrieb)
-         └── TWW-Kreis (Warmwasser, Priorität)
-```
-
-**3. Dual-Mode Räume:**
-Ein Raum kann sowohl TRVs (Ventilsteuerung) als auch in einem Heizkreis sein (Pumpe/Mischventil).
-In diesem Fall: IHC steuert BEIDE (TRV-Stellantrieb UND Heizkreis-Pumpe).
-
-**4. Energiebilanz:**
-Im Wärmeerzeuger-Modus: Erzeuger-Energie = gemessene kWh (Smart-Meter) oder COP × el. Energie.
-Pro Heizkreis: Energie-Anteil = (Spreizung × Durchfluss × Laufzeit) / Gesamt.
+> **Diese Kapitel (14 und 15) sind historisch.** Sie beschrieben eine geplante Drei-Modi-Architektur
+> (Heizungsschalter / TRV / Wärmeerzeuger). Seit v2.0.0 unterstützt IHC nur noch direkte
+> TRV-Steuerung – der Heizungsschalter-Modus wurde entfernt und der nie gebaute
+> Wärmeerzeuger-Modus (Heizkreise, Pufferspeicher, Mischventile, KNX, Wärmepumpen-COP-Optimierung)
+> wurde aus der Roadmap gestrichen. Der ursprüngliche Inhalt ist über die Git-Historie dieser Datei
+> abrufbar, falls die Konzepte für ein zukünftiges Multi-Heizkreis-Feature wieder relevant werden.
 
 ---
 
@@ -1257,7 +947,7 @@ Abgleich mit dem Blueprint `panhans/advanced_heating_control.yaml` ergab folgend
 
 #### Kurzfristig (1.x)
 - **1.4:** ETA-basierte Vorheizung (Backend bereits implementiert, UI ausstehend)
-- **1.5:** PID Vorlauftemperaturregelung, Smart-Meter, Tibber-Forecast
+- **1.5:** Tibber-Forecast
 
 #### Mittelfristig (2.x)
 - **2.1:** Passive Solar Heating via Rollosteuerung → siehe Kapitel 13
@@ -1281,10 +971,10 @@ Abgleich mit dem Blueprint `panhans/advanced_heating_control.yaml` ergab folgend
 - Nutzung: Berechnung der optimalen Startzeit + Vorhersage wann nächste Heizanforderung kommt
 - Betonzimmer kühlen langsamer → brauchen weniger Vorheizung; Dachzimmer schneller → mehr
 
-**Peak Shaving – gestaffelter Heizungsstart**
-- Wenn alle Zimmer gleichzeitig anfordern → Kessel auf 100%, ineffizient
-- Zimmer nach Priorität/Aufheizrate um 1–3 Minuten versetzt starten
-- Konfiguration: `CONF_PEAK_SHAVING_ENABLED` (bool) + Priorität implizit aus `CONF_WEIGHT`
+**Peak Shaving – gestaffelter Heizungsstart** ✅ Implementiert
+- Trigger: sobald irgendein Zimmer von "keine Anforderung" auf "Anforderung > 0" wechselt
+- Zimmer mit niedrigerer Anforderung (untere 50%) werden für die konfigurierte Verzögerung auf max. 30% gedeckelt
+- Konfiguration: `CONF_PEAK_SHAVING_ENABLED` (bool) + `CONF_PEAK_SHAVING_DELAY_MINUTES`
 
 **CO₂-prädiktive Lüftungsplanung**
 - CO₂-Anstiegsrate messen → Zeitpunkt vorhersagen wann Lüftung nötig sein wird
@@ -1309,4 +999,4 @@ Abgleich mit dem Blueprint `panhans/advanced_heating_control.yaml` ergab folgend
 - Kein manuelles Umschalten mehr an Feiertagen notwendig
 
 #### Langfristig (3.x)
-- **3.0:** Wärmeerzeuger-Modus (Heizkreise, Puffer, WP, TWW, KNX) → siehe Kapitel 15
+- **Gestrichen:** Wärmeerzeuger-Modus (Heizkreise, Puffer, WP, TWW, KNX) – widerspricht der TRV-only-Ausrichtung seit v2.0.0, siehe Kapitel 14.

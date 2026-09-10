@@ -5,6 +5,8 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import Optional
 
+from homeassistant.util import dt as dt_util
+
 from .const import (
     CONF_VACATION_START,
     CONF_VACATION_END,
@@ -43,7 +45,7 @@ class VacationManagerMixin:
         except ValueError:
             return
 
-        today = date.today()
+        today = dt_util.now().date()
         in_vacation = vac_start <= today <= vac_end
 
         # Allow activation from AUTO or presence-triggered AWAY (so airport-departure doesn't block it)
@@ -106,7 +108,7 @@ class VacationManagerMixin:
             vac_end = date.fromisoformat(end_str)
         except ValueError:
             return
-        today = date.today()
+        today = dt_util.now().date()
         days_until_return = (vac_end - today).days
         # Activate pre-heat if within preheat_days before end AND system is currently in vacation
         if 0 <= days_until_return < preheat_days and self._system_mode == SYSTEM_MODE_VACATION and self._vacation_auto_active:
@@ -131,13 +133,13 @@ class VacationManagerMixin:
         cal_entity = cfg.get(CONF_VACATION_CALENDAR)
         if not cal_entity:
             return
-        today_yday = datetime.now().timetuple().tm_yday
+        today_yday = dt_util.now().timetuple().tm_yday
         if self._vac_calendar_last_check == today_yday:
             return
         self._vac_calendar_last_check = today_yday
 
         keyword = cfg.get(CONF_VACATION_CALENDAR_KEYWORD, DEFAULT_VACATION_CALENDAR_KEYWORD).lower()
-        today = date.today()
+        today = dt_util.now().date()
         end_date = today + timedelta(days=30)
         try:
             result = await self.hass.services.async_call(
@@ -159,7 +161,17 @@ class VacationManagerMixin:
             summary = event.get("summary", "").lower()
             if keyword in summary:
                 start_str = str(event.get("start", ""))[:10]
-                end_str   = str(event.get("end",   ""))[:10]
+                end_raw   = str(event.get("end", ""))
+                end_str   = end_raw[:10]
+                # All-day calendar events report `end` as EXCLUSIVE (the day after
+                # the last vacation day, per iCal/HA convention) — a pure date string
+                # (no "T" time component) always means an all-day event. Subtract one
+                # day so the inclusive vac_start <= today <= vac_end check is correct.
+                if len(end_raw) == 10 and end_str:
+                    try:
+                        end_str = (date.fromisoformat(end_str) - timedelta(days=1)).isoformat()
+                    except ValueError:
+                        pass
                 if start_str and end_str:
                     if start_str != cfg.get(CONF_VACATION_START) or end_str != cfg.get(CONF_VACATION_END):
                         _LOGGER.info("Vacation calendar: found '%s' → %s – %s", summary, start_str, end_str)
