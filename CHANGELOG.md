@@ -9,6 +9,29 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Geändert
+- **Interne Entwicklerqualität** (kein Verhaltensunterschied für Nutzer):
+  - `coordinator.py`: `_async_update_data()` (vormals ~660 Zeilen) in 8 benannte Phasen-Methoden
+    zerlegt (`_update_phase_startup_and_timers`, `_update_phase_outdoor_and_adjustments`,
+    `_update_phase_window_cascade`, `_process_room`, `_update_phase_aggregate_and_runtime`,
+    `_update_phase_apply_trv_setpoints`, `_update_phase_energy_and_ventilation`,
+    `_build_update_result`) – reine Extraktion, Reihenfolge und Logik unverändert
+  - `pytest`-Testsuite (37 Tests) für `heating_curve.py`, `schedule_manager.py`,
+    `heating_controller.py` hinzugefügt, importierbar ohne Home-Assistant-Installation
+  - GitHub Actions: hassfest- und HACS-Validierung, pytest-Matrix, JSON/YAML-Sanity-Checks
+  - Französische und niederländische Übersetzung ergänzt (`translations/fr.json`, `nl.json`)
+
+### Gefixt
+- `schedule_manager.get_next_period()` gab `None` zurück statt zum nächsten Wochen-Vorkommen
+  zu springen, wenn ein Zimmer nur an einem einzigen Wochentag einen Zeitplan hat und dessen
+  letzte Periode für heute bereits vorbei ist
+- `translations/de.json` fehlten ~23 Schlüssel neuerer Einstellungen (Solar, Strompreis,
+  ETA-Vorheizen, Kalkschutz, Ventil-Fehler-Timeout u. a.) – deutschsprachige Nutzer sahen dort
+  rohe Schlüsselnamen statt übersetzter Labels im Options-Dialog
+- Frontend-Panel-Cache-Busting-Parameter (`ihc-panel.js?v=...`) war auf `1.6.3` eingefroren
+  obwohl der Code bei 2.1.0 steht – Browser konnten nach einem Update eine veraltete
+  Panel-Version zwischenspeichern
+
 ### Geplant
 Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent,
 Schlaf-Temperaturprofil, Passive Solarheizung via Rollosteuerung, u. v. m.).

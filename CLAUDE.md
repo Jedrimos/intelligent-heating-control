@@ -62,6 +62,14 @@ custom_components/intelligent_heating_control/
 │
 ├── coordinator.py           # Orchestrator: ruft Mixin-Methoden auf, Update-Zyklus, Service-Handler
 │                            # → Hier: _async_update_data(), alle Service-Handler, TRV-Sendlogik
+│                            # → _async_update_data() ist nur noch der Ablaufplan: sie ruft
+│                            #   8 benannte Phasen-Methoden auf (_update_phase_startup_and_timers,
+│                            #   _update_phase_outdoor_and_adjustments, _update_phase_window_cascade,
+│                            #   _process_room [pro Zimmer], _update_phase_aggregate_and_runtime,
+│                            #   _update_phase_apply_trv_setpoints, _update_phase_energy_and_ventilation,
+│                            #   _build_update_result). Der Zustand wird als `ctx`-Dict durchgereicht,
+│                            #   nicht über lange Parameterlisten – neue Werte, die eine spätere Phase
+│                            #   braucht, gehören ins `ctx.update({...})` der Phase die sie berechnet.
 │
 ├── config_flow.py           # HA ConfigFlow (Setup-Wizard + Options-Dialog)
 │                            # → Neue Einstellungen? Hier in Schema + save-handler eintragen
