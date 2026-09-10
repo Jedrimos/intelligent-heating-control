@@ -145,7 +145,12 @@ class ScheduleManager:
         current_time = now.time().replace(second=0, microsecond=0)
         candidates = []
 
-        for day_offset in range(7):
+        # range(8), not range(7): a schedule whose only active weekday is
+        # today needs day_offset=7 (today's weekday, one week from now) as a
+        # fallback candidate for any period that has already passed today -
+        # otherwise "next period" would wrongly return None for the rest of
+        # that day even though the same period recurs next week.
+        for day_offset in range(8):
             check_day = (weekday + day_offset) % 7
             for schedule in self._schedules:
                 days = [WEEKDAY_MAP.get(d, -1) for d in schedule.get("days", [])]
