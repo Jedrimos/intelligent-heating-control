@@ -1,9 +1,9 @@
 {
   "name": "Intelligent Heating Control",
-  "description": "Advanced heating control with outdoor-temperature-guided room temperatures, schedules with offset, and Loxone-style demand aggregation (Klimabaustein)",
+  "description": "Multi-room heating control for TRVs (thermostatic radiator valves): outdoor-temperature-guided targets, schedules, window/mold/CO2 detection, presence, vacation, and learning warmup/thermal-mass models.",
   "render_readme": true,
-  "domains": ["climate", "sensor", "switch", "number", "select"],
+  "domains": ["climate", "sensor", "binary_sensor", "switch", "number", "select"],
   "iot_class": "local_push",
-  "homeassistant": "2023.6.0",
-  "documentation": "https://github.com/Jedrimos/intelligent-heatingcontroll/tree/main/docs"
+  "homeassistant": "2024.2.0",
+  "documentation": "https://github.com/Jedrimos/intelligent-heating-control/tree/main/docs"
 }

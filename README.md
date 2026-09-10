@@ -1,13 +1,23 @@
 # 🌡️ Intelligent Heating Control (IHC)
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
-[![HA Version](https://img.shields.io/badge/HA-2023.6%2B-blue.svg)](https://home-assistant.io)
-[![Version](https://img.shields.io/badge/Version-1.3.0-green.svg)](CHANGELOG.md)
+[![HA Version](https://img.shields.io/badge/HA-2024.2%2B-blue.svg)](https://home-assistant.io)
+[![Version](https://img.shields.io/badge/Version-2.1.0-green.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Eine fortschrittliche, zentral aggregierende Heizungssteuerung für Home Assistant – inspiriert von Loxone und Advanced Heating Control v5.
+**Die intelligente Mehrzimmer-Heizungssteuerung für Thermostat-Ventile (TRVs) in Home Assistant.**
 
-**Das Grundprinzip:** Jeder Raum berechnet seine Heizanforderung (0–100 %). Der Klimabaustein aggregiert alle Anforderungen gewichtet und entscheidet zentral, ob die Heizung läuft. **Alle Preset-Temperaturen** (Komfort / Eco / Schlaf / Abwesend) werden dynamisch aus der Außentemperatur-Heizkurve berechnet – Eco und Schlaf als konfigurierbarer Abzug von der Komforttemperatur, jeweils mit einstellbarer Obergrenze. HA `schedule.*` Entities können als Heizplan eingebunden werden.
+IHC macht aus einzelnen, voneinander nichts wissenden Heizkörperthermostaten ein zusammenhängendes,
+lernendes Heizsystem: außentemperaturgeführte Solltemperaturen, Zeitpläne pro Zimmer, Fenster- und
+Anwesenheitserkennung, Schimmel- und CO₂-Schutz, Urlaubs- und Gästebetrieb, Wetterprognose –
+und ein vollwertiges eigenes Dashboard-Panel in der HA-Seitenleiste.
+
+**Das Grundprinzip:** IHC berechnet für jedes Zimmer laufend die richtige Solltemperatur und schreibt sie
+**direkt auf die TRVs des Raums** – es gibt keinen zentralen Kessel-Schalter und keine Aggregation dazwischen.
+**Alle Preset-Temperaturen** (Komfort / Eco / Schlaf / Abwesend) werden dynamisch aus der
+Außentemperatur-Heizkurve abgeleitet – Eco, Schlaf und Abwesend als konfigurierbarer Abzug von der
+Komforttemperatur, jeweils mit einstellbarer Obergrenze. Zusätzlich lernt IHC pro Zimmer die
+**Aufheizzeit** und die **thermische Masse**, um Zeitpläne punktgenau statt pauschal vorzuheizen.
 
 ---
 
@@ -15,22 +25,32 @@ Eine fortschrittliche, zentral aggregierende Heizungssteuerung für Home Assista
 
 | Feature | Beschreibung |
 |---------|-------------|
-| 🏗️ **Klimabaustein** | Loxone-artiger zentraler Regler – aggregiert alle Zimmer, entscheidet den Kessel |
+| 🎯 **TRV-Direktsteuerung** | Jedes Ventil bekommt seinen eigenen berechneten Sollwert – inklusive Erkennung manueller Eingriffe am Thermostat mit Auto-Reset |
 | 📈 **Heizkurve** | Außentemperaturgeführte Basistemperatur – alle Presets (Komfort/Eco/Schlaf/Abwesend) folgen der Kurve |
 | 📅 **Zeitpläne** | Wöchentliche Zeitpläne + HA `schedule.*` Entities als Heizplan pro Zimmer |
-| 🔧 **Switch- & TRV-Modus** | Switch: steuert Heizungsschalter; TRV: steuert Thermostat-Ventile direkt mit Ventilposition als Anforderungssignal |
 | 🚪 **Multi-TRV** | Mehrere Thermostate + Fenstersensoren pro Zimmer |
+| 🪟 **Fenstererkennung** | Ereignisgesteuert (keine Abfrageverzögerung), mit Reaktions- und Schließverzögerung |
+| 🌊 **Fenster-Kaskade** | Lüftet ein Zimmer zu lange, senken konfigurierbare Nachbarräume automatisch ab |
+| 🧠 **Optimum Start** | IHC lernt die Aufheizzeit je Außentemperatur und startet exakt so früh wie nötig |
+| 🧱 **Thermische Masse** | Gelernte Abkühlrate pro Zimmer – Betonwände brauchen weniger Vorlauf als Dachzimmer |
 | ⚡ **Boost** | Zeitlich begrenzter Komfortmodus per Button oder Service |
-| 🚶 **Anwesenheit** | Automatischer Abwesend-Modus (outdoor-geregelt) wenn niemand zuhause ist |
+| 🚶 **Anwesenheit** | Automatischer Abwesend-Modus (mit einstellbarer Verzögerung) wenn niemand zuhause ist |
+| 🕒 **ETA-Vorheizen** | `device_tracker`-basiert: heizt vor, wenn jemand auf dem Heimweg ist |
 | 🌙 **Nachtabsenkung** | Sonnenstandsbasierte Temperaturabsenkung |
 | ☀️ **Solar-Boost** | Mehr Heizen wenn Solarüberschuss vorhanden |
-| 💶 **Strompreis** | Eco-Modus bei hohem dynamischen Strompreis |
-| 🌦️ **Wettervorhersage** | Automatischer Temperatur-Boost bei prognostizierter Kältewelle |
+| 💶 **Strompreis** | Eco-Modus bei hohem dynamischen Strompreis (Tibber, Nordpool …) inkl. Preis-Chart |
+| 🌦️ **Wettervorhersage** | Temperatur-Boost bei prognostizierter Kältewelle + Kälteprognose-Frühstart |
 | 💧 **Schimmelschutz** | Pro Zimmer: Taupunktberechnung + automatische Temperaturerhöhung bei Risiko |
-| 🧳 **Gäste-Modus** | Vorübergehend Komfortbetrieb aller Zimmer ohne Konfigurationsänderung |
-| ❄️ **Frostschutz** | Immer aktiv, auch bei OFF-Modus |
+| 🌬️ **CO₂ & Lüftung** | Lüftungsempfehlung, CO₂-Warnung und CO₂-Vorheiz-Boost gegen den Kälteschock |
+| 🎉 **Gäste-Modus** | Vorübergehend Komfortbetrieb aller Zimmer ohne Konfigurationsänderung |
+| ✈️ **Urlaubs-Assistent** | Datumsbereich oder Kalender-Stichwort, inkl. Vorheizen vor der Rückkehr |
+| 🗓️ **Feiertagskalender** | HA-Kalender → automatisch Wochenend-Zeitplan oder Komfortbetrieb |
+| ⚡ **Peak Shaving** | Gestaffelter Heizungsstart statt Lastspitze, wenn alle Zimmer gleichzeitig anfordern |
+| ❄️ **Frostschutz** | Immer aktiv, auch im OFF-Modus |
+| 🔩 **Stuck-Valve-Erkennung** | Erkennt festsitzende Ventile und meldet sie als Binary Sensor |
 | 🔋 **TRV-Batteriestatus** | Akkustand aller TRVs im Dashboard – Warnung bei < 20 % |
-| 📈 **Temperaturverlauf** | 7-Tage-Chart pro Zimmer mit Min/Max/Ø-Statistik |
+| 📈 **Temperaturverlauf** | 7-Tage-Chart pro Zimmer inkl. Solltemperatur-Verlauf und Min/Max/Ø-Statistik |
+| 🏘️ **Heizgruppen** | Mehrere Zimmer zu Gruppen bündeln und gemeinsam umschalten |
 | 🏠 **Pro-Zimmer-Geräte** | Jedes Zimmer als eigenes Gerät in HA Geräte & Dienste |
 | 🖥️ **Custom Panel** | Eigenes Dashboard-Panel in der HA-Seitenleiste |
 
@@ -52,7 +72,7 @@ Eine fortschrittliche, zentral aggregierende Heizungssteuerung für Home Assista
 ### Via HACS (empfohlen)
 
 1. **HACS** → **Integrationen** → **⋮** → **Benutzerdefinierte Repositories**
-2. URL: `https://github.com/Jedrimos/intelligent-heatingcontroll`
+2. URL: `https://github.com/Jedrimos/intelligent-heating-control`
 3. Kategorie: **Integration**
 4. `Intelligent Heating Control` suchen und installieren
 5. Home Assistant neu starten
@@ -73,10 +93,13 @@ Dann HA neu starten.
 
 **Einstellungen → Integrationen → + Integration → „Intelligent Heating Control"**
 
-Der Setup-Assistent führt durch 3 Schritte:
-1. **Außensensor & Heizungsschalter** – Welcher Sensor misst die Außentemperatur? Welcher Switch steuert den Kessel?
-2. **Klimabaustein-Parameter** – Einschaltschwelle, Hysterese, Mindest-Zeiten
-3. **Globale Temperaturen** – Abwesend-Temp, Urlaubs-Temp
+Der Setup-Assistent ist bewusst kurz gehalten – zwei Schritte, danach läuft die Integration:
+
+1. **Außensensor** – Welcher Sensor misst die Außentemperatur? (optional, aber empfohlen: er speist die Heizkurve)
+2. **Globale Temperaturen** – Abwesend-Temperatur und Urlaubs-Temperatur
+
+Alles Weitere (Heizkurve, Zimmer, Zeitpläne, Anwesenheit, Solar, Wetter …) wird danach bequem
+im **IHC-Panel** oder unter **Konfigurieren** eingestellt.
 
 ### 2. Zimmer hinzufügen
 
@@ -91,7 +114,8 @@ Pro Zimmer konfigurierbar:
 - Komfort-Fallback-Temperatur + Eco/Schlaf/Abwesend als Abzug von der Heizkurve
 - HA `schedule.*` Entities als Heizplan (mit Temperaturmodus und optionaler Bedingung)
 - Zimmer-Offset, Totband, Gewichtung
-- Luftfeuchtigkeit-Sensor + Schimmelschutz
+- Luftfeuchtigkeit-Sensor + Schimmelschutz, CO₂-Sensor
+- Heizkörperleistung (kW) und optionaler HKV-Sensor für die Energieschätzung
 
 ### 3. Heizkurve anpassen
 
@@ -116,28 +140,6 @@ Standardkurve (für Niedertemperatur-Heizsysteme geeignet):
 ---
 
 ## 🧠 Funktionsweise im Detail
-
-### Klimabaustein (Das Herzstück)
-
-Jedes Zimmer berechnet seine Heizanforderung proportional:
-
-```
-Anforderung = (Zieltemp - Isttemp) / (Totband × 2) × 100 %
-
-Isttemp ≥ Zieltemp          → 0 %   (kein Bedarf)
-Isttemp ≤ Zieltemp - 2×DB  → 100 % (voller Bedarf)
-```
-
-Der Klimabaustein aggregiert alle Zimmer gewichtet:
-
-```
-Gesamtanforderung = Σ(Anforderung_i × Gewichtung_i) / Σ(Gewichtung_i)
-
-Heizung EIN:  Gesamtanforderung ≥ Einschaltschwelle (Standard: 15 %)
-Heizung AUS:  Gesamtanforderung < Einschaltschwelle - Hysterese (Standard: 10 %)
-```
-
-Zusätzlich: Mindest-Einschaltzeit und Mindest-Ausschaltzeit schützen den Kessel.
 
 ### Solltemperatur-Berechnung (Prioritäten)
 
@@ -171,6 +173,33 @@ Korrekturen werden zusätzlich angewendet:
 - **Wetter-Kälte-Boost**: +X °C wenn Vorhersage unter Schwellenwert
 - **Schimmelschutz**: automatische Temperaturerhöhung bei Schimmelrisiko
 - **Fenster offen**: sofort 0 % Anforderung (kein Heizen bei offenem Fenster)
+- **Fenster-Kaskade**: Absenkung in Nachbarräumen, wenn ein Zimmer lange lüftet
+
+### Zimmer-Feinabstimmung: Totband & Anforderung
+
+Jedes Zimmer berechnet zusätzlich eine Heizanforderung von 0–100 %. Sie ist das Statussignal
+im Dashboard, fließt in die Laufzeit- und Energieschätzung ein und wird im TRV-Modus mit der
+gemeldeten Ventilposition kombiniert:
+
+```
+Anforderung = (Zieltemp - Isttemp) / (Totband × 2) × 100 %
+
+Isttemp ≥ Zieltemp          → 0 %   (kein Bedarf)
+Isttemp ≤ Zieltemp - 2×DB  → 100 % (voller Bedarf)
+```
+
+Das **Totband** (`deadband`, Standard 0,5 °C) bestimmt also, wie „scharf" ein Zimmer reagiert:
+kleines Totband = schnelleres Anfordern, größeres Totband = ruhigerer Betrieb.
+Die **Gewichtung** (`weight`) beeinflusst, wie stark ein Zimmer in die angezeigte
+Gesamtanforderung des Systems eingeht.
+
+### Lernende Vorheizung
+
+IHC misst bei jedem Aufheizvorgang, wie lange ein Zimmer vom Ist- zum Sollwert braucht – getrennt
+nach Außentemperatur-Bucket (`warmup_curve`). Parallel wird die Abkühlrate (thermische Masse,
+`avg_cooling_rate`) beobachtet. Aus beidem ergibt sich der spätestmögliche Startzeitpunkt, damit
+die Zieltemperatur pünktlich zum Zeitplanbeginn erreicht ist – statt eines pauschalen
+Vorheiz-Zeitfensters.
 
 ---
 
@@ -185,8 +214,10 @@ Korrekturen werden zusätzlich angewendet:
 | `sensor.ihc_<zimmer>_zieltemperatur` | Sensor | Berechnete Zieltemperatur |
 | `sensor.ihc_<zimmer>_laufzeit_heute` | Sensor | Heizlaufzeit heute in Minuten |
 | `sensor.ihc_<zimmer>_luftfeuchtigkeit` | Sensor | Luftfeuchtigkeit + Taupunkt + Schimmelrisiko *(nur wenn humidity_sensor konfiguriert)* |
+| `sensor.ihc_<zimmer>_gefuehlte_temperatur` | Sensor | Gefühlte Temperatur aus Raumtemperatur + Luftfeuchte *(nur wenn humidity_sensor konfiguriert)* |
 | `binary_sensor.ihc_<zimmer>_lueftungsempfehlung` | Binary Sensor | Lüftungsempfehlung (CO₂ / Feuchte) *(nur wenn Sensor konfiguriert)* |
 | `binary_sensor.ihc_<zimmer>_co2_warnung` | Binary Sensor | CO₂-Warnung *(nur wenn co2_sensor konfiguriert)* |
+| `binary_sensor.ihc_<zimmer>_ventil_fehler` | Binary Sensor | Festsitzendes Ventil erkannt (Stuck-Valve-Erkennung) |
 | `number.ihc_<zimmer>_offset` | Number | Zimmer-Offset laufzeit-anpassbar (±5 °C) |
 | `select.ihc_<zimmer>_modus` | Select | Zimmermodus-Auswahl |
 
@@ -194,12 +225,14 @@ Korrekturen werden zusätzlich angewendet:
 
 | Entität | Typ | Beschreibung |
 |---------|-----|-------------|
-| `sensor.ihc_gesamtanforderung` | Sensor | Gewichtete Gesamtanforderung %; Klimabaustein-Attribute |
+| `sensor.ihc_gesamtanforderung` | Sensor | Gewichtete Gesamtanforderung %; dazu umfangreiche Status-Attribute (Systemmodus, Sommer-/Nachtabsenkung, Anwesenheit, Urlaub, Gäste, Feiertag, Peak Shaving, Wetterprognose, Gruppen …) |
 | `sensor.ihc_aussentemperatur` | Sensor | Außentemperatur (Spiegel-Sensor) |
 | `sensor.ihc_heizkurven_zieltemperatur` | Sensor | Aktueller Heizkurven-Basiswert; `curve_points`-Attribut |
 | `sensor.ihc_heizlaufzeit_heute` | Sensor | Gesamte Heizlaufzeit heute in Minuten |
+| `sensor.ihc_heizlaufzeit_gestern` | Sensor | Gesamte Heizlaufzeit gestern in Minuten |
 | `sensor.ihc_energie_heute` | Sensor | Geschätzter Energieverbrauch heute in kWh |
-| `switch.ihc_heizung_aktiv` | Switch | Heizungsstatus (les-/schaltbar) |
+| `sensor.ihc_energie_gestern` | Sensor | Geschätzter Energieverbrauch gestern in kWh |
+| `switch.ihc_heizung_aktiv` | Switch | Spiegelt, ob gerade irgendein Zimmer heizt. Umschalten wechselt den Systemmodus: AUS → `off`, EIN → `auto` |
 | `select.ihc_systemmodus` | Select | Globaler Systemmodus |
 
 ---
@@ -251,7 +284,7 @@ data:
 # Systemmodus
 service: intelligent_heating_control.set_system_mode
 data:
-  mode: away  # auto | heat | cool | off | away | vacation
+  mode: away  # auto | heat | off | away | vacation | guest
 
 # Zimmermodus
 service: intelligent_heating_control.set_room_mode
@@ -272,6 +305,27 @@ data:
   cancel: true
 ```
 
+### Heizgruppen
+
+Mehrere Zimmer als Gruppe bündeln (z. B. „Obergeschoss") und gemeinsam umschalten:
+
+```yaml
+# Gruppe anlegen
+service: intelligent_heating_control.add_group
+data:
+  group_name: "Obergeschoss"
+  group_rooms: ["abc12345", "def67890"]
+
+# Gruppe komplett auf Eco schalten
+service: intelligent_heating_control.set_group_mode
+data:
+  group_id: "grp001"
+  mode: eco
+```
+
+Dazu gibt es `update_group` (Name / Zimmerzuordnung ändern) und `remove_group`
+(Gruppe auflösen, die Zimmer bleiben erhalten).
+
 ### Globale Einstellungen
 
 ```yaml
@@ -287,17 +341,22 @@ data:
       - outdoor_temp: 20
         target_temp: 18.0
 
-# Klimabaustein-Parameter
+# Globale Temperaturen anpassen
 service: intelligent_heating_control.update_global_settings
 data:
-  demand_threshold: 20
-  demand_hysteresis: 5
-  min_on_time: 10
-  min_off_time: 5
+  away_temp: 16.0
+  vacation_temp: 14.0
+  frost_protection_temp: 7.0
 
 # Konfiguration exportieren (als HA-Benachrichtigung)
 service: intelligent_heating_control.export_config
+
+# Laufzeit- und Energiestatistiken zurücksetzen
+service: intelligent_heating_control.reset_stats
 ```
+
+Weitere Services: `activate_guest_mode` / `deactivate_guest_mode` (Gästebetrieb ein-/ausschalten)
+und `reload` (Integration neu laden).
 
 ---
 
@@ -315,6 +374,7 @@ Das Plugin registriert ein eigenes Panel unter dem Seitenleisten-Eintrag **IHC**
 - Override-Banner pro Karte wenn Systemmodus den Zimmermodus übersteuert
 - Status-Leiste: Außentemperatur, Heizkurven-Ziel, Gesamtanforderung, Laufzeit, Energie
 - Banner für aktive Sonderzustände: Sommer, Nacht, Abwesend, Solar-Boost, Hoher Strompreis
+- Alert-Chips: schwache TRV-Batterien, festsitzende Ventile, Fenster-Kaskade mit Countdown
 
 #### 🚪 Zimmer
 - Alle Zimmer auflisten mit Modus, Temperatur, Fensterstatus
@@ -323,21 +383,24 @@ Das Plugin registriert ein eigenes Panel unter dem Seitenleisten-Eintrag **IHC**
 - Bearbeiten-Modal: alle Felder vorausgefüllt (Thermostate, Sensoren, Presets, Offsets)
 - **Sub-Tab 📅 Zeitplan**: Wöchentliche Zeitpläne direkt im Zimmer-Detail
 - **Sub-Tab 🗓️ Wochenansicht**: Kalenderansicht des Zimmer-Zeitplans
-- **Sub-Tab 📈 Verlauf**: SVG-Temperaturverlauf der letzten 7 Tage mit Min/Max/Ø
+- **Sub-Tab 📈 Verlauf**: SVG-Temperaturverlauf der letzten 7 Tage inkl. Solltemperatur und Min/Max/Ø
 
 #### 📊 Diagnose / Übersicht
 - Systemstatus aller Zimmer auf einen Blick
 - Anforderungen, Betriebszustände, Sensor-Werte
+- Energie- und Laufzeit-Statistiken, Strompreis-Chart, ETA-Vorheiz-Status
 
 #### ⚙️ Einstellungen
+- Hardware & Steuerung: TRV-Verhalten, Sendeintervall, Ventilpositions-Auswertung
 - Systemmodus manuell setzen
 - Temperaturen: Abwesend, Urlaub, Frostschutz, Sommerautomatik
+- Kälteprognose-Frühstart
 - Nachtabsenkung & Vorheizen
-- Klimabaustein: Schwellenwert, Hysterese, Mindestzeiten
-- Anwesenheitserkennung: person.* / device_tracker.* auswählen
-- Energie & Solar: Kesselleistung, Solar-Sensor, Strompreis-Sensor
+- Anwesenheitserkennung: `person.*` / `device_tracker.*` auswählen, inkl. ETA-Vorheizen
+- Gäste-Modus & Urlaubs-Assistent
+- Energie & Solar: Solar-Sensor, Strompreis-Sensor, Energiepreis *(die kWh-Schätzung erfolgt pro Zimmer über Heizkörperleistung und optionalen HKV-Sensor)*
+- Lüftungsempfehlung, Intelligente Regelung, Kalkschutz & Stuck-Valve-Erkennung, Peak Shaving
 - Backup & Restore: Export als JSON-Datei, Import via Datei-Upload
-- TRV-Modus: Hardware & Steuerung (Ventilposition-Einstellungen)
 
 #### 📈 Heizkurve
 - Stützpunkte bearbeiten (Außentemperatur → Zieltemperatur)
@@ -360,7 +423,7 @@ Ausführliche Dokumentation in [`docs/`](docs/):
 | [Frontend Panel](docs/frontend-panel.md) | Anleitung zum IHC-Dashboard-Panel |
 | [Architektur](docs/architecture.md) | Technische Architektur für Entwickler |
 | [FAQ](docs/faq.md) | Häufige Fragen & Fehlerbehebung |
-| [Erweiterte Konfiguration](docs/advanced.md) | Heizkurve, PID-Logik, Zeitpläne im Detail |
+| [Erweiterte Konfiguration](docs/advanced.md) | Heizkurve, Zeitpläne im Detail |
 
 ---
 
@@ -368,26 +431,55 @@ Ausführliche Dokumentation in [`docs/`](docs/):
 
 ```
 intelligent_heating_control/
-├── __init__.py            # Setup, Services, Panel-Registrierung
-├── manifest.json          # HACS/HA Manifest
-├── const.py               # Alle Konstanten und Standardwerte
-├── config_flow.py         # Einrichtungs- und Options-Flow
-├── coordinator.py         # Zentraler Update-Koordinator (~60s Zyklus)
-├── heating_curve.py       # Heizkurven-Logik (lineare Interpolation)
-├── schedule_manager.py    # Zeitplan-Verwaltung und -Auswertung
-├── heating_controller.py  # Klimabaustein (Anforderungs-Aggregation)
-├── climate.py             # Climate-Platform (eine Entity pro Zimmer)
-├── sensor.py              # Sensor-Platform
-├── switch.py              # Switch-Platform
-├── number.py              # Number-Platform (Offsets)
-├── select.py              # Select-Platform (Modi)
-├── services.yaml          # Service-Definitionen
+├── __init__.py               # Setup, Services, Panel-Registrierung
+├── manifest.json             # HACS/HA Manifest
+├── const.py                  # Alle Konstanten und Standardwerte
+├── config_flow.py            # Einrichtungs- und Options-Flow
+├── coordinator.py            # Zentraler Update-Koordinator (~60s Zyklus)
+│
+├── room_logic.py             # Solltemperatur-Ermittlung + Prioritätskette pro Zimmer
+├── heating_controller.py     # Anforderungs-Berechnung pro Zimmer (0–100 %)
+├── heating_curve.py          # Heizkurven-Logik (lineare Interpolation)
+├── schedule_manager.py       # Zeitplan-Verwaltung und -Auswertung
+├── trv_controller.py         # TRV-Sollwert-Versand, Quantisierung, Override-Erkennung
+├── window_manager.py         # Ereignisgesteuerte Fenstererkennung + Kaskade
+├── presence_manager.py       # Anwesenheitserkennung, Auto-Abwesend, ETA-Vorheizen
+├── vacation_manager.py       # Urlaubs- und Gäste-Modus, Kalender-Integration
+├── comfort_manager.py        # Schimmelschutz, CO₂, Lüftungsempfehlung
+├── climate_adjustments.py    # Solar-Boost, Strompreis-Eco, Wetterkorrekturen
+├── energy_manager.py         # Laufzeitmessung, kWh-Schätzung, Lernkurven
+│
+├── climate.py                # Climate-Platform (eine Entity pro Zimmer + global)
+├── sensor.py                 # Sensor-Platform
+├── binary_sensor.py          # Binary-Sensor-Platform (Lüftung, CO₂, Ventil-Fehler)
+├── switch.py                 # Switch-Platform
+├── number.py                 # Number-Platform (Offsets)
+├── select.py                 # Select-Platform (Modi)
+├── services.yaml             # Service-Definitionen
+├── strings.json              # ConfigFlow-Texte
 ├── translations/
-│   ├── de.json            # Deutsch
-│   └── en.json            # Englisch
+│   ├── de.json               # Deutsch
+│   └── en.json               # Englisch
 └── frontend/
-    └── ihc-panel.js       # Custom Panel (Vanilla JS Web Component)
+    ├── build.py              # Build-Script: baut src/ → ihc-panel.js
+    ├── ihc-panel.js          # Kompiliertes Custom Panel (nicht direkt bearbeiten)
+    ├── ihc-dashboard-card.js # Lovelace-Karte: System-Übersicht
+    ├── ihc-room-card.js      # Lovelace-Karte: einzelnes Zimmer
+    └── src/                  # Quelldateien des Panels
+        ├── 00_constants.js
+        ├── 01_styles.css.js
+        ├── 02_utils.js
+        ├── 03_tab_dashboard.js
+        ├── 04_tab_rooms.js
+        ├── 05_tab_settings.js
+        ├── 06_tab_diagnose.js
+        ├── 07_tab_curve.js
+        ├── 08_modals.js
+        └── 09_main.js
 ```
+
+> **Frontend-Entwicklung:** Änderungen immer in `frontend/src/` vornehmen und anschließend
+> `python3 frontend/build.py` ausführen – daraus entsteht `frontend/ihc-panel.js`.
 
 ---
 
@@ -400,18 +492,18 @@ Beiträge sind herzlich willkommen!
 3. Änderungen committen
 4. Pull Request öffnen
 
-**Bugs und Feature-Wünsche:** [GitHub Issues](https://github.com/Jedrimos/intelligent-heatingcontroll/issues)
+**Bugs und Feature-Wünsche:** [GitHub Issues](https://github.com/Jedrimos/intelligent-heating-control/issues)
 
 ---
 
 ## 📋 Roadmap
 
 Sieh dir die [ROADMAP.md](ROADMAP.md) an für alle geplanten Funktionen, darunter:
-- Adaptive Heizkurve (Auto-Learning)
-- ETA-basiertes Vorheizen bei Heimkehr
+- Passive Solarheizung / Beschattung über Rollosteuerung
+- Schlaf-Temperatur-Profil (Kurve über die Nacht statt fixer Absenkung)
+- Komfortindex nach ASHRAE 55 (gefühlte Temperatur als Regelgröße)
 - Anforderungs-Heatmap im Dashboard
-- KI-basierte Temperaturvorhersage
-- Lovelace-Card für das HA-Dashboard
+- Erweiterte Lovelace-Karten für das HA-Dashboard
 - Und vieles mehr
 
 ---
@@ -426,4 +518,4 @@ MIT License – siehe [LICENSE](LICENSE)
 
 ---
 
-> **Hinweis:** Bugs und Feature-Wünsche bitte als [GitHub Issue](https://github.com/Jedrimos/intelligent-heatingcontroll/issues) melden. Aktuell ist Version 1.3.0 stabil und HACS-kompatibel.
+> **Hinweis:** Bugs und Feature-Wünsche bitte als [GitHub Issue](https://github.com/Jedrimos/intelligent-heating-control/issues) melden. Aktuell ist Version 2.1.0 stabil und HACS-kompatibel.
