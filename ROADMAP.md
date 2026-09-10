@@ -83,8 +83,9 @@ auf dem Tisch liegen.
       *(nicht zu verwechseln mit der in 2.1.0 entfernten aktiven Kühlung – das ist ein
       Lernmodell, keine Kühlfunktion)*
 - [x] **Peak Shaving** (`peak_shaving_enabled`, `peak_shaving_delay_minutes`): Wenn mehrere
-      Zimmer gleichzeitig in die Anforderung gehen, werden die Heizstarts um einige Minuten
-      gestaffelt statt alle TRVs zeitgleich aufzureißen – Priorität implizit aus `CONF_WEIGHT`
+      Zimmer gleichzeitig in die Anforderung gehen, wird die untere Hälfte (nach aktueller
+      Anforderung sortiert) für die konfigurierte Verzögerung auf max. 30 % gedeckelt, statt
+      alle TRVs zeitgleich aufzureißen
 - [x] **CO₂-prädiktive Lüftungsplanung**: `co2_ventilation_eta_minutes` prognostiziert wann
       Lüften nötig wird; kurz davor leichter Vorheiz-Boost gegen den Kälteschock
 - [x] **Gefühlte Temperatur / Komfortindex**: `felt_temperature` aus Raumtemperatur +

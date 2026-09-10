@@ -113,7 +113,7 @@ Pro Zimmer konfigurierbar:
 - Ein oder mehrere Fenstersensoren (`binary_sensor.*`)
 - Komfort-Fallback-Temperatur + Eco/Schlaf/Abwesend als Abzug von der Heizkurve
 - HA `schedule.*` Entities als Heizplan (mit Temperaturmodus und optionaler Bedingung)
-- Zimmer-Offset, Totband, Gewichtung
+- Zimmer-Offset, Totband
 - Luftfeuchtigkeit-Sensor + Schimmelschutz, CO₂-Sensor
 - Heizkörperleistung (kW) und optionaler HKV-Sensor für die Energieschätzung
 
@@ -182,16 +182,15 @@ im Dashboard, fließt in die Laufzeit- und Energieschätzung ein und wird im TRV
 gemeldeten Ventilposition kombiniert:
 
 ```
-Anforderung = (Zieltemp - Isttemp) / (Totband × 2) × 100 %
-
-Isttemp ≥ Zieltemp          → 0 %   (kein Bedarf)
-Isttemp ≤ Zieltemp - 2×DB  → 100 % (voller Bedarf)
+Innerhalb des Totbands (Isttemp ≥ Zieltemp − Totband)  → 0 %   (kein Bedarf)
+Darüber hinaus: linear ansteigend über einen 5 °C-Anforderungsbereich
+Isttemp ≤ Zieltemp − Totband − 5 °C                    → 100 % (voller Bedarf)
 ```
 
 Das **Totband** (`deadband`, Standard 0,5 °C) bestimmt also, wie „scharf" ein Zimmer reagiert:
-kleines Totband = schnelleres Anfordern, größeres Totband = ruhigerer Betrieb.
-Die **Gewichtung** (`weight`) beeinflusst, wie stark ein Zimmer in die angezeigte
-Gesamtanforderung des Systems eingeht.
+kleines Totband = schnelleres Anfordern, größeres Totband = ruhigerer Betrieb. Die im Dashboard
+gezeigte **Gesamtanforderung** ist der einfache Durchschnitt aller aktiven (nicht auf `off`
+stehenden) Zimmer.
 
 ### Lernende Vorheizung
 
@@ -225,7 +224,7 @@ Vorheiz-Zeitfensters.
 
 | Entität | Typ | Beschreibung |
 |---------|-----|-------------|
-| `sensor.ihc_gesamtanforderung` | Sensor | Gewichtete Gesamtanforderung %; dazu umfangreiche Status-Attribute (Systemmodus, Sommer-/Nachtabsenkung, Anwesenheit, Urlaub, Gäste, Feiertag, Peak Shaving, Wetterprognose, Gruppen …) |
+| `sensor.ihc_gesamtanforderung` | Sensor | Gesamtanforderung % (Durchschnitt aller aktiven Zimmer); dazu umfangreiche Status-Attribute (Systemmodus, Sommer-/Nachtabsenkung, Anwesenheit, Urlaub, Gäste, Feiertag, Peak Shaving, Wetterprognose, Gruppen …) |
 | `sensor.ihc_aussentemperatur` | Sensor | Außentemperatur (Spiegel-Sensor) |
 | `sensor.ihc_heizkurven_zieltemperatur` | Sensor | Aktueller Heizkurven-Basiswert; `curve_points`-Attribut |
 | `sensor.ihc_heizlaufzeit_heute` | Sensor | Gesamte Heizlaufzeit heute in Minuten |
@@ -263,7 +262,6 @@ data:
   away_max_temp: 18.0         # Abwesend nie höher als 18 °C
   ha_schedule_off_mode: eco   # Fallback bei inaktivem HA-Zeitplan
   deadband: 0.5
-  weight: 1.5
 
 # Zimmer konfigurieren
 service: intelligent_heating_control.update_room
