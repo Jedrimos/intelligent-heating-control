@@ -32,6 +32,8 @@ Komforttemperatur, jeweils mit einstellbarer Obergrenze. Zusätzlich lernt IHC p
 | 🪟 **Fenstererkennung** | Ereignisgesteuert (keine Abfrageverzögerung), mit Reaktions- und Schließverzögerung |
 | 🌊 **Fenster-Kaskade** | Lüftet ein Zimmer zu lange, senken konfigurierbare Nachbarräume automatisch ab |
 | 🧠 **Optimum Start** | IHC lernt die Aufheizzeit je Außentemperatur und startet exakt so früh wie nötig |
+| ⏹ **Optimum Stop** | Schaltet ein Zimmer vor Zeitplan-Ende bereits ab, wenn die Zieltemperatur bis dahin trotzdem gehalten wird |
+| 🔥 **Anforderungs-Heatmap** | Lernt pro Zimmer und Wochentag/Uhrzeit, wann typischerweise geheizt wird (Analyse-Tab) |
 | 🧱 **Thermische Masse** | Gelernte Abkühlrate pro Zimmer – Betonwände brauchen weniger Vorlauf als Dachzimmer |
 | ⚡ **Boost** | Zeitlich begrenzter Komfortmodus per Button oder Service |
 | 🚶 **Anwesenheit** | Automatischer Abwesend-Modus (mit einstellbarer Verzögerung) wenn niemand zuhause ist |
@@ -387,6 +389,12 @@ Das Plugin registriert ein eigenes Panel unter dem Seitenleisten-Eintrag **IHC**
 - Systemstatus aller Zimmer auf einen Blick
 - Anforderungen, Betriebszustände, Sensor-Werte
 - Energie- und Laufzeit-Statistiken, Strompreis-Chart, ETA-Vorheiz-Status
+
+#### 🔥 Analyse
+- Zimmer-Auswahl per Pill-Buttons
+- **Anforderungs-Heatmap**: gelernter Wochentag/Uhrzeit-Verlauf der Heizanforderung (EMA über mehrere Wochen)
+- **Optimum-Start-Lernkurve**: Ø-Aufheizzeit je Außentemperatur-Bucket, tabellarisch mit Messpunkten
+- **Optimum-Stop-Status**: zeigt an, wenn ein Zimmer wegen vorzeitiger Zieltemperatur-Erreichung schon vor Zeitplan-Ende abschaltet
 
 #### ⚙️ Einstellungen
 - Hardware & Steuerung: TRV-Verhalten, Sendeintervall, Ventilpositions-Auswertung

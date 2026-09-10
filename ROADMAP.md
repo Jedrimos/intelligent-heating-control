@@ -78,6 +78,12 @@ auf dem Tisch liegen.
 - [x] **Optimum Start** (`CONF_OPTIMUM_START_ENABLED`): IHC lernt die Aufheizzeit je Zimmer
       getrennt nach Außentemperatur-Bucket (`warmup_curve`, `avg_warmup_minutes`) und startet
       spätestmöglich, damit der Raum pünktlich warm ist – ersetzt das fixe `preheat_minutes`
+- [x] **Optimum Stop**: schaltet ein Zimmer bereits vor dem Zeitplan-Ende ab, wenn die
+      Zieltemperatur laut gelernter Abkühlrate bis dahin ohnehin gehalten wird
+      (`optimum_stop_active`, `optimum_stop_minutes`, `optimum_stop_predicted`)
+- [x] **Anforderungs-Heatmap pro Zimmer**: gleitender Durchschnitt (EMA) der Heizanforderung
+      nach Wochentag und Uhrzeit, gelernt über mehrere Wochen (`demand_heatmap`), sichtbar im
+      Analyse-Tab
 - [x] **Thermische Masse pro Zimmer**: gelernte Abkühlrate (`avg_cooling_rate`, °C/h je °C
       Differenz innen/außen) für präzisere Start-/Stopp-Zeitpunkte
       *(nicht zu verwechseln mit der in 2.1.0 entfernten aktiven Kühlung – das ist ein
@@ -104,6 +110,7 @@ auf dem Tisch liegen.
 - [x] Dashboard mit Hero-Bereich, Override-Banner, Kaskade-Alerts, Batterie-Chips
 - [x] Zeitpläne + Wochenansicht + Verlauf als Sub-Tabs im Zimmer-Detail
 - [x] Diagnose-Tab mit Live-ETA-Status, Energiepreis-Chart und Sensor-Übersicht
+- [x] Analyse-Tab pro Zimmer: Anforderungs-Heatmap, Optimum-Start-Lernkurve, Optimum-Stop-Status
 - [x] Config-Flow und Frontend-Modale vollständig synchronisiert (Add-Room = Edit-Room)
 - [x] Alle Services vollständig in `services.yaml` dokumentiert
 
@@ -130,8 +137,10 @@ auf dem Tisch liegen.
 ### Erweiterte Dashboard-Ansichten
 
 - **Zeitplan-Kalenderansicht**: Wochenüberblick aller Zimmer gleichzeitig (Heatmap-Stil)
-- **Anforderungs-Heatmap**: Welche Zimmer heizen wann? Farbkodiert nach Stunde und Wochentag
 - **Heizkurven-Simulation**: „Was wäre wenn es draußen −15 °C hätte?" – interaktiver Slider
+
+> Die pro-Zimmer-Anforderungs-Heatmap (welches Zimmer heizt wann) ist bereits im Analyse-Tab
+> umgesetzt, siehe oben.
 
 ### Schlaf-Temperaturprofil
 
