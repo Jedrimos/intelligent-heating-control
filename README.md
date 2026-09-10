@@ -36,6 +36,7 @@ Komforttemperatur, jeweils mit einstellbarer Obergrenze. Zusätzlich lernt IHC p
 | 🔥 **Anforderungs-Heatmap** | Lernt pro Zimmer und Wochentag/Uhrzeit, wann typischerweise geheizt wird (Analyse-Tab) |
 | 🧱 **Thermische Masse** | Gelernte Abkühlrate pro Zimmer – Betonwände brauchen weniger Vorlauf als Dachzimmer |
 | 🧱 **Wärmebrücken-Erkennung** | Warnt im Analyse-Tab, wenn ein Zimmer auffällig schneller auskühlt als der Rest des Hauses |
+| 🎯 **TRV-Offset-Assistent** | Schlägt im Analyse-Tab einen passenden `trv_temp_offset` vor, statt ihn raten zu lassen |
 | ⚡ **Boost** | Zeitlich begrenzter Komfortmodus per Button oder Service |
 | 🚶 **Anwesenheit** | Automatischer Abwesend-Modus (mit einstellbarer Verzögerung) wenn niemand zuhause ist |
 | 🕒 **ETA-Vorheizen** | `device_tracker`-basiert: heizt vor, wenn jemand auf dem Heimweg ist |
@@ -395,6 +396,7 @@ Das Plugin registriert ein eigenes Panel unter dem Seitenleisten-Eintrag **IHC**
 - Zimmer-Auswahl per Pill-Buttons
 - **Anforderungs-Heatmap**: gelernter Wochentag/Uhrzeit-Verlauf der Heizanforderung (EMA über mehrere Wochen)
 - **Wärmebrücken-Hinweis**: erscheint wenn ein Zimmer ≥1,8× schneller auskühlt als der Durchschnitt der übrigen Zimmer
+- **TRV-Offset-Vorschlag**: erscheint sobald genug Leerlauf-Messungen zeigen, dass ein anderer `trv_temp_offset` besser passt
 - **Optimum-Start-Lernkurve**: Ø-Aufheizzeit je Außentemperatur-Bucket, tabellarisch mit Messpunkten
 - **Optimum-Stop-Status**: zeigt an, wenn ein Zimmer wegen vorzeitiger Zieltemperatur-Erreichung schon vor Zeitplan-Ende abschaltet
 

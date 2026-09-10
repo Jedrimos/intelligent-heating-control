@@ -13,6 +13,10 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Wärmebrücken-Erkennung**: vergleicht die gelernte Abkühlrate eines Zimmers mit dem
   Durchschnitt der übrigen Zimmer und zeigt einen Hinweis im Analyse-Tab, wenn es auffällig
   schneller auskühlt (`thermal_bridge`-Attribut, rein informativ, ändert das Heizverhalten nicht)
+- **TRV-Offset-Kalibrierungsassistent**: sammelt im Leerlauf (Heizung aus, Fenster zu) die
+  Differenz zwischen Raumsensor und TRV-Temperatur und schlägt im Analyse-Tab einen besser
+  passenden `trv_temp_offset` vor, sobald genug Messungen vorliegen (`trv_suggested_offset`,
+  rein informativ – übernimmt den Wert nicht automatisch)
 
 ### Geändert
 - **Interne Entwicklerqualität** (kein Verhaltensunterschied für Nutzer):

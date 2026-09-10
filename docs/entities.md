@@ -55,6 +55,7 @@ Die Hauptentität des Zimmers. Kompatibel mit allen HA-Features die `climate.*` 
 | `learned_preheat_minutes` | float | Aktuell berechnete, außentemperatur-korrigierte Vorheizzeit (Optimum Start) |
 | `avg_cooling_rate` | float | Gelernte passive Abkühlrate (°C/h je °C Δ innen/außen, thermische Masse) |
 | `thermal_bridge` | dict | `{suspected, ratio}` – Wärmebrücken-Hinweis wenn das Zimmer ≥1,8× schneller auskühlt als der Durchschnitt der übrigen Zimmer (rein informativ) |
+| `trv_suggested_offset` | float | Vorgeschlagener `trv_temp_offset` aus dem Kalibrierungsassistenten, oder `null` bei zu wenigen Leerlauf-Messungen |
 | `optimum_stop_active` / `optimum_stop_minutes` / `optimum_stop_predicted` | bool / float / float | Optimum-Stop-Status: schaltet vor Zeitplan-Ende ab, wenn das Zimmer die Zieltemperatur ohnehin hält |
 | `window_cascade_active` / `window_cascade_offset` / `window_cascade_source` | bool / float / string | Ist die Fenster-Kaskade eines Nachbarraums gerade aktiv, und mit welchem Offset/welcher Quelle |
 

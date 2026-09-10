@@ -46,6 +46,12 @@ TRV_TEMP_HYSTERESIS = 0.3       # °C – only send update if setpoint changes b
 TRV_LARGE_CHANGE_THRESHOLD = 1.0  # °C – above this, always send immediately (mode change etc.)
 TRV_SETPOINT_STEP = 0.5         # °C – quantise setpoint to TRV resolution (most TRVs: 0.5 °C)
 
+# TRV offset calibration assistant (see _update_trv_offset_calibration /
+# get_suggested_trv_offset): rolling sample cap and the minimum sample count
+# before a suggestion is considered reliable enough to show.
+TRV_OFFSET_CALIBRATION_MAX_SAMPLES = 100
+TRV_OFFSET_CALIBRATION_MIN_SAMPLES = 20
+
 
 class TRVControllerMixin:
     """Mixin for TRV data collection, blending, and control output."""
@@ -196,6 +202,48 @@ class TRVControllerMixin:
             demand_temp = corrected_trv
 
         return display_temp, demand_temp, trv_avg
+
+    def _update_trv_offset_calibration(
+        self,
+        room_id: str,
+        room_temp: Optional[float],
+        trv_avg: Optional[float],
+        demand: float,
+        window_open: bool,
+    ) -> None:
+        """Record one (room_temp - trv_avg) sample for the offset calibration
+        assistant, so get_suggested_trv_offset() has data to suggest a
+        trv_temp_offset value from instead of the user having to guess it.
+
+        Only samples while the room is idle (demand == 0) and the window is
+        closed: while actively heating, the TRV sensor sits right at the hot
+        radiator and reads warmer than steady-state, which would bias the
+        difference away from what a display-temperature offset should
+        actually correct for.
+        """
+        if room_temp is None or trv_avg is None or window_open or demand > 0:
+            return
+        history = self._trv_offset_samples.setdefault(room_id, [])
+        history.append(round(room_temp - trv_avg, 2))
+        if len(history) > TRV_OFFSET_CALIBRATION_MAX_SAMPLES:
+            history.pop(0)
+
+    def get_suggested_trv_offset(self, room_id: str) -> Optional[float]:
+        """Return a suggested trv_temp_offset (median idle-time room-vs-TRV
+        difference, quantised to 0.5 °C to match TRV_SETPOINT_STEP), or None
+        if there aren't enough idle samples yet to trust the suggestion.
+
+        This never changes the configured offset itself - it's a read-only
+        hint surfaced in the frontend for the user to apply if they agree.
+        """
+        history = self._trv_offset_samples.get(room_id)
+        if not history or len(history) < TRV_OFFSET_CALIBRATION_MIN_SAMPLES:
+            return None
+        sorted_h = sorted(history)
+        n = len(sorted_h)
+        mid = n // 2
+        median = (sorted_h[mid - 1] + sorted_h[mid]) / 2.0 if n % 2 == 0 else sorted_h[mid]
+        return round(median / TRV_SETPOINT_STEP) * TRV_SETPOINT_STEP
 
     def _apply_trv_valve_demand(self, demand: float, trv_data: dict) -> float:
         """Correct demand based on TRV valve position.

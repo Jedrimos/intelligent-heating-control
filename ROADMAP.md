@@ -51,6 +51,9 @@ auf dem Tisch liegen.
 - [x] Bestätigungs-basierte Override-Erkennung (kein falsches „manuell" nach Zeitplanwechsel)
 - [x] Manueller Override mit Auto-Reset zum nächsten Zeitplan-Eintrag
 - [x] TRV-Temperatur-Blending (`trv_temp_weight` / `trv_temp_offset`)
+- [x] **TRV-Offset-Kalibrierungsassistent**: sammelt im Leerlauf (Heizung aus, Fenster zu) die
+      Differenz Raumsensor↔TRV und schlägt im Analyse-Tab einen passenden `trv_temp_offset` vor,
+      statt ihn raten zu lassen (`trv_suggested_offset`, rein informativ)
 - [x] Laufzeitmessung folgt dem realen Heiz-Signal des TRVs statt einer berechneten Anforderung
 - [x] TRV-Batteriestatus mit Warnschwelle im Dashboard
 - [x] Startup-Gnadenfrist für Zigbee/Z-Wave-Sensoren nach HA-Neustart

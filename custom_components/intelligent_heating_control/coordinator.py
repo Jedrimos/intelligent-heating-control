@@ -349,6 +349,11 @@ class IHCCoordinator(
         self._cooling_start: Dict[str, tuple] = {}                  # room_id → (start_time, start_temp, outdoor)
         self._cooling_prev_demand: Dict[str, float] = {}            # room_id → demand from last cycle
 
+        # TRV offset calibration assistant: room-sensor-minus-TRV samples taken
+        # while idle (demand == 0, window closed), used to suggest a
+        # trv_temp_offset value instead of making the user guess it.
+        self._trv_offset_samples: Dict[str, List[float]] = {}      # room_id → [room_temp - trv_avg, ...]
+
         # v1.4 – Vacation calendar last-check (to avoid calling service every minute)
         self._vac_calendar_last_check: Optional[int] = None  # day-of-year
 
@@ -567,6 +572,8 @@ class IHCCoordinator(
         for room_id, buckets in data.get("warmup_history_by_temp", {}).items():
             self._warmup_history_by_temp[room_id] = {int(k): list(v) for k, v in buckets.items()}
         self._cooling_rate_history = {k: list(v) for k, v in data.get("cooling_rate_history", {}).items()}
+        # TRV offset calibration samples (room-sensor-minus-TRV, collected while idle)
+        self._trv_offset_samples = {k: list(v) for k, v in data.get("trv_offset_samples", {}).items()}
         # Restore adaptive curve state
         self._curve_adaptation_delta = float(data.get("curve_adaptation_delta", 0.0))
         # Restore demand heatmap (v1.6)
@@ -624,6 +631,8 @@ class IHCCoordinator(
             # v1.7 – Optimum Start: bucketed warmup history + cooling rates
             "warmup_history_by_temp": self._warmup_history_by_temp,
             "cooling_rate_history": self._cooling_rate_history,
+            # TRV offset calibration samples
+            "trv_offset_samples": self._trv_offset_samples,
         })
 
     def get_config(self) -> dict:
@@ -1565,6 +1574,9 @@ class IHCCoordinator(
             window_open=window_open,
         )
 
+        # TRV offset calibration assistant: sample room-vs-TRV difference while idle
+        self._update_trv_offset_calibration(room_id, calibrated_temp, trv_raw_temp, demand, window_open)
+
         # Stuck-valve detection: are any TRV valves stuck (calcified / jammed)?
         stuck_valves = self._detect_stuck_valves(room, room_id, demand)
 
@@ -1621,6 +1633,7 @@ class IHCCoordinator(
             "trv_min_battery": trv_data.get("trv_min_battery"),
             "trv_low_battery": trv_data.get("trv_low_battery", False),
             "trv_stuck_valves": stuck_valves,
+            "trv_suggested_offset": self.get_suggested_trv_offset(room_id),
             # Outdoor-regulated effective preset temps (for display in frontend)
             "comfort_temp_eff": comfort_eff,
             "eco_temp_eff": eco_eff,

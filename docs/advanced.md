@@ -330,6 +330,25 @@ mehrere Quellen gleichzeitig aktiv, gewinnt der höchste Offset. Status pro Zimm
 
 ---
 
+## TRV-Offset-Kalibrierungsassistent
+
+Der `trv_temp_offset` (siehe [Architektur → TRV-Steuerung](architecture.md#trv-steuerung)) muss
+normalerweise per Hand geschätzt werden – TRVs sitzen am Heizkörper und melden dadurch oft eine
+andere Temperatur als der Raumsensor. IHC nimmt einem diese Schätzung teilweise ab:
+
+- Immer wenn ein Zimmer **im Leerlauf** ist (Anforderung 0 %, Fenster zu) UND sowohl Raumsensor
+  als auch TRV-Temperatur vorliegen, wird die Differenz `Raumsensor − TRV-Rohtemperatur`
+  aufgezeichnet (bis zu 100 Messwerte, rollierend)
+- Absichtlich **nur im Leerlauf**: während aktiven Heizens sitzt der TRV-Fühler direkt am heißen
+  Heizkörper und würde die Differenz künstlich vergrößern
+- Ab 20 gesammelten Messwerten schlägt IHC den **Median** dieser Differenz, quantisiert auf
+  0,5 °C-Schritte, als `trv_suggested_offset` vor
+- Sichtbar im **Analyse-Tab**, sobald sich der Vorschlag um ≥0,5 °C vom aktuell konfigurierten
+  Wert unterscheidet – die Übernahme erfolgt manuell im Zimmer-Bearbeiten-Dialog, IHC ändert
+  `trv_temp_offset` nie von selbst
+
+---
+
 ## Mehrere TRVs pro Zimmer
 
 Wenn ein Zimmer mehrere Thermostate hat, werden diese **alle gleichzeitig** mit der berechneten Zieltemperatur angesteuert:

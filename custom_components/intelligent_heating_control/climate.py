@@ -459,6 +459,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "trv_min_battery": d.get("trv_min_battery"),
             "trv_low_battery": d.get("trv_low_battery", False),
             "trv_stuck_valves": d.get("trv_stuck_valves", []),
+            "trv_suggested_offset": d.get("trv_suggested_offset"),  # calibration assistant, see architecture.md
             # Demand heatmap (7 days × 24 hours EMA)
             "demand_heatmap": d.get("demand_heatmap", []),
             # Optimum Start & Thermal Mass learning data

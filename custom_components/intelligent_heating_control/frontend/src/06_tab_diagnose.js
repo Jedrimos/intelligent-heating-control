@@ -566,6 +566,24 @@
         </div>`;
       content.appendChild(bridgeCard);
     }
+
+    // ── TRV-Offset-Kalibrierungsassistent ───────────────────────────────────────
+    const suggestedOffset = room.trv_suggested_offset;
+    const currentOffset = room.trv_temp_offset ?? 0;
+    if (suggestedOffset != null && Math.abs(suggestedOffset - currentOffset) >= 0.5) {
+      const offsetCard = document.createElement("div");
+      offsetCard.className = "card";
+      offsetCard.style.marginTop = "0";
+      offsetCard.innerHTML = `
+        <div class="card-title">🎯 TRV-Offset-Vorschlag</div>
+        <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
+          Basierend auf ${room.name}s Raumsensor-vs-TRV-Differenz im Leerlauf (Heizung aus,
+          Fenster zu) über die letzten Messungen wäre <strong>${suggestedOffset > 0 ? "+" : ""}${suggestedOffset} °C</strong>
+          ein besserer <code>trv_temp_offset</code> als der aktuelle Wert (${currentOffset > 0 ? "+" : ""}${currentOffset} °C).
+          Zum Übernehmen: Zimmer bearbeiten → TRV-Verhalten → Temperatur-Offset.
+        </div>`;
+      content.appendChild(offsetCard);
+    }
   }
 
   // ── Einstellungen Tab ──────────────────────────────────────────────────────
