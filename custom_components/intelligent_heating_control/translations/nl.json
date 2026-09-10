@@ -1,0 +1,246 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Basisinstellingen",
+        "description": "Configureer de buitentemperatuursensor.",
+        "data": {
+          "outdoor_temp_sensor": "Buitentemperatuursensor"
+        },
+        "data_description": {
+          "outdoor_temp_sensor": "Sensor die de huidige buitentemperatuur meet. Wordt gebruikt voor de stooklijn – hoe kouder buiten, hoe hoger de streeftemperatuur."
+        }
+      },
+      "temperatures": {
+        "title": "Standaardtemperaturen",
+        "description": "Globale temperaturen voor de modi afwezig en vakantie.",
+        "data": {
+          "away_temp": "Temperatuur bij afwezigheid (°C)",
+          "vacation_temp": "Vakantietemperatuur (°C)"
+        },
+        "data_description": {
+          "away_temp": "Streeftemperatuur voor alle kamers wanneer de modus 'Afwezig' actief is (bijv. overdag niemand thuis). Gebruikelijk: 16–18 °C.",
+          "vacation_temp": "Streeftemperatuur voor alle kamers in vakantiemodus. Alleen vorstbeveiliging. Gebruikelijk: 14–16 °C."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Entiteit niet gevonden. Controleer de entiteit-ID.",
+      "cannot_connect": "Verbinding mislukt",
+      "unknown": "Onbekende fout"
+    },
+    "abort": {
+      "already_configured": "Integratie is al geconfigureerd"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "IHC-opties",
+        "menu_options": {
+          "global_settings": "Algemene instellingen",
+          "heating_curve": "Stooklijn bewerken",
+          "add_room": "Kamer toevoegen",
+          "edit_room": "Kamer bewerken",
+          "remove_room": "Kamer verwijderen"
+        }
+      },
+      "global_settings": {
+        "title": "Algemene instellingen",
+        "data": {
+          "outdoor_temp_sensor": "Buitentemperatuursensor",
+          "away_temp": "Temperatuur bij afwezigheid (°C)",
+          "vacation_temp": "Vakantietemperatuur (°C)",
+          "summer_mode_enabled": "Zomermodus inschakelen",
+          "summer_threshold": "Drempel zomermodus (°C)",
+          "show_panel": "IHC-dashboard in zijbalk tonen",
+          "presence_entities": "Aanwezigheidsentiteiten",
+          "frost_protection_temp": "Vorstbeveiligingstemperatuur (°C)",
+          "night_setback_enabled": "Nachtverlaging inschakelen",
+          "night_setback_offset": "Nachtverlaging (°C)",
+          "sun_entity": "Zon-entiteit",
+          "preheat_minutes": "Voorverwarmingstijd (minuten)",
+          "solar_entity": "Zonne-opwekkingssensor",
+          "solar_surplus_threshold": "Drempel zonne-overschot (W)",
+          "solar_boost_temp": "Temperatuurboost bij zonne-overschot (°C)",
+          "energy_price_entity": "Energieprijssensor",
+          "energy_price_threshold": "Drempel hoge prijs (€/kWh)",
+          "energy_price_eco_offset": "Eco-verlaging bij hoge prijs (°C)",
+          "weather_entity": "Weerentiteit",
+          "weather_cold_threshold": "Drempel koud weer (°C)",
+          "weather_cold_boost": "Boost bij koud weer (°C)",
+          "outdoor_humidity_sensor": "Buitenluchtvochtigheidssensor",
+          "ventilation_advice_enabled": "Ventilatieadvies inschakelen",
+          "adaptive_preheat_enabled": "Adaptief voorverwarmen inschakelen",
+          "eta_preheat_enabled": "Voorverwarmen op basis van aankomsttijd inschakelen",
+          "vacation_calendar": "Kalenderentiteit voor vakantie",
+          "vacation_calendar_keyword": "Trefwoord vakantiekalender",
+          "startup_grace_seconds": "Opstart-respijtperiode (s)",
+          "off_use_frost_protection": "Vorstbeveiliging gebruiken in modus UIT",
+          "stuck_valve_timeout": "Time-out voor detectie vastzittende klep (s)",
+          "limescale_protection_enabled": "Kalkbeveiliging inschakelen",
+          "limescale_interval_days": "Interval kalkbeveiligingsoefening (dagen)",
+          "limescale_time": "Tijdstip kalkbeveiligingsoefening (UU:MM)",
+          "limescale_duration_minutes": "Duur kalkbeveiligingsoefening (min)"
+        },
+        "data_description": {
+          "outdoor_temp_sensor": "Sensor die de huidige buitentemperatuur meet. Wordt gebruikt voor de stooklijn.",
+          "away_temp": "Streeftemperatuur in modus Afwezig voor alle kamers. Gebruikelijk: 16–18 °C.",
+          "vacation_temp": "Streeftemperatuur in vakantiemodus. Alleen vorstbeveiliging. Gebruikelijk: 14–16 °C.",
+          "summer_mode_enabled": "Indien ingeschakeld wordt verwarming automatisch geblokkeerd zodra de buitentemperatuur de drempel overschrijdt.",
+          "summer_threshold": "Buitentemperatuur waarboven de zomermodus verwarmen uitschakelt. Gebruikelijk: 15–20 °C.",
+          "show_panel": "Indien uitgeschakeld wordt het IHC-dashboard uit de zijbalk verwijderd. Alle entiteiten blijven beschikbaar.",
+          "presence_entities": "Persoon- of device-tracker-entiteiten voor aanwezigheidsdetectie. Wanneer iedereen weg is, schakelt IHC automatisch naar de modus Afwezig. Leeg laten om uit te schakelen.",
+          "frost_protection_temp": "Minimale veiligheidstemperatuur. Zelfs in modus UIT of Afwezig wordt deze temperatuur nooit onderschreden. Aanbeveling: 7 °C.",
+          "night_setback_enabled": "Indien ingeschakeld worden streeftemperaturen 's nachts automatisch verlaagd (wanneer de zon onder de horizon staat).",
+          "night_setback_offset": "Met hoeveel graden de streeftemperatuur 's nachts wordt verlaagd. Gebruikelijk: 2–4 °C.",
+          "sun_entity": "Zon-entiteit die wordt gebruikt om dag/nacht te bepalen. Standaard: sun.sun",
+          "preheat_minutes": "Hoeveel minuten vóór de start van een geplande periode het voorverwarmen begint. 0 = voorverwarmen uitgeschakeld.",
+          "solar_entity": "Vermogenssensor voor zonne-opwekking (W). Wanneer het overschot de drempel overschrijdt, worden kamertemperaturen licht verhoogd.",
+          "solar_surplus_threshold": "Minimaal zonne-overschot in watt voordat de zonneboost wordt toegepast.",
+          "solar_boost_temp": "Hoeveel graden toevoegen aan streeftemperaturen bij zonne-overschot.",
+          "energy_price_entity": "Sensor die de huidige elektriciteitsprijs (€/kWh) levert. Wordt gebruikt om te verwarmen minder wanneer prijzen hoog zijn.",
+          "energy_price_threshold": "Elektriciteitsprijs waarboven IHC de eco-verlaging toepast om energie te besparen.",
+          "energy_price_eco_offset": "Hoeveel graden streeftemperaturen worden verlaagd wanneer elektriciteit duur is.",
+          "weather_entity": "Weerintegratie-entiteit voor op voorspelling gebaseerde aanpassingen.",
+          "weather_cold_threshold": "Temperatuur waaronder IHC de koudeboost op kamers toepast.",
+          "weather_cold_boost": "Extra graden die aan streeftemperaturen worden toegevoegd bij zeer koud weer.",
+          "outdoor_humidity_sensor": "Buitenluchtvochtigheidssensor voor dauwpuntberekening en ventilatieadvies.",
+          "ventilation_advice_enabled": "Toon ventilatieadvies op basis van CO₂- en vochtigheidssensordata.",
+          "adaptive_preheat_enabled": "IHC leert hoe lang kamers erover doen om op te warmen en past voorverwarmingstijden automatisch aan.",
+          "eta_preheat_enabled": "Gebruik de geschatte aankomsttijd voor dynamisch voorverwarmen.",
+          "vacation_calendar": "Kalenderentiteit (calendar.*) waarin vakantie-evenementen via een trefwoord worden gedetecteerd.",
+          "vacation_calendar_keyword": "Trefwoord om in kalendertitels te zoeken om vakantieperiodes te detecteren (bijv. 'vakantie').",
+          "startup_grace_seconds": "Seconden wachten bij het opstarten van HA voordat sensordata wordt verwerkt. Gebruik 60–120 s voor Zigbee/Z-Wave-sensoren die tijd nodig hebben om na een herstart te reageren.",
+          "off_use_frost_protection": "Wanneer het systeem in modus UIT staat, toch de vorstbeveiligingstemperatuur aanhouden in plaats van volledig uit te schakelen.",
+          "stuck_valve_timeout": "Seconden zonder klepbeweging (terwijl vraag > 0) voordat een melding over een vastzittende klep wordt gegeven. Standaard: 1800 s (30 min).",
+          "limescale_protection_enabled": "Laat TRV-kleppen periodiek hun volledige bereik doorlopen om kalkaanslag te voorkomen. Wordt eenmaal per ingesteld interval uitgevoerd.",
+          "limescale_interval_days": "Aantal dagen tussen kalkbeveiligingsoefeningen. Aanbeveling: 14 dagen.",
+          "limescale_time": "Tijdstip van de dag (UU:MM) waarop de kalkbeveiligingsoefening plaatsvindt. Kies een moment waarop kamers doorgaans niet gebruikt worden.",
+          "limescale_duration_minutes": "Hoeveel minuten TRV's tijdens de oefening op de maximale stand worden gehouden. Standaard: 5 minuten."
+        }
+      },
+      "heating_curve": {
+        "title": "Stooklijn",
+        "description": "Definieer tot 7 punten van de stooklijn. outdoor = buitentemperatuur, target = basis-streeftemperatuur (vóór kameroffset).",
+        "data": {
+          "outdoor_0": "Punt 1: buitentemperatuur (°C)",
+          "target_0": "Punt 1: streeftemperatuur (°C)",
+          "outdoor_1": "Punt 2: buitentemperatuur (°C)",
+          "target_1": "Punt 2: streeftemperatuur (°C)",
+          "outdoor_2": "Punt 3: buitentemperatuur (°C)",
+          "target_2": "Punt 3: streeftemperatuur (°C)",
+          "outdoor_3": "Punt 4: buitentemperatuur (°C)",
+          "target_3": "Punt 4: streeftemperatuur (°C)",
+          "outdoor_4": "Punt 5: buitentemperatuur (°C)",
+          "target_4": "Punt 5: streeftemperatuur (°C)",
+          "outdoor_5": "Punt 6: buitentemperatuur (°C)",
+          "target_5": "Punt 6: streeftemperatuur (°C)",
+          "outdoor_6": "Punt 7: buitentemperatuur (°C)",
+          "target_6": "Punt 7: streeftemperatuur (°C)"
+        }
+      },
+      "add_room": {
+        "title": "Kamer toevoegen",
+        "data": {
+          "name": "Kamernaam",
+          "temp_sensor": "Temperatuursensor",
+          "valve_entity": "Thermostaatkraan-entiteit (optioneel)",
+          "window_sensor": "Raamsensor (optioneel)",
+          "room_offset": "Kameroffset (°C)",
+          "deadband": "Dode zone (°C)",
+          "comfort_temp": "Comforttemperatuur (°C)",
+          "eco_temp": "Ecotemperatuur (°C)",
+          "sleep_temp": "Slaaptemperatuur (°C)",
+          "away_temp_room": "Temperatuur bij afwezigheid (°C)",
+          "min_temp": "Minimumtemperatuur (°C)",
+          "max_temp": "Maximumtemperatuur (°C)"
+        },
+        "data_description": {
+          "name": "Een unieke naam voor deze kamer, bijv. 'Woonkamer' of 'Slaapkamer'.",
+          "temp_sensor": "Temperatuursensor in deze kamer die de huidige kamertemperatuur meet.",
+          "valve_entity": "Optionele radiatorthermostaat (TRV) of climate-entiteit in deze kamer. Indien ingesteld wordt het instelpunt automatisch aangepast.",
+          "window_sensor": "Optionele raam- of deursensor. Wanneer open, wordt de verwarmingsvraag voor deze kamer uitgeschakeld.",
+          "room_offset": "Correctiewaarde als de sensor iets onnauwkeurig is of slecht gemonteerd zit. Positief = sensor meet te koud.",
+          "deadband": "Gevoeligheid van de regeling. Kleinere waarde = reageert sneller maar schakelt vaker. Aanbeveling: 0,5 °C.",
+          "comfort_temp": "Gewenste temperatuur in comfortmodus (bijv. wanneer iemand thuis is). Gebruikelijk: 20–22 °C.",
+          "eco_temp": "Verlaagde temperatuur in ecomodus (bijv. 's nachts of bij korte afwezigheid). Gebruikelijk: 17–19 °C.",
+          "sleep_temp": "Temperatuur in slaapmodus. Meestal koeler dan eco. Gebruikelijk: 16–18 °C.",
+          "away_temp_room": "Vorstbeveiligingstemperatuur wanneer deze kamer op 'Afwezig' staat. Gebruikelijk: 15–16 °C.",
+          "min_temp": "Laagste temperatuur die nooit onderschreden mag worden (vorstbeveiliging). Aanbeveling: 7–10 °C.",
+          "max_temp": "Hoogste temperatuur die niet overschreden mag worden. Bescherming tegen oververhitting. Aanbeveling: 25–28 °C."
+        }
+      },
+      "edit_room": {
+        "title": "Kamer selecteren",
+        "data": {
+          "room_id": "Kamer"
+        }
+      },
+      "edit_room_details": {
+        "title": "Kamer bewerken",
+        "data": {
+          "name": "Kamernaam",
+          "temp_sensor": "Temperatuursensor",
+          "valve_entity": "Thermostaatkraan-entiteit (optioneel)",
+          "window_sensor": "Raamsensor (optioneel)",
+          "room_offset": "Kameroffset (°C)",
+          "deadband": "Dode zone (°C)",
+          "comfort_temp": "Comforttemperatuur (°C)",
+          "eco_temp": "Ecotemperatuur (°C)",
+          "sleep_temp": "Slaaptemperatuur (°C)",
+          "away_temp_room": "Temperatuur bij afwezigheid (°C)",
+          "min_temp": "Minimumtemperatuur (°C)",
+          "max_temp": "Maximumtemperatuur (°C)"
+        },
+        "data_description": {
+          "name": "Een unieke naam voor deze kamer, bijv. 'Woonkamer' of 'Slaapkamer'.",
+          "temp_sensor": "Temperatuursensor in deze kamer die de huidige kamertemperatuur meet.",
+          "valve_entity": "Optionele radiatorthermostaat (TRV) of climate-entiteit in deze kamer. Indien ingesteld wordt het instelpunt automatisch aangepast.",
+          "window_sensor": "Optionele raam- of deursensor. Wanneer open, wordt de verwarmingsvraag voor deze kamer uitgeschakeld.",
+          "room_offset": "Correctiewaarde als de sensor iets onnauwkeurig is of slecht gemonteerd zit. Positief = sensor meet te koud.",
+          "deadband": "Gevoeligheid van de regeling. Kleinere waarde = reageert sneller maar schakelt vaker. Aanbeveling: 0,5 °C.",
+          "comfort_temp": "Gewenste temperatuur in comfortmodus (bijv. wanneer iemand thuis is). Gebruikelijk: 20–22 °C.",
+          "eco_temp": "Verlaagde temperatuur in ecomodus (bijv. 's nachts of bij korte afwezigheid). Gebruikelijk: 17–19 °C.",
+          "sleep_temp": "Temperatuur in slaapmodus. Meestal koeler dan eco. Gebruikelijk: 16–18 °C.",
+          "away_temp_room": "Vorstbeveiligingstemperatuur wanneer deze kamer op 'Afwezig' staat. Gebruikelijk: 15–16 °C.",
+          "min_temp": "Laagste temperatuur die nooit onderschreden mag worden (vorstbeveiliging). Aanbeveling: 7–10 °C.",
+          "max_temp": "Hoogste temperatuur die niet overschreden mag worden. Bescherming tegen oververhitting. Aanbeveling: 25–28 °C."
+        }
+      },
+      "remove_room": {
+        "title": "Kamer verwijderen",
+        "data": {
+          "room_id": "Kamer selecteren"
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Entiteit niet gevonden",
+      "invalid_curve": "Ongeldige stooklijngegevens",
+      "no_rooms": "Geen kamers geconfigureerd"
+    },
+    "abort": {
+      "no_rooms": "Geen kamers geconfigureerd",
+      "room_not_found": "Kamer niet gevonden"
+    }
+  },
+  "entity": {
+    "climate": {
+      "ihc_room_climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "Auto": "Auto",
+              "Comfort": "Comfort",
+              "Eco": "Eco",
+              "Sleep": "Slaap",
+              "Away": "Afwezig",
+              "Manual": "Handmatig"
+            }
+          }
+        }
+      }
+    }
+  }
+}
