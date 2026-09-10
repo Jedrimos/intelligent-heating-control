@@ -2,6 +2,9 @@
 
 Willkommen in der IHC-Dokumentation. Hier findest du alle Informationen zur Installation, Konfiguration und Nutzung des Plugins.
 
+> IHC steuert ausschließlich Thermostatventile (TRVs) direkt – es gibt keinen zentralen
+> Heizungsschalter-Modus und keine aktive Kühlung. Details siehe [Architektur](architecture.md).
+
 ---
 
 ## 📚 Inhaltsverzeichnis
@@ -12,8 +15,8 @@ Willkommen in der IHC-Dokumentation. Hier findest du alle Informationen zur Inst
 | [Konfiguration](configuration.md) | Setup-Wizard, Zimmer, Heizkurve, Zeitpläne, alle Einstellungen |
 | [Entitäten](entities.md) | Alle erstellten HA-Entitäten mit Attributen und Lovelace-Beispielen |
 | [Services](services.md) | Alle Services mit Parametern, Typen und Beispielen |
-| [Frontend Panel](frontend-panel.md) | Anleitung zum IHC-Dashboard-Panel (alle 5 Tabs) |
-| [Erweiterte Konfiguration](advanced.md) | Heizkurve, Klimabaustein, Zeitpläne und Automationen im Detail |
+| [Frontend Panel](frontend-panel.md) | Anleitung zum IHC-Dashboard-Panel (alle 6 Tabs) |
+| [Erweiterte Konfiguration](advanced.md) | Heizkurve, Anforderungsberechnung, Zeitpläne und Automationen im Detail |
 | [Technische Architektur](architecture.md) | Systemarchitektur und Datenfluss für Entwickler |
 | [FAQ](faq.md) | Häufig gestellte Fragen und Fehlerbehebung |
 
@@ -31,6 +34,7 @@ Willkommen in der IHC-Dokumentation. Hier findest du alle Informationen zur Inst
 
 ## 🆘 Hilfe
 
-- **Bugs und Feature-Requests:** [GitHub Issues](https://github.com/Jedrimos/intelligent-heatingcontroll/issues)
+- **Bugs und Feature-Requests:** [GitHub Issues](https://github.com/Jedrimos/intelligent-heating-control/issues)
 - **Häufige Probleme:** [FAQ](faq.md)
 - **Technische Details:** [Architektur](architecture.md)
+- **Geplante Features:** [ROADMAP.md](../ROADMAP.md)

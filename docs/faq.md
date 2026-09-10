@@ -18,10 +18,11 @@
 
 ### Beim Setup erscheint kein Außentemperatursensor zur Auswahl
 
-Der Config-Flow zeigt alle `sensor.*` Entities an. Wenn dein Außensensor nicht erscheint:
+Der Außensensor ist im Setup-Wizard **optional**. Wenn dein Sensor im Dropdown nicht erscheint:
 - Prüfe ob die Entity den State `unavailable` hat
 - Stelle sicher dass es sich um eine `sensor.*` Entity mit numerischem Wert handelt
-- Gib die Entity-ID direkt ein wenn der Dropdown nicht funktioniert
+- Ohne Außensensor fällt jedes Zimmer auf seine konfigurierte `comfort_temp` zurück – die
+  Integration funktioniert auch so, nur ohne witterungsgeführte Heizkurve
 
 ---
 
@@ -33,10 +34,6 @@ In den Attributen der `climate.ihc_<zimmer>` Entity unter `room_id`. Im HA Devel
 ```
 Entwicklerwerkzeuge → Zustände → climate.ihc_wohnzimmer → Attribute → room_id
 ```
-
-### Die Heizkurve zeigt immer die Standard-Kurve, nicht meine konfigurierte
-
-Seit v1.0.1 behoben. Stelle sicher dass du die neueste Version installiert hast und HA nach dem Update neu gestartet wurde.
 
 ### Einstellungen die ich im Panel speichere erscheinen nach dem Refresh wieder zurückgesetzt
 
@@ -59,15 +56,17 @@ Mögliche Ursachen:
 1. **Fenster offen**: Wenn ein Fenstersensor `on` (offen) meldet → 0% Anforderung
 2. **Zimmermodus = OFF**: Zimmer ist manuell ausgeschaltet
 3. **System-Modus = OFF oder Vacation**: Heizung komplett deaktiviert
-4. **Kein Temperatursensor**: Ohne `temp_sensor` kann keine Anforderung berechnet werden
+4. **Kein Temperatursensor**: Ohne `temp_sensor` (und ohne TRV-Temperatur als Fallback) kann keine Anforderung berechnet werden
 5. **Sensor unavailable**: Sensor-Entity ist `unavailable` → IHC fällt auf 0% zurück
+6. **Innerhalb des Totbands**: Isttemp liegt bereits nicht mehr als `deadband` unter der Zieltemperatur (siehe [Anforderungsberechnung](advanced.md#anforderungsberechnung-pro-zimmer))
 
-### Das TRV/Thermostat wird nicht gesteuert (Solltemperatur ändert sich nicht)
+### Das TRV wird nicht gesteuert (Solltemperatur ändert sich nicht)
 
-1. Prüfe ob die `valve_entities` korrekt konfiguriert sind (Entity-ID muss exact stimmen)
+1. Prüfe ob die `valve_entities` korrekt konfiguriert sind (Entity-ID muss exakt stimmen)
 2. Stelle sicher dass das Thermostat im HVAC-Modus `heat` ist (nicht `off`)
-3. Manche TRVs ignorieren Solltemperatur wenn sie im lokalen Modus sind
-4. Prüfe HA-Logs auf Fehler beim `climate.set_temperature` Service-Call
+3. Manche TRVs ignorieren die Solltemperatur wenn sie im lokalen Modus sind
+4. `trv_min_send_interval` kann eine erneute Übertragung kurzzeitig verzögern
+5. Prüfe HA-Logs auf Fehler beim `climate.set_temperature` Service-Call
 
 ### Nach dem Hinzufügen eines Zimmers erscheinen keine neuen Entitäten
 
@@ -79,16 +78,24 @@ Mögliche Ursachen:
 
 Der Zimmer-Name wird als Entity-ID verwendet. Sonderzeichen und Leerzeichen werden ersetzt. Wenn der Name beim Erstellen leer war oder nur Sonderzeichen enthielt, kann das passieren. Zimmer löschen und neu erstellen mit korrektem Namen.
 
+### Was bedeutet `binary_sensor.ihc_<zimmer>_ventil_fehler`?
+
+Die Stuck-Valve-Erkennung: Ein TRV im Zimmer hat trotz Heizanforderung länger als
+`stuck_valve_timeout` (Standard 1800 s) nicht reagiert – meist ein Zeichen für ein verkalktes
+oder mechanisch blockiertes Ventil. Betroffene TRVs stehen im Attribut `stuck_valve_entities`.
+
 ---
 
 ## Heizverhalten
 
-### Die Heizung taktet sehr schnell (geht kurz an und wieder aus)
+### Die Anforderung eines Zimmers schwankt sehr stark / wechselt schnell zwischen niedrig und hoch
 
-1. **Min-Einschaltzeit erhöhen**: Einstellungen → Klimabaustein → Mindest-Einschaltzeit (empfohlen: 10 min)
-2. **Min-Ausschaltzeit erhöhen**: Mindest-Ausschaltzeit (empfohlen: 10 min)
-3. **Hysterese erhöhen**: Höherer Wert verhindert schnelles Umschalten
-4. **Totband erhöhen**: Größerer Deadband pro Zimmer = weniger Anforderungsschwankungen
+1. **Totband erhöhen**: Größerer `deadband` pro Zimmer = weniger Anforderungsschwankungen bei kleinen Temperaturänderungen
+2. **TRV-Sendeintervall prüfen**: `trv_min_send_interval` reduziert die Häufigkeit gesendeter Sollwertänderungen
+3. **Peak Shaving aktivieren**: Verhindert, dass beim gleichzeitigen Anfordern mehrerer Zimmer alle TRVs zeitgleich aufreißen
+
+> Es gibt keine zentrale Hysterese/Mindest-Ein-Ausschaltzeit mehr (kein Heizungsschalter-Modus) –
+> jedes TRV regelt selbst, IHC liefert nur den Sollwert.
 
 ### Die Temperatur im Zimmer ist dauerhaft zu kalt / zu warm
 
@@ -97,18 +104,19 @@ Der Zimmer-Name wird als Entity-ID verwendet. Sonderzeichen und Leerzeichen werd
    - Zu warm → Offset senken (z.B. -0,5°C)
 2. **Heizkurve überprüfen**: Ist die Kurve für dein Heizsystem geeignet?
 3. **Temperatursensor-Position**: Sitzt der Sensor an einer ungünstigen Stelle (z.B. neben einem Heizkörper)?
+4. **TRV-Temperatur-Blending**: Ist `trv_temp_weight > 0`, fließt die (oft wärmere) TRV-eigene
+   Temperatur mit ein – `trv_temp_offset` (z. B. -2 °C) kann das kompensieren
 
 ### Die Heizung geht nicht an, obwohl Zimmer zu kalt sind
 
-1. **Sommerautomatik**: Wenn `summer_mode_enabled: true` und Außentemperatur > Schwellenwert → Heizung gesperrt
-2. **System-Modus**: Prüfe ob System-Modus auf `off` oder `vacation` steht
-3. **Einschaltschwelle zu hoch**: Wenn Gesamtanforderung nie 15% erreicht, prüfe die Zimmer-Anforderungen
-4. **Alle Zimmer Modus=OFF**: Kein Zimmer hat Anforderung → Klimabaustein schaltet nicht ein
-5. **Mindestanzahl Zimmer**: Wenn `min_rooms_demand: 3` aber nur 2 Zimmer Anforderung haben → kein Heizen
+1. **Sommerautomatik**: Wenn `summer_mode_enabled: true` (oder `summer_mode_entity` aktiv) und Außentemperatur > Schwellenwert → Heizung gesperrt
+2. **Heizperiode**: Wenn `heating_period_entity` konfiguriert ist und auf OFF steht → keine Heizung
+3. **System-Modus**: Prüfe ob System-Modus auf `off` oder `vacation` steht
+4. **Alle Zimmer Modus=OFF**: Jedes Zimmer regelt unabhängig – ein Zimmer im Modus `off` heizt nie (außer Frostschutz)
 
 ### Ein Zimmer wird nicht vorgeheizt obwohl ein Zeitplan beginnt
 
-1. Prüfe ob `preheat_minutes > 0` in den Einstellungen
+1. Prüfe ob `preheat_minutes > 0` (oder `optimum_start_enabled: true`) in den Einstellungen
 2. Stelle sicher dass das Zimmer nicht im Modus `off`, `away` oder einem anderen Override-Modus ist
 3. System-Modus muss `auto` oder `heat` sein
 
@@ -121,10 +129,6 @@ Der Zimmer-Name wird als Entity-ID verwendet. Sonderzeichen und Leerzeichen werd
 1. Browser-Console öffnen (F12 → Console) – gibt es JavaScript-Fehler?
 2. Cache leeren und Seite neu laden
 3. Prüfe ob du Admin-Rechte in HA hast (Panel-Services benötigen Admin)
-
-### Das Modal schließt sich automatisch wenn ich tippe
-
-Seit v1.0.1 behoben. Das Modal bleibt jetzt offen während HA State-Updates kommen.
 
 ### Zeitpläne gehen verloren wenn ich zwischen Zimmern wechsle
 
@@ -142,10 +146,10 @@ Zeitpläne müssen **pro Zimmer gespeichert** werden bevor du zum nächsten Zimm
 
 ### Kann ich IHC für Kühlsysteme verwenden?
 
-Ja, mit Einschränkungen:
-1. `cooling_switch` im Setup konfigurieren
-2. System-Modus auf `cool` stellen
-3. ⚠️ Der Kühlmodus ist implementiert aber noch nicht vollständig getestet
+Nein. IHC steuert ausschließlich TRVs direkt, und TRVs können physisch nicht aktiv kühlen. Die
+aktive Kühlfunktion (`enable_cooling`/`cooling_switch`, Systemmodus `cool`) wurde in v2.1.0
+vollständig entfernt. Für passive Sommer-Beschattung siehe die geplante Rollosteuerung in
+[ROADMAP.md](../ROADMAP.md).
 
 ### Kann ich mehrere IHC-Instanzen (verschiedene Wohnungen) haben?
 
@@ -171,9 +175,12 @@ logger:
 
 Dann HA neu starten → Logs unter Einstellungen → System → Protokolle.
 
-### Unterstützt IHC OpenTherm (direkte Kesselkommunikation)?
+### Unterstützt IHC eine zentrale Kesselsteuerung oder OpenTherm?
 
-Nicht direkt. IHC steuert einen `switch.*` oder `input_boolean.*` für den Kessel. Wenn du einen OpenTherm-Adapter (z.B. via `opentherm_gw`) hast, kannst du dessen `switch.*` verwenden. Direkte OpenTherm-Modulation ist auf der Roadmap.
+Nein – seit v2.0.0 (TRV-only) steuert IHC ausschließlich `climate.*`-TRV-Entitäten direkt und hat
+keinen Kessel-/Heizungsschalter-Aktor mehr. Wenn dein Wärmeerzeuger eigenständig auf die
+TRV-Anforderung reagiert (z. B. über OpenTherm-Gateway-Logik in einer eigenen Automation), lässt
+sich das unabhängig von IHC einrichten; IHC selbst liefert dafür kein Signal mehr.
 
 ---
 

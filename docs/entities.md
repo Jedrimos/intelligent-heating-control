@@ -2,7 +2,10 @@
 
 IHC erstellt beim Start automatisch alle Entitäten basierend auf der Konfiguration. Alle Entitäten sind mit der IHC-Integration verknüpft und werden beim Entfernen der Integration gelöscht.
 
-> **Geräte-Struktur (ab v1.3.0):** Jedes Zimmer erscheint als eigenes HA-Gerät unterhalb des zentralen Hub-Geräts „Intelligent Heating Control". Alle zimmer-spezifischen Entitäten sind dem jeweiligen Zimmer-Gerät zugeordnet.
+> **Geräte-Struktur:** Jedes Zimmer erscheint als eigenes HA-Gerät unterhalb des zentralen Hub-Geräts „Intelligent Heating Control" (`via_device`).
+
+> IHC steuert ausschließlich TRVs direkt – es gibt keinen zentralen Heizungs-Switch und keinen
+> Kühlmodus. `switch.ihc_heizung_aktiv` ist ein reiner Status-/Komfort-Switch (siehe unten).
 
 ---
 
@@ -12,58 +15,52 @@ Für jedes konfigurierte Zimmer werden folgende Entitäten erstellt (Beispiel: Z
 
 ### `climate.ihc_wohnzimmer`
 
-Die Hauptentität des Zimmers. Kompatibel mit allen HA-Features die `climate.*` Entitäten unterstützen (Lovelace-Cards, Google Home, Alexa, etc.).
+Die Hauptentität des Zimmers. Kompatibel mit allen HA-Features die `climate.*` Entitäten unterstützen (Lovelace-Cards, Google Home, Alexa, etc.). IHC schreibt die berechnete Solltemperatur direkt auf alle konfigurierten `valve_entities` (TRVs).
 
 | Attribut | Typ | Beschreibung |
 |----------|-----|-------------|
-| `current_temperature` | float | Aktuelle Zimmertemperatur (vom konfigurierten Sensor) |
+| `current_temperature` | float | Aktuelle Zimmertemperatur (vom konfigurierten Sensor, oder TRV-Fallback) |
 | `temperature` | float | Aktuelle Solltemperatur |
 | `hvac_mode` | string | `heat` oder `off` |
-| `hvac_action` | string | `heating`, `idle`, `off`, `cooling` |
-| `preset_mode` | string | `Auto`, `Comfort`, `Eco`, `Sleep`, `Away`, `Manual` |
+| `hvac_action` | string | `heating`, `idle` oder `off` (kein `cooling` – TRVs können nicht aktiv kühlen) |
+| `preset_mode` | string | `Auto`, `Comfort`, `Eco`, `Sleep`, `Away`, `Manual`, `Boost` |
 | `room_id` | string | Interne UUID des Zimmers |
 | `room_mode` | string | `auto`, `comfort`, `eco`, `sleep`, `away`, `off`, `manual` |
-| `demand` | float | Aktuelle Heizanforderung 0–100 % |
+| `demand` | float | Aktuelle Heizanforderung 0–100 % (siehe [Anforderungsberechnung](advanced.md)) |
 | `window_open` | bool | Ist ein Fenster offen? |
 | `schedule_active` | bool | Ist gerade ein Zeitplan aktiv? |
 | `source` | string | Quelle der aktuellen Zieltemperatur |
 | `boost_remaining` | int | Verbleibende Boost-Minuten (0 = kein Boost) |
 | `night_setback` | float | Aktuell aktive Nachtabsenkung in °C |
 | `runtime_today_minutes` | float | Heizlaufzeit heute in Minuten |
-| `temp_sensor` | string | Entity-ID des konfigurierten Temperatursensors |
-| `valve_entities` | list | Liste der konfigurierten TRV/Thermostat-Entity-IDs |
-| `window_sensors` | list | Liste der konfigurierten Fenstersensor-Entity-IDs |
-| `comfort_temp` | float | Fallback-Komforttemperatur (wenn kein Außensensor) |
-| `eco_offset` | float | Eco-Abzug von der Komforttemperatur in °C |
-| `eco_max_temp` | float | Maximale Eco-Temperatur (Deckelung) |
-| `sleep_offset` | float | Schlaf-Abzug von der Komforttemperatur in °C |
-| `sleep_max_temp` | float | Maximale Schlaf-Temperatur (Deckelung) |
-| `away_offset` | float | Abwesend-Abzug von der Komforttemperatur in °C |
-| `away_max_temp` | float | Maximale Abwesend-Temperatur (Deckelung) |
-| `ha_schedule_off_mode` | string | Fallback-Modus bei inaktivem HA-Zeitplan (`eco` / `sleep`) |
-| `comfort_temp_eff` | float | Berechnete effektive Komforttemperatur (aktuell) |
-| `eco_temp_eff` | float | Berechnete effektive Eco-Temperatur (aktuell) |
-| `sleep_temp_eff` | float | Berechnete effektive Schlaf-Temperatur (aktuell) |
-| `away_temp_eff` | float | Berechnete effektive Abwesend-Temperatur (aktuell) |
-| `room_offset` | float | Konfigurierter Zimmer-Offset |
-| `deadband` | float | Konfiguriertes Totband |
-| `weight` | float | Konfigurierte Klimabaustein-Gewichtung |
-| `schedules` | list | Alle konfigurierten internen Zeitpläne als Liste |
-| `ha_schedules` | list | Alle konfigurierten HA schedule.* Bindungen |
-| `humidity_sensor` | string | Entity-ID des konfigurierten Luftfeuchtigkeit-Sensors |
-| `mold_protection_enabled` | bool | Schimmelschutz aktiviert? |
+| `energy_today_kwh` | float | Geschätzter Energieverbrauch heute in kWh |
+| `comfort_temp_eff` / `eco_temp_eff` / `sleep_temp_eff` / `away_temp_eff` | float | Aktuell berechnete effektive Preset-Temperaturen |
 | `mold` | dict | Schimmelschutz-Status: `{risk, dew_point, humidity}` |
+| `felt_temperature` | float | Gefühlte Temperatur aus Raumtemperatur + Luftfeuchte |
+| `ventilation` | dict | Lüftungsempfehlung: `{level, score, reasons, co2_ppm, room_humidity}` |
+| `co2_ventilation_eta_minutes` | float | Prognostizierte Zeit bis zur Lüftungsempfehlung |
 | `room_presence_active` | bool | Zimmer-spezifische Anwesenheit (wenn konfiguriert) |
+| `pir_presence` | bool | Status eines optionalen PIR-Präsenzsensors (`presence_sensor`) |
+| `anomaly` | string | Sensor-Anomalie: `sensor_stuck`, `temp_drop` oder `null` |
+| `next_period` | dict | Nächster Zeitplan-Eintrag `{start, end, mode, temperature}` |
 | `trv_raw_temp` | float | Unkorrigierte TRV-Durchschnittstemperatur (am Heizkörper) |
 | `trv_humidity` | float | TRV-Luftfeuchtigkeit (falls TRV dieses Attribut meldet) |
 | `trv_avg_valve` | float | Durchschnittliche Ventilöffnung aller TRVs (0–100 %) |
 | `trv_any_heating` | bool | Mindestens ein TRV meldet `hvac_action: heating` |
-| `trv_min_battery` | int | Niedrigster Akkustand aller konfigurierten TRVs (%) |
-| `trv_low_battery` | bool | `true` wenn ein TRV unter 20 % Akkustand hat |
-| `temp_history` | list | Stündliche Temperatur-Snapshots (max. 168 Einträge / 7 Tage) |
-| `avg_warmup_minutes` | float | Lernbasierte Ø-Aufheizzeit (für adaptives Vorheizen) |
-| `anomaly` | string | Sensor-Anomalie: `sensor_stuck`, `temp_drop` oder `null` |
-| `next_period` | dict | Nächster Zeitplan-Eintrag `{start, end, mode, temperature}` |
+| `trv_min_battery` / `trv_low_battery` | int / bool | Niedrigster Akkustand aller TRVs (%) / `true` wenn < 20 % |
+| `trv_stuck_valves` | list | Entity-IDs von TRVs, die trotz Anforderung nicht reagieren |
+| `temp_history` / `target_history` | list | Stündliche Ist-/Soll-Temperatur-Snapshots (max. 168 Einträge / 7 Tage) |
+| `demand_heatmap` | list | Gelernte Heizanforderung nach Wochentag/Uhrzeit (7×24 EMA-Werte), Basis für den Analyse-Tab |
+| `avg_warmup_minutes` / `warmup_curve` | float / list | Gelernte Ø-Aufheizzeit (flach bzw. je Außentemperatur-Bucket) |
+| `learned_preheat_minutes` | float | Aktuell berechnete, außentemperatur-korrigierte Vorheizzeit (Optimum Start) |
+| `avg_cooling_rate` | float | Gelernte passive Abkühlrate (°C/h je °C Δ innen/außen, thermische Masse) |
+| `optimum_stop_active` / `optimum_stop_minutes` / `optimum_stop_predicted` | bool / float / float | Optimum-Stop-Status: schaltet vor Zeitplan-Ende ab, wenn das Zimmer die Zieltemperatur ohnehin hält |
+| `window_cascade_active` / `window_cascade_offset` / `window_cascade_source` | bool / float / string | Ist die Fenster-Kaskade eines Nachbarraums gerade aktiv, und mit welchem Offset/welcher Quelle |
+
+Daneben spiegelt die Entität die komplette Zimmer-Konfiguration (`temp_sensor`, `valve_entities`,
+`window_sensors`, `deadband`, `room_offset`, `schedules`, `ha_schedules`, TRV-Einstellungen,
+CO₂-/Feuchte-Schwellen, Boost-Konfiguration, Fenster-Kaskade-Konfiguration, …) als Attribute –
+das Frontend-Panel nutzt diese zum Vorbelegen der Bearbeiten-Dialoge.
 
 **Mögliche `source`-Werte:**
 
@@ -72,23 +69,17 @@ Die Hauptentität des Zimmers. Kompatibel mit allen HA-Features die `climate.*` 
 | `heating_curve` | Heizkurve + Zimmer-Offset (Auto-Modus, kein Zeitplan) |
 | `schedule` | Aktiver interner Zeitplan |
 | `preheat` | Vorheizen vor internem Zeitplan |
-| `ha_schedule_comfort` | Aktiver HA-Zeitplan (Komfort-Modus) |
-| `ha_schedule_eco` | Aktiver HA-Zeitplan (Eco-Modus) |
-| `ha_schedule_sleep` | Aktiver HA-Zeitplan (Schlaf-Modus) |
-| `ha_schedule_away` | Aktiver HA-Zeitplan (Abwesend-Modus) |
-| `ha_schedule_eco` | Fallback bei inaktivem HA-Zeitplan (eco-Modus) |
-| `ha_schedule_sleep` | Fallback bei inaktivem HA-Zeitplan (sleep-Modus) |
-| `comfort` | Zimmer-Preset: Komfort (outdoor-geregelt) |
-| `eco` | Zimmer-Preset: Eco (outdoor-geregelt) |
-| `sleep` | Zimmer-Preset: Schlaf (outdoor-geregelt) |
+| `ha_schedule_comfort` / `_eco` / `_sleep` / `_away` | Aktiver HA-Zeitplan im jeweiligen Modus |
+| `comfort` / `eco` / `sleep` | Zimmer-Preset (outdoor-geregelt) |
 | `room_away` | Zimmer-Preset: Abwesend (outdoor-geregelt) |
 | `room_presence_away` | Anwesenheits-Auto: alle weg → Abwesend-Temperatur |
 | `guest` | Gäste-Modus aktiv |
 | `manual` | Manuell gesetzte Temperatur |
-| `system_away` | System-Abwesend-Modus (globale away_temp) |
+| `system_away` | System-Abwesend-Modus (globale `away_temp`) |
 | `system_vacation` | Urlaubs-Modus |
 | `room_off` | Zimmer-AUS-Modus |
 | `frost_protection` | Frostschutz aktiv |
+| `temp_threshold_override` | `room_temp_threshold` hat den sonst berechneten Sollwert übersteuert |
 
 ---
 
@@ -103,9 +94,6 @@ Heizanforderung des Zimmers in Prozent (0–100).
 | `room_mode` | string | Zimmermodus |
 | `window_open` | bool | Fensterstatus |
 | `source` | string | Quelle der Zieltemperatur |
-| `night_setback` | float | Aktive Nachtabsenkung |
-| `temp_history` | list | Letzte N Temperaturwerte `[{t: timestamp, v: value}, ...]` |
-| `avg_warmup_minutes` | float | Durchschnittliche Aufheizzeit in Minuten |
 
 ---
 
@@ -119,13 +107,15 @@ Berechnete Solltemperatur des Zimmers.
 
 ### `sensor.ihc_wohnzimmer_laufzeit_heute`
 
-Heizlaufzeit des Zimmers heute in Minuten (zurückgesetzt um Mitternacht).
+Heizlaufzeit des Zimmers heute in Minuten (zurückgesetzt um Mitternacht). Basiert auf dem realen
+TRV-Heizsignal (Ventilposition > 8 % → `hvac_action: heating` → berechnete Anforderung > 0 →
+Fallback Raumtemp < Zieltemp), nicht auf der rohen Anforderung.
 
 **Geräteklasse:** `duration` (min)
 
 ---
 
-### `sensor.ihc_wohnzimmer_luftfeuchtigkeit` *(neu in 1.3.0)*
+### `sensor.ihc_wohnzimmer_luftfeuchtigkeit`
 
 Aktuelle Raumluftfeuchtigkeit in Prozent. Wird nur erstellt wenn im Zimmer ein `humidity_sensor` konfiguriert ist.
 
@@ -136,6 +126,14 @@ Aktuelle Raumluftfeuchtigkeit in Prozent. Wird nur erstellt wenn im Zimmer ein `
 | `dew_point` | float | Berechneter Taupunkt (Magnus-Formel) in °C |
 | `mold_risk` | bool | Ist der Schimmelschutz-Schwellwert überschritten? |
 | `threshold` | float | Konfigurierter Schimmelschutz-Schwellwert in % |
+
+---
+
+### `sensor.ihc_wohnzimmer_gefuehlte_temperatur`
+
+Gefühlte Temperatur (Komfortindex) aus Raumtemperatur und Luftfeuchtigkeit. Wird nur erstellt wenn `humidity_sensor` konfiguriert ist.
+
+**Geräteklasse:** `temperature` (°C)
 
 ---
 
@@ -163,6 +161,18 @@ CO₂-Warnung (device_class: `gas`). Wird nur erstellt wenn `co2_sensor` konfigu
 
 ---
 
+### `binary_sensor.ihc_wohnzimmer_ventil_fehler`
+
+Stuck-Valve-Erkennung (device_class: `problem`). Wird nur erstellt wenn mindestens ein TRV (`valve_entities`) konfiguriert ist.
+
+**Ein** (`on`) wenn ein TRV trotz Heizanforderung länger als `stuck_valve_timeout` (Standard 1800 s) nicht reagiert – z. B. verkalkt oder mechanisch blockiert.
+
+| Attribut | Typ | Beschreibung |
+|----------|-----|-------------|
+| `stuck_valve_entities` | list | Entity-IDs der betroffenen TRVs |
+
+---
+
 ### `number.ihc_wohnzimmer_offset`
 
 Zimmer-Offset zur Heizkurven-Basistemperatur. Kann zur Laufzeit ohne HA-Neustart geändert werden.
@@ -187,41 +197,38 @@ Direktes Umschalten des Zimmermodus.
 
 ### `sensor.ihc_gesamtanforderung`
 
-Gewichtete Gesamtanforderung aller Zimmer in Prozent. Enthält alle Klimabaustein-Parameter als Attribute.
+Gesamtanforderung aller aktiven (nicht auf `off` stehenden) Zimmer in Prozent, als einfacher
+Durchschnitt. Enthält außerdem eine große Menge an Status- und Konfigurations-Attributen, u. a.:
 
 | Attribut | Typ | Beschreibung |
 |----------|-----|-------------|
-| `heating_active` | bool | Ist die Heizung aktuell aktiv? |
-| `total_demand` | float | Gesamtanforderung 0–100 % |
+| `heating_active` | bool | Heizt aktuell irgendein Zimmer? |
 | `rooms_demanding` | int | Anzahl Zimmer mit Anforderung > 0 |
-| `demand_threshold` | float | Konfigurierte Einschaltschwelle |
-| `demand_hysteresis` | float | Konfigurierte Hysterese |
-| `min_on_time_minutes` | int | Mindest-Einschaltzeit |
-| `min_off_time_minutes` | int | Mindest-Ausschaltzeit |
-| `min_rooms_demand` | int | Mindestanzahl Zimmer |
-| `away_temp` | float | Globale Abwesend-Temperatur |
-| `vacation_temp` | float | Globale Urlaubs-Temperatur |
-| `frost_protection_temp` | float | Frostschutz-Temperatur |
-| `summer_mode_enabled` | bool | Sommerautomatik aktiv? |
-| `summer_threshold` | float | Sommerautomatik-Schwelle in °C |
-| `night_setback_enabled` | bool | Nachtabsenkung aktiviert? |
-| `night_setback_offset` | float | Nachtabsenkungs-Offset in °C |
-| `preheat_minutes` | int | Vorheiz-Vorlaufzeit in Minuten |
-| `presence_entities` | list | Konfigurierte Anwesenheits-Entities |
-| `boiler_kw` | float | Konfigurierte Kesselleistung in kW |
-| `solar_entity` | string | Konfigurierter Solar-Sensor |
-| `solar_surplus_threshold` | float | Solar-Überschuss-Schwelle in W |
-| `energy_price_entity` | string | Konfigurierter Strompreis-Sensor |
-| `summer_mode` | bool | Ist Sommerautomatik aktuell aktiv? |
-| `night_setback_active` | bool | Ist Nachtabsenkung aktuell aktiv? |
-| `presence_away_active` | bool | Ist Anwesenheits-Abwesend aktuell aktiv? |
-| `heating_runtime_today` | float | Gesamte Heizlaufzeit heute in Minuten |
+| `system_mode` | string | Aktueller Systemmodus |
+| `summer_mode` | bool | Ist die Sommerautomatik aktuell aktiv? |
+| `night_setback_active` | bool | Ist die Nachtabsenkung aktuell aktiv? |
+| `heating_period_active` | bool | Ist die Heizperiode aktiv (`heating_period_entity`)? |
+| `presence_away_active` / `presence_away_pending` / `presence_away_pending_minutes_remaining` | bool / bool / float | Status der Anwesenheits-Verzögerung |
+| `vacation_auto_active` / `vacation_range` / `return_preheat_active` | bool / dict / bool | Urlaubs-Assistent-Status |
+| `guest_mode_active` / `guest_remaining_minutes` | bool / float | Gäste-Modus-Status |
+| `holiday_active` / `holiday_schedule_mode` | bool / string | Feiertagskalender-Status |
+| `peak_shaving_active` | bool | Läuft gerade die Peak-Shaving-Verzögerung? |
+| `forecast_coldnight_active` | bool | Ist die Kälteprognose-Frühstart-Logik aktiv? |
+| `groups` | list | Alle konfigurierten Heizgruppen `{group_id, group_name, group_rooms}` |
+| `heating_runtime_today` / `heating_runtime_yesterday` | float | Gesamte Heizlaufzeit heute/gestern in Minuten |
+| `efficiency_score` | float | Interner Effizienz-Score |
+| `weather_forecast` / `outdoor_humidity` | dict / float | Wetterprognose- bzw. Außenfeuchte-Daten |
+
+Ergänzend spiegelt der Sensor die komplette globale Konfiguration (Außensensor, Heizkurve,
+Solar-, Strompreis-, Nachtabsenkungs-, Anwesenheits- und TRV-bezogene Einstellungen) als
+Attribute – das Frontend-Panel nutzt diese zum Vorbelegen des Einstellungen-Tabs.
 
 ---
 
 ### `sensor.ihc_aussentemperatur`
 
-Spiegelt den konfigurierten Außentemperatursensor. Wird von IHC intern gelesen und als eigene Entity bereitgestellt.
+Spiegelt den konfigurierten Außentemperatursensor (optional geglättet über
+`outdoor_temp_smoothing_minutes`). Wird von IHC intern gelesen und als eigene Entity bereitgestellt.
 
 **Geräteklasse:** `temperature` (°C)
 
@@ -239,29 +246,25 @@ Aktueller Heizkurven-Basiswert (vor Zimmer-Offset) basierend auf der aktuellen A
 
 ---
 
-### `sensor.ihc_heizlaufzeit_heute`
+### `sensor.ihc_heizlaufzeit_heute` / `sensor.ihc_heizlaufzeit_gestern`
 
-Gesamte Heizlaufzeit heute in Minuten (zurückgesetzt um Mitternacht).
+Gesamte Heizlaufzeit aller Zimmer heute bzw. gestern in Minuten (zurückgesetzt um Mitternacht).
 
 ---
 
-### `sensor.ihc_energie_heute`
+### `sensor.ihc_energie_heute` / `sensor.ihc_energie_gestern`
 
-Geschätzter Energieverbrauch heute in kWh. Berechnet als `Heizlaufzeit [h] × Kesselleistung [kW]`.
-
-| Attribut | Typ | Beschreibung |
-|----------|-----|-------------|
-| `solar_boost` | float | Aktueller Solar-Boost in °C (0 = kein Boost) |
-| `solar_power` | float | Aktuelle Solarleistung in W (wenn konfiguriert) |
-| `energy_price` | float | Aktueller Strompreis in €/kWh (wenn konfiguriert) |
-| `energy_price_eco_active` | bool | Ist der Strompreis-Eco-Modus aktiv? |
-| `flow_temp` | float | Aktuelle Vorlauftemperatur in °C (wenn konfiguriert) |
+Geschätzter Gesamt-Energieverbrauch heute bzw. gestern in kWh. Pro Zimmer berechnet als
+`Laufzeit [h] × radiator_kw`, alternativ direkt aus einem konfigurierten `hkv_sensor`, und über
+alle Zimmer aufsummiert.
 
 ---
 
 ### `switch.ihc_heizung_aktiv`
 
-Zeigt den aktuellen Heizungsstatus. Kann auch manuell ein-/ausgeschaltet werden (überschreibt vorübergehend die automatische Steuerung).
+Spiegelt, ob aktuell irgendein Zimmer heizt (`heating_active`). Manuelles Umschalten wechselt den
+**Systemmodus**: AUS → `off`, EIN → `auto`. Es handelt sich um einen Komfort-/Status-Switch für
+Automationen und Dashboards, **nicht** um einen Kessel- oder TRV-Aktor.
 
 ---
 
@@ -269,7 +272,7 @@ Zeigt den aktuellen Heizungsstatus. Kann auch manuell ein-/ausgeschaltet werden 
 
 Direktes Umschalten des Systemmodus.
 
-**Optionen:** `auto`, `heat`, `cool`, `off`, `away`, `vacation`
+**Optionen:** `auto`, `heat`, `off`, `away`, `vacation`, `guest`
 
 ---
 
@@ -293,9 +296,9 @@ max: 100
 segments:
   - from: 0
     color: "#4CAF50"
-  - from: 15
+  - from: 40
     color: "#FF9800"
-  - from: 60
+  - from: 75
     color: "#F44336"
 ```
 

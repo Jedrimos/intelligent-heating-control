@@ -26,12 +26,13 @@ Außerhalb des Bereichs wird der erste/letzte Wert verwendet (Clipping).
 
 **Wärmepumpe (Luft-Wasser):**
 ```
--15°C → 40°C (Vorlauf-Äquivalent ~35°C)
-0°C   → 35°C
-10°C  → 30°C
-20°C  → 25°C
+-15°C → 24°C (flache Kurve, TRVs regeln die Raumtemperatur, nicht den Vorlauf)
+0°C   → 22°C
+10°C  → 20°C
+20°C  → 18°C
 ```
-> Wärmepumpen bevorzugen flache Kurven mit niedrigen Vorlauftemperaturen für höhere COP-Werte.
+> Da IHC keine Vorlauftemperatur regelt, gilt die Kurve hier für die **Raum-Zieltemperatur** –
+> die eigentliche COP-Optimierung übernimmt die Wärmepumpen-eigene Regelung.
 
 **Gas-/Ölheizung mit Heizkörpern (Standard):**
 ```
@@ -49,7 +50,7 @@ Außerhalb des Bereichs wird der erste/letzte Wert verwendet (Clipping).
 10°C  → 20°C
 20°C  → 19°C
 ```
-> Fußbodenheizungen haben geringeren Temperaturbedarf, reagieren aber sehr träge.
+> Fußbodenheizungen haben geringeren Temperaturbedarf, reagieren aber sehr träge – ein größeres Totband (`deadband`) ist hier sinnvoll.
 
 **Passivhaus:**
 ```
@@ -61,72 +62,58 @@ Außerhalb des Bereichs wird der erste/letzte Wert verwendet (Clipping).
 
 ---
 
-## Klimabaustein im Detail
+## Anforderungsberechnung pro Zimmer
 
-### Anforderungsberechnung pro Zimmer
+Jedes Zimmer hat kein zentrales An/Aus-Signal mehr (kein Heizungsschalter) – stattdessen berechnet
+IHC pro Zimmer eine Heizanforderung von 0–100 %, die als Statussignal im Dashboard dient, in die
+Laufzeit-/Energieschätzung einfließt und im TRV-Modus mit der gemeldeten Ventilposition kombiniert
+wird (siehe [Architektur → TRV-Steuerung](architecture.md#trv-steuerung)).
 
-```
-Anforderung = (Zieltemp - Isttemp) / (Totband × 2) × 100%
+### Formel
 
-Isttemp = 19.5°C, Zieltemp = 21°C, Totband = 0.5°C:
-  Diff = 21 - 19.5 = 1.5°C
-  MaxDiff = 0.5 × 2 = 1.0°C
-  Diff > MaxDiff → 100% Anforderung
-
-Isttemp = 20.5°C, Zieltemp = 21°C, Totband = 0.5°C:
-  Diff = 21 - 20.5 = 0.5°C
-  Anforderung = (0.5 / 1.0) × 100 = 50%
-
-Isttemp ≥ Zieltemp:
-  Anforderung = 0%
+```python
+def calculate_room_demand(current_temp, target_temp, deadband=0.5, demand_range=5.0):
+    diff = target_temp - current_temp
+    if diff <= deadband:
+        return 0.0                                  # innerhalb des Totbands → kein Bedarf
+    effective_diff = diff - deadband
+    return min(100.0, (effective_diff / demand_range) * 100.0)
 ```
 
-### Gewichtete Aggregation
+Mit den Standardwerten (`deadband=0.5`, `demand_range=5.0`):
 
-```
-Zimmer A: 80% Anforderung, Gewichtung 1.0
-Zimmer B: 40% Anforderung, Gewichtung 1.0
-Zimmer C:  0% Anforderung, Gewichtung 2.0 (Wohnzimmer – doppelt gewichtet)
+| Isttemp vs. Zieltemp | Anforderung |
+|-----------------------|-------------|
+| ≥ Zieltemp − 0,5 °C | 0 % (im Totband) |
+| = Zieltemp − 1,0 °C | 10 % |
+| = Zieltemp − 3,0 °C | 50 % |
+| ≤ Zieltemp − 5,5 °C | 100 % |
 
-Gesamtanforderung = (80×1 + 40×1 + 0×2) / (1+1+2) = 120/4 = 30%
-```
+Fenster offen, Zimmermodus `off` oder fehlender Temperatursensor → immer 0 % Anforderung.
 
-> Zimmer C ist bereits warm, zieht die Gesamtanforderung runter.
+### Gesamtanforderung
 
-### Hysterese und Schaltzustände
-
-```
-Einschaltschwelle: 15%
-Hysterese: 5%
-→ Ausschaltschwelle: 10%
-
-Heizung AUS:
-  Anforderung steigt auf 15% → Heizung EIN
-
-Heizung EIN:
-  Anforderung fällt auf 10% → Heizung AUS
-  Anforderung bei 12% → Heizung bleibt EIN (Hysterese)
-```
-
-**Mindestzeiten** verhindern Kurzläufe:
-```
-Mindest-Einschaltzeit: 10 min
-→ Auch wenn Anforderung sofort auf 0% fällt, bleibt Heizung 10 min an
-
-Mindest-Ausschaltzeit: 5 min
-→ Auch wenn Anforderung sofort wieder 100% wird, bleibt Heizung 5 min aus
-```
+Die im Dashboard gezeigte Gesamtanforderung (`sensor.ihc_gesamtanforderung`) ist der **einfache
+Durchschnitt** der Anforderung aller aktiven (nicht auf `off` stehenden) Zimmer – es gibt keine
+Gewichtung einzelner Zimmer.
 
 ### Totband einstellen
 
-Das Totband (Deadband) bestimmt wie sensibel ein Zimmer auf Temperaturabweichungen reagiert:
+Das Totband (`deadband`) bestimmt wie sensibel ein Zimmer auf Temperaturabweichungen reagiert:
 
 | Totband | Verhalten | Empfehlung |
 |---------|-----------|-----------|
-| 0.2 °C | Sehr sensibel, hohes Taktungsrisiko | Nicht empfohlen |
+| 0.2 °C | Sehr sensibel, viele kleine Setpoint-Änderungen | Nicht empfohlen bei batteriebetriebenen TRVs |
 | 0.5 °C | Standard für TRVs | **Standard** |
 | 1.0 °C | Träge Reaktion | Fußbodenheizung |
 | 2.0 °C | Sehr träge | Schwere Steinmauern |
+
+### Peak Shaving
+
+Wenn `peak_shaving_enabled` aktiv ist und mehrere Zimmer gleichzeitig neu in die Anforderung
+gehen (Wechsel von „niemand heizt" zu „mindestens ein Zimmer heizt"), wird für die konfigurierte
+`peak_shaving_delay_minutes` die untere Hälfte der anfordernden Zimmer (nach aktueller Anforderung
+sortiert) auf maximal 30 % gedeckelt. So reißen nicht alle TRVs gleichzeitig auf.
 
 ---
 
@@ -135,20 +122,25 @@ Das Totband (Deadband) bestimmt wie sensibel ein Zimmer auf Temperaturabweichung
 ### Prioritäten-Logik
 
 ```
-Priorität 1: System OFF/Urlaub   → Frostschutz-Temp
-Priorität 2: System Abwesend     → Globale Abwesend-Temp
-Priorität 3: Zimmermodus Manuell → Manuell-Temp
-Priorität 4: Zimmer Aus          → Frostschutz-Temp
-Priorität 5: Zimmer Komfort/Eco/Schlaf/Abwesend → Preset-Temp
-Priorität 6: Aktiver Zeitplan    → Zeitplan-Temp + Offsets
-Priorität 7: Vorheizen           → Nächste Zeitplan-Temp
-Priorität 8: Heizkurve           → Kurven-Basis + Zimmer-Offset
+1. System OFF/Urlaub          → Frostschutz-Temperatur
+2. System Abwesend            → Globale Abwesend-Temperatur
+3. Gäste-Modus                → Komfort-Temperatur + Zimmer-Offset
+4. Anwesenheit (alle weg)     → Abwesend-Temperatur (outdoor-geregelt) + Zimmer-Offset
+5. Zimmermodus Manuell        → Manuell-Temp
+6. Zimmer Aus                 → Frostschutz-Temp
+7. Zimmer Komfort/Eco/Schlaf/Abwesend → Preset-Temp (outdoor-geregelt)
+8. Aktiver HA-Zeitplan        → Preset des Zeitplan-Modus
+9. Aktiver interner Zeitplan  → Zeitplan-Temp + Zeitplan-Offset + Zimmer-Offset
+10. Vorheizen                 → Nächste Zeitplan-Temp (wenn Pre-Heat aktiv)
+11. Heizkurve                 → Kurven-Basis + Zimmer-Offset
 ```
 
 Korrekturen werden anschließend addiert:
 - `-night_setback` wenn Sonne unter Horizont
 - `+solar_boost` wenn Solar-Überschuss
-- `-eco_offset` wenn Strompreis hoch
+- `-energy_price_eco_offset` wenn Strompreis hoch
+- `+weather_cold_boost` wenn Kältewarnung aus der Wettervorhersage
+- ggf. Mold-Protection-Erhöhung, CO₂-Vorheiz-Boost, Fenster-Kaskade-Absenkung eines Nachbarraums
 
 ### Übernacht-Zeiträume
 
@@ -177,11 +169,12 @@ Der Schedule-Manager erkennt automatisch, dass `end < start` und behandelt den Z
 
 ## Boost-Funktion
 
-Der Boost aktiviert den `comfort`-Modus für eine konfigurierbare Dauer:
+Der Boost setzt für eine konfigurierbare Dauer die Zieltemperatur auf `boost_temp` (falls
+konfiguriert, sonst Komfort-Preset):
 
 ```
 Boost aktiviert:
-  room_mode → comfort (Komfort-Preset aktiv)
+  room_mode → comfort (bzw. boost_temp als Zielwert)
   boost_remaining → 60 min (zählt runter)
 
 Nach Ablauf:
@@ -189,7 +182,48 @@ Nach Ablauf:
   boost_remaining → 0
 ```
 
-Der Countdown wird durch den 60-Sekunden-Update-Zyklus dekrementiert.
+---
+
+## Optimum Start (lernbasiertes Vorheizen)
+
+Statt einer festen `preheat_minutes`-Vorlaufzeit lernt IHC bei aktiviertem `optimum_start_enabled`
+pro Zimmer, wie lange das Aufheizen tatsächlich dauert – getrennt nach Außentemperatur-Bucket:
+
+```
+warmup_curve = [
+  {outdoor_temp: -10, avg_minutes: 42, samples: 8},
+  {outdoor_temp:   0, avg_minutes: 28, samples: 15},
+  {outdoor_temp:  10, avg_minutes: 14, samples: 6},
+]
+```
+
+Fehlt für die aktuelle Außentemperatur ein Bucket, wird über die nächstgelegenen Buckets
+gewichtet interpoliert (Gewicht = Messungen / (1 + Distanz²)). `avg_warmup_minutes` liefert
+zusätzlich einen flachen Durchschnitt ohne Außentemperatur-Bezug. Sichtbar im **Analyse-Tab**
+(siehe [Frontend Panel](frontend-panel.md)).
+
+## Optimum Stop
+
+Ergänzend kann IHC ein Zimmer bereits **vor** dem Ende des aktiven Zeitplan-Eintrags abschalten,
+wenn die gelernte Abkühlrate (`avg_cooling_rate`) zeigt, dass die Zieltemperatur bis zum
+tatsächlichen Zeitplan-Ende ohnehin gehalten würde. Status über `optimum_stop_active`,
+`optimum_stop_minutes` (wie viel früher abgeschaltet wurde) und `optimum_stop_predicted`
+(vorhergesagte Temperatur bei Zeitplan-Ende).
+
+## Thermische Masse (Abkühlrate)
+
+Bei ausgeschalteter Heizung und geschlossenem Fenster misst IHC, wie schnell ein Zimmer relativ
+zur Innen-/Außentemperaturdifferenz auskühlt (`avg_cooling_rate`, °C/h je °C Δ). Dieser Wert
+fließt sowohl in Optimum Start als auch in Optimum Stop ein. **Nicht zu verwechseln** mit aktiver
+Kühlung (Klimaanlage) – TRVs können nicht aktiv kühlen, diese Lernfunktion betrifft ausschließlich
+das passive Auskühlverhalten des Raums.
+
+## Anforderungs-Heatmap
+
+Parallel dazu lernt IHC pro Zimmer einen gleitenden Durchschnitt (EMA) der Heizanforderung nach
+Wochentag und Uhrzeit (`demand_heatmap`, 7×24-Raster). Über mehrere Wochen entsteht so ein Bild,
+wann ein Zimmer typischerweise heizt – nützlich um Zeitpläne zu überprüfen oder Wärmebrücken zu
+erkennen. Sichtbar im **Analyse-Tab**.
 
 ---
 
@@ -204,7 +238,7 @@ person.erika: not_home
 
 person.max: not_home
 person.erika: not_home
-→ Niemand zuhause → System automatisch auf "away"
+→ Niemand zuhause → nach presence_away_delay_minutes automatisch auf "away"
 
 person.max: home (kommt zurück)
 → System zurück auf "auto"
@@ -221,6 +255,19 @@ Die automatische Umschaltung respektiert den aktuellen Systemmodus:
 | `person.*` | State = `home` |
 | `device_tracker.*` | State = `home` |
 | `input_boolean.*` | State = `on` |
+
+### ETA-Vorheizen
+
+Ist `eta_preheat_enabled` aktiv, nutzt IHC die Entfernungs-/Ankunftsschätzung eines
+`device_tracker.*` (sofern der Tracker das unterstützt): unterschreitet die geschätzte
+Ankunftszeit `eta_preheat_threshold_minutes` (Standard 90 min), heizt das betroffene Zimmer
+bereits vor dem eigentlichen Zeitplan-Start auf Komfort vor – sowohl im HA-Schedule-Off-Mode-
+Fallback als auch beim internen Zeitplan ohne aktiven Eintrag.
+
+### Zimmer-spezifische Anwesenheit
+
+Über `room_presence_entities` heizt ein einzelnes Zimmer nur, wenn dort jemand ist (z. B. ein
+Homeoffice-Zimmer nur bei `person.max: home`), unabhängig von der globalen Anwesenheit.
 
 ---
 
@@ -248,14 +295,29 @@ energy_price_entity: sensor.tibber_preis  (€/kWh)
 energy_price_threshold: 0.30 €/kWh
 
 Strompreis > 0.30 €/kWh:
-  Zieltemperatur aller Zimmer -= eco_offset (-2°C)
+  Zieltemperatur aller Zimmer -= energy_price_eco_offset (-2°C)
   → Heizung läuft weniger → günstigere Stunden abwarten
 ```
 
 **Geeignete Sensoren:**
-- Tibber: `sensor.tibber_electricity_price`
+- Tibber: `sensor.tibber_electricity_price` (Preis-Forecast via `price_forecast_attribute`)
 - Octopus Energy: `sensor.octopus_current_rate`
 - ENTSO-E: `sensor.nordpool_kwh_de_eur_3_10_025` (via HACS)
+
+### Energieschätzung pro Zimmer
+
+Ohne HKV-Sensor: `Laufzeit [h] × radiator_kw`. Mit konfiguriertem `hkv_sensor`: direkte
+Umrechnung über `hkv_factor` (kWh pro HKV-Einheit, aus der Jahresabrechnung).
+
+---
+
+## Fenster-Kaskade
+
+Lüftet ein Zimmer länger als `window_cascade_delay_minutes`, senken die in
+`window_cascade_rooms` konfigurierten Nachbarräume automatisch um `window_cascade_offset` ab –
+z. B. damit ein offenes Fenster im Flur nicht auch das angrenzende Wohnzimmer auskühlt. Sind
+mehrere Quellen gleichzeitig aktiv, gewinnt der höchste Offset. Status pro Zimmer über
+`window_cascade_active`, `window_cascade_offset`, `window_cascade_source`.
 
 ---
 
@@ -271,7 +333,10 @@ hass.services.async_call(
 )
 ```
 
-Alle TRVs bekommen dieselbe Zieltemperatur. Die Koordination zwischen TRVs übernimmt das IHC-System.
+Alle TRVs bekommen dieselbe Zieltemperatur (auf 0,5 °C quantisiert, siehe
+[Architektur](architecture.md)). Ventilposition, Batteriestatus und Stuck-Valve-Erkennung werden
+je TRV ausgewertet und im Zimmer aggregiert (`trv_avg_valve`, `trv_min_battery`,
+`trv_stuck_valves`).
 
 ---
 
@@ -313,9 +378,6 @@ condition:
     entity_id: select.ihc_systemmodus
     state: "auto"
 action:
-  - service: intelligent_heating_control.set_system_mode
-    data:
-      mode: auto
   - service: intelligent_heating_control.boost_room
     data:
       id: "{{ state_attr('climate.ihc_wohnzimmer', 'room_id') }}"
