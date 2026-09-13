@@ -440,6 +440,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "summer_mode_enabled", "summer_threshold",
             "frost_protection_temp", "off_use_frost_protection",
             "night_setback_enabled", "night_setback_offset", "sun_entity",
+            "felt_temp_adjustment_enabled", "felt_temp_adjustment_max",
             "preheat_minutes",
             "presence_entities",
             "outdoor_temp_sensor",
@@ -487,6 +488,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "heating_period_notify_enabled",
             # Summer mode external entity + forecast cold-night early start
             "summer_mode_entity",
+            "summer_mode_hysteresis_enabled", "summer_mode_hysteresis_band", "summer_mode_hysteresis_days",
             "forecast_coldnight_enabled", "forecast_coldnight_temp", "forecast_advance_hours",
             # Optimum Start – learn heating rate per room bucketed by outdoor temp
             "optimum_start_enabled",

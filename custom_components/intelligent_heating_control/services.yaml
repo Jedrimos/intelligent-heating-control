@@ -1063,6 +1063,34 @@ update_global_settings:
           domain:
             - input_boolean
             - binary_sensor
+    summer_mode_hysteresis_enabled:
+      name: Sommerautomatik-Hysterese
+      description: >-
+        Statt eines Momentanwerts ein gleitendes Mehrtage-Mittel der Außentemperatur mit
+        Hysterese verwenden, um Flip-Flop an Grenztagen zu vermeiden (Standard: an).
+      required: false
+      selector:
+        boolean:
+    summer_mode_hysteresis_band:
+      name: Sommerautomatik-Hysterese – Band (°C)
+      description: "°C unter der Sommer-Schwelle, ab der die Sommerautomatik wieder deaktiviert wird"
+      required: false
+      selector:
+        number:
+          min: 0.5
+          max: 10
+          step: 0.5
+          unit_of_measurement: "°C"
+    summer_mode_hysteresis_days:
+      name: Sommerautomatik-Hysterese – Fenstergröße
+      description: Anzahl Tage für das gleitende Mittel der Außentemperatur.
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 14
+          step: 1
+          unit_of_measurement: Tage
     forecast_coldnight_enabled:
       name: Kälteprognose-Frühstart aktivieren
       required: false
@@ -1097,6 +1125,24 @@ update_global_settings:
           min: 0.5
           max: 6
           step: 0.5
+    felt_temp_adjustment_enabled:
+      name: Gefühlte Temperatur berücksichtigen
+      description: >-
+        Wenn ein Zimmer laut Luftfeuchte kälter wirkt als der Sensor misst, Sollwert leicht
+        anheben (gedeckelt durch felt_temp_adjustment_max). Standard: aus - reine
+        Komfort-Feinjustierung, kein Ersatz für den Raumsensor.
+      required: false
+      selector:
+        boolean:
+    felt_temp_adjustment_max:
+      name: Gefühlte Temperatur – max. Anhebung (°C)
+      required: false
+      selector:
+        number:
+          min: 0.5
+          max: 4
+          step: 0.5
+          unit_of_measurement: "°C"
     preheat_minutes:
       name: Vorheiz-Vorlaufzeit (min)
       required: false

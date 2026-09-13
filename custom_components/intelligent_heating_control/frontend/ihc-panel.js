@@ -4153,6 +4153,27 @@ class IHCPanel extends HTMLElement {
                 data-ep-domains="input_boolean,binary_sensor" autocomplete="off">
               <span class="form-hint">Optional: Überschreibt die Temperatur-Automatik. ON = Sommer aktiv (Heizung gesperrt), OFF = Heizung freigegeben. Ideal für Automationen oder einen physischen Schalter.</span>
             </div>
+            <div class="settings-item">
+              <label>Sommerautomatik-Hysterese</label>
+              <select class="form-select" id="summer-hysteresis-enabled">
+                <option value="true" ${a.summer_mode_hysteresis_enabled !== false ? "selected" : ""}>Aktiviert (empfohlen)</option>
+                <option value="false" ${a.summer_mode_hysteresis_enabled === false ? "selected" : ""}>Deaktiviert (Momentanwert)</option>
+              </select>
+              <span class="form-hint">
+                Gleitendes Mehrtage-Mittel statt Momentanwert – vermeidet Flip-Flop an Grenztagen.
+                ${a.summer_mode_rolling_avg != null
+                  ? `<br>Aktuelles Ø (${a.summer_mode_hysteresis_days ?? 3} Tage): <strong>${a.summer_mode_rolling_avg}°C</strong> → ${a.summer_mode_auto_active ? "Sommerautomatik aktiv" : "Sommerautomatik inaktiv"}`
+                  : ""}
+              </span>
+            </div>
+            <div class="settings-item">
+              <label>Hysterese-Band (°C) / Fenstergröße (Tage)</label>
+              <div style="display:flex;gap:8px">
+                <input type="number" class="form-input" id="summer-hysteresis-band" min="0.5" max="10" step="0.5" value="${a.summer_mode_hysteresis_band ?? 2}" title="Band unter der Sommer-Schwelle" style="flex:1">
+                <input type="number" class="form-input" id="summer-hysteresis-days" min="1" max="14" step="1" value="${a.summer_mode_hysteresis_days ?? 3}" title="Fenstergröße in Tagen" style="flex:1">
+              </div>
+              <span class="form-hint">Band: °C unter der Sommer-Schwelle, ab der wieder deaktiviert wird. Fenstergröße: Tage für das gleitende Mittel.</span>
+            </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label>Heizperiode-Entity (optional – manuelle Übersteuerung)
                 ${a.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : a.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
@@ -4606,6 +4627,23 @@ class IHCPanel extends HTMLElement {
                 <option value="comfort" ${a.holiday_schedule_mode === 'comfort' ? 'selected' : ''}>Komforttemperatur halten</option>
               </select>
             </div>
+            <div class="settings-item">
+              <label>Gefühlte Temperatur berücksichtigen</label>
+              <select class="form-select" id="felt-temp-enabled">
+                <option value="false" ${!a.felt_temp_adjustment_enabled ? "selected" : ""}>Deaktiviert (Standard)</option>
+                <option value="true" ${a.felt_temp_adjustment_enabled ? "selected" : ""}>Aktiviert</option>
+              </select>
+              <span class="form-hint">
+                Wirkt sich nur auf Zimmer mit Feuchtesensor aus: fühlt sich der Raum laut Luftfeuchte kälter an
+                als der Sensor misst (trockene Luft), wird der Sollwert leicht angehoben – gedeckelt durch den
+                Wert rechts. Reine Komfort-Feinjustierung, ersetzt nicht den Raumsensor.
+              </span>
+            </div>
+            <div class="settings-item">
+              <label>Max. Anhebung (°C)</label>
+              <input type="number" class="form-input" id="felt-temp-max" min="0.5" max="4" step="0.5" value="${a.felt_temp_adjustment_max ?? 1.5}">
+              <span class="form-hint">Obergrenze für die Sollwert-Anhebung durch die gefühlte Temperatur.</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-intelligent-settings">💾 Intelligente Regelung speichern</button>
@@ -4785,10 +4823,12 @@ class IHCPanel extends HTMLElement {
       const vacT   = parseFloat(content.querySelector("#vacation-temp").value);
       const frostT = parseFloat(content.querySelector("#frost-temp").value);
       const sumT     = parseFloat(content.querySelector("#summer-threshold").value);
+      const sumBand  = parseFloat(content.querySelector("#summer-hysteresis-band")?.value);
+      const sumDays  = parseInt(content.querySelector("#summer-hysteresis-days")?.value, 10);
       const hpLow    = parseFloat(content.querySelector("#hp-auto-low")?.value);
       const hpHigh   = parseFloat(content.querySelector("#hp-auto-high")?.value);
       const hpDays   = parseInt(content.querySelector("#hp-auto-days")?.value, 10);
-      if ([awayT, vacT, frostT, sumT, hpLow, hpHigh, hpDays].some(isNaN)) { this._toast("⚠️ Ungültiger Temperaturwert"); return; }
+      if ([awayT, vacT, frostT, sumT, sumBand, sumDays, hpLow, hpHigh, hpDays].some(isNaN)) { this._toast("⚠️ Ungültiger Temperaturwert"); return; }
       this._callService("update_global_settings", {
         away_temp:                awayT,
         vacation_temp:            vacT,
@@ -4796,6 +4836,9 @@ class IHCPanel extends HTMLElement {
         summer_mode_enabled:      content.querySelector("#summer-enabled").value === "true",
         summer_threshold:         sumT,
         summer_mode_entity:       content.querySelector("#s-summer-mode-entity")?.value.trim() || "",
+        summer_mode_hysteresis_enabled: content.querySelector("#summer-hysteresis-enabled")?.value === "true",
+        summer_mode_hysteresis_band:    sumBand,
+        summer_mode_hysteresis_days:    sumDays,
         off_use_frost_protection: content.querySelector("#off-use-frost").value === "true",
         heating_period_entity:    content.querySelector("#s-heating-period-entity")?.value.trim() || "",
         heating_period_auto_enabled:   content.querySelector("#hp-auto-enabled")?.value === "true",
@@ -4914,6 +4957,8 @@ class IHCPanel extends HTMLElement {
         vacation_calendar_keyword: content.querySelector("#vacation-calendar-keyword")?.value.trim() || "urlaub",
         holiday_calendar:         content.querySelector("#holiday-calendar")?.value.trim() ?? "",
         holiday_schedule_mode:    content.querySelector("#holiday-schedule-mode")?.value ?? "weekend",
+        felt_temp_adjustment_enabled: content.querySelector("#felt-temp-enabled")?.value === "true",
+        felt_temp_adjustment_max:     parseFloat(content.querySelector("#felt-temp-max")?.value) || 1.5,
       });
       this._toast("✓ Intelligente Regelung gespeichert");
     });

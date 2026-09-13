@@ -26,6 +26,15 @@ CONF_NIGHT_SETBACK_ENABLED: Final = "night_setback_enabled"
 CONF_NIGHT_SETBACK_OFFSET: Final = "night_setback_offset"   # °C to subtract at night
 CONF_SUN_ENTITY: Final = "sun_entity"                        # defaults to "sun.sun"
 
+# Gefühlte Temperatur (Komfortindex, ASHRAE-nah): wenn ein Raum sich laut Luftfeuchte kälter
+# anfühlt als der Sensor misst, Sollwert leicht anheben (gedeckelt). Opt-in - reine
+# Komfort-Feinjustierung, kein Ersatz für den Raumsensor. Global statt pro Zimmer, da es
+# einfach nur an/aus ist und nur Zimmer mit Feuchtesensor überhaupt betroffen sind.
+CONF_FELT_TEMP_ADJUSTMENT_ENABLED: Final = "felt_temp_adjustment_enabled"
+DEFAULT_FELT_TEMP_ADJUSTMENT_ENABLED: Final = False
+CONF_FELT_TEMP_ADJUSTMENT_MAX: Final = "felt_temp_adjustment_max"
+DEFAULT_FELT_TEMP_ADJUSTMENT_MAX: Final = 1.5  # °C Obergrenze für die Anhebung
+
 # Pre-heat window (minutes before schedule start to begin heating)
 CONF_PREHEAT_MINUTES: Final = "preheat_minutes"
 
@@ -100,6 +109,15 @@ DEFAULT_SUMMER_THRESHOLD: Final = 18.0
 # External entity override for summer mode (input_boolean.* or binary_sensor.*)
 # ON = summer active (heating blocked); OFF = heating allowed
 CONF_SUMMER_MODE_ENTITY: Final = "summer_mode_entity"
+
+# Sommerautomatik-Hysterese: gleitendes Mehrtage-Mittel statt Momentanwert, um Flip-Flop an
+# Grenztagen zu vermeiden (gleiches Prinzip wie die automatische Heizperioden-Erkennung).
+CONF_SUMMER_MODE_HYSTERESIS_ENABLED: Final = "summer_mode_hysteresis_enabled"
+DEFAULT_SUMMER_MODE_HYSTERESIS_ENABLED: Final = True
+CONF_SUMMER_MODE_HYSTERESIS_BAND: Final = "summer_mode_hysteresis_band"
+DEFAULT_SUMMER_MODE_HYSTERESIS_BAND: Final = 2.0  # °C unter der Schwelle, ab der wieder deaktiviert wird
+CONF_SUMMER_MODE_HYSTERESIS_DAYS: Final = "summer_mode_hysteresis_days"
+DEFAULT_SUMMER_MODE_HYSTERESIS_DAYS: Final = 3
 
 # Forecast cold-night: suspend summer mode and start heating earlier when tonight will be cold
 CONF_FORECAST_COLDNIGHT_ENABLED: Final = "forecast_coldnight_enabled"

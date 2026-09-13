@@ -19,6 +19,12 @@ from .const import (
     CONF_SUMMER_MODE_ENABLED,
     CONF_SUMMER_THRESHOLD,
     CONF_SUMMER_MODE_ENTITY,
+    CONF_SUMMER_MODE_HYSTERESIS_ENABLED,
+    DEFAULT_SUMMER_MODE_HYSTERESIS_ENABLED,
+    CONF_SUMMER_MODE_HYSTERESIS_BAND,
+    DEFAULT_SUMMER_MODE_HYSTERESIS_BAND,
+    CONF_SUMMER_MODE_HYSTERESIS_DAYS,
+    DEFAULT_SUMMER_MODE_HYSTERESIS_DAYS,
     CONF_FORECAST_COLDNIGHT_ENABLED,
     DEFAULT_FORECAST_COLDNIGHT_ENABLED,
     CONF_FORECAST_COLDNIGHT_TEMP,
@@ -60,6 +66,10 @@ from .const import (
     CONF_OFF_USE_FROST_PROTECTION,
     CONF_NIGHT_SETBACK_ENABLED,
     CONF_NIGHT_SETBACK_OFFSET,
+    CONF_FELT_TEMP_ADJUSTMENT_ENABLED,
+    DEFAULT_FELT_TEMP_ADJUSTMENT_ENABLED,
+    CONF_FELT_TEMP_ADJUSTMENT_MAX,
+    DEFAULT_FELT_TEMP_ADJUSTMENT_MAX,
     CONF_SUN_ENTITY,
     CONF_PREHEAT_MINUTES,
     CONF_SOLAR_ENTITY,
@@ -365,6 +375,18 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 "entity": {"domain": ["input_boolean", "binary_sensor"]}
             }),
             vol.Optional(
+                CONF_SUMMER_MODE_HYSTERESIS_ENABLED,
+                default=bool(cfg.get(CONF_SUMMER_MODE_HYSTERESIS_ENABLED, DEFAULT_SUMMER_MODE_HYSTERESIS_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_SUMMER_MODE_HYSTERESIS_BAND,
+                default=float(cfg.get(CONF_SUMMER_MODE_HYSTERESIS_BAND, DEFAULT_SUMMER_MODE_HYSTERESIS_BAND))
+            ): selector.selector({"number": {"min": 0.5, "max": 10, "step": 0.5, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_SUMMER_MODE_HYSTERESIS_DAYS,
+                default=int(cfg.get(CONF_SUMMER_MODE_HYSTERESIS_DAYS, DEFAULT_SUMMER_MODE_HYSTERESIS_DAYS))
+            ): selector.selector({"number": {"min": 1, "max": 14, "step": 1, "unit_of_measurement": "Tage"}}),
+            vol.Optional(
                 CONF_FORECAST_COLDNIGHT_ENABLED,
                 default=bool(cfg.get(CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED))
             ): selector.selector({"boolean": {}}),
@@ -453,6 +475,16 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 default=float(cfg.get(CONF_NIGHT_SETBACK_OFFSET, DEFAULT_NIGHT_SETBACK_OFFSET))
             ): selector.selector({
                 "number": {"min": 0.5, "max": 6, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_FELT_TEMP_ADJUSTMENT_ENABLED,
+                default=bool(cfg.get(CONF_FELT_TEMP_ADJUSTMENT_ENABLED, DEFAULT_FELT_TEMP_ADJUSTMENT_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_FELT_TEMP_ADJUSTMENT_MAX,
+                default=float(cfg.get(CONF_FELT_TEMP_ADJUSTMENT_MAX, DEFAULT_FELT_TEMP_ADJUSTMENT_MAX))
+            ): selector.selector({
+                "number": {"min": 0.5, "max": 4, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             vol.Optional(
                 CONF_SUN_ENTITY,

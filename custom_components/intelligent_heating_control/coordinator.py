@@ -104,6 +104,10 @@ from .const import (
     CONF_NIGHT_SETBACK_OFFSET,
     CONF_SUN_ENTITY,
     CONF_PREHEAT_MINUTES,
+    CONF_FELT_TEMP_ADJUSTMENT_ENABLED,
+    DEFAULT_FELT_TEMP_ADJUSTMENT_ENABLED,
+    CONF_FELT_TEMP_ADJUSTMENT_MAX,
+    DEFAULT_FELT_TEMP_ADJUSTMENT_MAX,
     # Roadmap 1.3 – Energy
     CONF_SOLAR_ENTITY,
     CONF_SOLAR_SURPLUS_THRESHOLD,
@@ -122,6 +126,12 @@ from .const import (
     DEFAULT_STARTUP_GRACE_SECONDS,
     DEFAULT_SUMMER_THRESHOLD,
     CONF_SUMMER_MODE_ENTITY,
+    CONF_SUMMER_MODE_HYSTERESIS_ENABLED,
+    DEFAULT_SUMMER_MODE_HYSTERESIS_ENABLED,
+    CONF_SUMMER_MODE_HYSTERESIS_BAND,
+    DEFAULT_SUMMER_MODE_HYSTERESIS_BAND,
+    CONF_SUMMER_MODE_HYSTERESIS_DAYS,
+    DEFAULT_SUMMER_MODE_HYSTERESIS_DAYS,
     CONF_FORECAST_COLDNIGHT_ENABLED,
     DEFAULT_FORECAST_COLDNIGHT_ENABLED,
     CONF_FORECAST_COLDNIGHT_TEMP,
@@ -459,6 +469,8 @@ class IHCCoordinator(
         self._heating_period_day_count: int = 0
         self._heating_period_day_date: Optional[date] = None
         self._heating_period_auto_active: bool = True  # hysteresis state; safe default until enough history
+        # Sommerautomatik hysteresis state (shares the daily-avg history above, own thresholds/band)
+        self._summer_mode_auto_active: bool = False
         # Rooms currently shown a "Heizperiode blockiert dieses Zimmer" notification -
         # transient (not persisted), just tracks rising/falling edges to avoid re-firing
         # the same persistent_notification every update cycle.
@@ -620,6 +632,7 @@ class IHCCoordinator(
             except ValueError:
                 self._heating_period_day_date = None
         self._heating_period_auto_active = bool(data.get("heating_period_auto_active", True))
+        self._summer_mode_auto_active = bool(data.get("summer_mode_auto_active", False))
 
     def _schedule_save(self) -> None:
         """Request a debounced save – coalesces rapid successive calls into one write."""
@@ -679,6 +692,7 @@ class IHCCoordinator(
             "heating_period_day_count": self._heating_period_day_count,
             "heating_period_day_date": self._heating_period_day_date.isoformat() if self._heating_period_day_date else None,
             "heating_period_auto_active": self._heating_period_auto_active,
+            "summer_mode_auto_active": self._summer_mode_auto_active,
         })
 
     def get_config(self) -> dict:
@@ -864,11 +878,19 @@ class IHCCoordinator(
 
         if not cfg.get(CONF_SUMMER_MODE_ENABLED, False):
             return False
-        threshold = float(cfg.get(CONF_SUMMER_THRESHOLD, DEFAULT_SUMMER_THRESHOLD))
-        outdoor_temp = self._get_outdoor_temp()
-        if outdoor_temp is None:
-            return False
-        if outdoor_temp < threshold:
+
+        if cfg.get(CONF_SUMMER_MODE_HYSTERESIS_ENABLED, DEFAULT_SUMMER_MODE_HYSTERESIS_ENABLED):
+            # Multi-day rolling average with hysteresis (updated once per cycle in
+            # _update_summer_mode_hysteresis()) - avoids flip-flopping around a single
+            # threshold on a day with fluctuating temperatures.
+            is_hot = self._summer_mode_auto_active
+        else:
+            # Legacy behaviour: react to the current instantaneous outdoor temp only.
+            threshold = float(cfg.get(CONF_SUMMER_THRESHOLD, DEFAULT_SUMMER_THRESHOLD))
+            outdoor_temp = self._get_outdoor_temp()
+            is_hot = outdoor_temp is not None and outdoor_temp >= threshold
+
+        if not is_hot:
             return False
 
         # Cold night forecast override: if tonight will be cold, suspend summer mode for today
@@ -980,29 +1002,61 @@ class IHCCoordinator(
 
         cfg = self.get_config()
         days = max(1, int(cfg.get(CONF_HEATING_PERIOD_AUTO_DAYS, DEFAULT_HEATING_PERIOD_AUTO_DAYS)))
+        rolling_avg = self._get_outdoor_rolling_avg(days)
+        if rolling_avg is not None:
+            low = float(cfg.get(CONF_HEATING_PERIOD_AUTO_LOW_TEMP, DEFAULT_HEATING_PERIOD_AUTO_LOW_TEMP))
+            high = float(cfg.get(CONF_HEATING_PERIOD_AUTO_HIGH_TEMP, DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP))
+            if rolling_avg <= low:
+                self._heating_period_auto_active = True
+            elif rolling_avg >= high:
+                self._heating_period_auto_active = False
+            # else: within the hysteresis band – keep the previous state (avoids
+            # flip-flopping around a single threshold, same idea as Sommerautomatik).
+
+        self._update_summer_mode_hysteresis(cfg)
+
+    def _get_outdoor_rolling_avg(self, days: int) -> Optional[float]:
+        """Shared reader for the daily outdoor-temp average history - used by both the
+        automatic Heizperioden-Erkennung and the Sommerautomatik-Hysterese below."""
+        days = max(1, days)
         recent = list(self._heating_period_daily_avg)[-days:]
         if len(recent) < days:
-            return  # not enough finished days yet – keep the current (safe-default) state
+            return None
+        return round(sum(v for _, v in recent) / len(recent), 1)
 
-        rolling_avg = sum(v for _, v in recent) / len(recent)
-        low = float(cfg.get(CONF_HEATING_PERIOD_AUTO_LOW_TEMP, DEFAULT_HEATING_PERIOD_AUTO_LOW_TEMP))
-        high = float(cfg.get(CONF_HEATING_PERIOD_AUTO_HIGH_TEMP, DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP))
-        if rolling_avg <= low:
-            self._heating_period_auto_active = True
-        elif rolling_avg >= high:
-            self._heating_period_auto_active = False
-        # else: within the hysteresis band – keep the previous state (avoids flip-flopping
-        # around a single threshold, same idea as Sommerautomatik but multi-day).
+    def _update_summer_mode_hysteresis(self, cfg: dict) -> None:
+        """Recompute the Sommerautomatik hysteresis state from the same daily-average
+        history the Heizperiode uses. Only matters when
+        CONF_SUMMER_MODE_HYSTERESIS_ENABLED is on - _is_summer_mode_active() falls back
+        to an instantaneous reading otherwise.
+        """
+        if not cfg.get(CONF_SUMMER_MODE_HYSTERESIS_ENABLED, DEFAULT_SUMMER_MODE_HYSTERESIS_ENABLED):
+            return
+        days = max(1, int(cfg.get(CONF_SUMMER_MODE_HYSTERESIS_DAYS, DEFAULT_SUMMER_MODE_HYSTERESIS_DAYS)))
+        rolling_avg = self._get_outdoor_rolling_avg(days)
+        if rolling_avg is None:
+            return
+        threshold = float(cfg.get(CONF_SUMMER_THRESHOLD, DEFAULT_SUMMER_THRESHOLD))
+        band = float(cfg.get(CONF_SUMMER_MODE_HYSTERESIS_BAND, DEFAULT_SUMMER_MODE_HYSTERESIS_BAND))
+        if rolling_avg >= threshold:
+            self._summer_mode_auto_active = True
+        elif rolling_avg < threshold - band:
+            self._summer_mode_auto_active = False
+        # else: within the hysteresis band – keep the previous state.
 
     def get_heating_period_rolling_avg(self) -> Optional[float]:
         """Return the current rolling-average outdoor temp used by the auto-detection,
         or None if there isn't enough history yet. Exposed for frontend transparency."""
         cfg = self.get_config()
         days = max(1, int(cfg.get(CONF_HEATING_PERIOD_AUTO_DAYS, DEFAULT_HEATING_PERIOD_AUTO_DAYS)))
-        recent = list(self._heating_period_daily_avg)[-days:]
-        if len(recent) < days:
-            return None
-        return round(sum(v for _, v in recent) / len(recent), 1)
+        return self._get_outdoor_rolling_avg(days)
+
+    def get_summer_mode_rolling_avg(self) -> Optional[float]:
+        """Return the current rolling-average outdoor temp used by the Sommerautomatik
+        hysteresis, or None if there isn't enough history yet."""
+        cfg = self.get_config()
+        days = max(1, int(cfg.get(CONF_SUMMER_MODE_HYSTERESIS_DAYS, DEFAULT_SUMMER_MODE_HYSTERESIS_DAYS)))
+        return self._get_outdoor_rolling_avg(days)
 
     def _is_heating_period_active(self) -> bool:
         """Return True if heating is enabled.
@@ -1452,10 +1506,11 @@ class IHCCoordinator(
             if outdoor_temp is not None
             else None
         )
-        summer_mode = self._is_summer_mode_active()
-        # Feed the automatic Heizperioden-Erkennung once per cycle (independent of
-        # whether it's actually in effect - see _is_heating_period_active()).
+        # Feed the automatic Heizperioden-Erkennung + Sommerautomatik-Hysterese once per
+        # cycle (independent of whether either is actually in effect) BEFORE evaluating
+        # them below, so the hysteresis states are current for this cycle, not stale.
         self._update_heating_period_auto_tracking(outdoor_temp)
+        summer_mode = self._is_summer_mode_active()
         heating_period_active = self._is_heating_period_active()
 
         # Compute forecast cold night status for data dict / sensor
@@ -1490,6 +1545,8 @@ class IHCCoordinator(
             "outdoor_temp": outdoor_temp,
             "curve_target": curve_target,
             "summer_mode": summer_mode,
+            "summer_mode_auto_active": self._summer_mode_auto_active,
+            "summer_mode_rolling_avg": self.get_summer_mode_rolling_avg(),
             "heating_period_active": heating_period_active,
             "heating_period_auto_active": self._heating_period_auto_active,
             "heating_period_rolling_avg": self.get_heating_period_rolling_avg(),
@@ -1788,6 +1845,20 @@ class IHCCoordinator(
         felt_temperature = None
         if mold_data and mold_data.get("humidity") is not None and current_temp is not None:
             felt_temperature = self._calculate_felt_temperature(current_temp, mold_data["humidity"])
+
+        # Optional (opt-in, off by default): if the room feels colder than the thermometer
+        # says (dry air), nudge the target up a bit - capped, and skipped for fixed/override
+        # targets (frost/away/vacation/off) where second-guessing the setpoint makes no sense.
+        if (
+            cfg.get(CONF_FELT_TEMP_ADJUSTMENT_ENABLED, DEFAULT_FELT_TEMP_ADJUSTMENT_ENABLED)
+            and felt_temperature is not None
+            and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off")
+        ):
+            felt_deficit = current_temp - felt_temperature
+            if felt_deficit > 0:
+                felt_boost = min(felt_deficit, float(cfg.get(CONF_FELT_TEMP_ADJUSTMENT_MAX, DEFAULT_FELT_TEMP_ADJUSTMENT_MAX)))
+                target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + felt_boost)
+                meta["felt_temp_boost"] = round(felt_boost, 2)
 
         # Quantise displayed target to 0.5 °C steps to stay consistent with the
         # actual setpoint sent to TRVs (avoids "21.1°C SOLL, but TRV gets 21.0°C")
@@ -2159,6 +2230,8 @@ class IHCCoordinator(
             "rooms_demanding": ctx["rooms_demanding"],
             "heating_active": ctx["any_room_heating"],
             "summer_mode": ctx["summer_mode"],
+            "summer_mode_auto_active": ctx["summer_mode_auto_active"],
+            "summer_mode_rolling_avg": ctx["summer_mode_rolling_avg"],
             "forecast_coldnight_active": ctx["forecast_coldnight_active"],
             "forecast_advance_hours": int(cfg.get(CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS)),
             "startup_grace_active": ctx["startup_grace_active"],
