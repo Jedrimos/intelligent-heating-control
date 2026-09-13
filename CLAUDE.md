@@ -347,7 +347,11 @@ _callService("reload",                 {})
 ### Globale CONF_* – Neu (Blueprint-Abgleich)
 | Konstante | Typ | Default | Beschreibung |
 |-----------|-----|---------|--------------|
-| `CONF_HEATING_PERIOD_ENTITY` | str | – | `input_boolean.*` / `binary_sensor.*`: OFF = Heizperiode inaktiv (Blueprint: `input_mode_winter`) |
+| `CONF_HEATING_PERIOD_ENTITY` | str | – | `input_boolean.*` / `binary_sensor.*`: OFF = Heizperiode inaktiv (Blueprint: `input_mode_winter`). Optional – ohne (verfügbare) Entity greift die automatische Erkennung (siehe unten). |
+| `CONF_HEATING_PERIOD_AUTO_ENABLED` | bool | True | Automatische Heizperioden-Erkennung (gleitendes Mehrtage-Mittel + Hysterese), greift nur ohne verfügbare `CONF_HEATING_PERIOD_ENTITY` |
+| `CONF_HEATING_PERIOD_AUTO_LOW_TEMP` | float | 12.0 | Ø-Außentemp. °C, darunter Heizperiode automatisch aktiviert wird |
+| `CONF_HEATING_PERIOD_AUTO_HIGH_TEMP` | float | 16.0 | Ø-Außentemp. °C, darüber Heizperiode automatisch deaktiviert wird |
+| `CONF_HEATING_PERIOD_AUTO_DAYS` | int | 3 | Fenstergröße des gleitenden Mittels (Tage) |
 | `CONF_PRESENCE_AWAY_DELAY_MINUTES` | int | 0 | Minuten Verzögerung vor Auto-Away (Blueprint: `input_presence_reaction_off_time`) |
 
 ### Systemmodi (`SYSTEM_MODES`)
@@ -912,6 +916,27 @@ Abgleich mit dem Blueprint `panhans/advanced_heating_control.yaml` ergab folgend
 - [x] `config_flow.py` – Entity-Selector (input_boolean, binary_sensor) in `async_step_global_settings()`
 - [x] `sensor.py` – `"heating_period_active"` in IHCGesamtanforderung.extra_state_attributes
 - [x] Frontend `05_tab_settings.js` – Status-Badge ✓ Aktiv / ⏸ Inaktiv in Globaleinstellungen (via `a.heating_period_active`)
+
+##### Automatische Heizperioden-Erkennung (ohne `CONF_HEATING_PERIOD_ENTITY`) ✅ Vollständig
+Ziel: der Name "Intelligent Heating Control" gerecht werden – der manuelle Schalter bleibt als
+Override erhalten, ist im Normalfall aber überflüssig.
+- [x] `const.py` – `CONF_HEATING_PERIOD_AUTO_ENABLED/_LOW_TEMP/_HIGH_TEMP/_DAYS` definiert
+- [x] `coordinator.py` – `_heating_period_daily_avg` (deque, persistiert) + `_update_heating_period_auto_tracking()`
+  (füllt Tagesmittel, rollt bei Mitternacht, Hysterese-Entscheidung) + `_is_heating_period_active()`
+  erweitert: Entity (falls verfügbar) > Auto-Hysterese > Kälteprognose-Override (nutzt bestehende
+  `CONF_FORECAST_COLDNIGHT_*`-Logik) > Legacy-Fallback (immer an)
+  Läuft einmal pro Zyklus in `_update_phase_outdoor_and_adjustments` (Phase 2), Ergebnis über `ctx`
+  an Phase 5/6 durchgereicht (keine doppelte Berechnung mehr)
+- [x] `config_flow.py` – 4 neue Felder in `async_step_global_settings()`
+- [x] `__init__.py` – `handle_update_global_settings()` allowed-Set erweitert
+- [x] `services.yaml` – `update_global_settings` Felder dokumentiert
+- [x] `sensor.py` + `_build_update_result()` – `heating_period_auto_active`/`heating_period_rolling_avg`
+  in IHCGesamtanforderung.extra_state_attributes
+- [x] Frontend `05_tab_settings.js` – Automatik-Badge + Grenzwert-/Fenstergröße-Felder + Live-Ø-Anzeige
+- [x] Frontend `03_tab_dashboard.js` + `02_utils.js` – Dashboard-Banner bei automatisch inaktiver/
+  kurzfristig reaktivierter Heizperiode
+- [x] Zusätzlich: `room_temp_threshold`-Sicherheitsschwelle überstimmt jetzt ebenfalls Sommerautomatik/
+  inaktive Heizperiode (`_update_phase_apply_trv_setpoints`, gleiches Prinzip wie der Boost-Override)
 
 ##### `CONF_PRESENCE_AWAY_DELAY_MINUTES` – Anwesenheits-Verzögerung ✅ Vollständig
 - [x] `const.py` – `CONF_PRESENCE_AWAY_DELAY_MINUTES`, `DEFAULT_PRESENCE_AWAY_DELAY_MINUTES = 0`

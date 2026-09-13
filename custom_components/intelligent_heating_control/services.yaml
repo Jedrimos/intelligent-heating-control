@@ -1162,10 +1162,52 @@ update_global_settings:
           step: 5
     heating_period_entity:
       name: Heizperiode-Entität
-      description: input_boolean.* oder binary_sensor.* für aktive Heizperiode
+      description: >-
+        input_boolean.* oder binary_sensor.* für manuelle Heizperiode-Übersteuerung.
+        Optional - ohne (verfügbare) Entität entscheidet die automatische Erkennung
+        (siehe heating_period_auto_*).
       required: false
       selector:
         text:
+    heating_period_auto_enabled:
+      name: Heizperiode automatisch erkennen
+      description: >-
+        Wenn aktiv (Standard) und keine heating_period_entity verfügbar ist: Heizperiode
+        wird aus einem gleitenden Mehrtage-Mittel der Außentemperatur (Hysterese) plus
+        Kälteprognose-Frühstart-Override automatisch bestimmt.
+      required: false
+      selector:
+        boolean:
+    heating_period_auto_low_temp:
+      name: Heizperiode Auto – Grenze aktiv
+      description: Ø-Außentemperatur (°C), darunter die Heizperiode automatisch aktiviert wird.
+      required: false
+      selector:
+        number:
+          min: -10
+          max: 20
+          step: 0.5
+          unit_of_measurement: "°C"
+    heating_period_auto_high_temp:
+      name: Heizperiode Auto – Grenze inaktiv
+      description: Ø-Außentemperatur (°C), darüber die Heizperiode automatisch deaktiviert wird.
+      required: false
+      selector:
+        number:
+          min: -5
+          max: 25
+          step: 0.5
+          unit_of_measurement: "°C"
+    heating_period_auto_days:
+      name: Heizperiode Auto – Fenstergröße
+      description: Anzahl Tage für das gleitende Mittel der Außentemperatur.
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 14
+          step: 1
+          unit_of_measurement: Tage
     outdoor_temp_smoothing_minutes:
       name: Außentemp. Glättung (min)
       description: Gleitender Durchschnitt der Außentemperatur in Minuten

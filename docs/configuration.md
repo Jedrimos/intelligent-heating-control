@@ -297,7 +297,22 @@ Vorheizen (Ankunft eines `device_tracker.*` timen) siehe [Erweiterte Konfigurati
 
 | Parameter | Beschreibung |
 |-----------|-------------|
-| `heating_period_entity` | Optionale `input_boolean.*`/`binary_sensor.*`-Entity: steht sie auf OFF, ist die Heizperiode inaktiv und es wird nicht geheizt (unabhängig von der Sommerautomatik) |
+| `heating_period_entity` | Optionale `input_boolean.*`/`binary_sensor.*`-Entity zur **manuellen** Übersteuerung: steht sie auf OFF, ist die Heizperiode inaktiv und es wird nicht geheizt (unabhängig von der Sommerautomatik). Leer lassen, damit IHC automatisch entscheidet (siehe unten). |
+| `heating_period_auto_enabled` | Automatische Heizperioden-Erkennung, greift nur wenn oben keine (verfügbare) Entity gesetzt ist. Standard: aktiviert. |
+| `heating_period_auto_low_temp` | Ø-Außentemperatur (°C) über ein gleitendes Mehrtage-Mittel, darunter die Heizperiode automatisch aktiviert wird. Standard: 12 °C. |
+| `heating_period_auto_high_temp` | Ø-Außentemperatur (°C), darüber die Heizperiode automatisch deaktiviert wird. Standard: 16 °C. |
+| `heating_period_auto_days` | Fenstergröße des gleitenden Mittels in Tagen. Standard: 3. Größer = träger/stabiler, kleiner = reagiert schneller. |
+
+**Wie die Automatik funktioniert:** Ohne konfigurierte (oder gerade nicht verfügbare)
+`heating_period_entity` bildet IHC ein gleitendes Mittel der Außentemperatur über die letzten
+`heating_period_auto_days` Tage. Bleibt es unter `heating_period_auto_low_temp`, ist die
+Heizperiode aktiv; steigt es über `heating_period_auto_high_temp`, wird sie deaktiviert.
+Dazwischen (Hysterese-Band) bleibt der letzte Zustand erhalten, damit es bei Werten nahe der
+Schwelle nicht ständig hin- und herspringt. Zusätzlich reaktiviert die bestehende
+Kälteprognose-Frühstart-Funktion (`forecast_coldnight_enabled`/`forecast_coldnight_temp`) die
+Heizperiode sofort, wenn für heute Nacht ein kalter Tag vorhergesagt wird – auch wenn das
+Mehrtage-Mittel noch "warm genug" meldet. Ein Boost pro Zimmer sowie die
+Sicherheitsschwelle `room_temp_threshold` funktionieren immer, unabhängig vom Heizperioden-Status.
 
 ---
 

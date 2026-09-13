@@ -9,6 +9,23 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Hinzugefügt
+- **Automatische Heizperioden-Erkennung:** `heating_period_entity` bleibt als optionale manuelle
+  Übersteuerung erhalten, ist aber ab jetzt nicht mehr nötig. Ohne (verfügbare) Entity entscheidet
+  IHC selbst anhand eines gleitenden Mehrtage-Mittels der Außentemperatur mit Hysterese
+  (`heating_period_auto_low_temp`/`heating_period_auto_high_temp`/`heating_period_auto_days`,
+  Standard: aktiv unter 12 °C Ø, inaktiv über 16 °C Ø, 3-Tage-Fenster) – plus sofortiger
+  Reaktivierung über die bestehende Kälteprognose-Frühstart-Logik, falls für heute Nacht Kälte
+  vorhergesagt wird, selbst wenn das Mehrtage-Mittel noch "warm genug" meldet. Damit deckt sich
+  das automatisch mit dem ursprünglichen Bug-Report (warme Woche → Heizperiode automatisch aus →
+  unerwartet kalter Tag → Heizung sollte trotzdem sofort verfügbar sein, ohne den Schalter von
+  Hand umzulegen). Per `heating_period_auto_enabled` abschaltbar (dann wie bisher: ohne Entity
+  immer aktiv). Sichtbar in den Einstellungen (aktueller Mittelwert + Status) und als Dashboard-
+  Banner.
+- **Sicherheitsschwelle (`room_temp_threshold`) überstimmt jetzt ebenfalls Sommerautomatik und
+  inaktive Heizperiode** – ein Zimmer, das unter seine konfigurierte Mindesttemperatur fällt,
+  wird nie durch die Heizperiode blockiert (gleiches Prinzip wie beim Boost-Fix unten).
+
 ### Gefixt
 - **Systemmodus-Schalter im Dashboard wirkungslos bei einzeln ausgeschalteten Zimmern:**
   Zimmer, die individuell auf "Aus" gestellt waren, reagierten nicht auf globale

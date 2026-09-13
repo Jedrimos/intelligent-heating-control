@@ -343,6 +343,18 @@ DEFAULT_TRV_MIN_SEND_INTERVAL: Final = 0  # 0 = nur Temperatur-Hysterese aktiv (
 
 # Blueprint-Kompatibilität: Heizperiode-Steuerung via externe HA-Entität
 CONF_HEATING_PERIOD_ENTITY: Final = "heating_period_entity"  # input_boolean.* → OFF = kein Heizen
+# Wenn keine (verfügbare) heating_period_entity gesetzt ist, entscheidet IHC automatisch anhand
+# eines gleitenden Mehrtage-Mittels der Außentemperatur (Hysterese) + Kälteprognose-Override
+# (nutzt dieselbe CONF_FORECAST_COLDNIGHT_*-Logik wie die Sommerautomatik) - macht dem Namen
+# "Intelligent Heating Control" alle Ehre, ohne den manuellen Schalter zu entfernen.
+CONF_HEATING_PERIOD_AUTO_ENABLED: Final = "heating_period_auto_enabled"
+DEFAULT_HEATING_PERIOD_AUTO_ENABLED: Final = True
+CONF_HEATING_PERIOD_AUTO_LOW_TEMP: Final = "heating_period_auto_low_temp"
+DEFAULT_HEATING_PERIOD_AUTO_LOW_TEMP: Final = 12.0  # °C Ø – darunter: Heizperiode aktiv
+CONF_HEATING_PERIOD_AUTO_HIGH_TEMP: Final = "heating_period_auto_high_temp"
+DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP: Final = 16.0  # °C Ø – darüber: Heizperiode inaktiv
+CONF_HEATING_PERIOD_AUTO_DAYS: Final = "heating_period_auto_days"
+DEFAULT_HEATING_PERIOD_AUTO_DAYS: Final = 3  # Fenstergröße des gleitenden Mittels (Tage)
 
 # Anwesenheits-Verzögerung: Minuten bis Auto-Away nach Abwesenheit aller Personen
 CONF_PRESENCE_AWAY_DELAY_MINUTES: Final = "presence_away_delay_minutes"

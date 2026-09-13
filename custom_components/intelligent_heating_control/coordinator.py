@@ -68,6 +68,14 @@ from .const import (
     CONF_SUMMER_THRESHOLD,
     CONF_PRESENCE_ENTITIES,
     CONF_HEATING_PERIOD_ENTITY,
+    CONF_HEATING_PERIOD_AUTO_ENABLED,
+    DEFAULT_HEATING_PERIOD_AUTO_ENABLED,
+    CONF_HEATING_PERIOD_AUTO_LOW_TEMP,
+    DEFAULT_HEATING_PERIOD_AUTO_LOW_TEMP,
+    CONF_HEATING_PERIOD_AUTO_HIGH_TEMP,
+    DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP,
+    CONF_HEATING_PERIOD_AUTO_DAYS,
+    DEFAULT_HEATING_PERIOD_AUTO_DAYS,
     CONF_PRESENCE_AWAY_DELAY_MINUTES,
     DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
@@ -438,6 +446,16 @@ class IHCCoordinator(
         # otherwise cause the heating curve to oscillate and the boiler to hunt.
         self._outdoor_temp_buffer: deque = deque(maxlen=60)  # max 60 readings = 60 min history
 
+        # Automatische Heizperioden-Erkennung: gleitendes Mehrtage-Mittel der Außentemperatur
+        # mit Hysterese, aktiv wenn keine (verfügbare) heating_period_entity konfiguriert ist.
+        # Kälteprognose-Override nutzt die bestehende CONF_FORECAST_COLDNIGHT_*-Logik direkt in
+        # _is_heating_period_active(), braucht hier keinen eigenen State.
+        self._heating_period_daily_avg: deque = deque(maxlen=14)  # [(date_iso, avg_temp), ...]
+        self._heating_period_day_sum: float = 0.0
+        self._heating_period_day_count: int = 0
+        self._heating_period_day_date: Optional[date] = None
+        self._heating_period_auto_active: bool = True  # hysteresis state; safe default until enough history
+
         # v1.8 – CO₂ rate-of-rise tracking per room: {room_id: [(datetime, ppm), ...]}
         self._co2_history: Dict[str, list] = {}
 
@@ -581,6 +599,19 @@ class IHCCoordinator(
         for room_id, grid in data.get("demand_heatmap", {}).items():
             if isinstance(grid, list) and len(grid) == 7:
                 self._demand_heatmap[room_id] = grid
+        # Restore automatic Heizperioden-Erkennung state (rolling daily averages + hysteresis)
+        self._heating_period_daily_avg = deque(
+            (tuple(entry) for entry in data.get("heating_period_daily_avg", [])), maxlen=14
+        )
+        self._heating_period_day_sum = float(data.get("heating_period_day_sum", 0.0))
+        self._heating_period_day_count = int(data.get("heating_period_day_count", 0))
+        day_str = data.get("heating_period_day_date")
+        if day_str:
+            try:
+                self._heating_period_day_date = date.fromisoformat(day_str)
+            except ValueError:
+                self._heating_period_day_date = None
+        self._heating_period_auto_active = bool(data.get("heating_period_auto_active", True))
 
     def _schedule_save(self) -> None:
         """Request a debounced save – coalesces rapid successive calls into one write."""
@@ -634,6 +665,12 @@ class IHCCoordinator(
             "cooling_rate_history": self._cooling_rate_history,
             # TRV offset calibration samples
             "trv_offset_samples": self._trv_offset_samples,
+            # Automatic Heizperioden-Erkennung: rolling daily averages + hysteresis state
+            "heating_period_daily_avg": list(self._heating_period_daily_avg),
+            "heating_period_day_sum": self._heating_period_day_sum,
+            "heating_period_day_count": self._heating_period_day_count,
+            "heating_period_day_date": self._heating_period_day_date.isoformat() if self._heating_period_day_date else None,
+            "heating_period_auto_active": self._heating_period_auto_active,
         })
 
     def get_config(self) -> dict:
@@ -910,16 +947,92 @@ class IHCCoordinator(
             return boosted
         return target_temp
 
+    def _update_heating_period_auto_tracking(self, outdoor_temp: Optional[float]) -> None:
+        """Feed today's outdoor temp into the rolling daily average that drives the
+        automatic Heizperioden-Erkennung, roll over at local midnight, and recompute
+        the hysteresis-based active/inactive decision. Runs once per update cycle
+        regardless of whether auto mode is actually in effect (cheap, and keeps the
+        history warm for whenever the manual entity is removed/unavailable).
+        """
+        if outdoor_temp is None:
+            return
+        today = dt_util.now().date()
+        if self._heating_period_day_date is None:
+            self._heating_period_day_date = today
+        elif today != self._heating_period_day_date:
+            if self._heating_period_day_count > 0:
+                avg = self._heating_period_day_sum / self._heating_period_day_count
+                self._heating_period_daily_avg.append((self._heating_period_day_date.isoformat(), round(avg, 1)))
+                self._schedule_save()
+            self._heating_period_day_sum = 0.0
+            self._heating_period_day_count = 0
+            self._heating_period_day_date = today
+        self._heating_period_day_sum += outdoor_temp
+        self._heating_period_day_count += 1
+
+        cfg = self.get_config()
+        days = max(1, int(cfg.get(CONF_HEATING_PERIOD_AUTO_DAYS, DEFAULT_HEATING_PERIOD_AUTO_DAYS)))
+        recent = list(self._heating_period_daily_avg)[-days:]
+        if len(recent) < days:
+            return  # not enough finished days yet – keep the current (safe-default) state
+
+        rolling_avg = sum(v for _, v in recent) / len(recent)
+        low = float(cfg.get(CONF_HEATING_PERIOD_AUTO_LOW_TEMP, DEFAULT_HEATING_PERIOD_AUTO_LOW_TEMP))
+        high = float(cfg.get(CONF_HEATING_PERIOD_AUTO_HIGH_TEMP, DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP))
+        if rolling_avg <= low:
+            self._heating_period_auto_active = True
+        elif rolling_avg >= high:
+            self._heating_period_auto_active = False
+        # else: within the hysteresis band – keep the previous state (avoids flip-flopping
+        # around a single threshold, same idea as Sommerautomatik but multi-day).
+
+    def get_heating_period_rolling_avg(self) -> Optional[float]:
+        """Return the current rolling-average outdoor temp used by the auto-detection,
+        or None if there isn't enough history yet. Exposed for frontend transparency."""
+        cfg = self.get_config()
+        days = max(1, int(cfg.get(CONF_HEATING_PERIOD_AUTO_DAYS, DEFAULT_HEATING_PERIOD_AUTO_DAYS)))
+        recent = list(self._heating_period_daily_avg)[-days:]
+        if len(recent) < days:
+            return None
+        return round(sum(v for _, v in recent) / len(recent), 1)
+
     def _is_heating_period_active(self) -> bool:
-        """Return True if heating is enabled via external entity (Heizperiode)."""
+        """Return True if heating is enabled.
+
+        Priority:
+          1. Manual heating_period_entity, if configured and available (unchanged
+             behaviour - the switch always wins when you actually use it).
+          2. Automatic detection (default on): a rolling multi-day outdoor-temp
+             average with hysteresis, so a single warm or cold day can't flip it -
+             plus the same Kälteprognose-Frühstart override used by Sommerautomatik,
+             so an unexpected cold snap reactivates heating immediately even while
+             the rolling average still says "off" (this was the original real-world
+             bug report: warm week, auto-off, then one cold day with heating locked out).
+          3. Legacy fallback if auto-detection is explicitly disabled: always on.
+        """
         cfg = self.get_config()
         entity_id = cfg.get(CONF_HEATING_PERIOD_ENTITY, "")
-        if not entity_id:
-            return True  # no entity configured → always enabled
-        state = self.hass.states.get(entity_id)
-        if state is None:
-            return True  # entity unavailable → assume enabled
-        return state.state.lower() not in ("off", "false", "0", "no")
+        if entity_id:
+            state = self.hass.states.get(entity_id)
+            if state is not None and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                return state.state.lower() not in ("off", "false", "0", "no")
+
+        if not cfg.get(CONF_HEATING_PERIOD_AUTO_ENABLED, DEFAULT_HEATING_PERIOD_AUTO_ENABLED):
+            return True  # auto-detection disabled and no usable entity → always enabled
+
+        if self._heating_period_auto_active:
+            return True
+
+        # Rolling average currently says "off" - check for a forecast cold snap first.
+        if cfg.get(CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED):
+            forecast = self._get_weather_forecast()
+            if forecast:
+                tonight_min = forecast.get("forecast_today_min")
+                coldnight_temp = float(cfg.get(CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP))
+                if tonight_min is not None and tonight_min <= coldnight_temp:
+                    return True  # cold day predicted – keep heating available
+
+        return False
 
     def _setup_ha_schedule_listeners(self) -> None:
         """Subscribe to state changes of all HA schedule entities and condition entities.
@@ -1267,6 +1380,10 @@ class IHCCoordinator(
             else None
         )
         summer_mode = self._is_summer_mode_active()
+        # Feed the automatic Heizperioden-Erkennung once per cycle (independent of
+        # whether it's actually in effect - see _is_heating_period_active()).
+        self._update_heating_period_auto_tracking(outdoor_temp)
+        heating_period_active = self._is_heating_period_active()
 
         # Compute forecast cold night status for data dict / sensor
         forecast_coldnight_active = False
@@ -1300,6 +1417,9 @@ class IHCCoordinator(
             "outdoor_temp": outdoor_temp,
             "curve_target": curve_target,
             "summer_mode": summer_mode,
+            "heating_period_active": heating_period_active,
+            "heating_period_auto_active": self._heating_period_auto_active,
+            "heating_period_rolling_avg": self.get_heating_period_rolling_avg(),
             "forecast_coldnight_active": forecast_coldnight_active,
             "holiday_active": holiday_active,
             "holiday_schedule_mode": holiday_schedule_mode,
@@ -1674,23 +1794,28 @@ class IHCCoordinator(
         startup_grace_active = ctx["startup_grace_active"]
 
         cfg = self.get_config()
-        # Sommerautomatik / Heizperiode: block heating if outdoor temp exceeds threshold or period inactive
-        heating_period_active = self._is_heating_period_active()
+        # Sommerautomatik / Heizperiode: block heating if outdoor temp exceeds threshold or period
+        # inactive (already computed once in phase 2 - _update_phase_outdoor_and_adjustments)
+        heating_period_active = ctx["heating_period_active"]
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
 
         # There is no central boiler switch in TRV mode: "heating active" means
         # any room is currently heating, using the same signal hierarchy as
         # climate.hvac_action (valve position > TRV hvac_action > demand > 0).
-        # A room boosted while Sommerautomatik/Heizperiode would otherwise block
-        # heating still counts - the boost explicitly overrides that gate below.
+        # A room boosted or safety-floor-overridden while Sommerautomatik/Heizperiode
+        # would otherwise block heating still counts - both explicitly override that
+        # gate below (see _update_phase_apply_trv_setpoints).
         any_boost_active = any(
             self.get_boost_remaining_minutes(rid) > 0 for rid in room_data.keys()
+        )
+        any_threshold_override_active = any(
+            rd.get("source") == "temp_threshold_override" for rd in room_data.values()
         )
         if startup_grace_active:
             any_room_heating = False
         elif summer_mode or not heating_period_active:
-            any_room_heating = any_boost_active
+            any_room_heating = any_boost_active or any_threshold_override_active
         else:
             any_room_heating = any(self._trv_room_is_heating(rd) for rd in room_data.values())
 
@@ -1762,6 +1887,7 @@ class IHCCoordinator(
         """
         cfg = ctx["cfg"]
         summer_mode = ctx["summer_mode"]
+        heating_period_active = ctx["heating_period_active"]
         startup_grace_active = ctx["startup_grace_active"]
 
         # Determine if system OFF should turn valves off completely or frost-protect
@@ -1818,7 +1944,13 @@ class IHCCoordinator(
                 if not self._boost_valve_entities(room):
                     max_temp = float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
                     self._set_valve_entities(room, max_temp)
-            elif summer_mode or not self._is_heating_period_active():
+            elif rdata.get("source") == "temp_threshold_override":
+                # Safety floor (CONF_ROOM_TEMP_THRESHOLD): the room fell below its
+                # configured minimum - same reasoning as boost above, this must not
+                # be blocked by Sommerautomatik or an inactive Heizperiode either.
+                trv_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
+                self._set_valve_entities(room, trv_target)
+            elif summer_mode or not heating_period_active:
                 # Sommerautomatik or heating period disabled: turn TRVs off completely.
                 # Setting frost temp keeps them in HEAT mode which misleads users.
                 self._turn_off_valve_entities(room)
@@ -1947,6 +2079,8 @@ class IHCCoordinator(
             "forecast_advance_hours": int(cfg.get(CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS)),
             "startup_grace_active": ctx["startup_grace_active"],
             "heating_period_active": ctx["heating_period_active"],
+            "heating_period_auto_active": ctx["heating_period_auto_active"],
+            "heating_period_rolling_avg": ctx["heating_period_rolling_avg"],
             "night_setback_active": ctx["night_setback_active"],
             "presence_away_active": self._presence_away_active,
             "presence_away_pending": self._presence_away_pending_since is not None,

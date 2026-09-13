@@ -173,6 +173,8 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "forecast_coldnight_active": d.get("forecast_coldnight_active", False),
             "startup_grace_active":   d.get("startup_grace_active", False),
             "heating_period_active":  d.get("heating_period_active", True),
+            "heating_period_auto_active": d.get("heating_period_auto_active", True),
+            "heating_period_rolling_avg": d.get("heating_period_rolling_avg"),
             "night_setback_active":   d.get("night_setback_active", False),
             "presence_away_active":   d.get("presence_away_active", False),
             "presence_away_pending":  d.get("presence_away_pending", False),

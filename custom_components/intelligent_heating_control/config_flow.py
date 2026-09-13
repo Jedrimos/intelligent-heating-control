@@ -28,6 +28,14 @@ from .const import (
     CONF_SHOW_PANEL,
     CONF_PRESENCE_ENTITIES,
     CONF_HEATING_PERIOD_ENTITY,
+    CONF_HEATING_PERIOD_AUTO_ENABLED,
+    DEFAULT_HEATING_PERIOD_AUTO_ENABLED,
+    CONF_HEATING_PERIOD_AUTO_LOW_TEMP,
+    DEFAULT_HEATING_PERIOD_AUTO_LOW_TEMP,
+    CONF_HEATING_PERIOD_AUTO_HIGH_TEMP,
+    DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP,
+    CONF_HEATING_PERIOD_AUTO_DAYS,
+    DEFAULT_HEATING_PERIOD_AUTO_DAYS,
     CONF_PRESENCE_AWAY_DELAY_MINUTES,
     DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
@@ -379,13 +387,30 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "entity": {"domain": ["person", "device_tracker", "input_boolean"], "multiple": True}
             }),
-            # --- Heizperiode-Entität ---
+            # --- Heizperiode-Entität (optional - manuelle Übersteuerung) ---
             vol.Optional(
                 CONF_HEATING_PERIOD_ENTITY,
                 default=cfg.get(CONF_HEATING_PERIOD_ENTITY, "")
             ): selector.selector({
                 "entity": {"domain": ["input_boolean", "binary_sensor", "switch"]}
             }),
+            # --- Automatische Heizperioden-Erkennung (greift wenn obige Entität fehlt/unavailable) ---
+            vol.Optional(
+                CONF_HEATING_PERIOD_AUTO_ENABLED,
+                default=bool(cfg.get(CONF_HEATING_PERIOD_AUTO_ENABLED, DEFAULT_HEATING_PERIOD_AUTO_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_HEATING_PERIOD_AUTO_LOW_TEMP,
+                default=float(cfg.get(CONF_HEATING_PERIOD_AUTO_LOW_TEMP, DEFAULT_HEATING_PERIOD_AUTO_LOW_TEMP))
+            ): selector.selector({"number": {"min": -10, "max": 20, "step": 0.5, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_HEATING_PERIOD_AUTO_HIGH_TEMP,
+                default=float(cfg.get(CONF_HEATING_PERIOD_AUTO_HIGH_TEMP, DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP))
+            ): selector.selector({"number": {"min": -5, "max": 25, "step": 0.5, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_HEATING_PERIOD_AUTO_DAYS,
+                default=int(cfg.get(CONF_HEATING_PERIOD_AUTO_DAYS, DEFAULT_HEATING_PERIOD_AUTO_DAYS))
+            ): selector.selector({"number": {"min": 1, "max": 14, "step": 1, "unit_of_measurement": "Tage"}}),
             # --- Anwesenheits-Verzögerung ---
             vol.Optional(
                 CONF_PRESENCE_AWAY_DELAY_MINUTES,

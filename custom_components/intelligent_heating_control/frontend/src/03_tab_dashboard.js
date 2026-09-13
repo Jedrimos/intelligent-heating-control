@@ -229,6 +229,8 @@
     const banners = [
       _demA.startup_grace_active ? `<div class="system-banner warn">⏳ <strong>Startup-Gnadenfrist aktiv</strong> – Heizung gesperrt bis alle Sensoren geladen sind</div>` : "",
       g.summer_mode           ? `<div class="system-banner summer" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</span><button id="btn-disable-summer" style="flex-shrink:0;padding:4px 10px;border:none;border-radius:6px;background:rgba(0,0,0,0.15);color:inherit;cursor:pointer;font-size:12px;font-weight:600">❄️ Jetzt heizen</button></div>` : "",
+      !g.heating_period_entity_set && !g.heating_period_active ? `<div class="system-banner summer">🍂 <strong>Heizperiode automatisch inaktiv</strong>${g.heating_period_rolling_avg != null ? ` – Ø ${g.heating_period_rolling_avg}°C` : ""} · Boost pro Zimmer funktioniert trotzdem</div>` : "",
+      !g.heating_period_entity_set && g.heating_period_active && g.heating_period_auto_active === false ? `<div class="system-banner cold">🌡️ <strong>Heizperiode kurzfristig reaktiviert</strong> – kalter Tag vorhergesagt</div>` : "",
       g.forecast_coldnight_active ? `<div class="system-banner cold">❄️ <strong>Kälte heute Nacht</strong> – Heizung startet ${g.forecast_advance_hours ?? 3}h früher (${g.weather_forecast?.forecast_today_min}°C erwartet)</div>` : "",
       g.night_setback_active  ? `<div class="system-banner night">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
       g.presence_away_active  ? `<div class="system-banner away">🚶 <strong>Niemand zuhause</strong> – Abwesend-Modus aktiv</div>` : "",

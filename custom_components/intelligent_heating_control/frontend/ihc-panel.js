@@ -1118,6 +1118,10 @@ class IHCPanel extends HTMLElement {
       outdoor_temp:              ot  ? (isNaN(parseFloat(ot.state)) ? null : parseFloat(ot.state)) : null,
       rooms_demanding:           a.rooms_demanding || 0,
       summer_mode:               a.summer_mode || false,
+      heating_period_active:     a.heating_period_active !== false,
+      heating_period_auto_active: a.heating_period_auto_active !== false,
+      heating_period_rolling_avg: a.heating_period_rolling_avg != null ? parseFloat(a.heating_period_rolling_avg) : null,
+      heating_period_entity_set: !!a.heating_period_entity,
       forecast_coldnight_active: a.forecast_coldnight_active || false,
       forecast_advance_hours:    a.forecast_advance_hours ?? 3,
       night_setback_active:      a.night_setback_active || false,
@@ -1719,6 +1723,8 @@ class IHCPanel extends HTMLElement {
     const banners = [
       _demA.startup_grace_active ? `<div class="system-banner warn">⏳ <strong>Startup-Gnadenfrist aktiv</strong> – Heizung gesperrt bis alle Sensoren geladen sind</div>` : "",
       g.summer_mode           ? `<div class="system-banner summer" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</span><button id="btn-disable-summer" style="flex-shrink:0;padding:4px 10px;border:none;border-radius:6px;background:rgba(0,0,0,0.15);color:inherit;cursor:pointer;font-size:12px;font-weight:600">❄️ Jetzt heizen</button></div>` : "",
+      !g.heating_period_entity_set && !g.heating_period_active ? `<div class="system-banner summer">🍂 <strong>Heizperiode automatisch inaktiv</strong>${g.heating_period_rolling_avg != null ? ` – Ø ${g.heating_period_rolling_avg}°C` : ""} · Boost pro Zimmer funktioniert trotzdem</div>` : "",
+      !g.heating_period_entity_set && g.heating_period_active && g.heating_period_auto_active === false ? `<div class="system-banner cold">🌡️ <strong>Heizperiode kurzfristig reaktiviert</strong> – kalter Tag vorhergesagt</div>` : "",
       g.forecast_coldnight_active ? `<div class="system-banner cold">❄️ <strong>Kälte heute Nacht</strong> – Heizung startet ${g.forecast_advance_hours ?? 3}h früher (${g.weather_forecast?.forecast_today_min}°C erwartet)</div>` : "",
       g.night_setback_active  ? `<div class="system-banner night">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
       g.presence_away_active  ? `<div class="system-banner away">🚶 <strong>Niemand zuhause</strong> – Abwesend-Modus aktiv</div>` : "",
@@ -4148,13 +4154,42 @@ class IHCPanel extends HTMLElement {
               <span class="form-hint">Optional: Überschreibt die Temperatur-Automatik. ON = Sommer aktiv (Heizung gesperrt), OFF = Heizung freigegeben. Ideal für Automationen oder einen physischen Schalter.</span>
             </div>
             <div class="settings-item" style="grid-column:1/-1">
-              <label>Heizperiode-Entity
+              <label>Heizperiode-Entity (optional – manuelle Übersteuerung)
                 ${a.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : a.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
+                ${!a.heating_period_entity ? `<span class="badge" style="background:#2196f3;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">🤖 Automatik aktiv</span>` : ""}
               </label>
               <input type="text" class="form-input full" id="s-heating-period-entity"
-                value="${a.heating_period_entity || ''}" placeholder="input_boolean.heizperiode"
+                value="${a.heating_period_entity || ''}" placeholder="Leer lassen für automatische Erkennung"
                 data-ep-domains="input_boolean,binary_sensor" autocomplete="off">
-              <span class="form-hint">Optional: Entity (input_boolean.* oder binary_sensor.*) die die Heizperiode steuert. OFF = Heizperiode inaktiv → Heizung gesperrt wie im Sommer-Modus.</span>
+              <span class="form-hint">Optional: Entity (input_boolean.* oder binary_sensor.*) die die Heizperiode manuell steuert und die Automatik unten übersteuert. <strong>Leer lassen (empfohlen):</strong> IHC entscheidet selbst, siehe "Automatische Heizperioden-Erkennung".</span>
+            </div>
+            <div class="settings-item">
+              <label>Automatische Heizperioden-Erkennung</label>
+              <select class="form-select" id="hp-auto-enabled">
+                <option value="true" ${a.heating_period_auto_enabled !== false ? "selected" : ""}>Aktiviert (empfohlen)</option>
+                <option value="false" ${a.heating_period_auto_enabled === false ? "selected" : ""}>Deaktiviert (ohne Entity: immer an)</option>
+              </select>
+              <span class="form-hint">
+                Greift nur wenn oben keine (verfügbare) Entity gesetzt ist. Entscheidet anhand eines
+                gleitenden Mehrtage-Mittels der Außentemperatur (Hysterese) + Kälteprognose-Frühstart –
+                damit ein einzelner kalter Tag in der Übergangszeit nicht ausgesperrt bleibt.
+                ${a.heating_period_rolling_avg != null
+                  ? `<br>Aktuelles Ø (${a.heating_period_auto_days ?? 3} Tage): <strong>${a.heating_period_rolling_avg}°C</strong> → ${a.heating_period_auto_active !== false ? "Heizperiode aktiv" : "Heizperiode inaktiv"}`
+                  : `<br><em>Noch nicht genug Tages-Historie gesammelt – bis dahin bleibt die Heizperiode sicherheitshalber aktiv.</em>`}
+              </span>
+            </div>
+            <div class="settings-item">
+              <label>Grenze aktiv / inaktiv (°C Ø-Außentemp.)</label>
+              <div style="display:flex;gap:8px">
+                <input type="number" class="form-input" id="hp-auto-low" min="-10" max="20" step="0.5" value="${a.heating_period_auto_low_temp ?? 12}" title="Darunter: aktiv" style="flex:1">
+                <input type="number" class="form-input" id="hp-auto-high" min="-5" max="25" step="0.5" value="${a.heating_period_auto_high_temp ?? 16}" title="Darüber: inaktiv" style="flex:1">
+              </div>
+              <span class="form-hint">Links: darunter aktiviert die Automatik die Heizperiode. Rechts: darüber deaktiviert sie sie. Dazwischen bleibt der letzte Zustand (Hysterese, kein Flattern).</span>
+            </div>
+            <div class="settings-item">
+              <label>Fenstergröße gleitendes Mittel (Tage)</label>
+              <input type="number" class="form-input" id="hp-auto-days" min="1" max="14" step="1" value="${a.heating_period_auto_days ?? 3}">
+              <span class="form-hint">Größer = träger/stabiler, kleiner = reagiert schneller auf einen Wetterumschwung.</span>
             </div>
           </div>
           <div class="btn-row">
@@ -4742,8 +4777,11 @@ class IHCPanel extends HTMLElement {
       const awayT  = parseFloat(content.querySelector("#away-temp").value);
       const vacT   = parseFloat(content.querySelector("#vacation-temp").value);
       const frostT = parseFloat(content.querySelector("#frost-temp").value);
-      const sumT   = parseFloat(content.querySelector("#summer-threshold").value);
-      if ([awayT, vacT, frostT, sumT].some(isNaN)) { this._toast("⚠️ Ungültiger Temperaturwert"); return; }
+      const sumT     = parseFloat(content.querySelector("#summer-threshold").value);
+      const hpLow    = parseFloat(content.querySelector("#hp-auto-low")?.value);
+      const hpHigh   = parseFloat(content.querySelector("#hp-auto-high")?.value);
+      const hpDays   = parseInt(content.querySelector("#hp-auto-days")?.value, 10);
+      if ([awayT, vacT, frostT, sumT, hpLow, hpHigh, hpDays].some(isNaN)) { this._toast("⚠️ Ungültiger Temperaturwert"); return; }
       this._callService("update_global_settings", {
         away_temp:                awayT,
         vacation_temp:            vacT,
@@ -4753,6 +4791,10 @@ class IHCPanel extends HTMLElement {
         summer_mode_entity:       content.querySelector("#s-summer-mode-entity")?.value.trim() || "",
         off_use_frost_protection: content.querySelector("#off-use-frost").value === "true",
         heating_period_entity:    content.querySelector("#s-heating-period-entity")?.value.trim() || "",
+        heating_period_auto_enabled:   content.querySelector("#hp-auto-enabled")?.value === "true",
+        heating_period_auto_low_temp:  hpLow,
+        heating_period_auto_high_temp: hpHigh,
+        heating_period_auto_days:      hpDays,
       });
       this._toast("✓ Temperatur-Einstellungen gespeichert");
     });

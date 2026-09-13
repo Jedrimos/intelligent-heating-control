@@ -477,8 +477,10 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # Presence delay timers (away + arrive)
             "presence_away_delay_minutes",
             "presence_arrive_delay_minutes",
-            # Heating period entity (Heizperiode input_boolean / binary_sensor)
+            # Heating period entity (Heizperiode input_boolean / binary_sensor) + automatic detection
             "heating_period_entity",
+            "heating_period_auto_enabled", "heating_period_auto_low_temp",
+            "heating_period_auto_high_temp", "heating_period_auto_days",
             # Summer mode external entity + forecast cold-night early start
             "summer_mode_entity",
             "forecast_coldnight_enabled", "forecast_coldnight_temp", "forecast_advance_hours",
