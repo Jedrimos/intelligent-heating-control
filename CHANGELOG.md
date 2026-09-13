@@ -9,6 +9,14 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Gefixt
+- **Boost ignorierte den Heizperioden-Schalter:** Bei `CONF_HEATING_PERIOD_ENTITY` = aus wurden
+  alle TRVs bedingungslos abgeschaltet – auch bei aktivem Boost. Dadurch ließ sich die Heizung
+  in der Übergangszeit nicht mal manuell kurz anschalten. Boost wird jetzt VOR der
+  Sommerautomatik-/Heizperioden-Prüfung ausgewertet und überschreibt sie befristet (Boost läuft
+  nach Ablauf automatisch wieder auf den vorherigen Zimmermodus zurück, kein Dauer-An möglich).
+  `heating_active`-Sensor berücksichtigt aktive Boosts in dieser Situation ebenfalls korrekt.
+
 ### Geplant
 Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent,
 Schlaf-Temperaturprofil, Passive Solarheizung via Rollosteuerung, u. v. m.).

@@ -1674,9 +1674,17 @@ class IHCCoordinator(
         # There is no central boiler switch in TRV mode: "heating active" means
         # any room is currently heating, using the same signal hierarchy as
         # climate.hvac_action (valve position > TRV hvac_action > demand > 0).
-        any_room_heating = False if (summer_mode or not heating_period_active or startup_grace_active) else any(
-            self._trv_room_is_heating(rd) for rd in room_data.values()
+        # A room boosted while Sommerautomatik/Heizperiode would otherwise block
+        # heating still counts - the boost explicitly overrides that gate below.
+        any_boost_active = any(
+            self.get_boost_remaining_minutes(rid) > 0 for rid in room_data.keys()
         )
+        if startup_grace_active:
+            any_room_heating = False
+        elif summer_mode or not heating_period_active:
+            any_room_heating = any_boost_active
+        else:
+            any_room_heating = any(self._trv_room_is_heating(rd) for rd in room_data.values())
 
         # v1.8 – Peak Shaving: stagger room demand during the first N minutes after
         # heating starts (trigger: any room just went from idle to demanding heat)
@@ -1784,17 +1792,21 @@ class IHCCoordinator(
                 if window_open:
                     rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
                 self._turn_off_valve_entities(room)
-            elif summer_mode or not self._is_heating_period_active():
-                # Sommerautomatik or heating period disabled: turn TRVs off completely.
-                # Setting frost temp keeps them in HEAT mode which misleads users.
-                self._turn_off_valve_entities(room)
             elif self.get_boost_remaining_minutes(room_id) > 0:
-                # Boost active: try native HA boost preset first.
+                # Boost active: an explicit, time-limited user request overrides
+                # Sommerautomatik and an inactive Heizperiode (e.g. a quick warm-up
+                # outside the heating season). It expires on its own via
+                # _check_boost_expiry(), so it can't get stuck heating.
+                # Try native HA boost preset first.
                 # Fallback (TRV doesn't support boost preset): send max_temp so the
                 # TRV opens the valve fully and heats as fast as possible.
                 if not self._boost_valve_entities(room):
                     max_temp = float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
                     self._set_valve_entities(room, max_temp)
+            elif summer_mode or not self._is_heating_period_active():
+                # Sommerautomatik or heating period disabled: turn TRVs off completely.
+                # Setting frost temp keeps them in HEAT mode which misleads users.
+                self._turn_off_valve_entities(room)
             else:
                 # Always send the desired target – TRV decides whether to heat
                 trv_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
