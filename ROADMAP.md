@@ -9,7 +9,7 @@ auf dem Tisch liegen.
 > erschienene Release **2.0.0** (TRV-only – Heizungsschalter-/Switch-Modus, Wärmeerzeuger-Modus
 > und aktive Kühlung entfernt, erster Release seit v1.9.2) hatte mit den damals so benannten
 > Meilensteinen nichts zu tun. Diese Roadmap arbeitet deshalb mit Prioritäts-Buckets statt mit
-> Versionsversprechen. Aktueller Stand des Codes: **2.0.0**.
+> Versionsversprechen. Aktueller Stand des Codes: **2.1.0**.
 
 > **Architektur-Kontext:** IHC steuert ausschließlich **Thermostatventile (TRVs)** direkt.
 > Es gibt keinen zentralen Heizungsschalter-Modus, keine Vorlauftemperatur-PID-Regelung,

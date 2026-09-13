@@ -9,6 +9,13 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Geplant
+Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent, u. v. m.).
+
+---
+
+## [2.1.0] - 2026-09-13
+
 ### Hinzugefügt
 - **Automatische Heizperioden-Erkennung:** `heating_period_entity` bleibt als optionale manuelle
   Übersteuerung erhalten, ist aber ab jetzt nicht mehr nötig. Ohne (verfügbare) Entity entscheidet
@@ -79,9 +86,6 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   Sommerautomatik-/Heizperioden-Prüfung ausgewertet und überschreibt sie befristet (Boost läuft
   nach Ablauf automatisch wieder auf den vorherigen Zimmermodus zurück, kein Dauer-An möglich).
   `heating_active`-Sensor berücksichtigt aktive Boosts in dieser Situation ebenfalls korrekt.
-
-### Geplant
-Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent, u. v. m.).
 
 ---
 
