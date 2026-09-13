@@ -209,6 +209,22 @@ CONF_ENERGY_PRICE_THRESHOLD: Final = "energy_price_threshold"   # €/kWh above 
 CONF_ENERGY_PRICE_ECO_OFFSET: Final = "energy_price_eco_offset" # °C reduction when price is high
 CONF_STATIC_ENERGY_PRICE: Final = "static_energy_price"         # fallback price €/kWh when no sensor
 
+# Roadmap 2.1 – Passive Solar Heating/Shading via Rollosteuerung. Opt-in per room
+# (CONF_SOLAR_PASSIVE_HEAT/_COOL below) - IHC never touches a room's covers unless
+# explicitly told to for that room.
+CONF_COVER_ENTITIES: Final = "cover_entities"                   # per room: cover.* entities
+CONF_WINDOW_ORIENTATION: Final = "window_orientation"           # per room: N/NE/E/SE/S/SW/W/NW
+CONF_SOLAR_PASSIVE_HEAT: Final = "solar_passive_heat"           # per room, bool
+DEFAULT_SOLAR_PASSIVE_HEAT: Final = False
+CONF_SOLAR_PASSIVE_COOL: Final = "solar_passive_cool"           # per room, bool
+DEFAULT_SOLAR_PASSIVE_COOL: Final = False
+CONF_SOLAR_MIN_ELEVATION: Final = "solar_min_elevation"         # global, ° sun elevation to activate
+DEFAULT_SOLAR_MIN_ELEVATION: Final = 10.0
+CONF_SOLAR_SHADE_POSITION: Final = "solar_shade_position"       # global, cover % when shading
+DEFAULT_SOLAR_SHADE_POSITION: Final = 20
+CONF_SOLAR_HEAT_MIN_OUTDOOR: Final = "solar_heat_min_outdoor"   # global, °C - not worth it below this
+DEFAULT_SOLAR_HEAT_MIN_OUTDOOR: Final = 5.0
+
 # Roadmap 1.4 – Advanced room control
 CONF_TEMP_CALIBRATION: Final = "temp_calibration"               # per-room sensor offset (°C)
 CONF_ROOM_PRESENCE_ENTITIES: Final = "room_presence_entities"   # per-room presence list

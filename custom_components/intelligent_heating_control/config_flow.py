@@ -75,6 +75,18 @@ from .const import (
     CONF_SOLAR_ENTITY,
     CONF_SOLAR_SURPLUS_THRESHOLD,
     CONF_SOLAR_BOOST_TEMP,
+    CONF_COVER_ENTITIES,
+    CONF_WINDOW_ORIENTATION,
+    CONF_SOLAR_PASSIVE_HEAT,
+    DEFAULT_SOLAR_PASSIVE_HEAT,
+    CONF_SOLAR_PASSIVE_COOL,
+    DEFAULT_SOLAR_PASSIVE_COOL,
+    CONF_SOLAR_MIN_ELEVATION,
+    DEFAULT_SOLAR_MIN_ELEVATION,
+    CONF_SOLAR_SHADE_POSITION,
+    DEFAULT_SOLAR_SHADE_POSITION,
+    CONF_SOLAR_HEAT_MIN_OUTDOOR,
+    DEFAULT_SOLAR_HEAT_MIN_OUTDOOR,
     CONF_ENERGY_PRICE_ENTITY,
     CONF_ENERGY_PRICE_THRESHOLD,
     CONF_ENERGY_PRICE_ECO_OFFSET,
@@ -514,6 +526,19 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "number": {"min": 0.5, "max": 5, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
+            # --- Roadmap 2.1: Passive Solar Heating/Shading via Rollosteuerung (global) ---
+            vol.Optional(
+                CONF_SOLAR_MIN_ELEVATION,
+                default=float(cfg.get(CONF_SOLAR_MIN_ELEVATION, DEFAULT_SOLAR_MIN_ELEVATION))
+            ): selector.selector({"number": {"min": 0, "max": 45, "step": 1, "unit_of_measurement": "°"}}),
+            vol.Optional(
+                CONF_SOLAR_SHADE_POSITION,
+                default=int(cfg.get(CONF_SOLAR_SHADE_POSITION, DEFAULT_SOLAR_SHADE_POSITION))
+            ): selector.selector({"number": {"min": 0, "max": 100, "step": 5, "unit_of_measurement": "%"}}),
+            vol.Optional(
+                CONF_SOLAR_HEAT_MIN_OUTDOOR,
+                default=float(cfg.get(CONF_SOLAR_HEAT_MIN_OUTDOOR, DEFAULT_SOLAR_HEAT_MIN_OUTDOOR))
+            ): selector.selector({"number": {"min": -10, "max": 15, "step": 0.5, "unit_of_measurement": "°C"}}),
             vol.Optional(
                 CONF_ENERGY_PRICE_ENTITY,
                 default=cfg.get(CONF_ENERGY_PRICE_ENTITY, "")
@@ -775,6 +800,10 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_WINDOW_CASCADE_ROOMS: list(user_input.get(CONF_WINDOW_CASCADE_ROOMS, [])),
                 CONF_WINDOW_CASCADE_DELAY_MINUTES: int(user_input.get(CONF_WINDOW_CASCADE_DELAY_MINUTES, DEFAULT_WINDOW_CASCADE_DELAY_MINUTES)),
                 CONF_WINDOW_CASCADE_OFFSET: float(user_input.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET)),
+                CONF_COVER_ENTITIES: list(user_input.get(CONF_COVER_ENTITIES, [])),
+                CONF_WINDOW_ORIENTATION: user_input.get(CONF_WINDOW_ORIENTATION, ""),
+                CONF_SOLAR_PASSIVE_HEAT: bool(user_input.get(CONF_SOLAR_PASSIVE_HEAT, DEFAULT_SOLAR_PASSIVE_HEAT)),
+                CONF_SOLAR_PASSIVE_COOL: bool(user_input.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL)),
                 CONF_SCHEDULES: [],
                 CONF_HA_SCHEDULES: [],
             }
@@ -861,6 +890,15 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                     ],
                 }
             }),
+            # --- Roadmap 2.1: Passive Solar Heating/Shading via Rollosteuerung (per room) ---
+            vol.Optional(CONF_COVER_ENTITIES, default=[]): selector.selector({
+                "entity": {"domain": "cover", "multiple": True}
+            }),
+            vol.Optional(CONF_WINDOW_ORIENTATION, default=""): selector.selector({
+                "select": {"options": ["", "N", "NE", "E", "SE", "S", "SW", "W", "NW"]}
+            }),
+            vol.Optional(CONF_SOLAR_PASSIVE_HEAT, default=DEFAULT_SOLAR_PASSIVE_HEAT): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_SOLAR_PASSIVE_COOL, default=DEFAULT_SOLAR_PASSIVE_COOL): selector.selector({"boolean": {}}),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=DEFAULT_HA_SCHEDULE_OFF_MODE): selector.selector({
                 "select": {"options": ["eco", "sleep", "away"]}
             }),
@@ -1052,6 +1090,14 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                     ],
                 }
             }),
+            vol.Optional(CONF_COVER_ENTITIES, default=list(room.get(CONF_COVER_ENTITIES, []))): selector.selector({
+                "entity": {"domain": "cover", "multiple": True}
+            }),
+            vol.Optional(CONF_WINDOW_ORIENTATION, default=room.get(CONF_WINDOW_ORIENTATION, "")): selector.selector({
+                "select": {"options": ["", "N", "NE", "E", "SE", "S", "SW", "W", "NW"]}
+            }),
+            vol.Optional(CONF_SOLAR_PASSIVE_HEAT, default=bool(room.get(CONF_SOLAR_PASSIVE_HEAT, DEFAULT_SOLAR_PASSIVE_HEAT))): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_SOLAR_PASSIVE_COOL, default=bool(room.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=room.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE)): selector.selector({
                 "select": {"options": ["eco", "sleep", "away"]}
             }),

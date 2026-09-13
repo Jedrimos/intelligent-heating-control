@@ -443,6 +443,30 @@
             </div>
           </div>
           <hr class="divider">
+          <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Passive Solarheizung (Rolladen)</div>
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
+            Öffnet die Rolladen sonnenzugewandter Zimmer bevor die Heizung anspringt (kostenlose Wärme) bzw.
+            beschattet leicht im Sommer. Muss pro Zimmer aktiviert werden (Rolladen-Entitäten + Fensterausrichtung
+            im Zimmer-Bearbeiten-Dialog).
+          </p>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Min. Sonnenhöhe (°)</label>
+              <input type="number" class="form-input" id="solar-min-elevation" min="0" max="45" step="1" value="${a.solar_min_elevation ?? 10}">
+              <span class="form-hint">Erst ab dieser Sonnenelevation wird die passive Solarheizung/-beschattung aktiv.</span>
+            </div>
+            <div class="settings-item">
+              <label>Beschattungs-Position (%)</label>
+              <input type="number" class="form-input" id="solar-shade-position" min="0" max="100" step="5" value="${a.solar_shade_position ?? 20}">
+              <span class="form-hint">Rolladen-Position bei aktiver Beschattung (0 = ganz zu, 100 = ganz offen).</span>
+            </div>
+            <div class="settings-item">
+              <label>Min. Außentemp. für Solarheizung (°C)</label>
+              <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-10" max="15" step="0.5" value="${a.solar_heat_min_outdoor ?? 5}">
+              <span class="form-hint">Unterhalb dieser Außentemperatur lohnt sich das Öffnen der Rolladen nicht.</span>
+            </div>
+          </div>
+          <hr class="divider">
           <div class="card-title" style="font-size:13px;margin:8px 0">💶 Dynamischer Strompreis (z.B. Tibber)</div>
           <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
             Bei sehr hohen Strompreisen senkt IHC die Zieltemperaturen etwas ab – du heizt dann weniger in der teuren Zeit.
@@ -888,12 +912,18 @@
       const solarBoost   = parseFloat(content.querySelector("#solar-boost-temp").value);
       const priceThresh  = parseFloat(content.querySelector("#energy-price-threshold").value);
       const priceEco     = parseFloat(content.querySelector("#energy-price-eco-offset").value);
-      if ([solarSurplus, solarBoost, priceThresh, priceEco].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
+      const solarMinElevation = parseFloat(content.querySelector("#solar-min-elevation")?.value);
+      const solarShadePosition = parseInt(content.querySelector("#solar-shade-position")?.value, 10);
+      const solarHeatMinOutdoor = parseFloat(content.querySelector("#solar-heat-min-outdoor")?.value);
+      if ([solarSurplus, solarBoost, priceThresh, priceEco, solarMinElevation, solarShadePosition, solarHeatMinOutdoor].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
       const staticPrice = parseFloat(content.querySelector("#static-energy-price").value);
       this._callService("update_global_settings", {
         solar_entity:            content.querySelector("#solar-entity").value.trim(),
         solar_surplus_threshold: solarSurplus,
         solar_boost_temp:        solarBoost,
+        solar_min_elevation:     solarMinElevation,
+        solar_shade_position:    solarShadePosition,
+        solar_heat_min_outdoor:  solarHeatMinOutdoor,
         energy_price_entity:     content.querySelector("#energy-price-entity").value.trim(),
         energy_price_threshold:  priceThresh,
         energy_price_eco_offset: priceEco,

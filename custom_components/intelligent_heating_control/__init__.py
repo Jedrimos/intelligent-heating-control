@@ -117,6 +117,12 @@ from .const import (
     CONF_WINDOW_CASCADE_ROOMS,
     CONF_WINDOW_CASCADE_DELAY_MINUTES,
     CONF_WINDOW_CASCADE_OFFSET,
+    CONF_COVER_ENTITIES,
+    CONF_WINDOW_ORIENTATION,
+    CONF_SOLAR_PASSIVE_HEAT,
+    DEFAULT_SOLAR_PASSIVE_HEAT,
+    CONF_SOLAR_PASSIVE_COOL,
+    DEFAULT_SOLAR_PASSIVE_COOL,
     DEFAULT_WINDOW_CASCADE_DELAY_MINUTES,
     DEFAULT_WINDOW_CASCADE_OFFSET,
     CONF_AGGRESSIVE_MODE_ENABLED,
@@ -364,6 +370,10 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_WINDOW_CASCADE_ROOMS: list(call.data.get(CONF_WINDOW_CASCADE_ROOMS, [])),
             CONF_WINDOW_CASCADE_DELAY_MINUTES: int(call.data.get(CONF_WINDOW_CASCADE_DELAY_MINUTES, DEFAULT_WINDOW_CASCADE_DELAY_MINUTES)),
             CONF_WINDOW_CASCADE_OFFSET: float(call.data.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET)),
+            CONF_COVER_ENTITIES: list(call.data.get(CONF_COVER_ENTITIES, [])),
+            CONF_WINDOW_ORIENTATION: call.data.get(CONF_WINDOW_ORIENTATION, ""),
+            CONF_SOLAR_PASSIVE_HEAT: bool(call.data.get(CONF_SOLAR_PASSIVE_HEAT, DEFAULT_SOLAR_PASSIVE_HEAT)),
+            CONF_SOLAR_PASSIVE_COOL: bool(call.data.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL)),
         }
         await coordinator.async_add_room(room_config)
 
@@ -395,7 +405,10 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_PRESENCE_SENSOR_ON_DELAY, CONF_PRESENCE_SENSOR_OFF_DELAY,
             CONF_WINDOW_CASCADE_DELAY_MINUTES,
         }
-        _BOOL_FIELDS = {CONF_MOLD_PROTECTION_ENABLED, CONF_AGGRESSIVE_MODE_ENABLED, CONF_ROOM_IGNORE_HEATING_PERIOD}
+        _BOOL_FIELDS = {
+            CONF_MOLD_PROTECTION_ENABLED, CONF_AGGRESSIVE_MODE_ENABLED, CONF_ROOM_IGNORE_HEATING_PERIOD,
+            CONF_SOLAR_PASSIVE_HEAT, CONF_SOLAR_PASSIVE_COOL,
+        }
         updates: dict = {}
         for k, v in raw.items():
             try:
@@ -451,6 +464,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "heating_curve",
             # Roadmap 1.3 – Energy
             "solar_entity", "solar_surplus_threshold", "solar_boost_temp",
+            "solar_min_elevation", "solar_shade_position", "solar_heat_min_outdoor",
             "energy_price_entity", "energy_price_threshold", "energy_price_eco_offset",
             # Vacation assistant + calendar integration
             "vacation_start", "vacation_end",

@@ -422,6 +422,49 @@
         </div>
       </details>
 
+      <details class="modal-collapsible">
+        <summary>☀️ Passive Solarheizung (Rolladen) <span style="font-size:10px;font-weight:400;margin-left:4px">(optional)</span></summary>
+        <div class="modal-collapsible-body">
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+            Öffnet die Rolladen bevor die Heizung anspringt wenn die Sonne aufs Fenster scheint (kostenlose
+            Wärme), bzw. beschattet leicht wenn der Raum sich im Sommer aufheizt. Braucht Rolladen-Entitäten
+            und die Fensterausrichtung.
+          </div>
+          <div class="modal-section">
+            <div class="modal-section-title">Rolladen-Entitäten (mehrere möglich)</div>
+            <div class="entity-list" id="cover-list">
+              <div class="entity-row">
+                <input type="text" class="form-input" placeholder="cover.wohnzimmer (optional)"
+                  data-ep-domains="cover" autocomplete="off">
+                <button class="btn btn-secondary btn-icon add-entity" data-list="cover-list" data-ep-domains="cover">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Fensterausrichtung</label>
+              <select class="form-select" id="m-window-orientation">
+                <option value="">– keine –</option>
+                <option value="N">N</option><option value="NE">NO</option><option value="E">O</option><option value="SE">SO</option>
+                <option value="S">S</option><option value="SW">SW</option><option value="W">W</option><option value="NW">NW</option>
+              </select>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-passive-heat">
+                Passive Solarheizung
+              </label>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-passive-cool">
+                Passive Beschattung
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <div class="modal-section">
         <div class="modal-section-title">📅 HA Zeitpläne <span style="font-weight:400;font-size:10px">(optional)</span></div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
@@ -454,6 +497,7 @@
 
       const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
       const windows = [...modal.querySelectorAll("#window-list input")].map(i => i.value.trim()).filter(Boolean);
+      const covers  = [...modal.querySelectorAll("#cover-list input")].map(i => i.value.trim()).filter(Boolean);
       const ha_schedules = this._collectHaScheduleRows(modal);
 
       await this._callService("add_room", {
@@ -482,6 +526,10 @@
         max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
         room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
         room_ignore_heating_period: modal.querySelector("#m-ignore-heating-period")?.checked === true,
+        cover_entities:         covers,
+        window_orientation:     modal.querySelector("#m-window-orientation")?.value || "",
+        solar_passive_heat:     modal.querySelector("#m-solar-passive-heat")?.checked === true,
+        solar_passive_cool:     modal.querySelector("#m-solar-passive-cool")?.checked === true,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
@@ -918,6 +966,57 @@
         </div>
       </details>
 
+      <details class="modal-collapsible" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
+        <summary>☀️ Passive Solarheizung (Rolladen)
+          ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">☀️ Aktiv (${room.solar_cover_position}%)</span>` : ""}
+        </summary>
+        <div class="modal-collapsible-body">
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+            Öffnet die Rolladen bevor die Heizung anspringt wenn die Sonne aufs Fenster scheint (kostenlose
+            Wärme), bzw. beschattet leicht wenn der Raum sich im Sommer aufheizt. Braucht Rolladen-Entitäten
+            und die Fensterausrichtung.
+          </div>
+          <div class="modal-section">
+            <div class="modal-section-title">Rolladen-Entitäten (mehrere möglich)</div>
+            <div class="entity-list" id="cover-list">
+              ${(() => {
+                const covers = (room.cover_entities && room.cover_entities.length > 0) ? room.cover_entities : [""];
+                return covers.map((c, i) => `
+                  <div class="entity-row">
+                    <input type="text" class="form-input" value="${c}" placeholder="cover.wohnzimmer (optional)"
+                      data-ep-domains="cover" autocomplete="off">
+                    ${i === 0
+                      ? `<button class="btn btn-secondary btn-icon add-entity" data-list="cover-list" data-ep-domains="cover">+</button>`
+                      : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
+                  </div>`).join("");
+              })()}
+            </div>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Fensterausrichtung</label>
+              <select class="form-select" id="m-window-orientation">
+                <option value="" ${!room.window_orientation ? "selected" : ""}>– keine –</option>
+                ${["N", "NE", "E", "SE", "S", "SW", "W", "NW"].map(o =>
+                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${o}</option>`).join("")}
+              </select>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-passive-heat" ${room.solar_passive_heat ? "checked" : ""}>
+                Passive Solarheizung
+              </label>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-passive-cool" ${room.solar_passive_cool ? "checked" : ""}>
+                Passive Beschattung
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <details class="modal-collapsible" ${room.humidity_sensor || room.co2_sensor ? "open" : ""}>
         <summary>🌬️ Lüftung &amp; Schimmelschutz</summary>
         <div class="modal-collapsible-body">
@@ -1114,6 +1213,7 @@
       const mode    = modal.querySelector("#m-mode").value;
       const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
       const windows = [...modal.querySelectorAll("#window-list input")].map(i => i.value.trim()).filter(Boolean);
+      const covers  = [...modal.querySelectorAll("#cover-list input")].map(i => i.value.trim()).filter(Boolean);
       const ha_schedules = this._collectHaScheduleRows(modal);
       await this._callService("set_room_mode", { id: roomId, mode });
       await this._callService("update_room", {
@@ -1142,6 +1242,10 @@
         max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
         room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
         room_ignore_heating_period: modal.querySelector("#m-ignore-heating-period")?.checked === true,
+        cover_entities:         covers,
+        window_orientation:     modal.querySelector("#m-window-orientation")?.value || "",
+        solar_passive_heat:     modal.querySelector("#m-solar-passive-heat")?.checked === true,
+        solar_passive_cool:     modal.querySelector("#m-solar-passive-cool")?.checked === true,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,

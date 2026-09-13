@@ -1001,7 +1001,16 @@ Override erhalten, ist im Normalfall aber überflüssig.
 - **1.5:** Tibber-Forecast
 
 #### Mittelfristig (2.x)
-- **2.1:** Passive Solar Heating via Rollosteuerung → siehe Kapitel 13
+- **2.1:** Passive Solar Heating via Rollosteuerung ✅ Implementiert – `solar_cover_manager.py`
+  (`SolarCoverManagerMixin`), Konstanten `CONF_COVER_ENTITIES`/`CONF_WINDOW_ORIENTATION`/
+  `CONF_SOLAR_PASSIVE_HEAT`/`CONF_SOLAR_PASSIVE_COOL` (pro Zimmer) +
+  `CONF_SOLAR_MIN_ELEVATION`/`CONF_SOLAR_SHADE_POSITION`/`CONF_SOLAR_HEAT_MIN_OUTDOOR` (global).
+  Azimut-Check als reine Funktion `sun_hits_orientation()` unit-getestet
+  (`tests/test_solar_cover_manager.py`). Voll verdrahtet: config_flow Add/Edit-Schema,
+  Add/Edit-Zimmer-Modal (Rolladen-Entity-Liste + Fensterausrichtung + 2 Checkboxen),
+  Einstellungen-Tab (globale Schwellwerte), `climate.py`-Attribute inkl. Live-Status
+  (`solar_cover_active`/`solar_cover_position`). Rein opt-in pro Zimmer, rührt Fenster-offen
+  oder von Hand verstellte Rolladen nicht an.
 
 #### Intelligente Heizoptimierung (Neue Ideen – noch nicht versioniert)
 
@@ -1033,16 +1042,21 @@ Override erhalten, ist im Normalfall aber überflüssig.
 - Nach dem Lüften keine Kälteschock-Reaktionsheizung notwendig → komfortabler + effizienter
 - Neues Attribut: `co2_ventilation_eta_minutes` in room_data
 
-**Schlaf-Temperatur-Profil (Kurve statt fixer Schlaftemperatur)**
-- Statt einem fixen `CONF_SLEEP_OFFSET`: Temperaturkurve über die Nacht
-- Optimum: ~18–20°C beim Einschlafen → 16–17°C um 2–4 Uhr → 18°C ab 5–6 Uhr
-- Umsetzung: `CONF_SLEEP_TEMP_PROFILE` = Liste von `{time, temp}` Punkten pro Zimmer
+**Schlaf-Temperatur-Profil (Kurve statt fixer Schlaftemperatur)** ✅ Implementiert
+- `CONF_SLEEP_TEMP_PROFILE` = Liste von `{time, temp}` Punkten pro Zimmer, Standard leer = aus
+- Reine Interpolationsfunktion `interpolate_sleep_profile()` in `schedule_manager.py`, wrapt über
+  Mitternacht (24h-Ring), unit-getestet (`tests/test_sleep_profile.py`)
+- Verwendet in `_get_room_preset_temps()` (`room_logic.py`) als absoluter Zielwert statt
+  `sleep_offset`-Berechnung, wenn ein Profil konfiguriert ist
+- Editierbar im Zimmer-Dialog (Zeit/Temp-Zeilen, Add/Remove)
 
-**Gefühlte Temperatur / Komfortindex (ASHRAE 55)**
-- Luftfeuchte beeinflusst Kältegefühl: 17°C bei 80% fühlt sich kälter an als bei 40%
-- Berechnung: Operative Temperatur aus Raumtemp + Luftfeuchte → PMV (Predicted Mean Vote)
-- Wenn Komfortindex zu niedrig → Sollwert automatisch leicht anheben
-- Nutzt bereits vorhandenen `CONF_HUMIDITY_SENSOR`
+**Gefühlte Temperatur / Komfortindex (ASHRAE-nah)** ✅ Implementiert
+- Nutzt die bereits vorhandene `_calculate_felt_temperature()` (Steadman-Formel, `comfort_manager.py`)
+- Neu: `CONF_FELT_TEMP_ADJUSTMENT_ENABLED` (global, **Standard aus** – explizit als Opt-in gewünscht)
+  hebt den Sollwert an, wenn sich ein Zimmer laut Luftfeuchte kälter anfühlt als gemessen,
+  gedeckelt durch `CONF_FELT_TEMP_ADJUSTMENT_MAX` (Standard 1.5°C)
+- In `_process_room()` (`coordinator.py`) direkt vor der 0.5°C-Quantisierung angewendet,
+  übersprungen bei fixen Override-Zielen (Frostschutz/Abwesend/Urlaub/Aus)
 
 **Feiertags- / Schulferienkalender**
 - HA-Kalender-Entität mit Feiertagen/Ferien → wenn aktiv: Wochenend-Zeitplan statt Werktagsplan

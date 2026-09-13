@@ -37,6 +37,7 @@ from .energy_manager import EnergyManagerMixin
 from .comfort_manager import ComfortManagerMixin
 from .vacation_manager import VacationManagerMixin
 from .climate_adjustments import ClimateAdjustmentsMixin
+from .solar_cover_manager import SolarCoverManagerMixin
 
 from .const import (
     DOMAIN,
@@ -290,6 +291,7 @@ class IHCCoordinator(
     ComfortManagerMixin,
     VacationManagerMixin,
     ClimateAdjustmentsMixin,
+    SolarCoverManagerMixin,
     DataUpdateCoordinator,
 ):
     """Central coordinator for Intelligent Heating Control."""
@@ -2116,6 +2118,9 @@ class IHCCoordinator(
 
         # Kalkschutz: periodisch Ventile bewegen um Verkalkungs-Festfressen zu verhindern
         self._run_limescale_protection(room_data)
+
+        # Roadmap 2.1: passive solar heating/shading via Rollosteuerung (opt-in per room)
+        self._update_solar_covers(room_data, ctx["outdoor_temp"])
 
     def _update_phase_energy_and_ventilation(self, room_data: Dict[str, dict], ctx: Dict[str, Any]) -> None:
         """Phase 7: per-room and total energy estimates, efficiency score,

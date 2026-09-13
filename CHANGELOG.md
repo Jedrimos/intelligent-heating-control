@@ -34,6 +34,27 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Sicherheitsschwelle (`room_temp_threshold`) überstimmt jetzt ebenfalls Sommerautomatik und
   inaktive Heizperiode** – ein Zimmer, das unter seine konfigurierte Mindesttemperatur fällt,
   wird nie durch die Heizperiode blockiert (gleiches Prinzip wie beim Boost-Fix unten).
+- **Sommerautomatik-Hysterese (`summer_mode_hysteresis_enabled`, Standard: an):** nutzt jetzt
+  wie die Heizperiode ein gleitendes Mehrtage-Mittel der Außentemperatur mit Hysterese-Band
+  (`summer_mode_hysteresis_band`/`summer_mode_hysteresis_days`) statt eines Momentanwerts –
+  verhindert Flip-Flop an Tagen nahe der Schwelle. Abschaltbar (dann wie bisher: Momentanwert).
+- **Gefühlte Temperatur beeinflusst optional den Sollwert (`felt_temp_adjustment_enabled`,
+  Standard: **aus**, wie explizit gewünscht):** fühlt sich ein Zimmer laut Luftfeuchte kälter an
+  als der Sensor misst (trockene Luft), wird der Sollwert leicht angehoben, gedeckelt durch
+  `felt_temp_adjustment_max` (Standard 1,5 °C). Wirkt sich nur auf Zimmer mit Feuchtesensor aus.
+- **Schlaf-Temperaturprofil (`sleep_temp_profile`, pro Zimmer, Standard: leer = aus):** Liste von
+  Uhrzeit/Temperatur-Punkten für eine Nacht-Temperaturkurve statt einem festen Schlaf-Abzug, z.B.
+  19 °C beim Einschlafen → 16 °C um 2–4 Uhr → 18 °C ab 6 Uhr. Interpoliert linear zwischen den
+  Punkten (wrapt über Mitternacht). Editierbar im Zimmer-Dialog.
+- **Passive Solarheizung/-beschattung via Rollosteuerung (Roadmap 2.1):** Öffnet die Rolladen
+  eines Zimmers automatisch bevor die Heizung anspringt, wenn die Sonne laut konfigurierter
+  Fensterausrichtung (`window_orientation`) aufs Fenster scheint, die Sonnenhöhe über
+  `solar_min_elevation` liegt und die Außentemperatur über `solar_heat_min_outdoor` – kostenlose
+  Wärme statt TRV. Optional auch passive Beschattung (`solar_passive_cool`), wenn sich der Raum
+  der Komforttemperatur nähert. Komplett opt-in über zwei neue Zimmer-Flags
+  (`solar_passive_heat`/`solar_passive_cool`, beide standardmäßig aus) + `cover_entities` +
+  `window_orientation`; ein Zimmer ohne diese Konfiguration wird nie angefasst. Rührt ein
+  geöffnetes Fenster oder von Hand verstellte Rolladen nicht an.
 
 ### Gefixt
 - **Systemmodus-Schalter im Dashboard wirkungslos bei einzeln ausgeschalteten Zimmern:**
@@ -60,8 +81,7 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   `heating_active`-Sensor berücksichtigt aktive Boosts in dieser Situation ebenfalls korrekt.
 
 ### Geplant
-Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent,
-Schlaf-Temperaturprofil, Passive Solarheizung via Rollosteuerung, u. v. m.).
+Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent, u. v. m.).
 
 ---
 

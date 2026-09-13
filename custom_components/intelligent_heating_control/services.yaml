@@ -263,6 +263,37 @@ add_room:
           min: 0.5
           max: 10
           step: 0.5
+    cover_entities:
+      name: Rolladen-Entitäten (Passive Solarheizung)
+      description: cover.* Entitäten dieses Zimmers, für passive Solarheizung/-beschattung (Roadmap 2.1)
+      required: false
+      selector:
+        entity:
+          domain: cover
+          multiple: true
+    window_orientation:
+      name: Fensterausrichtung
+      description: "Für passive Solarheizung/-beschattung: N/NE/E/SE/S/SW/W/NW, leer = deaktiviert"
+      required: false
+      selector:
+        select:
+          options: ["", "N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    solar_passive_heat:
+      name: Passive Solarheizung aktivieren
+      description: >-
+        Öffnet die Rolladen (cover_entities) bevor/während die Heizung anspringt, wenn die Sonne
+        laut window_orientation aufs Fenster scheint. Standard: aus.
+      required: false
+      selector:
+        boolean:
+    solar_passive_cool:
+      name: Passive Beschattung aktivieren
+      description: >-
+        Schließt die Rolladen teilweise (solar_shade_position) wenn die Sonne aufs Fenster
+        scheint und der Raum sich der Komforttemperatur nähert. Standard: aus.
+      required: false
+      selector:
+        boolean:
     schedules:
       name: IHC-Zeitpläne
       required: false
@@ -788,6 +819,31 @@ update_room:
           min: 0.5
           max: 10
           step: 0.5
+    cover_entities:
+      name: Rolladen-Entitäten (Passive Solarheizung)
+      description: cover.* Entitäten dieses Zimmers, für passive Solarheizung/-beschattung (Roadmap 2.1)
+      required: false
+      selector:
+        entity:
+          domain: cover
+          multiple: true
+    window_orientation:
+      name: Fensterausrichtung
+      description: "Für passive Solarheizung/-beschattung: N/NE/E/SE/S/SW/W/NW, leer = deaktiviert"
+      required: false
+      selector:
+        select:
+          options: ["", "N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    solar_passive_heat:
+      name: Passive Solarheizung aktivieren
+      required: false
+      selector:
+        boolean:
+    solar_passive_cool:
+      name: Passive Beschattung aktivieren
+      required: false
+      selector:
+        boolean:
     room_temp_threshold:
       name: Heiz-Temperaturschwelle (°C)
       description: "Mindesttemperatur ab der geheizt wird (0 = deaktiviert)"
@@ -1368,6 +1424,36 @@ update_global_settings:
           min: 0
           max: 5
           step: 0.5
+    solar_min_elevation:
+      name: Passive Solarheizung – Min. Sonnenhöhe (°)
+      description: Mindest-Sonnenelevation damit die passive Solarheizung/-beschattung aktiviert
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 45
+          step: 1
+          unit_of_measurement: "°"
+    solar_shade_position:
+      name: Passive Beschattung – Rolladen-Position (%)
+      description: Rolladen-Position bei aktiver Beschattung
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+    solar_heat_min_outdoor:
+      name: Passive Solarheizung – Min. Außentemperatur (°C)
+      description: Unterhalb dieser Außentemperatur lohnt sich das Öffnen der Rolladen nicht
+      required: false
+      selector:
+        number:
+          min: -10
+          max: 15
+          step: 0.5
+          unit_of_measurement: "°C"
     energy_price_entity:
       name: Dynamischer Strompreissensor
       required: false

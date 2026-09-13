@@ -85,6 +85,17 @@ Zimmer immer nach Zeitplan/Modus heizen, auch wenn die Heizperiode (manuell oder
 gerade inaktiv ist – z.B. für ein Bad, das ganzjährig heizbar bleiben soll. Sommerautomatik bleibt
 davon unberührt.
 
+**Schlaf-Temperaturprofil (optional):** `sleep_temp_profile` (Standard: leer = deaktiviert) ersetzt
+den festen `sleep_offset` durch eine Nacht-Temperaturkurve, z.B.
+`[{"time": "22:00", "temp": 19}, {"time": "03:00", "temp": 16}, {"time": "06:00", "temp": 18}]`.
+Zwischen den Punkten wird linear interpoliert (auch über Mitternacht hinweg). Editierbar direkt
+im Zimmer-Dialog.
+
+**Gefühlte Temperatur (global, optional):** `felt_temp_adjustment_enabled` (Standard **aus**) hebt
+den Sollwert eines Zimmers mit Feuchtesensor leicht an, wenn es sich laut Luftfeuchte kälter
+anfühlt als der Sensor misst (trockene Luft) – gedeckelt durch `felt_temp_adjustment_max`
+(Standard 1,5 °C).
+
 #### Erweiterte Einstellungen
 
 | Feld | Standard | Beschreibung |
@@ -349,6 +360,9 @@ und löst keine Benachrichtigung aus.
 | `summer_mode_enabled` | false | Sperrt die Heizung oberhalb der Außentemperatur-Schwelle |
 | `summer_threshold` | 18 °C | Außentemperatur ab der die Sommerautomatik greift |
 | `summer_mode_entity` | — | Optional: externer `input_boolean.*`/`binary_sensor.*`, überschreibt die Temperatur-Automatik |
+| `summer_mode_hysteresis_enabled` | true | Gleitendes Mehrtage-Mittel statt Momentanwert – vermeidet Flip-Flop an Grenztagen (wie bei der Heizperiode) |
+| `summer_mode_hysteresis_band` | 2 °C | Unter der Sommer-Schwelle, ab der wieder deaktiviert wird |
+| `summer_mode_hysteresis_days` | 3 | Fenstergröße des gleitenden Mittels (Tage) |
 
 Ergänzend kann eine **Kälteprognose-Frühstart**-Funktion die Sommerautomatik bei einer kalten
 Wetterprognose deaktivieren und die Heizung entsprechend früher starten lassen (Wetter-Entity
@@ -367,6 +381,32 @@ Wenn überschüssige Solarleistung vorhanden ist, wird die Zieltemperatur erhöh
 | `solar_entity` | — | Sensor der die Solarleistung in Watt liefert |
 | `solar_surplus_threshold` | 1000 W | Ab wann Solar-Boost aktiv wird |
 | `solar_boost_temp` | +1 °C | Temperaturerhöhung bei Solar-Überschuss |
+
+### Passive Solarheizung/-beschattung via Rollosteuerung (Roadmap 2.1)
+
+Öffnet die Rolladen eines Zimmers bevor die Heizung anspringt, wenn die Sonne aufs Fenster
+scheint (kostenlose Wärme); optional Beschattung im Sommer. Komplett opt-in – ohne die
+Zimmer-Flags unten wird kein Zimmer angefasst.
+
+**Global (Einstellungen → Hardware & Steuerung):**
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `solar_min_elevation` | 10° | Mindest-Sonnenhöhe damit die Funktion aktiviert |
+| `solar_shade_position` | 20% | Rolladen-Position bei aktiver Beschattung |
+| `solar_heat_min_outdoor` | 5 °C | Unterhalb dieser Außentemperatur lohnt sich Öffnen nicht |
+
+**Pro Zimmer (Add/Edit-Zimmer-Dialog):**
+
+| Parameter | Standard | Beschreibung |
+|-----------|---------|-------------|
+| `cover_entities` | [] | Rolladen-Entitäten (`cover.*`) dieses Zimmers |
+| `window_orientation` | – | Fensterausrichtung: N/NE/E/SE/S/SW/W/NW |
+| `solar_passive_heat` | false | Rolladen öffnen wenn Sonne + Heizbedarf + Außentemp. hoch genug |
+| `solar_passive_cool` | false | Rolladen leicht schließen wenn Raum sich der Komforttemperatur nähert |
+
+Ein offenes Fenster hat immer Vorrang – die Rolladen werden dann nicht angefasst. Von Hand
+verstellte Rolladen werden nicht automatisch zurückgesetzt.
 
 ### Dynamischer Strompreis
 

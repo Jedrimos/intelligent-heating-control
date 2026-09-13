@@ -4480,6 +4480,30 @@ class IHCPanel extends HTMLElement {
             </div>
           </div>
           <hr class="divider">
+          <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Passive Solarheizung (Rolladen)</div>
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
+            Öffnet die Rolladen sonnenzugewandter Zimmer bevor die Heizung anspringt (kostenlose Wärme) bzw.
+            beschattet leicht im Sommer. Muss pro Zimmer aktiviert werden (Rolladen-Entitäten + Fensterausrichtung
+            im Zimmer-Bearbeiten-Dialog).
+          </p>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Min. Sonnenhöhe (°)</label>
+              <input type="number" class="form-input" id="solar-min-elevation" min="0" max="45" step="1" value="${a.solar_min_elevation ?? 10}">
+              <span class="form-hint">Erst ab dieser Sonnenelevation wird die passive Solarheizung/-beschattung aktiv.</span>
+            </div>
+            <div class="settings-item">
+              <label>Beschattungs-Position (%)</label>
+              <input type="number" class="form-input" id="solar-shade-position" min="0" max="100" step="5" value="${a.solar_shade_position ?? 20}">
+              <span class="form-hint">Rolladen-Position bei aktiver Beschattung (0 = ganz zu, 100 = ganz offen).</span>
+            </div>
+            <div class="settings-item">
+              <label>Min. Außentemp. für Solarheizung (°C)</label>
+              <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-10" max="15" step="0.5" value="${a.solar_heat_min_outdoor ?? 5}">
+              <span class="form-hint">Unterhalb dieser Außentemperatur lohnt sich das Öffnen der Rolladen nicht.</span>
+            </div>
+          </div>
+          <hr class="divider">
           <div class="card-title" style="font-size:13px;margin:8px 0">💶 Dynamischer Strompreis (z.B. Tibber)</div>
           <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
             Bei sehr hohen Strompreisen senkt IHC die Zieltemperaturen etwas ab – du heizt dann weniger in der teuren Zeit.
@@ -4925,12 +4949,18 @@ class IHCPanel extends HTMLElement {
       const solarBoost   = parseFloat(content.querySelector("#solar-boost-temp").value);
       const priceThresh  = parseFloat(content.querySelector("#energy-price-threshold").value);
       const priceEco     = parseFloat(content.querySelector("#energy-price-eco-offset").value);
-      if ([solarSurplus, solarBoost, priceThresh, priceEco].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
+      const solarMinElevation = parseFloat(content.querySelector("#solar-min-elevation")?.value);
+      const solarShadePosition = parseInt(content.querySelector("#solar-shade-position")?.value, 10);
+      const solarHeatMinOutdoor = parseFloat(content.querySelector("#solar-heat-min-outdoor")?.value);
+      if ([solarSurplus, solarBoost, priceThresh, priceEco, solarMinElevation, solarShadePosition, solarHeatMinOutdoor].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
       const staticPrice = parseFloat(content.querySelector("#static-energy-price").value);
       this._callService("update_global_settings", {
         solar_entity:            content.querySelector("#solar-entity").value.trim(),
         solar_surplus_threshold: solarSurplus,
         solar_boost_temp:        solarBoost,
+        solar_min_elevation:     solarMinElevation,
+        solar_shade_position:    solarShadePosition,
+        solar_heat_min_outdoor:  solarHeatMinOutdoor,
         energy_price_entity:     content.querySelector("#energy-price-entity").value.trim(),
         energy_price_threshold:  priceThresh,
         energy_price_eco_offset: priceEco,
@@ -5877,6 +5907,49 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
+      <details class="modal-collapsible">
+        <summary>☀️ Passive Solarheizung (Rolladen) <span style="font-size:10px;font-weight:400;margin-left:4px">(optional)</span></summary>
+        <div class="modal-collapsible-body">
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+            Öffnet die Rolladen bevor die Heizung anspringt wenn die Sonne aufs Fenster scheint (kostenlose
+            Wärme), bzw. beschattet leicht wenn der Raum sich im Sommer aufheizt. Braucht Rolladen-Entitäten
+            und die Fensterausrichtung.
+          </div>
+          <div class="modal-section">
+            <div class="modal-section-title">Rolladen-Entitäten (mehrere möglich)</div>
+            <div class="entity-list" id="cover-list">
+              <div class="entity-row">
+                <input type="text" class="form-input" placeholder="cover.wohnzimmer (optional)"
+                  data-ep-domains="cover" autocomplete="off">
+                <button class="btn btn-secondary btn-icon add-entity" data-list="cover-list" data-ep-domains="cover">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Fensterausrichtung</label>
+              <select class="form-select" id="m-window-orientation">
+                <option value="">– keine –</option>
+                <option value="N">N</option><option value="NE">NO</option><option value="E">O</option><option value="SE">SO</option>
+                <option value="S">S</option><option value="SW">SW</option><option value="W">W</option><option value="NW">NW</option>
+              </select>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-passive-heat">
+                Passive Solarheizung
+              </label>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-passive-cool">
+                Passive Beschattung
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <div class="modal-section">
         <div class="modal-section-title">📅 HA Zeitpläne <span style="font-weight:400;font-size:10px">(optional)</span></div>
         <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
@@ -5909,6 +5982,7 @@ class IHCPanel extends HTMLElement {
 
       const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
       const windows = [...modal.querySelectorAll("#window-list input")].map(i => i.value.trim()).filter(Boolean);
+      const covers  = [...modal.querySelectorAll("#cover-list input")].map(i => i.value.trim()).filter(Boolean);
       const ha_schedules = this._collectHaScheduleRows(modal);
 
       await this._callService("add_room", {
@@ -5937,6 +6011,10 @@ class IHCPanel extends HTMLElement {
         max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
         room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
         room_ignore_heating_period: modal.querySelector("#m-ignore-heating-period")?.checked === true,
+        cover_entities:         covers,
+        window_orientation:     modal.querySelector("#m-window-orientation")?.value || "",
+        solar_passive_heat:     modal.querySelector("#m-solar-passive-heat")?.checked === true,
+        solar_passive_cool:     modal.querySelector("#m-solar-passive-cool")?.checked === true,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
@@ -6373,6 +6451,57 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
+      <details class="modal-collapsible" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
+        <summary>☀️ Passive Solarheizung (Rolladen)
+          ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">☀️ Aktiv (${room.solar_cover_position}%)</span>` : ""}
+        </summary>
+        <div class="modal-collapsible-body">
+          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
+            Öffnet die Rolladen bevor die Heizung anspringt wenn die Sonne aufs Fenster scheint (kostenlose
+            Wärme), bzw. beschattet leicht wenn der Raum sich im Sommer aufheizt. Braucht Rolladen-Entitäten
+            und die Fensterausrichtung.
+          </div>
+          <div class="modal-section">
+            <div class="modal-section-title">Rolladen-Entitäten (mehrere möglich)</div>
+            <div class="entity-list" id="cover-list">
+              ${(() => {
+                const covers = (room.cover_entities && room.cover_entities.length > 0) ? room.cover_entities : [""];
+                return covers.map((c, i) => `
+                  <div class="entity-row">
+                    <input type="text" class="form-input" value="${c}" placeholder="cover.wohnzimmer (optional)"
+                      data-ep-domains="cover" autocomplete="off">
+                    ${i === 0
+                      ? `<button class="btn btn-secondary btn-icon add-entity" data-list="cover-list" data-ep-domains="cover">+</button>`
+                      : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
+                  </div>`).join("");
+              })()}
+            </div>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Fensterausrichtung</label>
+              <select class="form-select" id="m-window-orientation">
+                <option value="" ${!room.window_orientation ? "selected" : ""}>– keine –</option>
+                ${["N", "NE", "E", "SE", "S", "SW", "W", "NW"].map(o =>
+                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${o}</option>`).join("")}
+              </select>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-passive-heat" ${room.solar_passive_heat ? "checked" : ""}>
+                Passive Solarheizung
+              </label>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-passive-cool" ${room.solar_passive_cool ? "checked" : ""}>
+                Passive Beschattung
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <details class="modal-collapsible" ${room.humidity_sensor || room.co2_sensor ? "open" : ""}>
         <summary>🌬️ Lüftung &amp; Schimmelschutz</summary>
         <div class="modal-collapsible-body">
@@ -6569,6 +6698,7 @@ class IHCPanel extends HTMLElement {
       const mode    = modal.querySelector("#m-mode").value;
       const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
       const windows = [...modal.querySelectorAll("#window-list input")].map(i => i.value.trim()).filter(Boolean);
+      const covers  = [...modal.querySelectorAll("#cover-list input")].map(i => i.value.trim()).filter(Boolean);
       const ha_schedules = this._collectHaScheduleRows(modal);
       await this._callService("set_room_mode", { id: roomId, mode });
       await this._callService("update_room", {
@@ -6597,6 +6727,10 @@ class IHCPanel extends HTMLElement {
         max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
         room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
         room_ignore_heating_period: modal.querySelector("#m-ignore-heating-period")?.checked === true,
+        cover_entities:         covers,
+        window_orientation:     modal.querySelector("#m-window-orientation")?.value || "",
+        solar_passive_heat:     modal.querySelector("#m-solar-passive-heat")?.checked === true,
+        solar_passive_cool:     modal.querySelector("#m-solar-passive-cool")?.checked === true,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
