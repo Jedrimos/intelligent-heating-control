@@ -60,10 +60,11 @@
       </details>
 
       <!-- ── Temperaturen ───────────────────────────────── -->
-      <details class="ihc-card">
+      <details class="ihc-card" open>
         <summary>
           <span class="ihc-card-title">🌡️ Temperaturen &amp; Sommerautomatik
             ${g.summer_mode ? activeBadge("☀️ Sommer aktiv","warn") : ""}
+            ${!g.heating_period_active ? activeBadge("🍂 Heizperiode inaktiv","warn") : ""}
           </span>
         </summary>
         <div class="ihc-card-body">
