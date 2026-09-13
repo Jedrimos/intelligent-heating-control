@@ -225,6 +225,7 @@
       outdoor_temp:              ot  ? (isNaN(parseFloat(ot.state)) ? null : parseFloat(ot.state)) : null,
       rooms_demanding:           a.rooms_demanding || 0,
       summer_mode:               a.summer_mode || false,
+      summer_mode_entity_set:    !!a.summer_mode_entity,
       heating_period_active:     a.heating_period_active !== false,
       heating_period_auto_active: a.heating_period_auto_active !== false,
       heating_period_rolling_avg: a.heating_period_rolling_avg != null ? parseFloat(a.heating_period_rolling_avg) : null,

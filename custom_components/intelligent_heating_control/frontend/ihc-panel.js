@@ -1118,6 +1118,7 @@ class IHCPanel extends HTMLElement {
       outdoor_temp:              ot  ? (isNaN(parseFloat(ot.state)) ? null : parseFloat(ot.state)) : null,
       rooms_demanding:           a.rooms_demanding || 0,
       summer_mode:               a.summer_mode || false,
+      summer_mode_entity_set:    !!a.summer_mode_entity,
       heating_period_active:     a.heating_period_active !== false,
       heating_period_auto_active: a.heating_period_auto_active !== false,
       heating_period_rolling_avg: a.heating_period_rolling_avg != null ? parseFloat(a.heating_period_rolling_avg) : null,
@@ -1722,7 +1723,20 @@ class IHCPanel extends HTMLElement {
     const _demA = (this._st("sensor.ihc_gesamtanforderung") || { attributes: {} }).attributes;
     const banners = [
       _demA.startup_grace_active ? `<div class="system-banner warn">⏳ <strong>Startup-Gnadenfrist aktiv</strong> – Heizung gesperrt bis alle Sensoren geladen sind</div>` : "",
-      g.summer_mode           ? `<div class="system-banner summer" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</span><button id="btn-disable-summer" style="flex-shrink:0;padding:4px 10px;border:none;border-radius:6px;background:rgba(0,0,0,0.15);color:inherit;cursor:pointer;font-size:12px;font-weight:600">❄️ Jetzt heizen</button></div>` : "",
+      // Sommermodus: mit zugeordnetem Schalter IMMER den aktuellen Status zeigen (an oder aus),
+      // ohne Schalter nur wenn die Automatik gerade tatsächlich sperrt.
+      g.summer_mode_entity_set
+        ? (g.summer_mode
+            ? `<div class="system-banner summer" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>☀️ <strong>Sommermodus-Schalter: AN</strong> – Heizung gesperrt</span><button id="btn-disable-summer" style="flex-shrink:0;padding:4px 10px;border:none;border-radius:6px;background:rgba(0,0,0,0.15);color:inherit;cursor:pointer;font-size:12px;font-weight:600">❄️ Jetzt heizen</button></div>`
+            : `<div class="system-banner" style="background:#2e7d3220;border-left-color:#2e7d32">❄️ <strong>Sommermodus-Schalter: AUS</strong> – Heizung freigegeben</div>`)
+        : (g.summer_mode ? `<div class="system-banner summer" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>☀️ <strong>Sommerautomatik aktiv</strong> – Heizung gesperrt</span><button id="btn-disable-summer" style="flex-shrink:0;padding:4px 10px;border:none;border-radius:6px;background:rgba(0,0,0,0.15);color:inherit;cursor:pointer;font-size:12px;font-weight:600">❄️ Jetzt heizen</button></div>` : ""),
+      // Heizperiode: mit zugeordnetem Schalter IMMER den aktuellen Status zeigen,
+      // ohne Schalter nur die Automatik-Zustände (inaktiv / kurzfristig reaktiviert).
+      g.heating_period_entity_set
+        ? (g.heating_period_active
+            ? `<div class="system-banner" style="background:#2e7d3220;border-left-color:#2e7d32">🔥 <strong>Heizperiode-Schalter: AN</strong> – Heizung freigegeben</div>`
+            : `<div class="system-banner summer">⏸ <strong>Heizperiode-Schalter: AUS</strong> – Heizung gesperrt · Boost pro Zimmer funktioniert trotzdem</div>`)
+        : "",
       !g.heating_period_entity_set && !g.heating_period_active ? `<div class="system-banner summer">🍂 <strong>Heizperiode automatisch inaktiv</strong>${g.heating_period_rolling_avg != null ? ` – Ø ${g.heating_period_rolling_avg}°C` : ""} · Boost pro Zimmer funktioniert trotzdem</div>` : "",
       !g.heating_period_entity_set && g.heating_period_active && g.heating_period_auto_active === false ? `<div class="system-banner cold">🌡️ <strong>Heizperiode kurzfristig reaktiviert</strong> – kalter Tag vorhergesagt</div>` : "",
       g.forecast_coldnight_active ? `<div class="system-banner cold">❄️ <strong>Kälte heute Nacht</strong> – Heizung startet ${g.forecast_advance_hours ?? 3}h früher (${g.weather_forecast?.forecast_today_min}°C erwartet)</div>` : "",
