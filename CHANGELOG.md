@@ -10,6 +10,22 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### Gefixt
+- **Systemmodus-Schalter im Dashboard wirkungslos bei einzeln ausgeschalteten Zimmern:**
+  Zimmer, die individuell auf "Aus" gestellt waren, reagierten nicht auf globale
+  Systemmodus-Wechsel (Abwesend/Urlaub/Gäste/Heizen) – Ventil blieb zu und Anforderung
+  blieb bei 0 %, obwohl `_calculate_target_temp()` laut eigener Priorität (System-Modus
+  steht über Zimmer-Modus) längst die neue Solltemperatur berechnet hatte. Ursache: die
+  TRV-Anwendungsphase und die Anforderungsberechnung hatten je eine eigene
+  Sonderbehandlung für `room_mode == "off"`, die diese Priorität nicht kannte und das
+  Ventil unabhängig vom Systemmodus zugehalten hat. Ein global ausgelöster Modus
+  überstimmt jetzt auch einzeln ausgeschaltete Zimmer (Fenster-offen und System-Aus
+  bleiben unverändert die stärksten Zustände).
+- **Systemmodus "🔥 Heizen" war eine reine Attrappe:** Der Button existierte im Dashboard
+  und der Wert war ein gültiger Systemmodus, aber es gab keine einzige Codezeile, die
+  ihn auswertet hat – er verhielt sich exakt wie "Automatisch", nur ohne jede Wirkung.
+  Jetzt erzwingt "Heizen" für alle Zimmer die Komforttemperatur, unabhängig von
+  Zeitplan/Zimmermodus – gedacht als Notfall-Override (z. B. kalter Tag, Heizperiode
+  noch aus, aber warmes Wasser/warmes Zimmer sofort nötig).
 - **Boost ignorierte den Heizperioden-Schalter:** Bei `CONF_HEATING_PERIOD_ENTITY` = aus wurden
   alle TRVs bedingungslos abgeschaltet – auch bei aktivem Boost. Dadurch ließ sich die Heizung
   in der Übergangszeit nicht mal manuell kurz anschalten. Boost wird jetzt VOR der

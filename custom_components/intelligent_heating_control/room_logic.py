@@ -87,6 +87,7 @@ from .const import (
     SYSTEM_MODE_AWAY,
     SYSTEM_MODE_VACATION,
     SYSTEM_MODE_GUEST,
+    SYSTEM_MODE_HEAT,
 )
 from .schedule_manager import ScheduleManager
 
@@ -555,6 +556,14 @@ class RoomLogicMixin:
         if system_mode == SYSTEM_MODE_GUEST:
             return min(max_temp, max(min_temp, comfort_base + room_offset)), {
                 "source": "guest_mode", "schedule_active": False
+            }
+
+        if system_mode == SYSTEM_MODE_HEAT:
+            # Explicit "heat now" override: force full comfort heating everywhere,
+            # ignoring schedule/room mode (e.g. cold day, Heizperiode still off,
+            # need hot water NOW). Same priority as the other system-mode overrides.
+            return min(max_temp, max(min_temp, comfort_base + room_offset)), {
+                "source": "system_heat", "schedule_active": False
             }
 
         # --- 1c. Room temperature threshold override (Blueprint: input_mode_room_temperature_threshold) ---

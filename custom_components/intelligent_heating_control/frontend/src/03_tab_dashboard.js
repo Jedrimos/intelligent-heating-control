@@ -27,6 +27,7 @@
       "preheat": "⏱ Vorheizen", "comfort": "Komfort",
       "eco": "Eco", "sleep": "Schlafen",
       "system_away": "Sys. Abwesend", "system_vacation": "Urlaub",
+      "system_heat": "🔥 Heizen erzwungen",
       "room_off": "Aus", "manual": "Manuell", "room_away": "Abwesend",
       "system_off": "⛔ Aus",
       "frost_protection": "❄ Frostschutz",
@@ -39,10 +40,10 @@
     };
 
     // Which system modes fully override room modes? (must be defined before roomCards map)
-    const OVERRIDE_MODES = ["away", "vacation", "off", "guest"];
+    const OVERRIDE_MODES = ["away", "vacation", "off", "guest", "heat"];
     const systemOverrides = OVERRIDE_MODES.includes(g.system_mode);
     const overrideLabel = systemOverrides
-      ? ({ away: "🚶 Abwesend", vacation: "✈️ Urlaub", off: "⛔ Aus", guest: "🎉 Gäste" }[g.system_mode] || g.system_mode)
+      ? ({ away: "🚶 Abwesend", vacation: "✈️ Urlaub", off: "⛔ Aus", guest: "🎉 Gäste", heat: "🔥 Heizen erzwungen" }[g.system_mode] || g.system_mode)
       : null;
 
     const roomCards = sortedRooms.map(room => {
