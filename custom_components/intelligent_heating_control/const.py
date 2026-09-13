@@ -63,6 +63,10 @@ CONF_SLEEP_OFFSET: Final = "sleep_offset"          # °C below comfort/curve tar
 CONF_AWAY_OFFSET: Final = "away_offset"            # °C below comfort/curve target (per room away)
 CONF_ECO_MAX_TEMP: Final = "eco_max_temp"          # hard ceiling for eco temperature
 CONF_SLEEP_MAX_TEMP: Final = "sleep_max_temp"      # hard ceiling for sleep temperature
+# Optional: night-long temperature curve instead of a fixed sleep_offset, e.g.
+# [{"time": "22:00", "temp": 19}, {"time": "03:00", "temp": 16}, {"time": "06:00", "temp": 18}].
+# Empty list (default) = feature off, falls back to sleep_offset/sleep_max_temp as before.
+CONF_SLEEP_TEMP_PROFILE: Final = "sleep_temp_profile"
 CONF_AWAY_MAX_TEMP: Final = "away_max_temp"        # hard ceiling for per-room away temperature
 CONF_HA_SCHEDULE_OFF_MODE: Final = "ha_schedule_off_mode"  # "eco" or "sleep" when no HA schedule active
 CONF_RADIATOR_KW: Final = "radiator_kw"          # rated heat output of this room's radiator(s) in kW

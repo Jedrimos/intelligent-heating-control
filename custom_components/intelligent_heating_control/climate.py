@@ -96,6 +96,7 @@ from .const import (
     DEFAULT_ROOM_TEMP_THRESHOLD,
     CONF_ROOM_IGNORE_HEATING_PERIOD,
     DEFAULT_ROOM_IGNORE_HEATING_PERIOD,
+    CONF_SLEEP_TEMP_PROFILE,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
     CONF_COMFORT_EXTEND_ENTITY,
@@ -175,6 +176,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         "trv_calibrations",
         "trv_stuck_valves",
         "comfort_extend_entries",
+        "sleep_temp_profile",
         # ── Sensor / entity-ID references ─────────────────────────────────────
         "temp_sensor",
         "humidity_sensor",
@@ -378,6 +380,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "away_offset": room_cfg.get("away_offset", 6.0),
             "eco_max_temp": room_cfg.get("eco_max_temp", 21.0),
             "sleep_max_temp": room_cfg.get("sleep_max_temp", 19.0),
+            "sleep_temp_profile": room_cfg.get(CONF_SLEEP_TEMP_PROFILE, []),
             "away_max_temp": room_cfg.get("away_max_temp", 18.0),
             "ha_schedule_off_mode": room_cfg.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE),
             "ha_schedule_entity": d.get("ha_schedule_entity", ""),

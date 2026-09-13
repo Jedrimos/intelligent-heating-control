@@ -156,6 +156,15 @@ add_room:
           min: 10
           max: 25
           step: 0.5
+    sleep_temp_profile:
+      name: Schlaf-Temperaturprofil (optional)
+      description: >-
+        Liste von {time: "HH:MM", temp: float}-Punkten für eine Nacht-Temperaturkurve statt
+        einem festen Schlaf-Abzug, z.B. 19°C beim Einschlafen -> 16°C um 2-4 Uhr -> 18°C ab
+        6 Uhr. Leer (Standard) = deaktiviert, es gilt sleep_offset/sleep_max_temp wie bisher.
+      required: false
+      selector:
+        object:
     away_max_temp:
       name: Abwesend-Maximum (°C)
       required: false
@@ -576,6 +585,14 @@ update_room:
           min: 10
           max: 25
           step: 0.5
+    sleep_temp_profile:
+      name: Schlaf-Temperaturprofil (optional)
+      description: >-
+        Liste von {time: "HH:MM", temp: float}-Punkten für eine Nacht-Temperaturkurve statt
+        einem festen Schlaf-Abzug. Leer = deaktiviert, es gilt sleep_offset/sleep_max_temp.
+      required: false
+      selector:
+        object:
     away_offset:
       name: Abwesend-Abzug (°C)
       required: false

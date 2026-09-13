@@ -207,6 +207,17 @@
             <input type="number" class="form-input" id="m-sleep-max" value="19" step="0.5" min="10" max="25">
             <span class="form-hint">Schlaf nie höher als dieser Wert</span>
           </div>
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>🌙 Schlaf-Temperaturprofil <span style="font-weight:400;font-size:10px">(optional – überschreibt Schlaf-Abzug wenn gesetzt)</span></label>
+            <div id="m-sleep-profile-list">
+              <div class="entity-row sp-row">
+                <input type="time" class="form-input" style="max-width:110px" data-sp-field="time" value="22:00">
+                <input type="number" class="form-input" style="max-width:90px" data-sp-field="temp" placeholder="°C" step="0.5" min="5" max="30">
+                <button class="btn btn-secondary btn-icon" id="m-add-sp-point">+</button>
+              </div>
+            </div>
+            <span class="form-hint">Uhrzeit · Temperatur – z.B. 22:00/19°C, 02:00/16°C, 06:00/18°C. Leer lassen für den festen Schlaf-Abzug oben.</span>
+          </div>
           <div class="settings-item">
             <label>Abwesend Abzug (°C)</label>
             <input type="number" class="form-input" id="m-away-offset" value="6" step="0.5" min="0" max="15">
@@ -459,6 +470,9 @@
         eco_max_temp:           parseFloat(modal.querySelector("#m-eco-max")?.value) || 21.0,
         sleep_offset:           parseFloat(modal.querySelector("#m-sleep-offset")?.value) || 4.0,
         sleep_max_temp:         parseFloat(modal.querySelector("#m-sleep-max")?.value) || 19.0,
+        sleep_temp_profile:     [...modal.querySelectorAll("#m-sleep-profile-list .sp-row")]
+          .map(r => ({ time: r.querySelector('[data-sp-field="time"]')?.value || "", temp: parseFloat(r.querySelector('[data-sp-field="temp"]')?.value) }))
+          .filter(p => p.time && !isNaN(p.temp)),
         away_offset:            parseFloat(modal.querySelector("#m-away-offset")?.value) || 6.0,
         away_max_temp:          parseFloat(modal.querySelector("#m-away-max")?.value) || 18.0,
         ha_schedule_off_mode:   modal.querySelector("#m-sched-off-mode")?.value || "eco",
@@ -516,6 +530,7 @@
     this._bindEntityListAdders();
     this._bindHaSchedAdder([], "m-ha-sched-list", "m-add-ha-sched");
     this._bindComfortExtendAdder("m-comfort-extend-list", "m-add-ce-entry");
+    this._bindSleepProfileAdder("m-sleep-profile-list", "m-add-sp-point");
     // Pickers are attached by _showModal already; schedule rows attached separately
   }
 
@@ -629,6 +644,23 @@
             <label>Schlaf Maximum (°C)</label>
             <input type="number" class="form-input" id="m-sleep-max" value="${room.sleep_max_temp}" step="0.5" min="10" max="25">
             <span class="form-hint">Schlaf nie höher als dieser Wert</span>
+          </div>
+          <div class="settings-item" style="grid-column:1/-1">
+            <label>🌙 Schlaf-Temperaturprofil <span style="font-weight:400;font-size:10px">(optional – überschreibt Schlaf-Abzug wenn gesetzt)</span></label>
+            <div id="m-sleep-profile-list">
+              ${(() => {
+                const points = (room.sleep_temp_profile && room.sleep_temp_profile.length > 0) ? room.sleep_temp_profile : [{ time: "22:00", temp: "" }];
+                return points.map((p, i) => `
+                  <div class="entity-row sp-row">
+                    <input type="time" class="form-input" style="max-width:110px" data-sp-field="time" value="${p.time || ''}">
+                    <input type="number" class="form-input" style="max-width:90px" data-sp-field="temp" placeholder="°C" step="0.5" min="5" max="30" value="${p.temp ?? ''}">
+                    ${i === 0
+                      ? `<button class="btn btn-secondary btn-icon" id="m-add-sp-point">+</button>`
+                      : `<button class="btn btn-danger btn-icon remove-sp-point">✕</button>`}
+                  </div>`).join("");
+              })()}
+            </div>
+            <span class="form-hint">Uhrzeit · Temperatur – z.B. 22:00/19°C, 02:00/16°C, 06:00/18°C. Leer lassen für den festen Schlaf-Abzug oben.</span>
           </div>
           <div class="settings-item">
             <label>Abwesend Abzug (°C)</label>
@@ -1097,6 +1129,9 @@
         eco_max_temp:          parseFloat(modal.querySelector("#m-eco-max").value),
         sleep_offset:          parseFloat(modal.querySelector("#m-sleep-offset").value),
         sleep_max_temp:        parseFloat(modal.querySelector("#m-sleep-max").value),
+        sleep_temp_profile:    [...modal.querySelectorAll("#m-sleep-profile-list .sp-row")]
+          .map(r => ({ time: r.querySelector('[data-sp-field="time"]')?.value || "", temp: parseFloat(r.querySelector('[data-sp-field="temp"]')?.value) }))
+          .filter(p => p.time && !isNaN(p.temp)),
         away_offset:           parseFloat(modal.querySelector("#m-away-offset").value),
         away_max_temp:         parseFloat(modal.querySelector("#m-away-max").value),
         ha_schedule_off_mode:  modal.querySelector("#m-sched-off-mode")?.value || "eco",
@@ -1178,6 +1213,7 @@
     this._bindEntityListAdders();
     this._bindHaSchedAdder(room.ha_schedules || [], "m-ha-sched-list", "m-add-ha-sched");
     this._bindComfortExtendAdder("m-comfort-extend-list", "m-add-ce-entry");
+    this._bindSleepProfileAdder("m-sleep-profile-list", "m-add-sp-point");
   }
 
   _showConfirmModal(title, body, onConfirm) {
@@ -1285,6 +1321,30 @@
             <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="on" data-ce-field="state">
             <button class="btn btn-danger btn-icon remove-ce-entry">✕</button>`;
           row.querySelector(".remove-ce-entry").addEventListener("click", () => row.remove());
+          list.appendChild(row);
+        });
+      }
+    }, 50);
+  }
+
+  /** Binds the add/remove buttons for sleep-temperature-profile point rows. */
+  _bindSleepProfileAdder(listId, addBtnId) {
+    setTimeout(() => {
+      const list = this.shadowRoot.querySelector(`#${listId}`);
+      if (!list) return;
+      list.querySelectorAll(".remove-sp-point").forEach(btn => {
+        btn.addEventListener("click", () => btn.closest(".sp-row").remove());
+      });
+      const addBtn = this.shadowRoot.querySelector(`#${addBtnId}`);
+      if (addBtn) {
+        addBtn.addEventListener("click", () => {
+          const row = document.createElement("div");
+          row.className = "entity-row sp-row";
+          row.innerHTML = `
+            <input type="time" class="form-input" style="max-width:110px" data-sp-field="time" value="">
+            <input type="number" class="form-input" style="max-width:90px" data-sp-field="temp" placeholder="°C" step="0.5" min="5" max="30">
+            <button class="btn btn-danger btn-icon remove-sp-point">✕</button>`;
+          row.querySelector(".remove-sp-point").addEventListener("click", () => row.remove());
           list.appendChild(row);
         });
       }

@@ -21,6 +21,41 @@ def _parse_time(time_str: str) -> time:
     return time(int(parts[0]), int(parts[1]))
 
 
+def interpolate_sleep_profile(profile: list, now: time) -> Optional[float]:
+    """Interpolate a sleep-temperature profile ([{"time": "HH:MM", "temp": float}, ...])
+    for the given time-of-night, wrapping across midnight since a night profile spans
+    two calendar days (e.g. 22:00 -> 02:00 -> 06:00 -> back to 22:00).
+
+    Points don't need to be pre-sorted. Returns None if the profile is empty or every
+    entry is malformed (missing/unparsable "time"/"temp").
+    """
+    points = []
+    for p in profile:
+        try:
+            t = _parse_time(p["time"])
+            temp = float(p["temp"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        points.append((t.hour * 60 + t.minute, temp))
+    if not points:
+        return None
+    if len(points) == 1:
+        return points[0][1]
+
+    points.sort(key=lambda pt: pt[0])
+    now_minutes = now.hour * 60 + now.minute
+
+    for i, (t0, v0) in enumerate(points):
+        t1, v1 = points[(i + 1) % len(points)]
+        span = (t1 - t0) % 1440
+        if span == 0:
+            continue
+        offset = (now_minutes - t0) % 1440
+        if offset <= span:
+            return round(v0 + (v1 - v0) * (offset / span), 2)
+    return points[0][1]  # unreachable in practice - every point is covered by some segment
+
+
 class ScheduleManager:
     """
     Manages weekly schedules for a room.

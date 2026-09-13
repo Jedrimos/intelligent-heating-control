@@ -37,6 +37,7 @@ from .const import (
     CONF_ECO_MAX_TEMP,
     CONF_SLEEP_OFFSET,
     CONF_SLEEP_MAX_TEMP,
+    CONF_SLEEP_TEMP_PROFILE,
     CONF_AWAY_OFFSET,
     CONF_AWAY_MAX_TEMP,
     CONF_HA_SCHEDULES,
@@ -89,7 +90,7 @@ from .const import (
     SYSTEM_MODE_GUEST,
     SYSTEM_MODE_HEAT,
 )
-from .schedule_manager import ScheduleManager
+from .schedule_manager import ScheduleManager, interpolate_sleep_profile
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -480,7 +481,14 @@ class RoomLogicMixin:
 
         sleep_offset = float(room.get(CONF_SLEEP_OFFSET, DEFAULT_SLEEP_OFFSET))
         sleep_max    = float(room.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP))
-        sleep_base   = min(sleep_max, min(max_temp, max(effective_floor, comfort_base - sleep_offset)))
+        sleep_profile = room.get(CONF_SLEEP_TEMP_PROFILE, [])
+        profile_temp = interpolate_sleep_profile(sleep_profile, dt_util.now().time()) if sleep_profile else None
+        if profile_temp is not None:
+            # Profile points are absolute target temps (not offsets from comfort) -
+            # only clamp to the room's hard floor/ceiling, sleep_max_temp doesn't apply here.
+            sleep_base = min(max_temp, max(effective_floor, profile_temp))
+        else:
+            sleep_base   = min(sleep_max, min(max_temp, max(effective_floor, comfort_base - sleep_offset)))
 
         away_offset  = float(room.get(CONF_AWAY_OFFSET, DEFAULT_AWAY_OFFSET))
         away_max     = float(room.get(CONF_AWAY_MAX_TEMP, DEFAULT_AWAY_MAX_TEMP))
