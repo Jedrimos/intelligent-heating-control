@@ -355,6 +355,10 @@ CONF_HEATING_PERIOD_AUTO_HIGH_TEMP: Final = "heating_period_auto_high_temp"
 DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP: Final = 16.0  # °C Ø – darüber: Heizperiode inaktiv
 CONF_HEATING_PERIOD_AUTO_DAYS: Final = "heating_period_auto_days"
 DEFAULT_HEATING_PERIOD_AUTO_DAYS: Final = 3  # Fenstergröße des gleitenden Mittels (Tage)
+# Statt ein Zimmer nur still zu sperren: Benachrichtigung wenn die (aktive) Heizperiode ein Zimmer
+# blockiert, das eigentlich heizen würde (Sommerautomatik ist ein bewusster Block, kein Hinweis nötig).
+CONF_HEATING_PERIOD_NOTIFY_ENABLED: Final = "heating_period_notify_enabled"
+DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED: Final = True
 
 # Anwesenheits-Verzögerung: Minuten bis Auto-Away nach Abwesenheit aller Personen
 CONF_PRESENCE_AWAY_DELAY_MINUTES: Final = "presence_away_delay_minutes"
@@ -390,6 +394,12 @@ DEFAULT_AGGRESSIVE_MODE_OFFSET: Final = 3.0
 # Pro-Zimmer Temperaturschwelle: Heizt immer wenn Raumtemperatur darunter liegt (Blueprint: input_mode_room_temperature_threshold)
 CONF_ROOM_TEMP_THRESHOLD: Final = "room_temp_threshold"  # °C, 0.0 = deaktiviert
 DEFAULT_ROOM_TEMP_THRESHOLD: Final = 0.0
+
+# Pro-Zimmer Ausnahme: dieses Zimmer heizt immer nach Zeitplan/Modus, auch wenn die (automatische
+# oder manuelle) Heizperiode gerade inaktiv ist - z.B. Bad, das ganzjährig heizbar bleiben soll.
+# Sommerautomatik bleibt davon unberührt (macht bei echter Sommerhitze ohnehin keinen Sinn).
+CONF_ROOM_IGNORE_HEATING_PERIOD: Final = "room_ignore_heating_period"
+DEFAULT_ROOM_IGNORE_HEATING_PERIOD: Final = False
 
 # Pro-Zimmer dynamische Temperaturen via HA-Entitäten (Blueprint: input_temperature_comfort/eco)
 CONF_COMFORT_TEMP_ENTITY: Final = "comfort_temp_entity"  # input_number.* für dynamischen Komfort-Sollwert

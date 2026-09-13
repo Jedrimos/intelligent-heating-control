@@ -4191,6 +4191,13 @@ class IHCPanel extends HTMLElement {
               <input type="number" class="form-input" id="hp-auto-days" min="1" max="14" step="1" value="${a.heating_period_auto_days ?? 3}">
               <span class="form-hint">Größer = träger/stabiler, kleiner = reagiert schneller auf einen Wetterumschwung.</span>
             </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="hp-notify-enabled" ${a.heating_period_notify_enabled !== false ? "checked" : ""}>
+                Benachrichtigen statt still sperren
+              </label>
+              <span class="form-hint">Sendet eine Persistent-Notification, wenn ein Zimmer eigentlich heizen würde, die Heizperiode das aber gerade verhindert (Sommerautomatik-Blocks lösen bewusst keine Benachrichtigung aus).</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-temp-settings">💾 Temperaturen speichern</button>
@@ -4795,6 +4802,7 @@ class IHCPanel extends HTMLElement {
         heating_period_auto_low_temp:  hpLow,
         heating_period_auto_high_temp: hpHigh,
         heating_period_auto_days:      hpDays,
+        heating_period_notify_enabled: content.querySelector("#hp-notify-enabled")?.checked === true,
       });
       this._toast("✓ Temperatur-Einstellungen gespeichert");
     });
@@ -5695,6 +5703,13 @@ class IHCPanel extends HTMLElement {
             <input type="number" class="form-input" id="m-room-temp-threshold" value="0" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
             <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
           </div>
+          <div class="settings-item" style="grid-column:1/-1">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="m-ignore-heating-period">
+              Heizperiode für dieses Zimmer ignorieren
+            </label>
+            <span class="form-hint">Zimmer heizt immer nach Zeitplan/Modus, auch wenn die Heizperiode gerade inaktiv ist (z.B. Bad)</span>
+          </div>
           <div class="settings-item">
             <label>HA Klimaregler – Min.-Temperatur (°C)</label>
             <input type="number" class="form-input" id="m-min-temp" value="5" step="0.5" min="4" max="15">
@@ -5862,6 +5877,7 @@ class IHCPanel extends HTMLElement {
         min_temp:               parseFloat(modal.querySelector("#m-min-temp")?.value) || 5.0,
         max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
         room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
+        room_ignore_heating_period: modal.querySelector("#m-ignore-heating-period")?.checked === true,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
@@ -6121,6 +6137,13 @@ class IHCPanel extends HTMLElement {
               <input type="number" class="form-input" id="m-room-temp-threshold"
                 value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
               <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="m-ignore-heating-period" ${room.ignore_heating_period ? "checked" : ""}>
+                Heizperiode für dieses Zimmer ignorieren
+              </label>
+              <span class="form-hint">Zimmer heizt immer nach Zeitplan/Modus, auch wenn die Heizperiode gerade inaktiv ist (z.B. Bad)</span>
             </div>
             <div class="settings-item">
               <label>HA Klimaregler – Min.-Temperatur (°C)</label>
@@ -6493,6 +6516,7 @@ class IHCPanel extends HTMLElement {
         min_temp:               parseFloat(modal.querySelector("#m-min-temp")?.value) || 5.0,
         max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
         room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
+        room_ignore_heating_period: modal.querySelector("#m-ignore-heating-period")?.checked === true,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,

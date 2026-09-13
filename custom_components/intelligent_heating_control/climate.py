@@ -94,6 +94,8 @@ from .const import (
     DEFAULT_WINDOW_CASCADE_OFFSET,
     CONF_ROOM_TEMP_THRESHOLD,
     DEFAULT_ROOM_TEMP_THRESHOLD,
+    CONF_ROOM_IGNORE_HEATING_PERIOD,
+    DEFAULT_ROOM_IGNORE_HEATING_PERIOD,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
     CONF_COMFORT_EXTEND_ENTITY,
@@ -423,6 +425,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "window_restore_mode": room_cfg.get(CONF_WINDOW_RESTORE_MODE, DEFAULT_WINDOW_RESTORE_MODE),
             # Room temperature threshold
             "room_temp_threshold": room_cfg.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD),
+            "ignore_heating_period": room_cfg.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD),
             # Dynamic temperature entities
             "comfort_temp_entity": room_cfg.get(CONF_COMFORT_TEMP_ENTITY, ""),
             "eco_temp_entity": room_cfg.get(CONF_ECO_TEMP_ENTITY, ""),

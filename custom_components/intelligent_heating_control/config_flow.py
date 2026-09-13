@@ -36,6 +36,8 @@ from .const import (
     DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP,
     CONF_HEATING_PERIOD_AUTO_DAYS,
     DEFAULT_HEATING_PERIOD_AUTO_DAYS,
+    CONF_HEATING_PERIOD_NOTIFY_ENABLED,
+    DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED,
     CONF_PRESENCE_AWAY_DELAY_MINUTES,
     DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
@@ -142,6 +144,8 @@ from .const import (
     CONF_TRV_CALIBRATIONS,
     CONF_ROOM_TEMP_THRESHOLD,
     DEFAULT_ROOM_TEMP_THRESHOLD,
+    CONF_ROOM_IGNORE_HEATING_PERIOD,
+    DEFAULT_ROOM_IGNORE_HEATING_PERIOD,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
     CONF_COMFORT_EXTEND_ENTITY,
@@ -411,6 +415,10 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_HEATING_PERIOD_AUTO_DAYS,
                 default=int(cfg.get(CONF_HEATING_PERIOD_AUTO_DAYS, DEFAULT_HEATING_PERIOD_AUTO_DAYS))
             ): selector.selector({"number": {"min": 1, "max": 14, "step": 1, "unit_of_measurement": "Tage"}}),
+            vol.Optional(
+                CONF_HEATING_PERIOD_NOTIFY_ENABLED,
+                default=bool(cfg.get(CONF_HEATING_PERIOD_NOTIFY_ENABLED, DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED))
+            ): selector.selector({"boolean": {}}),
             # --- Anwesenheits-Verzögerung ---
             vol.Optional(
                 CONF_PRESENCE_AWAY_DELAY_MINUTES,
@@ -722,6 +730,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_PRESENCE_SENSOR_ON_DELAY: int(user_input.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY)),
                 CONF_PRESENCE_SENSOR_OFF_DELAY: int(user_input.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY)),
                 CONF_ROOM_TEMP_THRESHOLD: float(user_input.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
+                CONF_ROOM_IGNORE_HEATING_PERIOD: bool(user_input.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
                 CONF_COMFORT_TEMP_ENTITY: user_input.get(CONF_COMFORT_TEMP_ENTITY, ""),
                 CONF_ECO_TEMP_ENTITY: user_input.get(CONF_ECO_TEMP_ENTITY, ""),
                 CONF_COMFORT_EXTEND_ENTITY: user_input.get(CONF_COMFORT_EXTEND_ENTITY, ""),
@@ -873,6 +882,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ROOM_TEMP_THRESHOLD, default=DEFAULT_ROOM_TEMP_THRESHOLD): selector.selector({
                 "number": {"min": 0, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
+            vol.Optional(CONF_ROOM_IGNORE_HEATING_PERIOD, default=DEFAULT_ROOM_IGNORE_HEATING_PERIOD): selector.selector({"boolean": {}}),
             vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_ECO_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_COMFORT_EXTEND_ENTITY, default=""): selector.selector({"text": {}}),
@@ -1063,6 +1073,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ROOM_TEMP_THRESHOLD, default=float(room.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD))): selector.selector({
                 "number": {"min": 0, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
+            vol.Optional(CONF_ROOM_IGNORE_HEATING_PERIOD, default=bool(room.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=room.get(CONF_COMFORT_TEMP_ENTITY, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_ECO_TEMP_ENTITY, default=room.get(CONF_ECO_TEMP_ENTITY, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_COMFORT_EXTEND_ENTITY, default=room.get(CONF_COMFORT_EXTEND_ENTITY, "")): selector.selector({"text": {}}),

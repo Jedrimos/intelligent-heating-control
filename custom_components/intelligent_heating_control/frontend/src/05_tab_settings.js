@@ -154,6 +154,13 @@
               <input type="number" class="form-input" id="hp-auto-days" min="1" max="14" step="1" value="${a.heating_period_auto_days ?? 3}">
               <span class="form-hint">Größer = träger/stabiler, kleiner = reagiert schneller auf einen Wetterumschwung.</span>
             </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="hp-notify-enabled" ${a.heating_period_notify_enabled !== false ? "checked" : ""}>
+                Benachrichtigen statt still sperren
+              </label>
+              <span class="form-hint">Sendet eine Persistent-Notification, wenn ein Zimmer eigentlich heizen würde, die Heizperiode das aber gerade verhindert (Sommerautomatik-Blocks lösen bewusst keine Benachrichtigung aus).</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-temp-settings">💾 Temperaturen speichern</button>
@@ -758,6 +765,7 @@
         heating_period_auto_low_temp:  hpLow,
         heating_period_auto_high_temp: hpHigh,
         heating_period_auto_days:      hpDays,
+        heating_period_notify_enabled: content.querySelector("#hp-notify-enabled")?.checked === true,
       });
       this._toast("✓ Temperatur-Einstellungen gespeichert");
     });

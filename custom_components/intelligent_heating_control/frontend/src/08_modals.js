@@ -293,6 +293,13 @@
             <input type="number" class="form-input" id="m-room-temp-threshold" value="0" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
             <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
           </div>
+          <div class="settings-item" style="grid-column:1/-1">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="m-ignore-heating-period">
+              Heizperiode für dieses Zimmer ignorieren
+            </label>
+            <span class="form-hint">Zimmer heizt immer nach Zeitplan/Modus, auch wenn die Heizperiode gerade inaktiv ist (z.B. Bad)</span>
+          </div>
           <div class="settings-item">
             <label>HA Klimaregler – Min.-Temperatur (°C)</label>
             <input type="number" class="form-input" id="m-min-temp" value="5" step="0.5" min="4" max="15">
@@ -460,6 +467,7 @@
         min_temp:               parseFloat(modal.querySelector("#m-min-temp")?.value) || 5.0,
         max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
         room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
+        room_ignore_heating_period: modal.querySelector("#m-ignore-heating-period")?.checked === true,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
@@ -719,6 +727,13 @@
               <input type="number" class="form-input" id="m-room-temp-threshold"
                 value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
               <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="m-ignore-heating-period" ${room.ignore_heating_period ? "checked" : ""}>
+                Heizperiode für dieses Zimmer ignorieren
+              </label>
+              <span class="form-hint">Zimmer heizt immer nach Zeitplan/Modus, auch wenn die Heizperiode gerade inaktiv ist (z.B. Bad)</span>
             </div>
             <div class="settings-item">
               <label>HA Klimaregler – Min.-Temperatur (°C)</label>
@@ -1091,6 +1106,7 @@
         min_temp:               parseFloat(modal.querySelector("#m-min-temp")?.value) || 5.0,
         max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
         room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
+        room_ignore_heating_period: modal.querySelector("#m-ignore-heating-period")?.checked === true,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,

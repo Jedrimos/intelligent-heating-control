@@ -421,6 +421,15 @@ add_room:
           min: 0
           max: 25
           step: 0.5
+    room_ignore_heating_period:
+      name: Heizperiode für dieses Zimmer ignorieren
+      description: >-
+        Zimmer heizt immer nach Zeitplan/Modus, auch wenn die Heizperiode (manuell oder
+        automatisch) gerade inaktiv ist - z.B. für ein Bad, das ganzjährig heizbar bleiben soll.
+        Sommerautomatik bleibt davon unberührt.
+      required: false
+      selector:
+        boolean:
     comfort_temp_entity:
       name: Komfort-Temp-Entität
       description: input_number.* Entität für dynamischen Komfort-Sollwert
@@ -771,6 +780,15 @@ update_room:
           min: 0
           max: 25
           step: 0.5
+    room_ignore_heating_period:
+      name: Heizperiode für dieses Zimmer ignorieren
+      description: >-
+        Zimmer heizt immer nach Zeitplan/Modus, auch wenn die Heizperiode (manuell oder
+        automatisch) gerade inaktiv ist - z.B. für ein Bad, das ganzjährig heizbar bleiben soll.
+        Sommerautomatik bleibt davon unberührt.
+      required: false
+      selector:
+        boolean:
     comfort_temp_entity:
       name: Komfort-Temp-Entität
       description: input_number.* Entität für dynamischen Komfort-Sollwert
@@ -1208,6 +1226,15 @@ update_global_settings:
           max: 14
           step: 1
           unit_of_measurement: Tage
+    heating_period_notify_enabled:
+      name: Benachrichtigung bei blockiertem Zimmer
+      description: >-
+        Statt ein Zimmer bei inaktiver Heizperiode nur still zu sperren: sende eine
+        Persistent-Notification wenn ein Zimmer eigentlich heizen würde. Sommerautomatik
+        ist ein bewusster Block und löst keine Benachrichtigung aus.
+      required: false
+      selector:
+        boolean:
     outdoor_temp_smoothing_minutes:
       name: Außentemp. Glättung (min)
       description: Gleitender Durchschnitt der Außentemperatur in Minuten

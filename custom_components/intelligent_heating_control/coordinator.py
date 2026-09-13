@@ -76,6 +76,10 @@ from .const import (
     DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP,
     CONF_HEATING_PERIOD_AUTO_DAYS,
     DEFAULT_HEATING_PERIOD_AUTO_DAYS,
+    CONF_ROOM_IGNORE_HEATING_PERIOD,
+    DEFAULT_ROOM_IGNORE_HEATING_PERIOD,
+    CONF_HEATING_PERIOD_NOTIFY_ENABLED,
+    DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED,
     CONF_PRESENCE_AWAY_DELAY_MINUTES,
     DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
@@ -455,6 +459,10 @@ class IHCCoordinator(
         self._heating_period_day_count: int = 0
         self._heating_period_day_date: Optional[date] = None
         self._heating_period_auto_active: bool = True  # hysteresis state; safe default until enough history
+        # Rooms currently shown a "Heizperiode blockiert dieses Zimmer" notification -
+        # transient (not persisted), just tracks rising/falling edges to avoid re-firing
+        # the same persistent_notification every update cycle.
+        self._heating_period_notified_rooms: set = set()
 
         # v1.8 – CO₂ rate-of-rise tracking per room: {room_id: [(datetime, ppm), ...]}
         self._co2_history: Dict[str, list] = {}
@@ -1033,6 +1041,71 @@ class IHCCoordinator(
                     return True  # cold day predicted – keep heating available
 
         return False
+
+    def _check_heating_period_notifications(
+        self, room_data: Dict[str, dict], summer_mode: bool, heating_period_active: bool
+    ) -> None:
+        """Notify instead of silently blocking: if the Heizperiode gate (not
+        Sommerautomatik - that's an intentional block, no hint needed) is preventing
+        a room that actually wants to heat, send a persistent notification suggesting
+        Boost or the per-room "ignore Heizperiode" option, instead of leaving the user
+        guessing why a room stays cold (the original real-world bug report).
+        Uses a stable notification_id per room so persistent_notification.create just
+        refreshes it - no duplicate spam - and dismisses it once no longer relevant.
+        """
+        cfg = self.get_config()
+        if not cfg.get(CONF_HEATING_PERIOD_NOTIFY_ENABLED, DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED):
+            should_notify_now: set = set()
+        elif summer_mode or heating_period_active:
+            should_notify_now = set()
+        else:
+            should_notify_now = set()
+            for room in self.get_rooms():
+                room_id = room.get(CONF_ROOM_ID, "")
+                if not room_id or room_id not in room_data:
+                    continue
+                if room.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD):
+                    continue
+                if self.get_boost_remaining_minutes(room_id) > 0:
+                    continue
+                rdata = room_data[room_id]
+                if rdata.get("source") == "temp_threshold_override":
+                    continue
+                current_temp = rdata.get("current_temp")
+                target_temp = rdata.get("target_temp")
+                if current_temp is None or target_temp is None:
+                    continue
+                if current_temp < target_temp - 1.0:
+                    should_notify_now.add(room_id)
+
+        for room_id in should_notify_now - self._heating_period_notified_rooms:
+            room = self.get_room_config(room_id) or {}
+            room_name = room.get(CONF_ROOM_NAME, room_id)
+            self.hass.async_create_task(
+                self.hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": f"IHC: Heizperiode blockiert {room_name}",
+                        "message": (
+                            f"**{room_name}** würde gerade heizen, aber die Heizperiode ist "
+                            "inaktiv. Per Boost trotzdem kurz aufheizen, oder in den "
+                            "Zimmer-Einstellungen \"Heizperiode für dieses Zimmer ignorieren\" "
+                            "aktivieren, wenn das öfter vorkommen soll."
+                        ),
+                        "notification_id": f"ihc_heating_period_blocked_{room_id}",
+                    },
+                )
+            )
+        for room_id in self._heating_period_notified_rooms - should_notify_now:
+            self.hass.async_create_task(
+                self.hass.services.async_call(
+                    "persistent_notification",
+                    "dismiss",
+                    {"notification_id": f"ihc_heating_period_blocked_{room_id}"},
+                )
+            )
+        self._heating_period_notified_rooms = should_notify_now
 
     def _setup_ha_schedule_listeners(self) -> None:
         """Subscribe to state changes of all HA schedule entities and condition entities.
@@ -1731,6 +1804,7 @@ class IHCCoordinator(
             "demand": demand,
             "window_open": window_open,
             "room_mode": room_mode,
+            "ignore_heating_period": bool(room.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
             "manual_temp": self.get_room_manual_temp(room_id),
             "boost_remaining": self.get_boost_remaining_minutes(room_id),
             "temp_history":   self.get_temp_history(room_id),    # Roadmap 1.1
@@ -1797,6 +1871,7 @@ class IHCCoordinator(
         # Sommerautomatik / Heizperiode: block heating if outdoor temp exceeds threshold or period
         # inactive (already computed once in phase 2 - _update_phase_outdoor_and_adjustments)
         heating_period_active = ctx["heating_period_active"]
+        self._check_heating_period_notifications(room_data, summer_mode, heating_period_active)
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
 
@@ -1812,10 +1887,16 @@ class IHCCoordinator(
         any_threshold_override_active = any(
             rd.get("source") == "temp_threshold_override" for rd in room_data.values()
         )
+        # CONF_ROOM_IGNORE_HEATING_PERIOD rooms only bypass an inactive Heizperiode, not
+        # Sommerautomatik - so this only counts when summer_mode isn't the active gate.
+        any_ignore_period_heating = not summer_mode and any(
+            rd.get("ignore_heating_period") and self._trv_room_is_heating(rd)
+            for rd in room_data.values()
+        )
         if startup_grace_active:
             any_room_heating = False
         elif summer_mode or not heating_period_active:
-            any_room_heating = any_boost_active or any_threshold_override_active
+            any_room_heating = any_boost_active or any_threshold_override_active or any_ignore_period_heating
         else:
             any_room_heating = any(self._trv_room_is_heating(rd) for rd in room_data.values())
 
@@ -1950,9 +2031,12 @@ class IHCCoordinator(
                 # be blocked by Sommerautomatik or an inactive Heizperiode either.
                 trv_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
                 self._set_valve_entities(room, trv_target)
-            elif summer_mode or not heating_period_active:
+            elif summer_mode or (not heating_period_active and not rdata.get("ignore_heating_period")):
                 # Sommerautomatik or heating period disabled: turn TRVs off completely.
                 # Setting frost temp keeps them in HEAT mode which misleads users.
+                # Exception: rooms with CONF_ROOM_IGNORE_HEATING_PERIOD (e.g. a bathroom that
+                # should stay heatable year-round) skip the Heizperiode part of this gate -
+                # Sommerautomatik still applies, there's no point heating when it's genuinely hot.
                 self._turn_off_valve_entities(room)
             else:
                 # Always send the desired target – TRV decides whether to heat

@@ -100,6 +100,8 @@ from .const import (
     CONF_TRV_CALIBRATIONS,
     CONF_ROOM_TEMP_THRESHOLD,
     DEFAULT_ROOM_TEMP_THRESHOLD,
+    CONF_ROOM_IGNORE_HEATING_PERIOD,
+    DEFAULT_ROOM_IGNORE_HEATING_PERIOD,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
     CONF_COMFORT_EXTEND_ENTITY,
@@ -347,6 +349,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_PRESENCE_SENSOR_ON_DELAY: int(call.data.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY)),
             CONF_PRESENCE_SENSOR_OFF_DELAY: int(call.data.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY)),
             CONF_ROOM_TEMP_THRESHOLD: float(call.data.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
+            CONF_ROOM_IGNORE_HEATING_PERIOD: bool(call.data.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
             CONF_COMFORT_TEMP_ENTITY: call.data.get(CONF_COMFORT_TEMP_ENTITY, ""),
             CONF_ECO_TEMP_ENTITY: call.data.get(CONF_ECO_TEMP_ENTITY, ""),
             CONF_COMFORT_EXTEND_ENTITY: call.data.get(CONF_COMFORT_EXTEND_ENTITY, ""),
@@ -390,7 +393,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_PRESENCE_SENSOR_ON_DELAY, CONF_PRESENCE_SENSOR_OFF_DELAY,
             CONF_WINDOW_CASCADE_DELAY_MINUTES,
         }
-        _BOOL_FIELDS = {CONF_MOLD_PROTECTION_ENABLED, CONF_AGGRESSIVE_MODE_ENABLED}
+        _BOOL_FIELDS = {CONF_MOLD_PROTECTION_ENABLED, CONF_AGGRESSIVE_MODE_ENABLED, CONF_ROOM_IGNORE_HEATING_PERIOD}
         updates: dict = {}
         for k, v in raw.items():
             try:
@@ -481,6 +484,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "heating_period_entity",
             "heating_period_auto_enabled", "heating_period_auto_low_temp",
             "heating_period_auto_high_temp", "heating_period_auto_days",
+            "heating_period_notify_enabled",
             # Summer mode external entity + forecast cold-night early start
             "summer_mode_entity",
             "forecast_coldnight_enabled", "forecast_coldnight_temp", "forecast_advance_hours",

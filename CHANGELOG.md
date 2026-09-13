@@ -22,6 +22,15 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   Hand umzulegen). Per `heating_period_auto_enabled` abschaltbar (dann wie bisher: ohne Entity
   immer aktiv). Sichtbar in den Einstellungen (aktueller Mittelwert + Status) und als Dashboard-
   Banner.
+- **Pro-Zimmer-Ausnahme `room_ignore_heating_period`:** Ein Zimmer (z.B. ein Bad) kann von der
+  Heizperiode komplett ausgenommen werden und heizt dann immer nach Zeitplan/Modus, unabhängig
+  vom globalen Heizperioden-Status. Sommerautomatik bleibt davon unberührt. Konfigurierbar im
+  Add/Edit-Zimmer-Dialog.
+- **Benachrichtigung statt stillem Sperren (`heating_period_notify_enabled`, Standard: an):** Statt
+  ein Zimmer bei inaktiver Heizperiode nur kommentarlos zu sperren, schickt IHC jetzt eine
+  Persistent-Notification, wenn ein Zimmer eigentlich heizen würde – mit dem Hinweis, per Boost
+  trotzdem kurz zu heizen oder das Zimmer per `room_ignore_heating_period` dauerhaft auszunehmen.
+  Ein Sommerautomatik-Block ist ein bewusster Zustand und benachrichtigt nicht.
 - **Sicherheitsschwelle (`room_temp_threshold`) überstimmt jetzt ebenfalls Sommerautomatik und
   inaktive Heizperiode** – ein Zimmer, das unter seine konfigurierte Mindesttemperatur fällt,
   wird nie durch die Heizperiode blockiert (gleiches Prinzip wie beim Boost-Fix unten).

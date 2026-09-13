@@ -80,6 +80,11 @@ gesetzt werden – ihr Live-Wert überschreibt dann den Heizkurven-Wert für die
 **Temperaturschwelle (optional):** `room_temp_threshold` (Standard 0 °C = deaktiviert) verhindert
 Heizen unterhalb einer absoluten Grenztemperatur, unabhängig vom sonst berechneten Sollwert.
 
+**Heizperiode ignorieren (optional):** `room_ignore_heating_period` (Standard: aus) lässt dieses
+Zimmer immer nach Zeitplan/Modus heizen, auch wenn die Heizperiode (manuell oder automatisch)
+gerade inaktiv ist – z.B. für ein Bad, das ganzjährig heizbar bleiben soll. Sommerautomatik bleibt
+davon unberührt.
+
 #### Erweiterte Einstellungen
 
 | Feld | Standard | Beschreibung |
@@ -311,8 +316,15 @@ Dazwischen (Hysterese-Band) bleibt der letzte Zustand erhalten, damit es bei Wer
 Schwelle nicht ständig hin- und herspringt. Zusätzlich reaktiviert die bestehende
 Kälteprognose-Frühstart-Funktion (`forecast_coldnight_enabled`/`forecast_coldnight_temp`) die
 Heizperiode sofort, wenn für heute Nacht ein kalter Tag vorhergesagt wird – auch wenn das
-Mehrtage-Mittel noch "warm genug" meldet. Ein Boost pro Zimmer sowie die
-Sicherheitsschwelle `room_temp_threshold` funktionieren immer, unabhängig vom Heizperioden-Status.
+Mehrtage-Mittel noch "warm genug" meldet. Ein Boost pro Zimmer, die Sicherheitsschwelle
+`room_temp_threshold` sowie ein Zimmer mit `room_ignore_heating_period` funktionieren immer,
+unabhängig vom Heizperioden-Status.
+
+**Benachrichtigung statt stillem Sperren (optional):** `heating_period_notify_enabled` (Standard:
+an) sendet eine Persistent-Notification, wenn ein Zimmer eigentlich heizen würde, aber die
+Heizperiode das gerade verhindert – mit dem Hinweis, per Boost trotzdem kurz zu heizen oder das
+Zimmer dauerhaft von der Heizperiode auszunehmen. Ein Sommerautomatik-Block ist bewusst gewählt
+und löst keine Benachrichtigung aus.
 
 ---
 

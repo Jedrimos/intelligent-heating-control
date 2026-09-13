@@ -24,6 +24,16 @@ from .const import (
     CONF_NIGHT_SETBACK_OFFSET, CONF_PREHEAT_MINUTES,
     CONF_PRESENCE_ENTITIES,
     CONF_HEATING_PERIOD_ENTITY,
+    CONF_HEATING_PERIOD_AUTO_ENABLED,
+    DEFAULT_HEATING_PERIOD_AUTO_ENABLED,
+    CONF_HEATING_PERIOD_AUTO_LOW_TEMP,
+    DEFAULT_HEATING_PERIOD_AUTO_LOW_TEMP,
+    CONF_HEATING_PERIOD_AUTO_HIGH_TEMP,
+    DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP,
+    CONF_HEATING_PERIOD_AUTO_DAYS,
+    DEFAULT_HEATING_PERIOD_AUTO_DAYS,
+    CONF_HEATING_PERIOD_NOTIFY_ENABLED,
+    DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED,
     CONF_PRESENCE_AWAY_DELAY_MINUTES, DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES, DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES,
     CONF_SOLAR_ENTITY, CONF_SOLAR_SURPLUS_THRESHOLD, CONF_SOLAR_BOOST_TEMP,
@@ -261,8 +271,13 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             # Presence delay timers
             "presence_away_delay_minutes":     cfg.get(CONF_PRESENCE_AWAY_DELAY_MINUTES, DEFAULT_PRESENCE_AWAY_DELAY_MINUTES),
             "presence_arrive_delay_minutes":   cfg.get(CONF_PRESENCE_ARRIVE_DELAY_MINUTES, DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES),
-            # Heating period entity (Heizperiode)
+            # Heating period entity (Heizperiode) + automatic detection settings
             "heating_period_entity":           cfg.get(CONF_HEATING_PERIOD_ENTITY, ""),
+            "heating_period_auto_enabled":     cfg.get(CONF_HEATING_PERIOD_AUTO_ENABLED, DEFAULT_HEATING_PERIOD_AUTO_ENABLED),
+            "heating_period_auto_low_temp":    cfg.get(CONF_HEATING_PERIOD_AUTO_LOW_TEMP, DEFAULT_HEATING_PERIOD_AUTO_LOW_TEMP),
+            "heating_period_auto_high_temp":   cfg.get(CONF_HEATING_PERIOD_AUTO_HIGH_TEMP, DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP),
+            "heating_period_auto_days":        cfg.get(CONF_HEATING_PERIOD_AUTO_DAYS, DEFAULT_HEATING_PERIOD_AUTO_DAYS),
+            "heating_period_notify_enabled":   cfg.get(CONF_HEATING_PERIOD_NOTIFY_ENABLED, DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED),
             # Optimum Start (learn heating rate per outdoor-temp bucket)
             "optimum_start_enabled":           cfg.get(CONF_OPTIMUM_START_ENABLED, DEFAULT_OPTIMUM_START_ENABLED),
             # v1.8 – Holiday calendar

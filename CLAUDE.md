@@ -341,6 +341,7 @@ _callService("reload",                 {})
 | `CONF_TEMP_CALIBRATION` | float | 0.0 | Sensor-Kalibrierungsoffset °C |
 | `CONF_ECO_OFFSET` | float | 3.0 | Eco-Abzug °C |
 | `CONF_ROOM_TEMP_THRESHOLD` | float | 0.0 | Heiz-Mindesttemperatur °C (0=aus, Blueprint: `input_mode_room_temperature_threshold`) |
+| `CONF_ROOM_IGNORE_HEATING_PERIOD` | bool | False | Zimmer heizt immer nach Zeitplan/Modus, auch wenn die Heizperiode inaktiv ist (z.B. Bad). Sommerautomatik bleibt unberührt. |
 | `CONF_COMFORT_TEMP_ENTITY` | str | – | `input_number.*` für dynamischen Komfort-Sollwert (Blueprint: `input_temperature_comfort`) |
 | `CONF_ECO_TEMP_ENTITY` | str | – | `input_number.*` für dynamischen Eco-Sollwert (Blueprint: `input_temperature_eco`) |
 
@@ -352,6 +353,7 @@ _callService("reload",                 {})
 | `CONF_HEATING_PERIOD_AUTO_LOW_TEMP` | float | 12.0 | Ø-Außentemp. °C, darunter Heizperiode automatisch aktiviert wird |
 | `CONF_HEATING_PERIOD_AUTO_HIGH_TEMP` | float | 16.0 | Ø-Außentemp. °C, darüber Heizperiode automatisch deaktiviert wird |
 | `CONF_HEATING_PERIOD_AUTO_DAYS` | int | 3 | Fenstergröße des gleitenden Mittels (Tage) |
+| `CONF_HEATING_PERIOD_NOTIFY_ENABLED` | bool | True | Persistent-Notification statt stillem Sperren, wenn ein Zimmer bei inaktiver Heizperiode eigentlich heizen würde |
 | `CONF_PRESENCE_AWAY_DELAY_MINUTES` | int | 0 | Minuten Verzögerung vor Auto-Away (Blueprint: `input_presence_reaction_off_time`) |
 
 ### Systemmodi (`SYSTEM_MODES`)
@@ -937,6 +939,30 @@ Override erhalten, ist im Normalfall aber überflüssig.
   kurzfristig reaktivierter Heizperiode
 - [x] Zusätzlich: `room_temp_threshold`-Sicherheitsschwelle überstimmt jetzt ebenfalls Sommerautomatik/
   inaktive Heizperiode (`_update_phase_apply_trv_setpoints`, gleiches Prinzip wie der Boost-Override)
+
+##### `CONF_ROOM_IGNORE_HEATING_PERIOD` – Pro-Zimmer-Ausnahme ✅ Vollständig
+- [x] `const.py` – `CONF_ROOM_IGNORE_HEATING_PERIOD` + Default definiert
+- [x] `coordinator.py` – Import, `_process_room()` legt `rdata["ignore_heating_period"]` ab,
+  `_update_phase_apply_trv_setpoints()` + `_update_phase_aggregate_and_runtime()` (any_room_heating)
+  respektieren es (übersteuert nur die Heizperiode, nicht Sommerautomatik)
+- [x] `climate.py` – Import + in `extra_state_attributes` (`ignore_heating_period`)
+- [x] `__init__.py` – `handle_add_room()` + `_BOOL_FIELDS` für `handle_update_room()`
+- [x] `config_flow.py` – Add-Room + Edit-Room Schema (Boolean-Selector)
+- [x] `services.yaml` – `add_room` + `update_room` Feld dokumentiert
+- [x] `ihc-panel.js` `_showAddRoomModal()` – Checkbox `#m-ignore-heating-period` + save-handler
+- [x] `ihc-panel.js` `_showEditRoomModal()` – Checkbox mit Vorbelegung aus `room.ignore_heating_period` + save-handler
+
+##### `CONF_HEATING_PERIOD_NOTIFY_ENABLED` – Benachrichtigung statt stillem Sperren ✅ Vollständig
+- [x] `const.py` – Konstante + Default (True) definiert
+- [x] `coordinator.py` – `_check_heating_period_notifications()`: `persistent_notification.create`/
+  `dismiss` mit stabiler `notification_id` pro Zimmer (kein Spam), aufgerufen aus
+  `_update_phase_aggregate_and_runtime()`. Feuert NICHT bei Sommerautomatik (bewusster Block),
+  NICHT bei Boost/Sicherheitsschwelle/`ignore_heating_period` (die heizen ja bereits)
+- [x] `config_flow.py` – Boolean-Selector in `async_step_global_settings()`
+- [x] `__init__.py` – `handle_update_global_settings()` allowed-Set erweitert
+- [x] `services.yaml` – `update_global_settings` Feld dokumentiert
+- [x] `sensor.py` – Config-Passthrough in IHCGesamtanforderung.extra_state_attributes
+- [x] Frontend `05_tab_settings.js` – Checkbox + save-handler
 
 ##### `CONF_PRESENCE_AWAY_DELAY_MINUTES` – Anwesenheits-Verzögerung ✅ Vollständig
 - [x] `const.py` – `CONF_PRESENCE_AWAY_DELAY_MINUTES`, `DEFAULT_PRESENCE_AWAY_DELAY_MINUTES = 0`
