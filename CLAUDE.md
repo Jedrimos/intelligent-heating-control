@@ -31,15 +31,20 @@ die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 > weiterhin aktive Funktion (misst wie schnell ein Raum bei ausgeschalteter Heizung auskühlt,
 > für Optimum-Stop-Berechnungen) und hat mit aktiver Kühlung nichts zu tun.
 >
-> **Nach 2.1.0 (Unreleased) – Priorität umgedreht: Zimmermodus schlägt Systemmodus.**
-> `_calculate_target_temp()` (`room_logic.py`) prüft die Systemmodus-Overrides (OFF/AWAY/
-> VACATION/GUEST/HEAT) jetzt nur noch wenn `room_mode == ROOM_MODE_AUTO` ist. Jeder bewusst
-> gewählte Zimmermodus (Komfort/Eco/Schlaf/Abwesend/Aus/Manuell) gewinnt gegen jeden Systemmodus.
-> Das ist die **entgegengesetzte** Richtung der kurz zuvor (noch in 2.1.0) gebauten
-> "System überstimmt Zimmer-Aus"-Logik (`system_override_active` in `coordinator.py`) – diese
-> wurde nach explizitem Nutzer-Feedback wieder entfernt. Wenn du in der Git-Historie auf
-> `system_override_active`, `"system_away"`/`"system_vacation"`/`"guest_mode"`/`"system_heat"`
-> als Sonderfall für `room_mode == ROOM_MODE_OFF` stößt: das ist der **alte**, überholte Stand.
+> **Systemmodus vs. Gruppenmodus – nicht verwechseln (Klarstellung nach 2.1.0):** Der globale
+> **Systemmodus** (Abwesend/Urlaub/Gäste/Heizen/Aus) ist und bleibt ein **absoluter** Override –
+> er gewinnt bedingungslos gegen jede Zimmer-Einstellung, genau wie ein offenes Fenster
+> (`system_override_active` in `coordinator.py` sorgt dafür, dass er dabei auch ein einzeln auf
+> "Aus" gestelltes Zimmer erreicht – das war der eigentliche Bug, siehe Roadmap-Eintrag unten).
+> Kurzzeitig wurde das versehentlich umgedreht (jeder Zimmermodus schlägt Systemmodus) – das war
+> ein Missverständnis, wurde noch am selben Tag wieder rückgängig gemacht und ist rein historisch
+> in der Git-Historie sichtbar (Commit "room mode now overrides system mode" + dessen Revert).
+> Das eigenständige **Heizgruppen-Feature** (`add_group`/`set_group_mode` etc., unabhängig vom
+> Systemmodus) verhält sich dagegen bewusst anders: ein Gruppen-Modus-Klick schreibt den Modus
+> nur **einmalig** in jedes Mitgliedszimmer (`coordinator.py` `async_set_group_mode()`), es gibt
+> keinen dauerhaft durchgesetzten Gruppenzustand. Ändert man danach ein Zimmer manuell, bleibt
+> das bestehen, bis der nächste Gruppen-Modus-Klick wieder alle Mitglieder überschreibt – genau
+> das gewünschte "übersteuert alles, aber nicht fest" Verhalten, ganz ohne Codeänderung.
 
 ### Was kann es?
 - Pro-Zimmer Heizplanung mit Zeitplänen (eigenes Format + HA schedule entities)

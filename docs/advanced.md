@@ -121,38 +121,19 @@ sortiert) auf maximal 30 % gedeckelt. So reißen nicht alle TRVs gleichzeitig au
 
 ### Prioritäten-Logik
 
-**Seit der Umkehr in v2.1.0 (Unreleased) gilt zuerst:** Steht ein Zimmer NICHT auf "Automatisch"
-(also Komfort/Eco/Schlaf/Abwesend/Aus/Manuell wurde bewusst gewählt), überspringt IHC alle
-Systemmodus-Overrides komplett und wendet direkt die Zimmer-eigene Einstellung an – ein
-Systemmodus wie Abwesend/Urlaub/Gäste/Heizen/Aus hat dann für dieses Zimmer keine Wirkung mehr.
-Nur Zimmer die noch auf "Automatisch" stehen, folgen der Systemmodus-Kette unten.
-
 ```
-Zimmermodus ≠ Automatisch (bewusst gewählt):
-  A1. Sicherheitsschwelle (nur bei Eco/Schlaf/Abwesend) → Komfort-Temp + Zimmer-Offset
-  A2. Zimmermodus Manuell        → Manuell-Temp
-  A3. Zimmer Aus                 → Untergrenze (min_temp)
-  A4. Zimmer Komfort/Eco/Schlaf/Abwesend → Preset-Temp (outdoor-geregelt) + Zimmer-Offset
-
-Zimmermodus = Automatisch:
-  B1. System OFF                 → Frostschutz-Temperatur (oder Ventil ganz zu)
-  B2. System Abwesend            → Globale Abwesend-Temperatur
-  B3. System Urlaub              → Globale Urlaubs-Temperatur
-  B4. System Gäste                → Komfort-Temperatur + Zimmer-Offset
-  B5. System Heizen (erzwungen)  → Komfort-Temperatur + Zimmer-Offset
-  B6. Sicherheitsschwelle        → Komfort-Temp + Zimmer-Offset
-  B7. Feiertagskalender aktiv    → Komfort-Temp ODER Wochenend-Zeitplan
-  B8. Anwesenheit (alle weg)     → Abwesend-Temperatur (outdoor-geregelt) + Zimmer-Offset
-  B9. Aktiver HA-Zeitplan        → Preset des Zeitplan-Modus
-  B10. Aktiver interner Zeitplan → Zeitplan-Temp + Zeitplan-Offset + Zimmer-Offset
-  B11. Vorheizen                 → Nächste Zeitplan-Temp (wenn Pre-Heat aktiv)
-  B12. Heizkurve                 → Kurven-Basis + Zimmer-Offset
+1. System OFF/Urlaub          → Frostschutz-Temperatur
+2. System Abwesend            → Globale Abwesend-Temperatur
+3. Gäste-Modus                → Komfort-Temperatur + Zimmer-Offset
+4. Anwesenheit (alle weg)     → Abwesend-Temperatur (outdoor-geregelt) + Zimmer-Offset
+5. Zimmermodus Manuell        → Manuell-Temp
+6. Zimmer Aus                 → Frostschutz-Temp
+7. Zimmer Komfort/Eco/Schlaf/Abwesend → Preset-Temp (outdoor-geregelt)
+8. Aktiver HA-Zeitplan        → Preset des Zeitplan-Modus
+9. Aktiver interner Zeitplan  → Zeitplan-Temp + Zeitplan-Offset + Zimmer-Offset
+10. Vorheizen                 → Nächste Zeitplan-Temp (wenn Pre-Heat aktiv)
+11. Heizkurve                 → Kurven-Basis + Zimmer-Offset
 ```
-
-Fenster-offen und ein manuell/physisch am TRV verstellter Sollwert (→ Modus "Manuell") bleiben
-davon unberührt und wirken in beiden Zweigen. `room_ignore_heating_period` und die
-Sicherheitsschwelle wirken zusätzlich unabhängig von Sommerautomatik/Heizperiode (siehe
-configuration.md).
 
 Korrekturen werden anschließend addiert:
 - `-night_setback` wenn Sonne unter Horizont

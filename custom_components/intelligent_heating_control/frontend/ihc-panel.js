@@ -1587,9 +1587,7 @@ class IHCPanel extends HTMLElement {
 
       // Alert chips (compact, stacked)
       const alerts = [];
-      // Only actually true while the room itself is on "auto" - an explicitly chosen
-      // room mode (comfort/eco/sleep/away/off/manual) now wins over system mode instead.
-      if (systemOverrides && room.room_mode === "auto") alerts.push(`<div class="room-alert alert-override">${overrideLabel} – Zimmermodus übersteuert</div>`);
+      if (systemOverrides) alerts.push(`<div class="room-alert alert-override">${overrideLabel} – Zimmermodus übersteuert</div>`);
       // Manual override: show prominent alert with reset time if known
       if (room.room_mode === "manual") {
         const resetStr = (room.next_period && room.next_period.start) ? ` · Reset: ${room.next_period.start} Uhr` : "";

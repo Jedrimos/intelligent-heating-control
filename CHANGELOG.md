@@ -9,25 +9,19 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
-### Geändert
-- **Priorität umgedreht: Zimmermodus schlägt jetzt Systemmodus.** Bisher hatte der globale
-  Systemmodus (Abwesend/Urlaub/Gäste/Heizen/Aus) unbedingten Vorrang vor jeder einzelnen
-  Zimmer-Einstellung – ein Zimmer manuell auf Komfort zu stellen hatte während "Abwesend" keine
-  Wirkung. Das ist jetzt umgedreht: **jeder bewusst gewählte Zimmermodus** (Komfort/Eco/Schlaf/
-  Abwesend/Aus/Manuell – alles außer "Automatisch") gewinnt gegen jeden Systemmodus. Nur wenn ein
-  Zimmer noch auf "Automatisch" steht, greift der Systemmodus wie gehabt. Fenster-offen bleibt
-  davon unberührt (immer stärkster Zustand). Damit hinfällig: die "System überstimmt Zimmer-Aus"-
-  Logik von eben erst (siehe [2.1.0] unten) – die lief in die entgegengesetzte Richtung und wurde
-  wieder entfernt. Dashboard-Badge "Zimmermodus übersteuert" erscheint jetzt nur noch für Zimmer,
-  die tatsächlich noch auf Automatisch stehen.
-- **Sommermodus-/Heizperioden-Schalter-Status jetzt immer im Dashboard sichtbar**, wenn eine
-  externe Entity zugeordnet ist (vorher nur ein Banner während der Sperre) – zeigt jetzt AN/AUS
-  in beide Richtungen.
-
-### Behoben
-- Die Einstellungen-Karte "🌡️ Temperaturen & Sommerautomatik" (Sommerautomatik-Hysterese,
-  automatische Heizperioden-Erkennung, Benachrichtigung) war standardmäßig komplett eingeklappt
-  und dadurch faktisch unauffindbar. Jetzt automatisch aufgeklappt.
+### Klargestellt
+- **Systemmodus bleibt absolut, genau wie Fenster-offen.** Kurzzeitig (nur in dieser
+  Unreleased-Phase) hatten wir das umgedreht, sodass jeder bewusst gewählte Zimmermodus
+  (Komfort/Eco/Schlaf/Abwesend/Aus/Manuell) gegen den Systemmodus gewinnt. Nach Rückfrage:
+  gemeint war eigentlich das eigenständige **Gruppenmodus**-Feature, nicht der globale
+  Systemmodus. Systemmodus (Abwesend/Urlaub/Gäste/Heizen/Aus) übersteuert also weiterhin
+  bedingungslos jedes Zimmer, auch ein einzeln auf "Aus" gestelltes (das war der eigentliche,
+  in [2.1.0] behobene Bug). Fenster-offen bleibt ebenfalls immer der stärkste Zustand.
+- **Gruppenmodus verhält sich bereits wie gewünscht, ohne Code-Änderung:** ein Klick auf einen
+  Gruppen-Modus-Button schreibt den gewählten Modus einmalig in jedes Mitgliedszimmer – danach
+  gibt es keinen dauerhaft durchgesetzten "Gruppenzustand" mehr. Änderst du danach ein einzelnes
+  Zimmer manuell (z.B. weil es gerade kalt ist und die Automatik daneben liegt), bleibt das genau
+  so bestehen – erst der nächste Gruppen-Modus-Klick überschreibt wieder alle Mitgliedszimmer.
 
 ### Geplant
 Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent, u. v. m.).
