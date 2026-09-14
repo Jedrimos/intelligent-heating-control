@@ -521,8 +521,13 @@ class RoomLogicMixin:
         Calculate the effective target temperature for a room.
 
         Priority (highest wins):
-          1. System mode override (AWAY, VACATION → fixed global temp)
-          2. Room mode override (COMFORT, ECO, SLEEP, AWAY, OFF, MANUAL)
+          1. An explicitly-chosen room mode (anything other than AUTO - COMFORT, ECO,
+             SLEEP, AWAY, OFF, MANUAL) always wins over every system mode below,
+             including OFF/AWAY/VACATION/GUEST/HEAT. A room the user has deliberately
+             set to something is a more specific, more recent decision than a
+             house-wide mode switch, so it's the one that should stick.
+          2. System mode override (OFF/AWAY/VACATION/GUEST/HEAT → fixed global temp),
+             only evaluated while the room itself is still on AUTO.
           3. Active schedule period temperature
           4. Heating curve target + room offset (default)
 
@@ -543,7 +548,9 @@ class RoomLogicMixin:
         comfort_base, eco_base, sleep_base, away_base = self._get_room_preset_temps(room, outdoor_temp)
 
         # --- 1. System mode overrides ---
-        if system_mode == SYSTEM_MODE_OFF:
+        # Only apply while the room itself is on AUTO - an explicitly-chosen room mode
+        # (COMFORT/ECO/SLEEP/AWAY/OFF/MANUAL) always wins over these, see docstring.
+        if room_mode == ROOM_MODE_AUTO and system_mode == SYSTEM_MODE_OFF:
             off_use_frost = bool(cfg.get(CONF_OFF_USE_FROST_PROTECTION, DEFAULT_OFF_USE_FROST_PROTECTION))
             if off_use_frost:
                 # Legacy behaviour: keep valves at frost-protection temp
@@ -552,24 +559,24 @@ class RoomLogicMixin:
                 # Default: valves are turned off completely (handled in update loop)
                 return frost_temp, {"source": "system_off", "schedule_active": False}
 
-        if system_mode == SYSTEM_MODE_AWAY:
+        if room_mode == ROOM_MODE_AUTO and system_mode == SYSTEM_MODE_AWAY:
             away_temp = float(cfg.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP))
             # Frost protection: away temp must be at least frost_temp
             return max(away_temp, frost_temp), {"source": "system_away", "schedule_active": False}
 
-        if system_mode == SYSTEM_MODE_VACATION:
+        if room_mode == ROOM_MODE_AUTO and system_mode == SYSTEM_MODE_VACATION:
             vac_temp = float(cfg.get(CONF_VACATION_TEMP, DEFAULT_VACATION_TEMP))
             return max(vac_temp, frost_temp), {"source": "system_vacation", "schedule_active": False}
 
-        if system_mode == SYSTEM_MODE_GUEST:
+        if room_mode == ROOM_MODE_AUTO and system_mode == SYSTEM_MODE_GUEST:
             return min(max_temp, max(min_temp, comfort_base + room_offset)), {
                 "source": "guest_mode", "schedule_active": False
             }
 
-        if system_mode == SYSTEM_MODE_HEAT:
+        if room_mode == ROOM_MODE_AUTO and system_mode == SYSTEM_MODE_HEAT:
             # Explicit "heat now" override: force full comfort heating everywhere,
-            # ignoring schedule/room mode (e.g. cold day, Heizperiode still off,
-            # need hot water NOW). Same priority as the other system-mode overrides.
+            # ignoring schedule (e.g. cold day, Heizperiode still off, need hot water
+            # NOW). Same priority as the other system-mode overrides.
             return min(max_temp, max(min_temp, comfort_base + room_offset)), {
                 "source": "system_heat", "schedule_active": False
             }

@@ -30,6 +30,16 @@ die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 > Lernfunktion (`avg_cooling_rate` / "Abkühlrate", Kapitel 13) – die ist eine völlig andere,
 > weiterhin aktive Funktion (misst wie schnell ein Raum bei ausgeschalteter Heizung auskühlt,
 > für Optimum-Stop-Berechnungen) und hat mit aktiver Kühlung nichts zu tun.
+>
+> **Nach 2.1.0 (Unreleased) – Priorität umgedreht: Zimmermodus schlägt Systemmodus.**
+> `_calculate_target_temp()` (`room_logic.py`) prüft die Systemmodus-Overrides (OFF/AWAY/
+> VACATION/GUEST/HEAT) jetzt nur noch wenn `room_mode == ROOM_MODE_AUTO` ist. Jeder bewusst
+> gewählte Zimmermodus (Komfort/Eco/Schlaf/Abwesend/Aus/Manuell) gewinnt gegen jeden Systemmodus.
+> Das ist die **entgegengesetzte** Richtung der kurz zuvor (noch in 2.1.0) gebauten
+> "System überstimmt Zimmer-Aus"-Logik (`system_override_active` in `coordinator.py`) – diese
+> wurde nach explizitem Nutzer-Feedback wieder entfernt. Wenn du in der Git-Historie auf
+> `system_override_active`, `"system_away"`/`"system_vacation"`/`"guest_mode"`/`"system_heat"`
+> als Sonderfall für `room_mode == ROOM_MODE_OFF` stößt: das ist der **alte**, überholte Stand.
 
 ### Was kann es?
 - Pro-Zimmer Heizplanung mit Zeitplänen (eigenes Format + HA schedule entities)

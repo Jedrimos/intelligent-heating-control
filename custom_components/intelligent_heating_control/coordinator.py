@@ -166,9 +166,6 @@ from .const import (
     SYSTEM_MODES,
     SYSTEM_MODE_AUTO,
     SYSTEM_MODE_OFF,
-    SYSTEM_MODE_AWAY,
-    SYSTEM_MODE_VACATION,
-    SYSTEM_MODE_HEAT,
     # Roadmap 1.2 – Vacation assistant
     CONF_VACATION_START,
     CONF_VACATION_END,
@@ -1768,20 +1765,16 @@ class IHCCoordinator(
         # demand_temp is used here: in TRV mode it is the TRV sensor temperature
         # (faster, physically at the radiator). current_temp (room sensor) is kept
         # for display and comfort-related logic throughout the rest of the loop.
-        # System-wide overrides (Abwesend/Urlaub/Gäste/Heizen) outrank an individual
-        # room's OFF setting (see _calculate_target_temp docstring). Without this, a
-        # room a user turned off individually would show 0 % demand forever even
-        # though target_temp above already reflects the active override.
-        system_override_active = meta.get("source") in (
-            "system_away", "system_vacation", "guest_mode", "system_heat",
-        )
+        # An explicitly-chosen room mode (incl. OFF) always outranks system mode (see
+        # _calculate_target_temp docstring), so room_mode here needs no adjustment -
+        # target_temp above already reflects whichever of the two actually applies.
         controller_state = self._controller.update_room(
             room_id=room_id,
             current_temp=demand_temp,
             target_temp=target_temp,
             deadband=deadband,
             window_open=window_open,
-            room_mode=ROOM_MODE_AUTO if (room_mode == ROOM_MODE_OFF and system_override_active) else room_mode,
+            room_mode=room_mode,
             manual_temp=self.get_room_manual_temp(room_id),
         )
 
@@ -2047,13 +2040,6 @@ class IHCCoordinator(
         # Determine if system OFF should turn valves off completely or frost-protect
         off_use_frost = bool(cfg.get(CONF_OFF_USE_FROST_PROTECTION, DEFAULT_OFF_USE_FROST_PROTECTION))
         system_is_off = (self._system_mode == SYSTEM_MODE_OFF)
-        # AWAY/VACATION/GUEST/HEAT are system-wide overrides that outrank an individual
-        # room's OFF setting (see _calculate_target_temp docstring: system mode is
-        # priority 1, room mode incl. OFF is priority 2). Without this, a room a user
-        # turned off individually would never react to "Abwesend"/"Urlaub"/"Heizen" etc.
-        system_override_active = self._system_mode in (
-            SYSTEM_MODE_AWAY, SYSTEM_MODE_VACATION, SYSTEM_MODE_GUEST, SYSTEM_MODE_HEAT,
-        )
 
         # Apply TRV setpoints. Each TRV self-regulates — we always send the desired
         # target temp and the TRV opens/closes its own valve (current vs target).
@@ -2082,8 +2068,11 @@ class IHCCoordinator(
                 actual = max(window_open_temp, frost_temp)
                 rdata["target_temp"] = actual
                 self._set_valve_entities(room, actual)
-            elif window_open or (room_mode == ROOM_MODE_OFF and not system_override_active) or (system_is_off and not off_use_frost):
-                # Turn TRV off (or frost-protect if off mode not supported by the device)
+            elif window_open or room_mode == ROOM_MODE_OFF or (system_is_off and not off_use_frost and room_mode == ROOM_MODE_AUTO):
+                # Turn TRV off (or frost-protect if off mode not supported by the device).
+                # System-OFF only forces this while the room is still on AUTO - an
+                # explicitly-chosen room mode (incl. OFF itself, already checked above)
+                # always wins over system mode (see _calculate_target_temp docstring).
                 if window_open:
                     rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
                 self._turn_off_valve_entities(room)

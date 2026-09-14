@@ -9,6 +9,26 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Geändert
+- **Priorität umgedreht: Zimmermodus schlägt jetzt Systemmodus.** Bisher hatte der globale
+  Systemmodus (Abwesend/Urlaub/Gäste/Heizen/Aus) unbedingten Vorrang vor jeder einzelnen
+  Zimmer-Einstellung – ein Zimmer manuell auf Komfort zu stellen hatte während "Abwesend" keine
+  Wirkung. Das ist jetzt umgedreht: **jeder bewusst gewählte Zimmermodus** (Komfort/Eco/Schlaf/
+  Abwesend/Aus/Manuell – alles außer "Automatisch") gewinnt gegen jeden Systemmodus. Nur wenn ein
+  Zimmer noch auf "Automatisch" steht, greift der Systemmodus wie gehabt. Fenster-offen bleibt
+  davon unberührt (immer stärkster Zustand). Damit hinfällig: die "System überstimmt Zimmer-Aus"-
+  Logik von eben erst (siehe [2.1.0] unten) – die lief in die entgegengesetzte Richtung und wurde
+  wieder entfernt. Dashboard-Badge "Zimmermodus übersteuert" erscheint jetzt nur noch für Zimmer,
+  die tatsächlich noch auf Automatisch stehen.
+- **Sommermodus-/Heizperioden-Schalter-Status jetzt immer im Dashboard sichtbar**, wenn eine
+  externe Entity zugeordnet ist (vorher nur ein Banner während der Sperre) – zeigt jetzt AN/AUS
+  in beide Richtungen.
+
+### Behoben
+- Die Einstellungen-Karte "🌡️ Temperaturen & Sommerautomatik" (Sommerautomatik-Hysterese,
+  automatische Heizperioden-Erkennung, Benachrichtigung) war standardmäßig komplett eingeklappt
+  und dadurch faktisch unauffindbar. Jetzt automatisch aufgeklappt.
+
 ### Geplant
 Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent, u. v. m.).
 
