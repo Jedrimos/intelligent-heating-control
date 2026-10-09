@@ -993,7 +993,7 @@
           version: "1.2.0",
           exported_at: new Date().toISOString(),
           global_settings: { ...a },
-          rooms: Object.values(this.coordinator?.data?.rooms || {}).map(r => ({ ...r })),
+          rooms: Object.values(this._getRoomData()).map(r => ({ ...r })),
         };
         // Also trigger HA notification for completeness
         this._callService("export_config", {});

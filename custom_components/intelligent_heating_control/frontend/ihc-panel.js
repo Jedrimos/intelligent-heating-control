@@ -1113,7 +1113,7 @@ class IHCPanel extends HTMLElement {
     return {
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
-      system_mode:               a.system_mode || (sel ? sel.state : "—"),
+      system_mode:               sel ? sel.state : (a.system_mode || "—"),
       curve_target:              ct  ? (isNaN(parseFloat(ct.state)) ? null : parseFloat(ct.state)) : null,
       outdoor_temp:              ot  ? (isNaN(parseFloat(ot.state)) ? null : parseFloat(ot.state)) : null,
       rooms_demanding:           a.rooms_demanding || 0,
@@ -5044,7 +5044,7 @@ class IHCPanel extends HTMLElement {
           version: "1.2.0",
           exported_at: new Date().toISOString(),
           global_settings: { ...a },
-          rooms: Object.values(this.coordinator?.data?.rooms || {}).map(r => ({ ...r })),
+          rooms: Object.values(this._getRoomData()).map(r => ({ ...r })),
         };
         // Also trigger HA notification for completeness
         this._callService("export_config", {});
