@@ -59,6 +59,7 @@ class IHCSystemModeSelect(CoordinatorEntity, SelectEntity):
     """Select entity for the global system mode."""
 
     _attr_icon = "mdi:home-thermometer"
+    _attr_has_entity_name = False
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
@@ -91,6 +92,7 @@ class IHCRoomModeSelect(CoordinatorEntity, SelectEntity):
     """Select entity for a room's operation mode."""
 
     _attr_icon = "mdi:thermostat"
+    _attr_has_entity_name = False
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
         super().__init__(coordinator)

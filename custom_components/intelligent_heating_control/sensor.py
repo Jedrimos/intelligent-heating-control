@@ -125,6 +125,13 @@ async def async_setup_entry(
 
 
 class _IHCBase(CoordinatorEntity):
+    # Some HA versions combine the device name into the friendly_name (and the
+    # auto-generated entity_id) unless has_entity_name is explicitly pinned.
+    # The frontend relies on the short "sensor.ihc_*" entity_ids, so keep this
+    # False for every IHC entity (see also binary_sensor.py, which already had
+    # this set).
+    _attr_has_entity_name = False
+
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry

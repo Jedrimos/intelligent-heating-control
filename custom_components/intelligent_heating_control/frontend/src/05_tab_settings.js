@@ -4,7 +4,7 @@
  * Contains: _renderSettings
  */
   _renderSettings(content) {
-    const dem = this._st("sensor.ihc_gesamtanforderung") || { attributes: {} };
+    const dem = this._stSuffix("sensor", "ihc_gesamtanforderung") || { attributes: {} };
     const a   = dem.attributes;
     const g   = this._getGlobal();
 

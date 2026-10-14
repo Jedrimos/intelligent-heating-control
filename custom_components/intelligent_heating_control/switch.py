@@ -35,6 +35,7 @@ class IHCHeatingSwitch(CoordinatorEntity, SwitchEntity):
     """
 
     _attr_icon = "mdi:radiator"
+    _attr_has_entity_name = False
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)

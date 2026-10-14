@@ -22,6 +22,13 @@ const SYSTEM_MODE_LABELS = {
   auto: "Automatisch", heat: "Heizen",
   off: "Aus", away: "Abwesend", vacation: "Urlaub", guest: "Gäste-Modus"
 };
+// select.ihc_systemmodus's state/current_option is the translated label above
+// (set by select.py's own SYSTEM_MODE_LABELS, kept in sync with this one),
+// not the raw mode key. Reverse-lookup needed wherever we read the raw key
+// back out of that entity's live state.
+const SYSTEM_MODE_LABEL_TO_KEY = Object.fromEntries(
+  Object.entries(SYSTEM_MODE_LABELS).map(([k, v]) => [v, k])
+);
 
 // HA weather condition → German label + emoji icon
 const WEATHER_CONDITIONS = {

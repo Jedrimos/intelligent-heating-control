@@ -225,7 +225,7 @@
     }).join("");
 
     // Build system banners (compact new style)
-    const _demA = (this._st("sensor.ihc_gesamtanforderung") || { attributes: {} }).attributes;
+    const _demA = (this._stSuffix("sensor", "ihc_gesamtanforderung") || { attributes: {} }).attributes;
     const banners = [
       _demA.startup_grace_active ? `<div class="system-banner warn">⏳ <strong>Startup-Gnadenfrist aktiv</strong> – Heizung gesperrt bis alle Sensoren geladen sind</div>` : "",
       // Sommermodus: mit zugeordnetem Schalter IMMER den aktuellen Status zeigen (an oder aus),

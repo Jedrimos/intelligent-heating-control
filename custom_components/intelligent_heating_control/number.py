@@ -44,6 +44,7 @@ class IHCRoomOffsetNumber(CoordinatorEntity, NumberEntity):
     _attr_native_step = 0.5
     _attr_native_unit_of_measurement = "°C"
     _attr_icon = "mdi:thermometer-plus"
+    _attr_has_entity_name = False
 
     def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
         super().__init__(coordinator)

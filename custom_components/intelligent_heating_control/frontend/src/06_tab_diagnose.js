@@ -7,9 +7,9 @@
 
   _renderDiagnose(content) {
     const g   = this._getGlobal();
-    const dem = this._st("sensor.ihc_gesamtanforderung") || { attributes: {} };
+    const dem = this._stSuffix("sensor", "ihc_gesamtanforderung") || { attributes: {} };
     const a   = dem.attributes;
-    const systemSel = this._st("select.ihc_systemmodus");
+    const systemSel = this._stSuffix("select", "ihc_systemmodus");
     const curMode   = systemSel ? systemSel.state : "auto";
     const rooms = this._getRoomData();
     const roomList = Object.values(rooms);

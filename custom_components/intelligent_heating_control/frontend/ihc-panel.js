@@ -23,6 +23,13 @@ const SYSTEM_MODE_LABELS = {
   auto: "Automatisch", heat: "Heizen",
   off: "Aus", away: "Abwesend", vacation: "Urlaub", guest: "Gäste-Modus"
 };
+// select.ihc_systemmodus's state/current_option is the translated label above
+// (set by select.py's own SYSTEM_MODE_LABELS, kept in sync with this one),
+// not the raw mode key. Reverse-lookup needed wherever we read the raw key
+// back out of that entity's live state.
+const SYSTEM_MODE_LABEL_TO_KEY = Object.fromEntries(
+  Object.entries(SYSTEM_MODE_LABELS).map(([k, v]) => [v, k])
+);
 
 // HA weather condition → German label + emoji icon
 const WEATHER_CONDITIONS = {
@@ -918,6 +925,21 @@ class IHCPanel extends HTMLElement {
     return this._hass ? this._hass.states[entityId] : null;
   }
 
+  // Some HA versions prepend the device name to the auto-generated object_id
+  // (e.g. "sensor.intelligent_heating_control_ihc_gesamtanforderung" instead of
+  // "sensor.ihc_gesamtanforderung"), depending on entity registry history.
+  // Try the short id first, then fall back to any entity of the right domain
+  // whose object_id ends with the expected suffix.
+  _stSuffix(domain, suffix) {
+    if (!this._hass) return null;
+    const exact = this._hass.states[`${domain}.${suffix}`];
+    if (exact) return exact;
+    const id = Object.keys(this._hass.states).find(
+      (eid) => eid.startsWith(`${domain}.`) && eid.endsWith(suffix)
+    );
+    return id ? this._hass.states[id] : null;
+  }
+
   _getRoomData() {
     if (!this._hass) return {};
     const rooms = {};
@@ -1101,19 +1123,19 @@ class IHCPanel extends HTMLElement {
   }
 
   _getGlobal() {
-    const dem  = this._st("sensor.ihc_gesamtanforderung");
-    const sw   = this._st("switch.ihc_heizung_aktiv");
-    const sel  = this._st("select.ihc_systemmodus");
-    const ct   = this._st("sensor.ihc_heizkurven_zieltemperatur");
-    const ot   = this._st("sensor.ihc_aussentemperatur");
-    const rt   = this._st("sensor.ihc_heizlaufzeit_heute");
-    const egy  = this._st("sensor.ihc_energie_heute");
+    const dem  = this._stSuffix("sensor", "ihc_gesamtanforderung");
+    const sw   = this._stSuffix("switch", "ihc_heizung_aktiv");
+    const sel  = this._stSuffix("select", "ihc_systemmodus");
+    const ct   = this._stSuffix("sensor", "ihc_heizkurven_zieltemperatur");
+    const ot   = this._stSuffix("sensor", "ihc_aussentemperatur");
+    const rt   = this._stSuffix("sensor", "ihc_heizlaufzeit_heute");
+    const egy  = this._stSuffix("sensor", "ihc_energie_heute");
     const a    = dem ? (dem.attributes || {}) : {};
     const ea   = egy ? (egy.attributes || {}) : {};
     return {
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
-      system_mode:               sel ? sel.state : (a.system_mode || "—"),
+      system_mode:               (sel && SYSTEM_MODE_LABEL_TO_KEY[sel.state]) || a.system_mode || "—",
       curve_target:              ct  ? (isNaN(parseFloat(ct.state)) ? null : parseFloat(ct.state)) : null,
       outdoor_temp:              ot  ? (isNaN(parseFloat(ot.state)) ? null : parseFloat(ot.state)) : null,
       rooms_demanding:           a.rooms_demanding || 0,
@@ -1720,7 +1742,7 @@ class IHCPanel extends HTMLElement {
     }).join("");
 
     // Build system banners (compact new style)
-    const _demA = (this._st("sensor.ihc_gesamtanforderung") || { attributes: {} }).attributes;
+    const _demA = (this._stSuffix("sensor", "ihc_gesamtanforderung") || { attributes: {} }).attributes;
     const banners = [
       _demA.startup_grace_active ? `<div class="system-banner warn">⏳ <strong>Startup-Gnadenfrist aktiv</strong> – Heizung gesperrt bis alle Sensoren geladen sind</div>` : "",
       // Sommermodus: mit zugeordnetem Schalter IMMER den aktuellen Status zeigen (an oder aus),
@@ -3466,9 +3488,9 @@ class IHCPanel extends HTMLElement {
 
   _renderDiagnose(content) {
     const g   = this._getGlobal();
-    const dem = this._st("sensor.ihc_gesamtanforderung") || { attributes: {} };
+    const dem = this._stSuffix("sensor", "ihc_gesamtanforderung") || { attributes: {} };
     const a   = dem.attributes;
-    const systemSel = this._st("select.ihc_systemmodus");
+    const systemSel = this._stSuffix("select", "ihc_systemmodus");
     const curMode   = systemSel ? systemSel.state : "auto";
     const rooms = this._getRoomData();
     const roomList = Object.values(rooms);
@@ -4055,7 +4077,7 @@ class IHCPanel extends HTMLElement {
  * Contains: _renderSettings
  */
   _renderSettings(content) {
-    const dem = this._st("sensor.ihc_gesamtanforderung") || { attributes: {} };
+    const dem = this._stSuffix("sensor", "ihc_gesamtanforderung") || { attributes: {} };
     const a   = dem.attributes;
     const g   = this._getGlobal();
 
@@ -5302,8 +5324,8 @@ class IHCPanel extends HTMLElement {
       { outdoor_temp:  15, target_temp: 19.5 }, { outdoor_temp:  20, target_temp: 18.0 },
       { outdoor_temp:  25, target_temp: 16.0 },
     ];
-    const ot = this._st("sensor.ihc_aussentemperatur");
-    const ct = this._st("sensor.ihc_heizkurven_zieltemperatur");
+    const ot = this._stSuffix("sensor", "ihc_aussentemperatur");
+    const ct = this._stSuffix("sensor", "ihc_heizkurven_zieltemperatur");
 
     // Load actual curve from sensor attributes (set by backend)
     const savedPoints = ct?.attributes?.curve_points;
@@ -5482,7 +5504,7 @@ class IHCPanel extends HTMLElement {
       ctx.arc(tx(p.outdoor_temp), ty(p.target_temp), 5, 0, Math.PI * 2); ctx.fill();
     });
     // Current marker
-    const ot = this._st("sensor.ihc_aussentemperatur");
+    const ot = this._stSuffix("sensor", "ihc_aussentemperatur");
     if (ot && !isNaN(parseFloat(ot.state))) {
       const v = parseFloat(ot.state);
       if (v >= minX && v <= maxX) {

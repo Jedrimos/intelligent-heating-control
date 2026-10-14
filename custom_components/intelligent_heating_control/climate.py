@@ -153,6 +153,7 @@ async def async_setup_entry(
 class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
     """Climate entity representing a single room."""
 
+    _attr_has_entity_name = False
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
     _attr_preset_modes = list(PRESET_TO_MODE.keys()) + ["Boost"]

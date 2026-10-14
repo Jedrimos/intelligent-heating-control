@@ -25,6 +25,21 @@
     return this._hass ? this._hass.states[entityId] : null;
   }
 
+  // Some HA versions prepend the device name to the auto-generated object_id
+  // (e.g. "sensor.intelligent_heating_control_ihc_gesamtanforderung" instead of
+  // "sensor.ihc_gesamtanforderung"), depending on entity registry history.
+  // Try the short id first, then fall back to any entity of the right domain
+  // whose object_id ends with the expected suffix.
+  _stSuffix(domain, suffix) {
+    if (!this._hass) return null;
+    const exact = this._hass.states[`${domain}.${suffix}`];
+    if (exact) return exact;
+    const id = Object.keys(this._hass.states).find(
+      (eid) => eid.startsWith(`${domain}.`) && eid.endsWith(suffix)
+    );
+    return id ? this._hass.states[id] : null;
+  }
+
   _getRoomData() {
     if (!this._hass) return {};
     const rooms = {};
@@ -208,19 +223,19 @@
   }
 
   _getGlobal() {
-    const dem  = this._st("sensor.ihc_gesamtanforderung");
-    const sw   = this._st("switch.ihc_heizung_aktiv");
-    const sel  = this._st("select.ihc_systemmodus");
-    const ct   = this._st("sensor.ihc_heizkurven_zieltemperatur");
-    const ot   = this._st("sensor.ihc_aussentemperatur");
-    const rt   = this._st("sensor.ihc_heizlaufzeit_heute");
-    const egy  = this._st("sensor.ihc_energie_heute");
+    const dem  = this._stSuffix("sensor", "ihc_gesamtanforderung");
+    const sw   = this._stSuffix("switch", "ihc_heizung_aktiv");
+    const sel  = this._stSuffix("select", "ihc_systemmodus");
+    const ct   = this._stSuffix("sensor", "ihc_heizkurven_zieltemperatur");
+    const ot   = this._stSuffix("sensor", "ihc_aussentemperatur");
+    const rt   = this._stSuffix("sensor", "ihc_heizlaufzeit_heute");
+    const egy  = this._stSuffix("sensor", "ihc_energie_heute");
     const a    = dem ? (dem.attributes || {}) : {};
     const ea   = egy ? (egy.attributes || {}) : {};
     return {
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
-      system_mode:               sel ? sel.state : (a.system_mode || "—"),
+      system_mode:               (sel && SYSTEM_MODE_LABEL_TO_KEY[sel.state]) || a.system_mode || "—",
       curve_target:              ct  ? (isNaN(parseFloat(ct.state)) ? null : parseFloat(ct.state)) : null,
       outdoor_temp:              ot  ? (isNaN(parseFloat(ot.state)) ? null : parseFloat(ot.state)) : null,
       rooms_demanding:           a.rooms_demanding || 0,

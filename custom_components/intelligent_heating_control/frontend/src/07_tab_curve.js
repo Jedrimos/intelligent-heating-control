@@ -10,8 +10,8 @@
       { outdoor_temp:  15, target_temp: 19.5 }, { outdoor_temp:  20, target_temp: 18.0 },
       { outdoor_temp:  25, target_temp: 16.0 },
     ];
-    const ot = this._st("sensor.ihc_aussentemperatur");
-    const ct = this._st("sensor.ihc_heizkurven_zieltemperatur");
+    const ot = this._stSuffix("sensor", "ihc_aussentemperatur");
+    const ct = this._stSuffix("sensor", "ihc_heizkurven_zieltemperatur");
 
     // Load actual curve from sensor attributes (set by backend)
     const savedPoints = ct?.attributes?.curve_points;
@@ -190,7 +190,7 @@
       ctx.arc(tx(p.outdoor_temp), ty(p.target_temp), 5, 0, Math.PI * 2); ctx.fill();
     });
     // Current marker
-    const ot = this._st("sensor.ihc_aussentemperatur");
+    const ot = this._stSuffix("sensor", "ihc_aussentemperatur");
     if (ot && !isNaN(parseFloat(ot.state))) {
       const v = parseFloat(ot.state);
       if (v >= minX && v <= maxX) {
