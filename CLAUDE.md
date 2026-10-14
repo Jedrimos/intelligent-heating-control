@@ -120,7 +120,8 @@ custom_components/intelligent_heating_control/
     ├── comfort_manager.py       # Schimmelschutz, CO₂-Überwachung, Lüftungsempfehlung
     │                            # → _check_mold_protection(), _check_co2(), _check_ventilation()
     ├── vacation_manager.py      # Urlaubs-Modus, Kalender-Integration, Gäste-Modus
-    │                            # → _check_vacation_mode(), _check_calendar_vacation()
+    │                            # → _update_vacation_auto_mode(), _async_check_vacation_calendar(),
+    │                            #   _update_vacation_return_preheat()
     └── climate_adjustments.py   # Solar-Boost, Energiepreis-Eco
     │                            # → _get_solar_boost(), _get_energy_price_eco_offset()
 ```
