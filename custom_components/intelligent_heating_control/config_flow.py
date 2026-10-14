@@ -153,6 +153,14 @@ from .const import (
     DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES,
     CONF_VACATION_CALENDAR,
     CONF_VACATION_CALENDAR_KEYWORD,
+    CONF_VACATION_START,
+    CONF_VACATION_END,
+    CONF_VACATION_RETURN_PREHEAT_DAYS,
+    DEFAULT_VACATION_RETURN_PREHEAT_DAYS,
+    CONF_PRICE_FORECAST_ATTRIBUTE,
+    DEFAULT_PRICE_FORECAST_ATTRIBUTE,
+    CONF_GUEST_DURATION_HOURS,
+    DEFAULT_GUEST_DURATION_HOURS,
     # v1.8 – Holiday calendar
     CONF_HOLIDAY_CALENDAR,
     CONF_HOLIDAY_SCHEDULE_MODE,
@@ -236,6 +244,7 @@ from .const import (
     DEFAULT_OPTIMUM_START_ENABLED,
     CONF_TEMP_CALIBRATION,
     CONF_COMFORT_EXTEND_ENTRIES,
+    CONF_SLEEP_TEMP_PROFILE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -665,6 +674,33 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "number": {"min": 1, "max": 15, "step": 1, "unit_of_measurement": "min", "mode": "slider"}
             }),
+            # --- Urlaubs-Assistent / Gäste-Modus / Preisprognose ---
+            # Plain text (not a date selector) so an empty/unset value round-trips cleanly -
+            # the custom panel's own date inputs write the same "YYYY-MM-DD" / "" format.
+            vol.Optional(
+                CONF_VACATION_START,
+                default=cfg.get(CONF_VACATION_START, "")
+            ): selector.selector({"text": {}}),
+            vol.Optional(
+                CONF_VACATION_END,
+                default=cfg.get(CONF_VACATION_END, "")
+            ): selector.selector({"text": {}}),
+            vol.Optional(
+                CONF_VACATION_RETURN_PREHEAT_DAYS,
+                default=int(cfg.get(CONF_VACATION_RETURN_PREHEAT_DAYS, DEFAULT_VACATION_RETURN_PREHEAT_DAYS))
+            ): selector.selector({
+                "number": {"min": 0, "max": 14, "step": 1, "unit_of_measurement": "Tage", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_GUEST_DURATION_HOURS,
+                default=int(cfg.get(CONF_GUEST_DURATION_HOURS, DEFAULT_GUEST_DURATION_HOURS))
+            ): selector.selector({
+                "number": {"min": 0, "max": 168, "step": 1, "unit_of_measurement": "h", "mode": "box"}
+            }),
+            vol.Optional(
+                CONF_PRICE_FORECAST_ATTRIBUTE,
+                default=cfg.get(CONF_PRICE_FORECAST_ATTRIBUTE, DEFAULT_PRICE_FORECAST_ATTRIBUTE)
+            ): selector.selector({"text": {}}),
         })
         return self.async_show_form(step_id="global_settings", data_schema=vol.Schema(schema_dict), errors=errors)
 
@@ -797,6 +833,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_AGGRESSIVE_MODE_OFFSET: float(user_input.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET)),
                 CONF_TEMP_CALIBRATION: float(user_input.get(CONF_TEMP_CALIBRATION, 0.0)),
                 CONF_COMFORT_EXTEND_ENTRIES: list(user_input.get(CONF_COMFORT_EXTEND_ENTRIES, [])),
+                CONF_SLEEP_TEMP_PROFILE: list(user_input.get(CONF_SLEEP_TEMP_PROFILE, [])),
                 CONF_WINDOW_CASCADE_ROOMS: list(user_input.get(CONF_WINDOW_CASCADE_ROOMS, [])),
                 CONF_WINDOW_CASCADE_DELAY_MINUTES: int(user_input.get(CONF_WINDOW_CASCADE_DELAY_MINUTES, DEFAULT_WINDOW_CASCADE_DELAY_MINUTES)),
                 CONF_WINDOW_CASCADE_OFFSET: float(user_input.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET)),
@@ -957,6 +994,12 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ECO_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_COMFORT_EXTEND_ENTITY, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_COMFORT_EXTEND_STATE, default=DEFAULT_COMFORT_EXTEND_STATE): selector.selector({"text": {}}),
+            # Multi-entry variants of the two fields above and the sleep-temperature-profile
+            # curve are lists of objects - no single-value selector fits, so expose them as a
+            # raw YAML/JSON object editor (same pattern as CONF_TRV_CALIBRATIONS below). The
+            # custom panel's dedicated row editors remain the friendlier way to edit these.
+            vol.Optional(CONF_COMFORT_EXTEND_ENTRIES, default=[]): selector.selector({"object": {}}),
+            vol.Optional(CONF_SLEEP_TEMP_PROFILE, default=[]): selector.selector({"object": {}}),
             vol.Optional(CONF_AGGRESSIVE_MODE_ENABLED, default=DEFAULT_AGGRESSIVE_MODE_ENABLED): selector.selector({"boolean": {}}),
             vol.Optional(CONF_AGGRESSIVE_MODE_RANGE, default=float(DEFAULT_AGGRESSIVE_MODE_RANGE)): selector.selector({
                 "number": {"min": 0.5, "max": 5.0, "step": 0.5, "unit_of_measurement": "°C", "mode": "slider"}
@@ -1156,6 +1199,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ECO_TEMP_ENTITY, default=room.get(CONF_ECO_TEMP_ENTITY, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_COMFORT_EXTEND_ENTITY, default=room.get(CONF_COMFORT_EXTEND_ENTITY, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_COMFORT_EXTEND_STATE, default=room.get(CONF_COMFORT_EXTEND_STATE, DEFAULT_COMFORT_EXTEND_STATE)): selector.selector({"text": {}}),
+            vol.Optional(CONF_COMFORT_EXTEND_ENTRIES, default=room.get(CONF_COMFORT_EXTEND_ENTRIES, [])): selector.selector({"object": {}}),
+            vol.Optional(CONF_SLEEP_TEMP_PROFILE, default=room.get(CONF_SLEEP_TEMP_PROFILE, [])): selector.selector({"object": {}}),
             vol.Optional(CONF_AGGRESSIVE_MODE_ENABLED, default=bool(room.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_AGGRESSIVE_MODE_RANGE, default=float(room.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE))): selector.selector({
                 "number": {"min": 0.5, "max": 5.0, "step": 0.5, "unit_of_measurement": "°C", "mode": "slider"}
