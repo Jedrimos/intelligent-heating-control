@@ -73,18 +73,9 @@ CONF_RADIATOR_KW: Final = "radiator_kw"          # rated heat output of this roo
 CONF_HKV_SENSOR: Final = "hkv_sensor"            # HA sensor entity with live HKV Einheiten reading
 CONF_HKV_FACTOR: Final = "hkv_factor"            # kWh per HKV-Einheit (from annual billing statement)
 CONF_SCHEDULES: Final = "schedules"
-CONF_SCHEDULE_DAYS: Final = "days"
-CONF_SCHEDULE_PERIODS: Final = "periods"
-CONF_SCHEDULE_START: Final = "start"
-CONF_SCHEDULE_END: Final = "end"
-CONF_SCHEDULE_TEMP: Final = "temperature"
-CONF_SCHEDULE_OFFSET: Final = "offset"
-CONF_ENABLED: Final = "enabled"
 
 # Heating curve config keys
 CONF_CURVE_POINTS: Final = "points"
-CONF_CURVE_OUTDOOR_TEMP: Final = "outdoor_temp"
-CONF_CURVE_TARGET_TEMP: Final = "target_temp"
 
 # Defaults
 DEFAULT_DEADBAND: Final = 0.5

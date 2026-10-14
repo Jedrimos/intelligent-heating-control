@@ -60,7 +60,6 @@ from .const import (
     CONF_SCHEDULES,
     CONF_MIN_TEMP,
     CONF_MAX_TEMP,
-    CONF_SYSTEM_MODE,
     STORAGE_KEY,
     CONF_AWAY_TEMP,
     CONF_VACATION_TEMP,

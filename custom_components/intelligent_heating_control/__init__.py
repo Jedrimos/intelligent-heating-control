@@ -438,7 +438,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     async def handle_boost_room(call: ServiceCall) -> None:
         room_id = call.data.get(CONF_ROOM_ID)
         duration = int(call.data.get("duration_minutes", 60))
-        cancel = bool(call.data.get("cancel", False))
+        cancel = _coerce_bool(call.data.get("cancel", False))
         if room_id:
             if cancel:
                 coordinator.cancel_room_boost(room_id)

@@ -1426,6 +1426,7 @@
             <button class="btn btn-danger btn-icon remove-ce-entry">✕</button>`;
           row.querySelector(".remove-ce-entry").addEventListener("click", () => row.remove());
           list.appendChild(row);
+          this._attachEntityPickers(row);
         });
       }
     }, 50);
