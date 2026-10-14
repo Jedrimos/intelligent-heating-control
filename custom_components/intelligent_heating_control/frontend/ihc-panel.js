@@ -2223,6 +2223,23 @@ class IHCPanel extends HTMLElement {
               <input type="number" class="form-input" id="rs-sleep-max"
                 value="${room.sleep_max_temp ?? 19}" step="0.5" min="10" max="25">
             </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>🌙 Schlaf-Temperaturprofil <span style="font-weight:400;font-size:10px">(optional – überschreibt Schlaf-Abzug wenn gesetzt)</span></label>
+              <div id="rs-sleep-profile-list">
+                ${(() => {
+                  const points = (room.sleep_temp_profile && room.sleep_temp_profile.length > 0) ? room.sleep_temp_profile : [{ time: "22:00", temp: "" }];
+                  return points.map((p, i) => `
+                    <div class="entity-row sp-row">
+                      <input type="time" class="form-input" style="max-width:110px" data-sp-field="time" value="${p.time || ''}">
+                      <input type="number" class="form-input" style="max-width:90px" data-sp-field="temp" placeholder="°C" step="0.5" min="5" max="30" value="${p.temp ?? ''}">
+                      ${i === 0
+                        ? `<button class="btn btn-secondary btn-icon" id="rs-add-sp-point">+</button>`
+                        : `<button class="btn btn-danger btn-icon remove-sp-point">✕</button>`}
+                    </div>`).join("");
+                })()}
+              </div>
+              <span class="form-hint">Uhrzeit · Temperatur – z.B. 22:00/19°C, 02:00/16°C, 06:00/18°C. Leer lassen für den festen Schlaf-Abzug oben.</span>
+            </div>
             <div class="settings-item">
               <label>Abwesend Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-away-offset"
@@ -2568,6 +2585,55 @@ class IHCPanel extends HTMLElement {
           <span class="form-hint">Optional. Beispiel: media_player.wohnzimmer / playing · binary_sensor.jemand_zuhause / on</span>
         </details>
 
+        <details class="modal-collapsible" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
+          <summary class="modal-section-title">☀️ Passive Solarheizung (Rolladen)
+            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">☀️ Aktiv (${room.solar_cover_position}%)</span>` : ""}
+          </summary>
+          <div style="font-size:12px;color:var(--secondary-text-color);margin:8px 0 12px">
+            Öffnet die Rolladen bevor die Heizung anspringt wenn die Sonne aufs Fenster scheint (kostenlose
+            Wärme), bzw. beschattet leicht wenn der Raum sich im Sommer aufheizt. Braucht Rolladen-Entitäten
+            und die Fensterausrichtung.
+          </div>
+          <div class="settings-item" style="grid-column:1/-1;margin-bottom:10px">
+            <label>Rolladen-Entitäten (mehrere möglich)</label>
+            <div class="entity-list" id="rs-cover-list">
+              ${(() => {
+                const covers = (room.cover_entities && room.cover_entities.length > 0) ? room.cover_entities : [""];
+                return covers.map((c, i) => `
+                  <div class="entity-row">
+                    <input type="text" class="form-input" value="${c}" placeholder="cover.wohnzimmer (optional)"
+                      data-ep-domains="cover" autocomplete="off">
+                    ${i === 0
+                      ? `<button class="btn btn-secondary btn-icon add-entity" data-list="rs-cover-list" data-ep-domains="cover">+</button>`
+                      : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
+                  </div>`).join("");
+              })()}
+            </div>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Fensterausrichtung</label>
+              <select class="form-select" id="rs-window-orientation">
+                <option value="" ${!room.window_orientation ? "selected" : ""}>– keine –</option>
+                ${["N", "NE", "E", "SE", "S", "SW", "W", "NW"].map(o =>
+                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${o}</option>`).join("")}
+              </select>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="rs-solar-passive-heat" ${room.solar_passive_heat ? "checked" : ""}>
+                Passive Solarheizung
+              </label>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="rs-solar-passive-cool" ${room.solar_passive_cool ? "checked" : ""}>
+                Passive Beschattung
+              </label>
+            </div>
+          </div>
+        </details>
+
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="rs-save-btn">💾 Einstellungen speichern</button>
         </div>
@@ -2652,6 +2718,7 @@ class IHCPanel extends HTMLElement {
       const mode   = container.querySelector("#rs-mode").value;
       const valves  = [...container.querySelectorAll("#rs-valve-list input")].map(i => i.value.trim()).filter(Boolean);
       const windows = [...container.querySelectorAll("#rs-window-list input")].map(i => i.value.trim()).filter(Boolean);
+      const covers  = [...container.querySelectorAll("#rs-cover-list input")].map(i => i.value.trim()).filter(Boolean);
       await this._callService("set_room_mode", { id: room.room_id, mode });
       await this._callService("update_room", {
         id: room.room_id,
@@ -2666,6 +2733,9 @@ class IHCPanel extends HTMLElement {
         eco_max_temp:             parseFloat(container.querySelector("#rs-eco-max")?.value),
         sleep_offset:             parseFloat(container.querySelector("#rs-sleep-offset")?.value),
         sleep_max_temp:           parseFloat(container.querySelector("#rs-sleep-max")?.value),
+        sleep_temp_profile: [...container.querySelectorAll("#rs-sleep-profile-list .sp-row")]
+          .map(r => ({ time: r.querySelector('[data-sp-field="time"]')?.value || "", temp: parseFloat(r.querySelector('[data-sp-field="temp"]')?.value) }))
+          .filter(p => p.time && !isNaN(p.temp)),
         away_offset:              parseFloat(container.querySelector("#rs-away-offset")?.value),
         away_max_temp:            parseFloat(container.querySelector("#rs-away-max")?.value),
         room_offset:              parseFloat(container.querySelector("#rs-offset")?.value),
@@ -2711,6 +2781,10 @@ class IHCPanel extends HTMLElement {
           .filter(e => e.entity),
         comfort_extend_entity: "",
         comfort_extend_state:  "on",
+        cover_entities:           covers,
+        window_orientation:       container.querySelector("#rs-window-orientation")?.value || "",
+        solar_passive_heat:       container.querySelector("#rs-solar-passive-heat")?.checked === true,
+        solar_passive_cool:       container.querySelector("#rs-solar-passive-cool")?.checked === true,
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,
@@ -2739,8 +2813,12 @@ class IHCPanel extends HTMLElement {
 
     // Activate the HA-style entity picker dropdown for every field tagged with
     // data-ep-domains above (valve/window lists, sensors, comfort/eco temp
-    // entities, presence entities, comfort-extend) – was never wired up here.
+    // entities, presence entities, comfort-extend, cover list) – was never
+    // wired up here.
     this._attachEntityPickers(container);
+    // Add/remove buttons for the sleep-temperature-profile point rows (shared
+    // helper also used by the Add/Edit-Room modal).
+    this._bindSleepProfileAdder("rs-sleep-profile-list", "rs-add-sp-point");
   }
 
   _renderRoomScheduleInline(room, container) {
@@ -6958,6 +7036,7 @@ class IHCPanel extends HTMLElement {
             <button class="btn btn-danger btn-icon remove-ce-entry">✕</button>`;
           row.querySelector(".remove-ce-entry").addEventListener("click", () => row.remove());
           list.appendChild(row);
+          this._attachEntityPickers(row);
         });
       }
     }, 50);
