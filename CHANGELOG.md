@@ -9,9 +9,44 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Geplant
+Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent, u. v. m.).
+
+---
+
+## [2.1.1] - 2026-10-14
+
+### Gefixt
+- **Entity-ID-Mismatch war Ursache für "Panel zeigt nur Standardwerte" (Issue #66):** Auf manchen
+  HA-Installationen generiert Home Assistant für die globalen Entities (Gesamtanforderung,
+  Außentemperatur, Heizkurven-Zieltemperatur, Systemmodus, Heizung-aktiv-Schalter, Laufzeit/
+  Energie heute) eine lange, mit dem Device-Namen präfigierte Entity-ID
+  (`sensor.intelligent_heating_control_ihc_gesamtanforderung`) statt der erwarteten kurzen Form
+  (`sensor.ihc_gesamtanforderung`). Das Frontend hat nach der exakten kurzen ID gesucht, nichts
+  gefunden und ist in Einstellungen-, Heizkurve- und Diagnose-Tab still auf Standardwerte
+  zurückgefallen, obwohl gespeicherte Werte korrekt im Backend ankamen (sichtbar z.B. im
+  Konfigurationsexport). Doppelt behoben: Frontend sucht die globalen Entities jetzt per
+  Domain+Namens-Suffix statt exakter ID (wie bei den Zimmer-Entities schon immer), Backend pinnt
+  `_attr_has_entity_name = False` jetzt auf allen Entity-Klassen (war zuvor nur in
+  `binary_sensor.py` gesetzt), damit künftige Installationen erst gar keine lange ID bekommen.
+- **Systemmodus-Pill im Dashboard sprang nach Klick kurz auf den alten Wert zurück:** Das
+  Dashboard bevorzugte ein `system_mode`-Sensor-Attribut, das erst nach dem vollständigen
+  (asynchronen) Update-Zyklus aktuell wird, statt den sofort aktualisierten
+  `select.ihc_systemmodus`-Status. Dabei zunächst übersehen: dessen Zustand ist ein übersetztes
+  Label ("Abwesend"), kein roher Modus-Schlüssel ("away") – jetzt per Reverse-Lookup sauber
+  aufgelöst, bevor es für Pill-Highlighting/Override-Erkennung verwendet wird.
+- **Konfigurationsexport lieferte leere Zimmerliste:** Der Export-Button griff im Frontend auf
+  `this.coordinator` zu, das dort nie existiert hat (`rooms` war immer `[]`). Nutzt jetzt
+  dieselbe Zimmer-Datenquelle wie der Rest des Panels.
+- **Sommermodus-/Heizperioden-Schalterstatus nirgends im Dashboard sichtbar:** Wird jetzt immer
+  angezeigt, sobald dem jeweiligen Feature eine Entity zugeordnet ist (an oder aus).
+- **Neue Einstellungen (Hysterese, automatische Heizperioden-Erkennung, u.a.) waren in den
+  Einstellungen unauffindbar:** Die zugehörige Karte "Temperaturen & Sommerautomatik" öffnet
+  jetzt standardmäßig.
+
 ### Klargestellt
-- **Systemmodus bleibt absolut, genau wie Fenster-offen.** Kurzzeitig (nur in dieser
-  Unreleased-Phase) hatten wir das umgedreht, sodass jeder bewusst gewählte Zimmermodus
+- **Systemmodus bleibt absolut, genau wie Fenster-offen.** Kurzzeitig (nur auf dem Entwicklungs-
+  Branch, nie released) hatten wir das umgedreht, sodass jeder bewusst gewählte Zimmermodus
   (Komfort/Eco/Schlaf/Abwesend/Aus/Manuell) gegen den Systemmodus gewinnt. Nach Rückfrage:
   gemeint war eigentlich das eigenständige **Gruppenmodus**-Feature, nicht der globale
   Systemmodus. Systemmodus (Abwesend/Urlaub/Gäste/Heizen/Aus) übersteuert also weiterhin
@@ -22,9 +57,6 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   gibt es keinen dauerhaft durchgesetzten "Gruppenzustand" mehr. Änderst du danach ein einzelnes
   Zimmer manuell (z.B. weil es gerade kalt ist und die Automatik daneben liegt), bleibt das genau
   so bestehen – erst der nächste Gruppen-Modus-Klick überschreibt wieder alle Mitgliedszimmer.
-
-### Geplant
-Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-Assistent, u. v. m.).
 
 ---
 
