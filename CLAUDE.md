@@ -601,6 +601,32 @@ Add-Room und Edit-Room Modal müssen **immer synchron** bleiben:
 
 **Niemals** `parseFloat()` für Werte die Backend als `int` erwartet (Sekunden, Minuten, ppm).
 
+### Wenn ein neues Release gemacht wird (Versionsnummer bumpen)
+
+Die Versionsnummer steht an **sechs** Stellen – alle müssen synchron sein (gleiches "Stelle A
+geändert, Stelle B vergessen"-Muster wie bei Kapitel 9, schon einmal passiert: README/ROADMAP/
+Dashboard-Topbar blieben bei 2.1.0 hängen während `manifest.json` schon 2.1.1 war):
+
+- [ ] `custom_components/intelligent_heating_control/manifest.json` – `"version"`
+- [ ] `CLAUDE.md` – Kapitel 1, `**Version:**`-Zeile (diese Datei hier)
+- [ ] `README.md` – Satz "Aktuell ist Version X stabil und HACS-kompatibel" (ganz unten) **und**
+      das Versions-Badge ganz oben (`img.shields.io/badge/Version-X-green.svg`)
+- [ ] `ROADMAP.md` – "Aktueller Stand des Codes: **X**"
+- [ ] `custom_components/intelligent_heating_control/__init__.py` – `js_url` Cache-Busting-Query
+      (`ihc-panel.js?v=X`) – **funktional wichtig, nicht nur kosmetisch**: ohne Bump liefert der
+      Browser u. U. die alte, gecachte `ihc-panel.js` weiter aus
+- [ ] `custom_components/intelligent_heating_control/frontend/src/09_main.js` – `topbar-version`
+      Span (Quelle!) + danach `python3 frontend/build.py` ausführen, damit `ihc-panel.js`
+      (kompiliert, nie von Hand editieren) den neuen Stand übernimmt
+- [ ] `CHANGELOG.md` – neuer `## [X.Y.Z] - Datum` Abschnitt (siehe bestehende Einträge als Vorlage)
+
+```bash
+# Schnell-Check nach dem Bumpen: alte Versionsnummer darf nirgends mehr auftauchen
+# (CHANGELOG.md und historische Hinweise wie "Klarstellung nach 2.1.0" in Kapitel 1 ausgenommen –
+# die beziehen sich bewusst auf eine bestimmte vergangene Version, nicht den aktuellen Stand)
+grep -rn "2\.1\.0" --include="*.md" --include="*.js" --include="*.json" --include="*.py" .
+```
+
 ---
 
 ## 11. Bekannte offene Punkte / Roadmap
