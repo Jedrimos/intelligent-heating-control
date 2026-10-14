@@ -2546,7 +2546,8 @@ class IHCPanel extends HTMLElement {
                 return entries.map((entry, i) => `
                   <div class="entity-row comfort-extend-row">
                     <input type="text" class="form-input" placeholder="entity_id"
-                      value="${entry.entity || ''}" autocomplete="off" data-ce-field="entity">
+                      value="${entry.entity || ''}" autocomplete="off" data-ce-field="entity"
+                      data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
                     <input type="text" class="form-input" style="max-width:100px" placeholder="zustand"
                       value="${entry.state || 'on'}" autocomplete="off" data-ce-field="state">
                     ${i === 0
@@ -2556,7 +2557,8 @@ class IHCPanel extends HTMLElement {
               } else {
                 return `
                   <div class="entity-row comfort-extend-row">
-                    <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity">
+                    <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity"
+                      data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
                     <input type="text" class="form-input" style="max-width:100px" placeholder="on" value="on" autocomplete="off" data-ce-field="state">
                     <button class="btn btn-secondary btn-icon" id="rs-add-comfort-extend">+</button>
                   </div>`;
@@ -2603,6 +2605,7 @@ class IHCPanel extends HTMLElement {
           <button class="btn btn-danger btn-icon remove-entity">✕</button>`;
         list.appendChild(row);
         row.querySelector(".remove-entity").addEventListener("click", () => row.remove());
+        if (domains) this._attachEntityPickers(row);
       });
     });
     container.querySelectorAll(".remove-entity").forEach(btn => {
@@ -2615,11 +2618,13 @@ class IHCPanel extends HTMLElement {
       const row = document.createElement("div");
       row.className = "entity-row comfort-extend-row";
       row.innerHTML = `
-        <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity">
+        <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity"
+          data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
         <input type="text" class="form-input" style="max-width:100px" placeholder="on" value="on" autocomplete="off" data-ce-field="state">
         <button class="btn btn-danger btn-icon remove-comfort-extend">✕</button>`;
       list.appendChild(row);
       row.querySelector(".remove-comfort-extend").addEventListener("click", () => row.remove());
+      this._attachEntityPickers(row);
     });
     container.querySelectorAll(".remove-comfort-extend").forEach(btn => {
       btn.addEventListener("click", () => btn.closest(".comfort-extend-row").remove());
@@ -2731,6 +2736,11 @@ class IHCPanel extends HTMLElement {
         this._renderRooms(fullContent);
       });
     }
+
+    // Activate the HA-style entity picker dropdown for every field tagged with
+    // data-ep-domains above (valve/window lists, sensors, comfort/eco temp
+    // entities, presence entities, comfort-extend) – was never wired up here.
+    this._attachEntityPickers(container);
   }
 
   _renderRoomScheduleInline(room, container) {
