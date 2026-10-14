@@ -319,8 +319,8 @@ class IHCCoordinator(
         self._window_open_counters: Dict[str, int] = {}  # room_id → consecutive drops
         self._boost_until: Dict[str, datetime] = {}  # room_id → boost expiry time
         self._room_pre_boost_mode: Dict[str, str] = {}  # room_id → mode before boost
-        # Cache for YAML-defined schedule entities (logged once, not every 60s cycle)
-        self._yaml_schedule_warned: set = set()  # entity_ids already warned about
+        # HA schedule.* entities already warned about (logged once, not every 60s cycle)
+        self._ha_schedule_warned: set = set()  # entity_ids already warned about
 
         # Presence-based auto-away
         self._presence_away_active: bool = False  # True when auto-away triggered by presence
@@ -1419,6 +1419,7 @@ class IHCCoordinator(
         energy/ventilation → result assembly).
         """
         ctx = await self._update_phase_startup_and_timers()
+        ctx["ha_schedule_blocks_by_room"] = await self._async_fetch_ha_schedule_blocks_by_room()
         self._update_phase_outdoor_and_adjustments(ctx)
         self._update_phase_window_cascade(ctx)
 
@@ -1926,8 +1927,9 @@ class IHCCoordinator(
                 round((_now_cascade - self._window_opened_at[room_id]).total_seconds() / 60.0, 1)
                 if self._window_opened_at.get(room_id) is not None else None
             ),
-            # HA schedule time blocks (read from schedule.* entity config entries)
-            "ha_schedule_blocks": self.get_ha_schedule_blocks_for_room(room),
+            # HA schedule time blocks, pre-fetched async in _async_update_data before
+            # the per-room loop (see _async_fetch_ha_schedule_blocks_by_room)
+            "ha_schedule_blocks": ctx.get("ha_schedule_blocks_by_room", {}).get(room_id, {}),
             **meta,
         }
 
@@ -2286,126 +2288,109 @@ class IHCCoordinator(
     # HA Schedule entity block reader
     # ------------------------------------------------------------------
 
-    def _get_ha_schedule_blocks(self, entity_id: str) -> list[dict]:
-        """Read weekly time blocks from a HA schedule.* helper entity config.
+    async def _async_get_ha_schedule_blocks(self, entity_id: str) -> list[dict]:
+        """Read weekly time blocks from a HA schedule.* entity (Helper or YAML).
 
-        HA stores schedule blocks in config_entry.options (or .data) under full day keys:
-          {"monday": [{"from": "07:00:00", "to": "09:00:00"}], ...}
-        Some HA versions use short keys ("mon", "tue") or "start"/"end" instead of "from"/"to".
-        We try all variants.
+        Previous approach chased entity_registry.config_entry_id to tell YAML-
+        defined schedules apart from UI/Helper-created ones and to locate the
+        block data. That never worked: the schedule domain is a storage-
+        collection helper (like input_boolean/timer/counter), not config-entry
+        backed, so config_entry_id is always None regardless of origin -
+        every schedule entity was silently misreported as "_yaml_defined".
+
+        Correct approach (confirmed against home-assistant/core source):
+        - `editable` is a standard capability attribute HA's helper domains
+          publish on the entity state: True for Helper/UI-created, False for
+          YAML-defined. Reliable, public, stable across versions.
+        - The weekly blocks themselves are read via the schedule integration's
+          own `schedule.get_schedule` entity service, which works identically
+          for YAML- and Helper-created schedules (both live in the same
+          EntityComponent) - no internal/private API needed.
 
         Returns IHC-compatible block list:
           [{"days": ["mon", "tue"], "periods": [{"start": "07:00", "end": "09:00"}]}]
         """
-        # Full day names (HA default since 2023.3)
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            if entity_id not in self._ha_schedule_warned:
+                self._ha_schedule_warned.add(entity_id)
+                _LOGGER.warning("IHC: HA-Zeitplan '%s' nicht gefunden.", entity_id)
+            return []
+
+        if state.attributes.get("editable") is False:
+            return [{"_yaml_defined": True}]
+
+        # Full day names (HA default) and short variants (defensive, in case a
+        # future/older core version's service response differs)
         DAY_MAP_FULL = {
             "monday": "mon", "tuesday": "tue", "wednesday": "wed",
             "thursday": "thu", "friday": "fri", "saturday": "sat", "sunday": "sun",
         }
-        # Short day names (used in some HA versions / custom components)
         DAY_MAP_SHORT = {
             "mon": "mon", "tue": "tue", "wed": "wed",
             "thu": "thu", "fri": "fri", "sat": "sat", "sun": "sun",
         }
         try:
-            registry = er.async_get(self.hass)
-            entry = registry.async_get(entity_id)
-            if not entry:
+            response = await self.hass.services.async_call(
+                "schedule", "get_schedule",
+                {"entity_id": entity_id},
+                blocking=True, return_response=True,
+            )
+            cfg: dict = (response or {}).get(entity_id, {})
+        except Exception:  # noqa: BLE001 - schedule.get_schedule internals may shift between HA versions
+            if entity_id not in self._ha_schedule_warned:
+                self._ha_schedule_warned.add(entity_id)
                 _LOGGER.warning(
-                    "IHC: HA-Zeitplan '%s' nicht in Entity-Registry – existiert die Entität?", entity_id
+                    "IHC: Fehler beim Lesen der HA-Zeitplan-Blöcke für '%s':", entity_id, exc_info=True
                 )
-                return []
-            if not entry.config_entry_id:
-                # Fallback 1: HA schedule helpers created via UI use their config_entry.entry_id
-                # as the entity's unique_id – try a direct lookup with the unique_id.
-                config_entry = None
-                if entry.unique_id:
-                    config_entry = self.hass.config_entries.async_get_entry(entry.unique_id)
-                    if config_entry:
-                        _LOGGER.debug(
-                            "IHC: Fallback 1 – '%s' config entry via unique_id gefunden: %s",
-                            entity_id, config_entry.entry_id,
-                        )
-                # Fallback 2: search all schedule config entries by associated entities
-                if config_entry is None:
-                    for ce in self.hass.config_entries.async_entries("schedule"):
-                        associated = er.async_entries_for_config_entry(registry, ce.entry_id)
-                        if any(ae.entity_id == entity_id for ae in associated):
-                            config_entry = ce
-                            _LOGGER.debug(
-                                "IHC: Fallback 2 – '%s' config entry via Schedule-Suche: %s",
-                                entity_id, ce.entry_id,
-                            )
-                            break
-                if config_entry is None:
-                    # YAML-defined schedule helpers have no config entry.
-                    # The schedule state ("on"/"off") still works for heating decisions –
-                    # only the frontend calendar display is unavailable.
-                    # Log only once per entity_id to avoid spam every 60s.
-                    if entity_id not in self._yaml_schedule_warned:
-                        self._yaml_schedule_warned.add(entity_id)
-                        _LOGGER.warning(
-                            "IHC: HA-Zeitplan '%s': Config-Entry nicht gefunden. "
-                            "Heizsteuerung funktioniert normal über Entity-State. "
-                            "Kalenderanzeige nicht verfügbar (nur für UI-erstellte Helfer). "
-                            "Falls via HA-UI erstellt: Integration einmal neu laden.", entity_id
-                        )
-                    return [{"_yaml_defined": True}]
-            else:
-                config_entry = self.hass.config_entries.async_get_entry(entry.config_entry_id)
-                if not config_entry:
-                    _LOGGER.warning(
-                        "IHC: Config Entry '%s' für '%s' nicht gefunden.", entry.config_entry_id, entity_id
-                    )
-                    return []
-
-            # Merge data + options (HA may store schedule blocks in either location)
-            cfg: dict = {}
-            cfg.update(config_entry.data or {})
-            cfg.update(config_entry.options or {})
-
-            # Pick the day-map whose keys appear in cfg
-            has_full  = any(k in cfg for k in DAY_MAP_FULL)
-            has_short = any(k in cfg for k in DAY_MAP_SHORT)
-            day_map = DAY_MAP_FULL if (has_full or not has_short) else DAY_MAP_SHORT
-
-            # Collect periods, merging identical start/end times across days
-            period_map: dict[tuple[str, str], list[str]] = {}
-            for ha_day, ihc_day in day_map.items():
-                for period in cfg.get(ha_day, []):
-                    # Support both "from"/"to" (HA default) and "start"/"end" variants
-                    raw_start = period.get("from") or period.get("start") or ""
-                    raw_end   = period.get("to")   or period.get("end")   or ""
-                    start = str(raw_start)[:5]  # "07:00:00" → "07:00"
-                    end   = str(raw_end)[:5]
-                    if not start or not end:
-                        continue
-                    period_map.setdefault((start, end), []).append(ihc_day)
-
-            blocks = [
-                {"days": days, "periods": [{"start": s, "end": e}]}
-                for (s, e), days in period_map.items()
-            ]
-
-            if not blocks:
-                found_keys = [k for k in cfg if k in {**DAY_MAP_FULL, **DAY_MAP_SHORT}]
-                _LOGGER.warning(
-                    "IHC: Keine Blöcke für '%s' gefunden. "
-                    "Gefundene Tages-Keys: %s. Bitte im HA-Helfer Zeitblöcke definieren.",
-                    entity_id, found_keys or "(keine)"
-                )
-            return blocks
-        except Exception:  # noqa: BLE001
-            _LOGGER.warning("IHC: Fehler beim Lesen der HA-Zeitplan-Blöcke für '%s':", entity_id, exc_info=True)
             return []
 
-    def get_ha_schedule_blocks_for_room(self, room: dict) -> dict[str, list[dict]]:
-        """Return {entity_id: [blocks]} for all ha_schedules configured for a room."""
-        result: dict[str, list[dict]] = {}
-        for ha_sched in room.get(CONF_HA_SCHEDULES, []):
-            entity_id = ha_sched.get("entity", "")
-            if entity_id:
-                result[entity_id] = self._get_ha_schedule_blocks(entity_id)
+        has_full  = any(k in cfg for k in DAY_MAP_FULL)
+        has_short = any(k in cfg for k in DAY_MAP_SHORT)
+        day_map = DAY_MAP_FULL if (has_full or not has_short) else DAY_MAP_SHORT
+
+        # Collect periods, merging identical start/end times across days
+        period_map: dict[tuple[str, str], list[str]] = {}
+        for ha_day, ihc_day in day_map.items():
+            for period in cfg.get(ha_day, []):
+                # Support both "from"/"to" (HA default) and "start"/"end" variants
+                raw_start = period.get("from") or period.get("start") or ""
+                raw_end   = period.get("to")   or period.get("end")   or ""
+                start = str(raw_start)[:5]  # "07:00:00" → "07:00"
+                end   = str(raw_end)[:5]
+                if not start or not end:
+                    continue
+                period_map.setdefault((start, end), []).append(ihc_day)
+
+        blocks = [
+            {"days": days, "periods": [{"start": s, "end": e}]}
+            for (s, e), days in period_map.items()
+        ]
+
+        if not blocks and entity_id not in self._ha_schedule_warned:
+            self._ha_schedule_warned.add(entity_id)
+            _LOGGER.warning(
+                "IHC: Keine Blöcke für '%s' gefunden. Bitte im HA-Helfer Zeitblöcke definieren.", entity_id
+            )
+        return blocks
+
+    async def _async_fetch_ha_schedule_blocks_by_room(self) -> Dict[str, Dict[str, list]]:
+        """Pre-fetch HA schedule.* weekly blocks for every room's configured
+        ha_schedules entities once per update cycle (async, via the schedule
+        integration's entity service). _process_room (synchronous) reads the
+        result back out of ctx instead of fetching per-room itself.
+        """
+        result: Dict[str, Dict[str, list]] = {}
+        for room in self.get_rooms():
+            room_id = room.get(CONF_ROOM_ID, "")
+            if not room_id:
+                continue
+            room_blocks: Dict[str, list] = {}
+            for ha_sched in room.get(CONF_HA_SCHEDULES, []):
+                entity_id = ha_sched.get("entity", "")
+                if entity_id:
+                    room_blocks[entity_id] = await self._async_get_ha_schedule_blocks(entity_id)
+            result[room_id] = room_blocks
         return result
 
     # ------------------------------------------------------------------
