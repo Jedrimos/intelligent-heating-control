@@ -237,6 +237,7 @@ from .const import (
     DEFAULT_PEAK_SHAVING_ENABLED,
     CONF_PEAK_SHAVING_DELAY_MINUTES,
     DEFAULT_PEAK_SHAVING_DELAY_MINUTES,
+    PEAK_SHAVING_HOLD_MARGIN_C,
     # v1.5 – Price forecast
     CONF_PRICE_FORECAST_ATTRIBUTE,
     DEFAULT_PRICE_FORECAST_ATTRIBUTE,
@@ -1975,8 +1976,12 @@ class IHCCoordinator(
             any_room_heating = any(self._trv_room_is_heating(rd) for rd in room_data.values())
 
         # v1.8 – Peak Shaving: stagger room demand during the first N minutes after
-        # heating starts (trigger: any room just went from idle to demanding heat)
+        # heating starts (trigger: any room just went from idle to demanding heat).
+        # peak_shaving_held_room_ids feeds _update_phase_apply_trv_setpoints, which
+        # actually holds those rooms' TRVs back - capping "demand" here only changes
+        # what the UI/heatmap report, it has no effect on the TRV command by itself.
         peak_shaving_active = False
+        peak_shaving_held_room_ids: set = set()
         peak_shaving_enabled = bool(cfg.get(CONF_PEAK_SHAVING_ENABLED, DEFAULT_PEAK_SHAVING_ENABLED))
         if peak_shaving_enabled:
             if any_room_heating and not self._was_heating:
@@ -1998,6 +2003,7 @@ class IHCCoordinator(
                 for i, (rid, _) in enumerate(all_demanding):
                     if i >= cutoff:
                         room_data[rid]["demand"] = min(room_data[rid]["demand"], 30.0)
+                        peak_shaving_held_room_ids.add(rid)
         self._was_heating = any_room_heating
 
         # Track energy / runtime
@@ -2031,6 +2037,7 @@ class IHCCoordinator(
             "rooms_demanding": rooms_demanding,
             "any_room_heating": any_room_heating,
             "peak_shaving_active": peak_shaving_active,
+            "peak_shaving_held_room_ids": peak_shaving_held_room_ids,
         })
 
     def _update_phase_apply_trv_setpoints(self, room_data: Dict[str, dict], ctx: Dict[str, Any]) -> None:
@@ -2115,6 +2122,16 @@ class IHCCoordinator(
             else:
                 # Always send the desired target – TRV decides whether to heat
                 trv_target = self._apply_aggressive_mode(room, rdata["target_temp"], rdata.get("current_temp"))
+                if ctx.get("peak_shaving_active") and room_id in ctx.get("peak_shaving_held_room_ids", set()):
+                    # Real load staggering: hold the valve mostly closed during the
+                    # staggered-start window instead of sending the full setpoint, so
+                    # lower-priority rooms don't all open at once with the high-
+                    # priority ones. Only clamps when a current reading exists -
+                    # fails open (full target) rather than risk under-heating a room
+                    # whose sensor is unavailable.
+                    current_temp = rdata.get("current_temp")
+                    if current_temp is not None:
+                        trv_target = min(trv_target, current_temp + PEAK_SHAVING_HOLD_MARGIN_C)
                 self._set_valve_entities(room, trv_target)
 
         # Kalkschutz: periodisch Ventile bewegen um Verkalkungs-Festfressen zu verhindern

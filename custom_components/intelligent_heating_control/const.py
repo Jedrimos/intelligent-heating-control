@@ -465,6 +465,11 @@ CONF_PEAK_SHAVING_ENABLED: Final = "peak_shaving_enabled"
 DEFAULT_PEAK_SHAVING_ENABLED: Final = False
 CONF_PEAK_SHAVING_DELAY_MINUTES: Final = "peak_shaving_delay_minutes"
 DEFAULT_PEAK_SHAVING_DELAY_MINUTES: Final = 3
+# How far above current room temp a shaved room's TRV setpoint may rise during
+# the staggered-start window - keeps the valve mostly closed (real load
+# staggering) instead of fully opening like an unshaved room, without
+# freezing the room out entirely while its sensor still reports a valid value.
+PEAK_SHAVING_HOLD_MARGIN_C: Final = 1.0
 
 
 # v1.7 – Heizgruppen: Zusammenfassen von Zimmern zu gemeinsam steuerbaren Gruppen
