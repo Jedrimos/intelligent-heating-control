@@ -748,10 +748,13 @@ Passive Heizen (Winter/Herbst):
   DANN: Rolladen öffnen BEVOR Heizung einschaltet
         → Heizung erst zuschalten wenn Raumtemp trotzdem nicht steigt (nach X min)
 
-Passive Kühlen (Sommer):
-  WENN Sommerautomatik aktiv (kein "cool"-Systemmodus mehr seit v2.0.0 – TRVs kühlen nicht aktiv,
-  das hier ist reine Beschattung zur Vermeidung von Aufheizung, kein Kühlbetrieb)
-  UND sun.elevation > CONF_SOLAR_MIN_ELEVATION
+Passive Kühlen/Beschatten (ganzjährig, nicht an Sommerautomatik gekoppelt – bewusst analog zu
+Loxones "Passive Cooling/Heating via Blinds": die Entscheidung hängt am aktuellen Komfort-Zustand
+des Raums, nicht am Kalenderdatum. Ein sonniges Fenster an einem kalten Wintertag, dessen Raum
+bereits am Sollwert ist, würde durch weitere Sonneneinstrahlung unnötig überhitzen – genau das
+soll die Beschattung auch dann verhindern. Kein "cool"-Systemmodus seit v2.0.0 – TRVs kühlen nicht
+aktiv, das hier ist reine Beschattung zur Vermeidung von Aufheizung, kein Kühlbetrieb):
+  WENN sun.elevation > CONF_SOLAR_MIN_ELEVATION
   UND Sonne trifft auf Fensterausrichtung
   UND Raumtemp > comfort_temp - CONF_SOLAR_SHADE_OFFSET (z.B. 1°C darunter vorsorglich)
   DANN: Rolladen schließen (Position z.B. 20% = Lichteinfall aber kein direktes Sonnenlicht)
@@ -1050,9 +1053,11 @@ Override erhalten, ist im Normalfall aber überflüssig.
   Azimut-Check als reine Funktion `sun_hits_orientation()` unit-getestet
   (`tests/test_solar_cover_manager.py`). Voll verdrahtet: config_flow Add/Edit-Schema,
   Add/Edit-Zimmer-Modal (Rolladen-Entity-Liste + Fensterausrichtung + 2 Checkboxen),
-  Einstellungen-Tab (globale Schwellwerte), `climate.py`-Attribute inkl. Live-Status
+  Zimmer-Detail Inline-Einstellungen (dieselben Felder, bis zum Feature-Audit nach 2.1.1 hier
+  gefehlt), Einstellungen-Tab (globale Schwellwerte), `climate.py`-Attribute inkl. Live-Status
   (`solar_cover_active`/`solar_cover_position`). Rein opt-in pro Zimmer, rührt Fenster-offen
-  oder von Hand verstellte Rolladen nicht an.
+  oder von Hand verstellte Rolladen nicht an. Beschattung (`solar_passive_cool`) ist bewusst
+  ganzjährig aktiv (komfort-basiert, nicht an Sommerautomatik gekoppelt) – siehe Notizen oben.
 
 #### Intelligente Heizoptimierung (Neue Ideen – noch nicht versioniert)
 
