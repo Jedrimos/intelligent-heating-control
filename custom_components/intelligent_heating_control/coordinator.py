@@ -138,6 +138,8 @@ from .const import (
     DEFAULT_FORECAST_COLDNIGHT_TEMP,
     CONF_FORECAST_ADVANCE_HOURS,
     DEFAULT_FORECAST_ADVANCE_HOURS,
+    CONF_FORECAST_LOOKAHEAD_DAYS,
+    DEFAULT_FORECAST_LOOKAHEAD_DAYS,
     DEFAULT_FROST_PROTECTION_TEMP,
     DEFAULT_OFF_USE_FROST_PROTECTION,
     DEFAULT_NIGHT_SETBACK_OFFSET,
@@ -913,10 +915,11 @@ class IHCCoordinator(
         if cfg.get(CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED):
             forecast = self._get_weather_forecast()
             if forecast:
-                tonight_min = forecast.get("forecast_today_min")
+                lookahead_days = int(cfg.get(CONF_FORECAST_LOOKAHEAD_DAYS, DEFAULT_FORECAST_LOOKAHEAD_DAYS))
+                tonight_min = self._get_forecast_min_within_days(forecast, lookahead_days)
                 coldnight_temp = float(cfg.get(CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP))
                 if tonight_min is not None and tonight_min <= coldnight_temp:
-                    return False  # Cold night predicted – keep heating available
+                    return False  # Cold snap predicted within the lookahead window – keep heating available
 
         return True
 
@@ -1104,10 +1107,11 @@ class IHCCoordinator(
         if cfg.get(CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED):
             forecast = self._get_weather_forecast()
             if forecast:
-                tonight_min = forecast.get("forecast_today_min")
+                lookahead_days = int(cfg.get(CONF_FORECAST_LOOKAHEAD_DAYS, DEFAULT_FORECAST_LOOKAHEAD_DAYS))
+                tonight_min = self._get_forecast_min_within_days(forecast, lookahead_days)
                 coldnight_temp = float(cfg.get(CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP))
                 if tonight_min is not None and tonight_min <= coldnight_temp:
-                    return True  # cold day predicted – keep heating available
+                    return True  # cold snap predicted within the lookahead window – keep heating available
 
         return False
 
@@ -1580,13 +1584,26 @@ class IHCCoordinator(
         summer_mode = self._is_summer_mode_active()
         heating_period_active = self._is_heating_period_active()
 
-        # Compute forecast cold night status for data dict / sensor
+        # Compute forecast cold night status for data dict / sensor. Also find which day
+        # within the lookahead window actually triggered it (earliest below-threshold day),
+        # since with CONF_FORECAST_LOOKAHEAD_DAYS > 1 this may not be tonight - the frontend
+        # banner needs this to say "in 2 days" instead of always "tonight".
         forecast_coldnight_active = False
+        forecast_coldnight_min_temp = None
+        forecast_coldnight_days_ahead = None
         if cfg.get(CONF_FORECAST_COLDNIGHT_ENABLED, DEFAULT_FORECAST_COLDNIGHT_ENABLED):
             _fc = self._get_weather_forecast()
-            if _fc and _fc.get("forecast_today_min") is not None:
+            if _fc:
+                _lookahead_days = int(cfg.get(CONF_FORECAST_LOOKAHEAD_DAYS, DEFAULT_FORECAST_LOOKAHEAD_DAYS))
                 _cn_temp = float(cfg.get(CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP))
-                forecast_coldnight_active = _fc["forecast_today_min"] <= _cn_temp
+                for _day in _fc.get("forecast") or []:
+                    if _day.get("day_offset", 0) >= _lookahead_days or _day.get("min") is None:
+                        continue
+                    if _day["min"] <= _cn_temp:
+                        forecast_coldnight_active = True
+                        forecast_coldnight_min_temp = _day["min"]
+                        forecast_coldnight_days_ahead = _day.get("day_offset", 0)
+                        break  # list is already day_offset-ordered - first hit is the earliest
 
         # v1.8 – Holiday calendar: check if a holiday/school-holiday event is currently active
         holiday_active = False
@@ -1618,6 +1635,8 @@ class IHCCoordinator(
             "heating_period_auto_active": self._heating_period_auto_active,
             "heating_period_rolling_avg": self.get_heating_period_rolling_avg(),
             "forecast_coldnight_active": forecast_coldnight_active,
+            "forecast_coldnight_min_temp": forecast_coldnight_min_temp,
+            "forecast_coldnight_days_ahead": forecast_coldnight_days_ahead,
             "holiday_active": holiday_active,
             "holiday_schedule_mode": holiday_schedule_mode,
             "solar_boost": solar_boost,
@@ -2355,6 +2374,8 @@ class IHCCoordinator(
             "summer_mode_auto_active": ctx["summer_mode_auto_active"],
             "summer_mode_rolling_avg": ctx["summer_mode_rolling_avg"],
             "forecast_coldnight_active": ctx["forecast_coldnight_active"],
+            "forecast_coldnight_min_temp": ctx.get("forecast_coldnight_min_temp"),
+            "forecast_coldnight_days_ahead": ctx.get("forecast_coldnight_days_ahead"),
             "forecast_advance_hours": int(cfg.get(CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS)),
             "startup_grace_active": ctx["startup_grace_active"],
             "heating_period_active": ctx["heating_period_active"],

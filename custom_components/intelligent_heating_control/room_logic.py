@@ -54,6 +54,8 @@ from .const import (
     DEFAULT_FORECAST_COLDNIGHT_TEMP,
     CONF_FORECAST_ADVANCE_HOURS,
     DEFAULT_FORECAST_ADVANCE_HOURS,
+    CONF_FORECAST_LOOKAHEAD_DAYS,
+    DEFAULT_FORECAST_LOOKAHEAD_DAYS,
     DEFAULT_MIN_TEMP,
     DEFAULT_MAX_TEMP,
     DEFAULT_COMFORT_TEMP,
@@ -795,7 +797,8 @@ class RoomLogicMixin:
             if advance_hours > 0:
                 forecast = self._get_weather_forecast()
                 if forecast:
-                    tonight_min = forecast.get("forecast_today_min")
+                    lookahead_days = int(cfg.get(CONF_FORECAST_LOOKAHEAD_DAYS, DEFAULT_FORECAST_LOOKAHEAD_DAYS))
+                    tonight_min = self._get_forecast_min_within_days(forecast, lookahead_days)
                     coldnight_temp = float(cfg.get(CONF_FORECAST_COLDNIGHT_TEMP, DEFAULT_FORECAST_COLDNIGHT_TEMP))
                     if tonight_min is not None and tonight_min <= coldnight_temp:
                         preheat_minutes = preheat_minutes + advance_hours * 60

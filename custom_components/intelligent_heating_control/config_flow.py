@@ -31,6 +31,8 @@ from .const import (
     DEFAULT_FORECAST_COLDNIGHT_TEMP,
     CONF_FORECAST_ADVANCE_HOURS,
     DEFAULT_FORECAST_ADVANCE_HOURS,
+    CONF_FORECAST_LOOKAHEAD_DAYS,
+    DEFAULT_FORECAST_LOOKAHEAD_DAYS,
     CONF_SHOW_PANEL,
     CONF_PRESENCE_ENTITIES,
     CONF_HEATING_PERIOD_ENTITY,
@@ -430,6 +432,12 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 default=int(cfg.get(CONF_FORECAST_ADVANCE_HOURS, DEFAULT_FORECAST_ADVANCE_HOURS))
             ): selector.selector({
                 "number": {"min": 1, "max": 8, "step": 1, "unit_of_measurement": "h", "mode": "slider"}
+            }),
+            vol.Optional(
+                CONF_FORECAST_LOOKAHEAD_DAYS,
+                default=int(cfg.get(CONF_FORECAST_LOOKAHEAD_DAYS, DEFAULT_FORECAST_LOOKAHEAD_DAYS))
+            ): selector.selector({
+                "number": {"min": 1, "max": 3, "step": 1, "unit_of_measurement": "Tage", "mode": "slider"}
             }),
             vol.Optional(
                 CONF_SHOW_PANEL,

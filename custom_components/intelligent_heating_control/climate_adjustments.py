@@ -185,6 +185,23 @@ class ClimateAdjustmentsMixin:
                 result["cold_warning"] = True
         return result
 
+    def _get_forecast_min_within_days(self, forecast: dict, lookahead_days: int) -> Optional[float]:
+        """Lowest forecasted low-temp within the next `lookahead_days` days (1 = today
+        only - the original single-night cold-forecast behavior; up to 3, the horizon
+        _get_weather_forecast() fetches). Lets a cold snap 1-2 days out reactivate the
+        heating period / suspend summer mode / add preheat time early, instead of only
+        reacting once it's literally tonight. Falls back to forecast_today_min if the
+        day-list is empty for some reason (defensive - should normally agree with it).
+        """
+        days = forecast.get("forecast") or []
+        mins = [
+            d["min"] for d in days
+            if d.get("day_offset", 0) < lookahead_days and d.get("min") is not None
+        ]
+        if mins:
+            return min(mins)
+        return forecast.get("forecast_today_min")
+
     def _get_price_forecast_offset(self) -> float:
         """
         Dynamic price-based temperature offset using hourly price forecast.

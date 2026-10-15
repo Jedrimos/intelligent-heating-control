@@ -244,7 +244,12 @@
         : "",
       !g.heating_period_entity_set && !g.heating_period_active ? `<div class="system-banner summer">🍂 <strong>Heizperiode automatisch inaktiv</strong>${g.heating_period_rolling_avg != null ? ` – Ø ${g.heating_period_rolling_avg}°C` : ""} · Boost pro Zimmer funktioniert trotzdem</div>` : "",
       !g.heating_period_entity_set && g.heating_period_active && g.heating_period_auto_active === false ? `<div class="system-banner cold">🌡️ <strong>Heizperiode kurzfristig reaktiviert</strong> – kalter Tag vorhergesagt</div>` : "",
-      g.forecast_coldnight_active ? `<div class="system-banner cold">❄️ <strong>Kälte heute Nacht</strong> – Heizung startet ${g.forecast_advance_hours ?? 3}h früher (${g.weather_forecast?.forecast_today_min}°C erwartet)</div>` : "",
+      g.forecast_coldnight_active ? (() => {
+        const daysAhead = g.forecast_coldnight_days_ahead ?? 0;
+        const when = daysAhead === 0 ? "heute Nacht" : daysAhead === 1 ? "morgen Nacht" : `in ${daysAhead} Tagen`;
+        const temp = g.forecast_coldnight_min_temp ?? g.weather_forecast?.forecast_today_min;
+        return `<div class="system-banner cold">❄️ <strong>Kälte ${when}</strong> – Heizung startet ${g.forecast_advance_hours ?? 3}h früher (${temp}°C erwartet)</div>`;
+      })() : "",
       g.night_setback_active  ? `<div class="system-banner night">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
       g.presence_away_active  ? `<div class="system-banner away">🚶 <strong>Niemand zuhause</strong> – Abwesend-Modus aktiv</div>` : "",
       g.solar_boost > 0       ? `<div class="system-banner solar">🌞 <strong>Solar-Überschuss</strong>${g.solar_power != null ? " · " + g.solar_power + " W" : ""} · +${g.solar_boost}°C angehoben</div>` : "",

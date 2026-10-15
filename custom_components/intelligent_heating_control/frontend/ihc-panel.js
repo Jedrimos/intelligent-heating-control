@@ -1146,6 +1146,8 @@ class IHCPanel extends HTMLElement {
       heating_period_rolling_avg: a.heating_period_rolling_avg != null ? parseFloat(a.heating_period_rolling_avg) : null,
       heating_period_entity_set: !!a.heating_period_entity,
       forecast_coldnight_active: a.forecast_coldnight_active || false,
+      forecast_coldnight_min_temp: a.forecast_coldnight_min_temp ?? null,
+      forecast_coldnight_days_ahead: a.forecast_coldnight_days_ahead ?? null,
       forecast_advance_hours:    a.forecast_advance_hours ?? 3,
       night_setback_active:      a.night_setback_active || false,
       presence_away_active:      a.presence_away_active || false,
@@ -1761,7 +1763,12 @@ class IHCPanel extends HTMLElement {
         : "",
       !g.heating_period_entity_set && !g.heating_period_active ? `<div class="system-banner summer">🍂 <strong>Heizperiode automatisch inaktiv</strong>${g.heating_period_rolling_avg != null ? ` – Ø ${g.heating_period_rolling_avg}°C` : ""} · Boost pro Zimmer funktioniert trotzdem</div>` : "",
       !g.heating_period_entity_set && g.heating_period_active && g.heating_period_auto_active === false ? `<div class="system-banner cold">🌡️ <strong>Heizperiode kurzfristig reaktiviert</strong> – kalter Tag vorhergesagt</div>` : "",
-      g.forecast_coldnight_active ? `<div class="system-banner cold">❄️ <strong>Kälte heute Nacht</strong> – Heizung startet ${g.forecast_advance_hours ?? 3}h früher (${g.weather_forecast?.forecast_today_min}°C erwartet)</div>` : "",
+      g.forecast_coldnight_active ? (() => {
+        const daysAhead = g.forecast_coldnight_days_ahead ?? 0;
+        const when = daysAhead === 0 ? "heute Nacht" : daysAhead === 1 ? "morgen Nacht" : `in ${daysAhead} Tagen`;
+        const temp = g.forecast_coldnight_min_temp ?? g.weather_forecast?.forecast_today_min;
+        return `<div class="system-banner cold">❄️ <strong>Kälte ${when}</strong> – Heizung startet ${g.forecast_advance_hours ?? 3}h früher (${temp}°C erwartet)</div>`;
+      })() : "",
       g.night_setback_active  ? `<div class="system-banner night">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
       g.presence_away_active  ? `<div class="system-banner away">🚶 <strong>Niemand zuhause</strong> – Abwesend-Modus aktiv</div>` : "",
       g.solar_boost > 0       ? `<div class="system-banner solar">🌞 <strong>Solar-Überschuss</strong>${g.solar_power != null ? " · " + g.solar_power + " W" : ""} · +${g.solar_boost}°C angehoben</div>` : "",
@@ -4389,6 +4396,12 @@ class IHCPanel extends HTMLElement {
                 min="1" max="8" step="1" value="${a.forecast_advance_hours ?? 3}">
               <span class="form-hint">Um wie viele Stunden früher soll die Heizung anspringen. Empfehlung: 2–4 Stunden.</span>
             </div>
+            <div class="settings-item">
+              <label>Vorschau-Tage</label>
+              <input type="number" class="form-input" id="s-forecast-lookahead-days"
+                min="1" max="3" step="1" value="${a.forecast_lookahead_days ?? 1}">
+              <span class="form-hint">1 = nur heute Nacht (bisheriges Verhalten). 2–3 reagieren schon auf einen Kälteeinbruch, der erst in 1–2 Tagen kommt.</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-forecast-settings">💾 Kälteprognose speichern</button>
@@ -5029,11 +5042,13 @@ class IHCPanel extends HTMLElement {
     content.querySelector("#save-forecast-settings")?.addEventListener("click", () => {
       const cnTemp = parseFloat(content.querySelector("#s-forecast-coldnight-temp").value);
       const advH   = parseInt(content.querySelector("#s-forecast-advance-hours").value, 10);
-      if (isNaN(cnTemp) || isNaN(advH)) { this._toast("⚠️ Ungültiger Wert"); return; }
+      const lookaheadDays = parseInt(content.querySelector("#s-forecast-lookahead-days")?.value ?? "1", 10);
+      if (isNaN(cnTemp) || isNaN(advH) || isNaN(lookaheadDays)) { this._toast("⚠️ Ungültiger Wert"); return; }
       this._callService("update_global_settings", {
         forecast_coldnight_enabled: content.querySelector("#s-forecast-coldnight-enabled").value === "true",
         forecast_coldnight_temp:    cnTemp,
         forecast_advance_hours:     advH,
+        forecast_lookahead_days:    lookaheadDays,
       });
       this._toast("✓ Kälteprognose gespeichert");
     });

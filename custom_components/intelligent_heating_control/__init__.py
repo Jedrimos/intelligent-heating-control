@@ -507,6 +507,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "summer_mode_entity",
             "summer_mode_hysteresis_enabled", "summer_mode_hysteresis_band", "summer_mode_hysteresis_days",
             "forecast_coldnight_enabled", "forecast_coldnight_temp", "forecast_advance_hours",
+            "forecast_lookahead_days",
             # Optimum Start – learn heating rate per room bucketed by outdoor temp
             "optimum_start_enabled",
             # v1.8 – Holiday calendar

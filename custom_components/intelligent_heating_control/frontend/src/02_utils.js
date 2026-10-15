@@ -246,6 +246,8 @@
       heating_period_rolling_avg: a.heating_period_rolling_avg != null ? parseFloat(a.heating_period_rolling_avg) : null,
       heating_period_entity_set: !!a.heating_period_entity,
       forecast_coldnight_active: a.forecast_coldnight_active || false,
+      forecast_coldnight_min_temp: a.forecast_coldnight_min_temp ?? null,
+      forecast_coldnight_days_ahead: a.forecast_coldnight_days_ahead ?? null,
       forecast_advance_hours:    a.forecast_advance_hours ?? 3,
       night_setback_active:      a.night_setback_active || false,
       presence_away_active:      a.presence_away_active || false,

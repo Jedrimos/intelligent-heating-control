@@ -228,6 +228,12 @@
                 min="1" max="8" step="1" value="${a.forecast_advance_hours ?? 3}">
               <span class="form-hint">Um wie viele Stunden früher soll die Heizung anspringen. Empfehlung: 2–4 Stunden.</span>
             </div>
+            <div class="settings-item">
+              <label>Vorschau-Tage</label>
+              <input type="number" class="form-input" id="s-forecast-lookahead-days"
+                min="1" max="3" step="1" value="${a.forecast_lookahead_days ?? 1}">
+              <span class="form-hint">1 = nur heute Nacht (bisheriges Verhalten). 2–3 reagieren schon auf einen Kälteeinbruch, der erst in 1–2 Tagen kommt.</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-forecast-settings">💾 Kälteprognose speichern</button>
@@ -868,11 +874,13 @@
     content.querySelector("#save-forecast-settings")?.addEventListener("click", () => {
       const cnTemp = parseFloat(content.querySelector("#s-forecast-coldnight-temp").value);
       const advH   = parseInt(content.querySelector("#s-forecast-advance-hours").value, 10);
-      if (isNaN(cnTemp) || isNaN(advH)) { this._toast("⚠️ Ungültiger Wert"); return; }
+      const lookaheadDays = parseInt(content.querySelector("#s-forecast-lookahead-days")?.value ?? "1", 10);
+      if (isNaN(cnTemp) || isNaN(advH) || isNaN(lookaheadDays)) { this._toast("⚠️ Ungültiger Wert"); return; }
       this._callService("update_global_settings", {
         forecast_coldnight_enabled: content.querySelector("#s-forecast-coldnight-enabled").value === "true",
         forecast_coldnight_temp:    cnTemp,
         forecast_advance_hours:     advH,
+        forecast_lookahead_days:    lookaheadDays,
       });
       this._toast("✓ Kälteprognose gespeichert");
     });

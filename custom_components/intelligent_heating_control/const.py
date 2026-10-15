@@ -121,6 +121,12 @@ CONF_FORECAST_COLDNIGHT_TEMP: Final = "forecast_coldnight_temp"
 DEFAULT_FORECAST_COLDNIGHT_TEMP: Final = 8.0
 CONF_FORECAST_ADVANCE_HOURS: Final = "forecast_advance_hours"
 DEFAULT_FORECAST_ADVANCE_HOURS: Final = 3
+# How many days ahead the cold-night check looks (1 = tonight only, the original behavior;
+# up to 3, the forecast horizon _get_weather_forecast() fetches). Raising this lets a cold
+# snap 1-2 days out reactivate the heating period / suspend summer mode / add preheat time
+# early, instead of only reacting once it's literally tonight.
+CONF_FORECAST_LOOKAHEAD_DAYS: Final = "forecast_lookahead_days"
+DEFAULT_FORECAST_LOOKAHEAD_DAYS: Final = 1
 
 DEFAULT_FROST_PROTECTION_TEMP: Final = 7.0
 DEFAULT_OFF_USE_FROST_PROTECTION: Final = False  # default: actually turn off TRVs in OFF mode

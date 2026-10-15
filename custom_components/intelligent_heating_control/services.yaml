@@ -1185,6 +1185,17 @@ update_global_settings:
           min: 1
           max: 8
           step: 1
+    forecast_lookahead_days:
+      name: Kälteprognose – Vorschau-Tage
+      description: >-
+        Wie viele Tage im Voraus die Kälteprognose prüft (1 = nur heute Nacht, der bisherige
+        Stand; 2-3 reagieren schon auf einen Kälteeinbruch der erst in 1-2 Tagen kommt).
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 3
+          step: 1
     night_setback_enabled:
       name: Nachtabsenkung aktivieren
       required: false
