@@ -1112,3 +1112,75 @@ Override erhalten, ist im Normalfall aber überflüssig.
 
 #### Langfristig (3.x)
 - **Gestrichen:** Wärmeerzeuger-Modus (Heizkreise, Puffer, WP, TWW, KNX) – widerspricht der TRV-only-Ausrichtung seit v2.0.0, siehe Kapitel 14.
+
+---
+
+### Backlog: Rollo-Sicherheit/Komfort & Heizungsautomation (Recherche 2026-10-15)
+
+Zwei Web-Recherchen (Loxone "Intelligente Beschattung" im Detail + was Nutzer bei Heizungs- und
+Rollo-Automatisierung üblicherweise vermissen) ergaben diese Liste. Wird **nach und nach**
+abgearbeitet – diese Checkliste ist der Tracking-Ort dafür, nicht nur eine einmalige Notiz.
+Reihenfolge = Priorität (Sicherheit/häufigste Beschwerde zuerst). Aufwand S/M/L ist eine grobe
+Schätzung, kein Commitment.
+
+#### Rollo (passive Solarheizung/-beschattung, `solar_cover_manager.py`)
+
+- [ ] **Manuelle-Übersteuerung-Erkennung für Rollos** (M) – höchste Priorität: häufigste
+  Nutzer-Beschwerde bei Rollo-Automatisierung ist "Automation kämpft gegen mich". Aktuell wird ein
+  von Hand verstelltes Rollo beim nächsten Zyklus stillschweigend zurückgefahren, sobald die
+  Bedingung noch zutrifft. Gleiches Muster wie die bereits vorhandene TRV-Override-Erkennung
+  (bestätigungsbasiert, `_trv_cmd_pending`) wiederverwenden.
+- [ ] **Wind-Sicherheitsabschaltung** (M) – einzige echte Sachschaden-/Haftungslücke: IHC kann
+  einem Rollo aktuell eine Position befehlen während es windig genug ist, Mechanik/Behang zu
+  beschädigen. Zwei Schwellen (leicht/stark) + Hysterese-Verzögerung vor Wiederaufnahme, analog zu
+  Loxones "Windwächter". Braucht einen konfigurierbaren Windsensor pro Zimmer/global.
+  Hard-Override: sticht alles andere, auch eine gerade laufende manuelle Übersteuerung.
+- [ ] **Regen-/Frost-Override** (S) – günstig huckepack auf die Windschutz-Logik implementierbar,
+  gleicher Mechanismus (Sensor-Schwelle → Rollo hoch/Position halten).
+- [ ] **Helligkeits-/Lux-Hysterese** (M) – behebt die einzige konkrete Abweichung von Loxones
+  echtem Trigger-Verhalten: wir reagieren rein geometrisch (Sonnenwinkel trifft Fenster), Loxone
+  nutzt zusätzlich einen Lux-Sensor mit Hysterese (Beispiel aus der Recherche: 350 lux an / 270 lux
+  aus, 30-Min-Mittel) um Flackern bei durchziehenden Wolken zu vermeiden. Optional – nur falls Lux-
+  Sensor konfiguriert, sonst wie bisher rein geometrisch.
+- [ ] **Abendliche Privatsphäre-Schließung** (S) – fix nach Uhrzeit/Sonnenuntergang, unabhängig von
+  Temperaturlogik. Pro Zimmer opt-in, analog zu den anderen Rollo-Flags.
+- [ ] **Blendschutz-Zone fürs TV/Bildschirm** (M) – eigene Zielzone, die bei niedrigem Sonnenwinkel
+  (~0–15°) in Richtung der Zone stärker runterfährt als die reine Heiz-/Kühllogik verlangen würde.
+  Eher Komfort- als Sicherheitsfeature, niedrigere Priorität als die ersten vier.
+- [ ] **Getrennte Ein-/Austritts-Sonnenwinkel-Toleranz** (S) – ersetzt die aktuelle feste
+  `SUN_HIT_TOLERANCE_DEG = 60`-Toleranz durch zwei Schwellen (arm/disarm), schließt eine direkte
+  Loxone-Paritätslücke.
+
+#### Heizungsautomation
+
+- [ ] **"Heizt laut TRV, aber Raum wird nicht wärmer"-Watchdog** (M) – ergänzt die vorhandene
+  Stuck-Valve-Erkennung (`_detect_stuck_valves`, rein mechanisch: Ventilposition bleibt bei ~0%
+  trotz Anforderung) um den Fall "Ventil ist offen/heizt laut Status, aber Raumtemperatur steigt
+  trotzdem nicht" (Luft im System, Kessel feuert nicht, Tür zu). Lässt sich an die vorhandene
+  Warmup-Lernkurve (`avg_warmup_minutes`/`warmup_curve`) andocken: erwartete Aufheizrate bekannt →
+  Abweichung erkennbar → Benachrichtigung analog zur Heizperioden-Notification.
+- [ ] **Mehrere Temperatursensoren pro Zimmer mit Belegungs-Gewichtung** (L) – aktuell nur ein
+  `temp_sensor`-Feld pro Zimmer. Mehrere Sensoren (z.B. verschiedene Raumteile) mit Gewichtung, die
+  den Sensor im gerade genutzten Bereich bevorzugt (nutzt vorhandene `room_presence_entities` als
+  Belegungssignal). Größerer Umbau, da `CONF_TEMP_SENSOR` an vielen Stellen als Singular-Feld
+  durchgereicht wird.
+- [ ] **Fester Timeout für manuelle Übersteuerung** (S) – ergänzt das vorhandene
+  Auto-Reset-bei-Zeitplan-Wechsel (`_room_manual_since`/`_room_manual_period_key`) um einen
+  optionalen, davon unabhängigen "nach X Minuten automatisch zurück zum Zeitplan"-Timer.
+- [ ] **Mehrtägige Wetterprognose-Vorheizung** (M) – erweitert die vorhandene Ein-Nacht-
+  Kälteprognose (`CONF_FORECAST_COLDNIGHT_*`) auf eine mehrtägige, adaptive Vorheizung basierend
+  auf dem bereits abgerufenen `weather_forecast`-Mehrtagesdaten.
+- [ ] **Echtes Lastmanagement gegen Solar/Batterie/dynamische Tarife** (L) – über die aktuelle
+  einfache Preis-Schwelle (`CONF_ENERGY_PRICE_THRESHOLD`/`_ECO_OFFSET`) hinaus: echtes
+  Load-Shifting unter Berücksichtigung von Solarüberschuss/Batteriestand, nicht nur Strompreis
+  isoliert. Größter Umbau in dieser Liste, eher ein eigenes Mini-Projekt als ein einzelner Fix.
+
+**Niedrige Priorität / Nische (aus der Recherche, nicht weiter verfolgt bis Bedarf entsteht):**
+- Aggregiertes Heizanforderungssignal für Nutzer mit altem Kessel-Relais-Setup (Hybrid TRV+Schalter)
+- Geofencing-Konfliktauflösung bei mehreren Bewohnern (wer bestimmt "Ankunft"?)
+- OpenTherm-/externe-Sensor-Unterstützung für geschlossene TRV-Ökosysteme (eher Geräte-
+  Kompatibilitätsfrage als Architektur-Feature)
+- Rollo: Urlaubs-Modus (feste Position statt Alltagsbewegung) – kaum konkrete Nutzer-Nachfrage
+  gefunden, eher Nebenprodukt wenn Wind/Manuell-Erkennung ohnehin gebaut wird
+- Rollo: Fassaden-Gruppierung / Lamellen-Teilöffnung – Kernfeatures spezialisierter Lösungen
+  (Adaptive Cover Pro), aber in den durchsuchten Nutzer-Threads nicht explizit gefordert
