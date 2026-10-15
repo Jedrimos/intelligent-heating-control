@@ -1454,6 +1454,39 @@ update_global_settings:
           max: 15
           step: 0.5
           unit_of_measurement: "°C"
+    solar_weather_protection_enabled:
+      name: Rolladen-Wetterschutz aktiv
+      description: >-
+        Hebt opt-in konfigurierte Rolladen bei Wind/Regen/Schnee/Hagel laut dem konfigurierten
+        Wetter-Entity (weather_entity) sicherheitshalber an, unabhängig von der normalen passiven
+        Solarlogik.
+      required: false
+      selector:
+        boolean:
+    solar_wind_speed_threshold:
+      name: Rolladen-Wetterschutz – Windgeschwindigkeits-Schwelle (km/h)
+      description: >-
+        Ab dieser Windgeschwindigkeit (laut wind_speed-Attribut des Wetter-Entity) werden die
+        Rolladen angehoben. Muss zur vom Wetter-Entity gemeldeten Einheit passen.
+      required: false
+      selector:
+        number:
+          min: 10
+          max: 120
+          step: 5
+          unit_of_measurement: "km/h"
+    manual_override_timeout_minutes:
+      name: Fester Timeout für manuelle Zimmer-Übersteuerung (Minuten)
+      description: >-
+        Setzt ein manuell übersteuertes Zimmer nach dieser Zeit automatisch zurück auf den
+        Zeitplan, unabhängig vom bestehenden Auto-Reset bei Zeitplan-Wechsel. 0 = aus.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 480
+          step: 5
+          unit_of_measurement: "min"
     energy_price_entity:
       name: Dynamischer Strompreissensor
       required: false

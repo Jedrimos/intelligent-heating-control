@@ -12,10 +12,19 @@ def test_sun_on_opposite_side_does_not_hit():
     assert sun_hits_orientation(azimuth=0, elevation=30, orientation="S", min_elevation=10) is False
 
 
-def test_sun_within_tolerance_band():
-    # 60° tolerance: 180 - 60 = 120 should still hit
-    assert sun_hits_orientation(azimuth=120, elevation=30, orientation="S", min_elevation=10) is True
-    assert sun_hits_orientation(azimuth=119, elevation=30, orientation="S", min_elevation=10) is False
+def test_sun_within_enter_tolerance_band():
+    # Default (was_active=False, not yet armed) uses the narrower 45° enter tolerance.
+    assert sun_hits_orientation(azimuth=135, elevation=30, orientation="S", min_elevation=10) is True
+    assert sun_hits_orientation(azimuth=134, elevation=30, orientation="S", min_elevation=10) is False
+
+
+def test_sun_within_exit_tolerance_band_once_active():
+    # Once already armed (was_active=True), the wider 70° exit tolerance applies - a sun angle
+    # that wouldn't newly trigger it can still keep it active, avoiding flicker at the boundary.
+    assert sun_hits_orientation(azimuth=110, elevation=30, orientation="S", min_elevation=10, was_active=True) is True
+    assert sun_hits_orientation(azimuth=109, elevation=30, orientation="S", min_elevation=10, was_active=True) is False
+    # That same angle would NOT newly arm it if it wasn't already active:
+    assert sun_hits_orientation(azimuth=110, elevation=30, orientation="S", min_elevation=10, was_active=False) is False
 
 
 def test_below_min_elevation_never_hits():

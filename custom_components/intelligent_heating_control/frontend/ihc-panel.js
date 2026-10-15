@@ -4464,6 +4464,11 @@ class IHCPanel extends HTMLElement {
               </div>
               <span class="form-hint">Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).</span>
             </div>
+            <div class="settings-item">
+              <label>Manuelle Zimmer-Übersteuerung – fester Timeout (min)</label>
+              <input type="number" class="form-input" id="manual-override-timeout" min="0" max="480" step="5" value="${a.manual_override_timeout_minutes ?? 0}">
+              <span class="form-hint">Setzt ein manuell übersteuertes Zimmer nach dieser Zeit automatisch zurück auf den Zeitplan, unabhängig vom bestehenden Reset bei Zeitplan-Wechsel. 0 = aus.</span>
+            </div>
           </div>
           <details class="ihc-card" style="margin-top:12px;box-shadow:none;border:1px solid var(--divider-color)" ${a.eta_preheat_enabled ? "open" : ""}>
             <summary style="padding:10px 12px">
@@ -4626,6 +4631,20 @@ class IHCPanel extends HTMLElement {
               <label>Min. Außentemp. für Solarheizung (°C)</label>
               <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-10" max="15" step="0.5" value="${a.solar_heat_min_outdoor ?? 5}">
               <span class="form-hint">Unterhalb dieser Außentemperatur lohnt sich das Öffnen der Rolladen nicht.</span>
+            </div>
+          </div>
+          <div class="settings-item" style="margin-top:10px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="solar-weather-protection-enabled" ${a.solar_weather_protection_enabled ? "checked" : ""}>
+              🌬️ Wetterschutz: Rolladen bei Wind/Regen/Schnee/Hagel automatisch anheben
+            </label>
+            <span class="form-hint">Nutzt das oben konfigurierte Wetter-Entity (Wettervorhersage-Sektion). Sicherheits-Override, übersteuert die normale Solarlogik.</span>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Wind-Schwelle (km/h)</label>
+              <input type="number" class="form-input" id="solar-wind-speed-threshold" min="10" max="120" step="5" value="${a.solar_wind_speed_threshold ?? 40}">
+              <span class="form-hint">Ab dieser Windgeschwindigkeit werden Rolladen angehoben. Muss zur Einheit des Wetter-Entity passen.</span>
             </div>
           </div>
           <hr class="divider">
@@ -5053,6 +5072,7 @@ class IHCPanel extends HTMLElement {
         presence_entities: checked,
         presence_away_delay_minutes:   parseInt(content.querySelector("#s-presence-away-delay")?.value ?? "0", 10),
         presence_arrive_delay_minutes: parseInt(content.querySelector("#s-presence-arrive-delay")?.value ?? "0", 10),
+        manual_override_timeout_minutes: parseInt(content.querySelector("#manual-override-timeout")?.value ?? "0", 10),
         eta_preheat_enabled:           content.querySelector("#eta-preheat-enabled")?.value === "true",
         eta_preheat_threshold_minutes: parseInt(content.querySelector("#eta-preheat-threshold")?.value ?? "90", 10),
       });
@@ -5077,7 +5097,8 @@ class IHCPanel extends HTMLElement {
       const solarMinElevation = parseFloat(content.querySelector("#solar-min-elevation")?.value);
       const solarShadePosition = parseInt(content.querySelector("#solar-shade-position")?.value, 10);
       const solarHeatMinOutdoor = parseFloat(content.querySelector("#solar-heat-min-outdoor")?.value);
-      if ([solarSurplus, solarBoost, priceThresh, priceEco, solarMinElevation, solarShadePosition, solarHeatMinOutdoor].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
+      const solarWindSpeedThreshold = parseFloat(content.querySelector("#solar-wind-speed-threshold")?.value);
+      if ([solarSurplus, solarBoost, priceThresh, priceEco, solarMinElevation, solarShadePosition, solarHeatMinOutdoor, solarWindSpeedThreshold].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
       const staticPrice = parseFloat(content.querySelector("#static-energy-price").value);
       this._callService("update_global_settings", {
         solar_entity:            content.querySelector("#solar-entity").value.trim(),
@@ -5086,6 +5107,8 @@ class IHCPanel extends HTMLElement {
         solar_min_elevation:     solarMinElevation,
         solar_shade_position:    solarShadePosition,
         solar_heat_min_outdoor:  solarHeatMinOutdoor,
+        solar_weather_protection_enabled: content.querySelector("#solar-weather-protection-enabled")?.checked === true,
+        solar_wind_speed_threshold: solarWindSpeedThreshold,
         energy_price_entity:     content.querySelector("#energy-price-entity").value.trim(),
         energy_price_threshold:  priceThresh,
         energy_price_eco_offset: priceEco,

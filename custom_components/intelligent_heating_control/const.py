@@ -215,6 +215,14 @@ CONF_SOLAR_SHADE_POSITION: Final = "solar_shade_position"       # global, cover 
 DEFAULT_SOLAR_SHADE_POSITION: Final = 20
 CONF_SOLAR_HEAT_MIN_OUTDOOR: Final = "solar_heat_min_outdoor"   # global, °C - not worth it below this
 DEFAULT_SOLAR_HEAT_MIN_OUTDOOR: Final = 5.0
+# Wind/rain/frost safety override for passive-solar covers - reuses the existing CONF_WEATHER_ENTITY
+# rather than requiring a dedicated per-room sensor. Hard override: forces covers open regardless of
+# the heat/cool logic below, since an extended cover is the one that's at risk of wind/water/ice
+# damage (same reasoning as Loxone's "Windwächter").
+CONF_SOLAR_WEATHER_PROTECTION_ENABLED: Final = "solar_weather_protection_enabled"
+DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED: Final = False
+CONF_SOLAR_WIND_SPEED_THRESHOLD: Final = "solar_wind_speed_threshold"  # global, km/h
+DEFAULT_SOLAR_WIND_SPEED_THRESHOLD: Final = 40.0
 
 # Roadmap 1.4 – Advanced room control
 CONF_TEMP_CALIBRATION: Final = "temp_calibration"               # per-room sensor offset (°C)
@@ -396,6 +404,11 @@ DEFAULT_PRESENCE_AWAY_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompati
 # Ankunfts-Verzögerung: Minuten Wartezeit nach Ankunft bevor Komfort-Modus aktiv wird
 CONF_PRESENCE_ARRIVE_DELAY_MINUTES: Final = "presence_arrive_delay_minutes"
 DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompatibel)
+
+# Fester Timeout für manuelle Zimmer-Übersteuerung (ROOM_MODE_MANUAL) - unabhängig vom
+# bestehenden Auto-Reset-bei-Zeitplan-Wechsel. 0 = aus (nur das bestehende Verhalten).
+CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES: Final = "manual_override_timeout_minutes"
+DEFAULT_MANUAL_OVERRIDE_TIMEOUT_MINUTES: Final = 0  # 0 = kein fester Timeout (rückwärtskompatibel)
 
 # Pro-Zimmer PIR/Bewegungsmelder-Präsenz (unabhängig von person.* Tracking)
 CONF_PRESENCE_SENSOR: Final = "presence_sensor"            # binary_sensor.* für Bewegungserkennung

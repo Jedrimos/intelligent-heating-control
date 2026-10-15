@@ -87,6 +87,12 @@ from .const import (
     DEFAULT_SOLAR_SHADE_POSITION,
     CONF_SOLAR_HEAT_MIN_OUTDOOR,
     DEFAULT_SOLAR_HEAT_MIN_OUTDOOR,
+    CONF_SOLAR_WEATHER_PROTECTION_ENABLED,
+    DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED,
+    CONF_SOLAR_WIND_SPEED_THRESHOLD,
+    DEFAULT_SOLAR_WIND_SPEED_THRESHOLD,
+    CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
+    DEFAULT_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
     CONF_ENERGY_PRICE_ENTITY,
     CONF_ENERGY_PRICE_THRESHOLD,
     CONF_ENERGY_PRICE_ECO_OFFSET,
@@ -548,6 +554,18 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_SOLAR_HEAT_MIN_OUTDOOR,
                 default=float(cfg.get(CONF_SOLAR_HEAT_MIN_OUTDOOR, DEFAULT_SOLAR_HEAT_MIN_OUTDOOR))
             ): selector.selector({"number": {"min": -10, "max": 15, "step": 0.5, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_SOLAR_WEATHER_PROTECTION_ENABLED,
+                default=bool(cfg.get(CONF_SOLAR_WEATHER_PROTECTION_ENABLED, DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_SOLAR_WIND_SPEED_THRESHOLD,
+                default=float(cfg.get(CONF_SOLAR_WIND_SPEED_THRESHOLD, DEFAULT_SOLAR_WIND_SPEED_THRESHOLD))
+            ): selector.selector({"number": {"min": 10, "max": 120, "step": 5, "unit_of_measurement": "km/h"}}),
+            vol.Optional(
+                CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
+                default=int(cfg.get(CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES, DEFAULT_MANUAL_OVERRIDE_TIMEOUT_MINUTES))
+            ): selector.selector({"number": {"min": 0, "max": 480, "step": 5, "unit_of_measurement": "min", "mode": "box"}}),
             vol.Optional(
                 CONF_ENERGY_PRICE_ENTITY,
                 default=cfg.get(CONF_ENERGY_PRICE_ENTITY, "")

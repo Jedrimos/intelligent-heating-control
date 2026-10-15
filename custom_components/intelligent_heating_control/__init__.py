@@ -465,6 +465,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # Roadmap 1.3 – Energy
             "solar_entity", "solar_surplus_threshold", "solar_boost_temp",
             "solar_min_elevation", "solar_shade_position", "solar_heat_min_outdoor",
+            "solar_weather_protection_enabled", "solar_wind_speed_threshold",
             "energy_price_entity", "energy_price_threshold", "energy_price_eco_offset",
             # Vacation assistant + calendar integration
             "vacation_start", "vacation_end",
@@ -512,6 +513,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "holiday_calendar", "holiday_schedule_mode",
             # v1.8 – Peak Shaving
             "peak_shaving_enabled", "peak_shaving_delay_minutes",
+            # Fester Timeout für manuelle Zimmer-Übersteuerung
+            "manual_override_timeout_minutes",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:
