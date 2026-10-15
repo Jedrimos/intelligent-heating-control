@@ -1157,12 +1157,18 @@ Schätzung, kein Commitment.
 
 #### Heizungsautomation
 
-- [ ] **"Heizt laut TRV, aber Raum wird nicht wärmer"-Watchdog** (M) – ergänzt die vorhandene
-  Stuck-Valve-Erkennung (`_detect_stuck_valves`, rein mechanisch: Ventilposition bleibt bei ~0%
-  trotz Anforderung) um den Fall "Ventil ist offen/heizt laut Status, aber Raumtemperatur steigt
-  trotzdem nicht" (Luft im System, Kessel feuert nicht, Tür zu). Lässt sich an die vorhandene
-  Warmup-Lernkurve (`avg_warmup_minutes`/`warmup_curve`) andocken: erwartete Aufheizrate bekannt →
-  Abweichung erkennbar → Benachrichtigung analog zur Heizperioden-Notification.
+- [x] **"Heizt laut TRV, aber Raum wird nicht wärmer"-Watchdog** (M, 2026-10-15) – umgesetzt:
+  `room_logic.py` `_update_warmup_stall_tracking()`/`get_warmup_stall_info()` (Konstanten
+  `WARMUP_STALL_*`), nutzt `get_learned_preheat_minutes()` als Erwartungswert (Fallback 75 min
+  ohne Lernkurve), Schwelle = `max(erwartet × 1.8, 45 min)`, "stall" nur wenn zusätzlich < 0.3°C
+  seit Start gestiegen. In `coordinator.py` `_process_room()` verdrahtet, mit Schutz gegen
+  Fehlalarme durch Startup-Gnadenfrist/Sommerautomatik/inaktive Heizperiode (dort läuft demand>0
+  schon vor der eigentlichen TRV-Sperre durch). Benachrichtigung via
+  `_check_warmup_stall_notifications()` (gleiches Create/Dismiss-Muster wie Heizperioden-
+  Notification), opt-out über `CONF_WARMUP_STALL_NOTIFY_ENABLED` (Standard an). Attribute
+  `warmup_stall_active`/`_minutes_elapsed`/`_expected_minutes` in `climate.py` exponiert; bewusst
+  ohne eigenes Dashboard-Badge (Notification ist hier wie beim Heizperioden-Pendant das primäre
+  Signal, kein Präzedenzfall für ein Custom-Panel-Badge gefunden).
 - [ ] **Mehrere Temperatursensoren pro Zimmer mit Belegungs-Gewichtung** (L) – aktuell nur ein
   `temp_sensor`-Feld pro Zimmer. Mehrere Sensoren (z.B. verschiedene Raumteile) mit Gewichtung, die
   den Sensor im gerade genutzten Bereich bevorzugt (nutzt vorhandene `room_presence_entities` als
