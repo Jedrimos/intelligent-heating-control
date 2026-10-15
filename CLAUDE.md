@@ -1178,9 +1178,15 @@ Schätzung, kein Commitment.
   (global, Standard 0 = aus) als dritte, von den bestehenden zwei Schedule-Change-Checks unabhängige
   Reset-Bedingung in `coordinator.py`'s "Manual mode auto-reset"-Block ergänzt. UI in
   `05_tab_settings.js` (Anwesenheits-Karte, neben den Verzögerungs-Feldern).
-- [ ] **Mehrtägige Wetterprognose-Vorheizung** (M) – erweitert die vorhandene Ein-Nacht-
-  Kälteprognose (`CONF_FORECAST_COLDNIGHT_*`) auf eine mehrtägige, adaptive Vorheizung basierend
-  auf dem bereits abgerufenen `weather_forecast`-Mehrtagesdaten.
+- [x] **Mehrtägige Wetterprognose-Vorheizung** (M, 2026-10-15) – umgesetzt: neue
+  `CONF_FORECAST_LOOKAHEAD_DAYS` (Standard 1 = exakt bisheriges Verhalten, bis 3 = volle
+  Prognosereichweite von `_get_weather_forecast()`). Gemeinsamer Helfer
+  `climate_adjustments.py` `_get_forecast_min_within_days()` ersetzt alle drei bisherigen
+  `forecast_today_min`-Lesestellen (Sommerautomatik-Override, Heizperioden-Reaktivierung,
+  Vorheizzeit-Verlängerung in `room_logic.py`) durch das Minimum über die Vorschau-Tage. Zusätzlich
+  `forecast_coldnight_days_ahead`/`_min_temp` ergänzt, damit das Dashboard-Banner korrekt "morgen
+  Nacht"/"in X Tagen" statt immer "heute Nacht" anzeigt, wenn der Kälteeinbruch nicht heute ist.
+  UI-Feld in `05_tab_settings.js` neben der bestehenden Kälteprognose-Konfiguration.
 - [ ] **Echtes Lastmanagement gegen Solar/Batterie/dynamische Tarife** (L) – über die aktuelle
   einfache Preis-Schwelle (`CONF_ENERGY_PRICE_THRESHOLD`/`_ECO_OFFSET`) hinaus: echtes
   Load-Shifting unter Berücksichtigung von Solarüberschuss/Batteriestand, nicht nur Strompreis
