@@ -238,6 +238,8 @@ from .const import (
     CONF_PEAK_SHAVING_DELAY_MINUTES,
     DEFAULT_PEAK_SHAVING_DELAY_MINUTES,
     PEAK_SHAVING_HOLD_MARGIN_C,
+    CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
+    DEFAULT_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
     # v1.5 – Price forecast
     CONF_PRICE_FORECAST_ATTRIBUTE,
     DEFAULT_PRICE_FORECAST_ATTRIBUTE,
@@ -373,6 +375,10 @@ class IHCCoordinator(
         self._cooling_rate_history: Dict[str, List[float]] = {}    # room_id → [rate, ...]
         self._cooling_start: Dict[str, tuple] = {}                  # room_id → (start_time, start_temp, outdoor)
         self._cooling_prev_demand: Dict[str, float] = {}            # room_id → demand from last cycle
+
+        # Roadmap 2.1 backlog – passive-solar sun-angle hysteresis: was this room's cover
+        # logic already "armed" last cycle? (wider exit tolerance while True, see solar_cover_manager.py)
+        self._solar_cover_armed: Dict[str, bool] = {}
 
         # TRV offset calibration assistant: room-sensor-minus-TRV samples taken
         # while idle (demand == 0, window closed), used to suggest a
@@ -1664,6 +1670,14 @@ class IHCCoordinator(
                             self._room_manual_period_key[room_id] = current_key
                         elif current_key != stored_key:
                             reset_to_auto = True
+                # 3. Fixed timeout, independent of schedule transitions (global opt-in via
+                # CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES, 0 = off/unchanged behavior)
+                if not reset_to_auto:
+                    timeout_minutes = int(
+                        self.get_config().get(CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES, DEFAULT_MANUAL_OVERRIDE_TIMEOUT_MINUTES)
+                    )
+                    if timeout_minutes > 0 and (dt_util.utcnow() - manual_since).total_seconds() / 60 >= timeout_minutes:
+                        reset_to_auto = True
                 if reset_to_auto:
                     _LOGGER.info("IHC: Room %s auto-reset from MANUAL to AUTO (schedule transitioned)", room_id)
                     self.set_room_mode(room_id, ROOM_MODE_AUTO)
