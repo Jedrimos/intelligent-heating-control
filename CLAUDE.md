@@ -1130,13 +1130,16 @@ Schätzung, kein Commitment.
   von Hand verstelltes Rollo beim nächsten Zyklus stillschweigend zurückgefahren, sobald die
   Bedingung noch zutrifft. Gleiches Muster wie die bereits vorhandene TRV-Override-Erkennung
   (bestätigungsbasiert, `_trv_cmd_pending`) wiederverwenden.
-- [ ] **Wind-Sicherheitsabschaltung** (M) – einzige echte Sachschaden-/Haftungslücke: IHC kann
-  einem Rollo aktuell eine Position befehlen während es windig genug ist, Mechanik/Behang zu
-  beschädigen. Zwei Schwellen (leicht/stark) + Hysterese-Verzögerung vor Wiederaufnahme, analog zu
-  Loxones "Windwächter". Braucht einen konfigurierbaren Windsensor pro Zimmer/global.
-  Hard-Override: sticht alles andere, auch eine gerade laufende manuelle Übersteuerung.
-- [ ] **Regen-/Frost-Override** (S) – günstig huckepack auf die Windschutz-Logik implementierbar,
-  gleicher Mechanismus (Sensor-Schwelle → Rollo hoch/Position halten).
+- [x] **Wind-/Regen-/Schnee-/Hagel-Sicherheitsabschaltung** (M→S, 2026-10-15) – umgesetzt in
+  `solar_cover_manager.py` `_is_solar_weather_protection_active()` + `_update_solar_covers()`.
+  Vereinfacht gegenüber dem ursprünglichen Plan: nutzt das bereits vorhandene globale
+  `CONF_WEATHER_ENTITY` statt eines dedizierten Windsensors pro Zimmer (`wind_speed`-Attribut +
+  `CONF_SOLAR_WIND_SPEED_THRESHOLD`, Standard 40 km/h), plus Zustands-Check gegen HA-Standard-
+  Regen/Schnee/Hagel/Wind-Bedingungen. Opt-in via `CONF_SOLAR_WEATHER_PROTECTION_ENABLED` (Standard
+  aus), globale Einstellung in `05_tab_settings.js`. Hard-Override: sticht Fenster-offen und die
+  normale Heiz-/Kühllogik. **Noch nicht umgesetzt:** zwei getrennte Schwellen (leicht/stark) +
+  Hysterese-Verzögerung vor Wiederaufnahme, wie ursprünglich geplant – aktuell ein einzelner
+  Schwellwert ohne Verzögerung. Bei Bedarf nachrüstbar.
 - [ ] **Helligkeits-/Lux-Hysterese** (M) – behebt die einzige konkrete Abweichung von Loxones
   echtem Trigger-Verhalten: wir reagieren rein geometrisch (Sonnenwinkel trifft Fenster), Loxone
   nutzt zusätzlich einen Lux-Sensor mit Hysterese (Beispiel aus der Recherche: 350 lux an / 270 lux
@@ -1147,9 +1150,10 @@ Schätzung, kein Commitment.
 - [ ] **Blendschutz-Zone fürs TV/Bildschirm** (M) – eigene Zielzone, die bei niedrigem Sonnenwinkel
   (~0–15°) in Richtung der Zone stärker runterfährt als die reine Heiz-/Kühllogik verlangen würde.
   Eher Komfort- als Sicherheitsfeature, niedrigere Priorität als die ersten vier.
-- [ ] **Getrennte Ein-/Austritts-Sonnenwinkel-Toleranz** (S) – ersetzt die aktuelle feste
-  `SUN_HIT_TOLERANCE_DEG = 60`-Toleranz durch zwei Schwellen (arm/disarm), schließt eine direkte
-  Loxone-Paritätslücke.
+- [x] **Getrennte Ein-/Austritts-Sonnenwinkel-Toleranz** (S, 2026-10-15) – `sun_hits_orientation()`
+  nimmt jetzt ein `was_active`-Flag: 45° enger Eintritts-Schwellwert (`SUN_HIT_ENTER_TOLERANCE_DEG`),
+  70° weiterer Austritts-Schwellwert (`SUN_HIT_EXIT_TOLERANCE_DEG`) sobald schon aktiv. Pro-Zimmer-
+  Hysterese-Status in `coordinator._solar_cover_armed`. Tests aktualisiert (`tests/test_solar_cover_manager.py`).
 
 #### Heizungsautomation
 
@@ -1164,9 +1168,10 @@ Schätzung, kein Commitment.
   den Sensor im gerade genutzten Bereich bevorzugt (nutzt vorhandene `room_presence_entities` als
   Belegungssignal). Größerer Umbau, da `CONF_TEMP_SENSOR` an vielen Stellen als Singular-Feld
   durchgereicht wird.
-- [ ] **Fester Timeout für manuelle Übersteuerung** (S) – ergänzt das vorhandene
-  Auto-Reset-bei-Zeitplan-Wechsel (`_room_manual_since`/`_room_manual_period_key`) um einen
-  optionalen, davon unabhängigen "nach X Minuten automatisch zurück zum Zeitplan"-Timer.
+- [x] **Fester Timeout für manuelle Übersteuerung** (S, 2026-10-15) – `CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES`
+  (global, Standard 0 = aus) als dritte, von den bestehenden zwei Schedule-Change-Checks unabhängige
+  Reset-Bedingung in `coordinator.py`'s "Manual mode auto-reset"-Block ergänzt. UI in
+  `05_tab_settings.js` (Anwesenheits-Karte, neben den Verzögerungs-Feldern).
 - [ ] **Mehrtägige Wetterprognose-Vorheizung** (M) – erweitert die vorhandene Ein-Nacht-
   Kälteprognose (`CONF_FORECAST_COLDNIGHT_*`) auf eine mehrtägige, adaptive Vorheizung basierend
   auf dem bereits abgerufenen `weather_forecast`-Mehrtagesdaten.
