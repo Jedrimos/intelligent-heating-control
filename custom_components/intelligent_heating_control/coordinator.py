@@ -240,6 +240,8 @@ from .const import (
     PEAK_SHAVING_HOLD_MARGIN_C,
     CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
+    CONF_WARMUP_STALL_NOTIFY_ENABLED,
+    DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
     # v1.5 – Price forecast
     CONF_PRICE_FORECAST_ATTRIBUTE,
     DEFAULT_PRICE_FORECAST_ATTRIBUTE,
@@ -379,6 +381,11 @@ class IHCCoordinator(
         # Roadmap 2.1 backlog – passive-solar sun-angle hysteresis: was this room's cover
         # logic already "armed" last cycle? (wider exit tolerance while True, see solar_cover_manager.py)
         self._solar_cover_armed: Dict[str, bool] = {}
+
+        # Heating-automation backlog – warmup-stall watchdog: room_id → (start_time, start_temp)
+        # while demand > 0, see room_logic.py _update_warmup_stall_tracking / get_warmup_stall_info
+        self._warmup_stall_start: Dict[str, tuple] = {}
+        self._warmup_stall_notified_rooms: set = set()
 
         # TRV offset calibration assistant: room-sensor-minus-TRV samples taken
         # while idle (demand == 0, window closed), used to suggest a
@@ -1169,6 +1176,57 @@ class IHCCoordinator(
             )
         self._heating_period_notified_rooms = should_notify_now
 
+    def _check_warmup_stall_notifications(self, room_data: Dict[str, dict]) -> None:
+        """Notify when a room has been calling for heat far longer than its own learned
+        warmup time without actually warming up - likely a real problem (airlock, boiler
+        not firing, door blocking circulation), distinct from a mechanically stuck valve
+        (trv_stuck_valves, which only looks at valve position). Same stable-notification-id
+        create/dismiss pattern as _check_heating_period_notifications - no spam, auto-clears
+        once the room either warms up or stops calling for heat.
+        """
+        if not self.get_config().get(CONF_WARMUP_STALL_NOTIFY_ENABLED, DEFAULT_WARMUP_STALL_NOTIFY_ENABLED):
+            should_notify_now: set = set()
+        else:
+            should_notify_now = {
+                room_id for room_id, rdata in room_data.items()
+                if rdata.get("warmup_stall_active")
+            }
+
+        for room_id in should_notify_now - self._warmup_stall_notified_rooms:
+            room = self.get_room_config(room_id) or {}
+            room_name = room.get(CONF_ROOM_NAME, room_id)
+            rdata = room_data[room_id]
+            elapsed = rdata.get("warmup_stall_minutes_elapsed")
+            expected = rdata.get("warmup_stall_expected_minutes")
+            expected_str = f"{expected:.0f} min" if expected else "unbekannt (noch keine Lernkurve)"
+            self.hass.async_create_task(
+                self.hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": f"IHC: {room_name} wird nicht wärmer",
+                        "message": (
+                            f"**{room_name}** heizt seit {elapsed:.0f} min ununterbrochen, "
+                            f"ohne spürbar wärmer zu werden (erwartete Aufheizzeit: {expected_str}). "
+                            "Mögliche Ursachen: Luft im Heizkörper, Tür zu (Zirkulation), Heizkessel/"
+                            "Wärmepumpe liefert keine Wärme, oder die Ventilkalibrierung passt nicht "
+                            "mehr. Das Ventil selbst meldet kein Blockieren (sonst würde die "
+                            "Festsitz-Erkennung greifen) - bitte den Heizkörper manuell prüfen."
+                        ),
+                        "notification_id": f"ihc_warmup_stall_{room_id}",
+                    },
+                )
+            )
+        for room_id in self._warmup_stall_notified_rooms - should_notify_now:
+            self.hass.async_create_task(
+                self.hass.services.async_call(
+                    "persistent_notification",
+                    "dismiss",
+                    {"notification_id": f"ihc_warmup_stall_{room_id}"},
+                )
+            )
+        self._warmup_stall_notified_rooms = should_notify_now
+
     def _setup_ha_schedule_listeners(self) -> None:
         """Subscribe to state changes of all HA schedule entities and condition entities.
 
@@ -1848,6 +1906,27 @@ class IHCCoordinator(
             outdoor_temp=outdoor_temp,
             window_open=window_open,
         )
+        # demand/target_temp here are computed independent of summer mode, an inactive
+        # Heizperiode, or startup grace - those are only enforced later, when
+        # _update_phase_apply_trv_setpoints decides the actual TRV command. Tracking the
+        # stall clock off the raw demand value would false-trigger as soon as one of those
+        # ends and real heating finally starts. Boost/threshold-override bypass all three in
+        # the real TRV logic too, but are deliberately not special-cased back in here - a
+        # missed stall-check during a summer boost is a far smaller cost than a spurious
+        # notification during ordinary summer/off-season operation.
+        room_ignores_heating_period = bool(room.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD))
+        heating_suppressed = (
+            ctx.get("startup_grace_active")
+            or ctx.get("summer_mode")
+            or (not ctx.get("heating_period_active", True) and not room_ignores_heating_period)
+        )
+        self._update_warmup_stall_tracking(
+            room_id,
+            demand=0.0 if heating_suppressed else demand,
+            current_temp=current_temp,
+            window_open=window_open,
+        )
+        warmup_stall = self.get_warmup_stall_info(room_id, current_temp, outdoor_temp)
 
         # TRV offset calibration assistant: sample room-vs-TRV difference while idle
         self._update_trv_offset_calibration(room_id, calibrated_temp, trv_raw_temp, demand, window_open)
@@ -1924,6 +2003,11 @@ class IHCCoordinator(
             "trv_low_battery": trv_data.get("trv_low_battery", False),
             "trv_stuck_valves": stuck_valves,
             "trv_suggested_offset": self.get_suggested_trv_offset(room_id),
+            # Heating-automation backlog: "calling for heat but room isn't warming up"
+            # watchdog - complements trv_stuck_valves (mechanical) with a thermal check
+            "warmup_stall_active": warmup_stall.get("stalled", False),
+            "warmup_stall_minutes_elapsed": warmup_stall.get("minutes_elapsed"),
+            "warmup_stall_expected_minutes": warmup_stall.get("expected_minutes"),
             # Outdoor-regulated effective preset temps (for display in frontend)
             "comfort_temp_eff": comfort_eff,
             "eco_temp_eff": eco_eff,
@@ -1961,6 +2045,7 @@ class IHCCoordinator(
         # inactive (already computed once in phase 2 - _update_phase_outdoor_and_adjustments)
         heating_period_active = ctx["heating_period_active"]
         self._check_heating_period_notifications(room_data, summer_mode, heating_period_active)
+        self._check_warmup_stall_notifications(room_data)
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
 

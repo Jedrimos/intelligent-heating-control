@@ -515,6 +515,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "peak_shaving_enabled", "peak_shaving_delay_minutes",
             # Fester Timeout für manuelle Zimmer-Übersteuerung
             "manual_override_timeout_minutes",
+            # Warmup-Stall-Watchdog
+            "warmup_stall_notify_enabled",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:

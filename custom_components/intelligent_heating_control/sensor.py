@@ -36,6 +36,8 @@ from .const import (
     DEFAULT_HEATING_PERIOD_AUTO_DAYS,
     CONF_HEATING_PERIOD_NOTIFY_ENABLED,
     DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED,
+    CONF_WARMUP_STALL_NOTIFY_ENABLED,
+    DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
     CONF_PRESENCE_AWAY_DELAY_MINUTES, DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES, DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES,
     CONF_SOLAR_ENTITY, CONF_SOLAR_SURPLUS_THRESHOLD, CONF_SOLAR_BOOST_TEMP,
@@ -312,6 +314,7 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "heating_period_auto_high_temp":   cfg.get(CONF_HEATING_PERIOD_AUTO_HIGH_TEMP, DEFAULT_HEATING_PERIOD_AUTO_HIGH_TEMP),
             "heating_period_auto_days":        cfg.get(CONF_HEATING_PERIOD_AUTO_DAYS, DEFAULT_HEATING_PERIOD_AUTO_DAYS),
             "heating_period_notify_enabled":   cfg.get(CONF_HEATING_PERIOD_NOTIFY_ENABLED, DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED),
+            "warmup_stall_notify_enabled":     cfg.get(CONF_WARMUP_STALL_NOTIFY_ENABLED, DEFAULT_WARMUP_STALL_NOTIFY_ENABLED),
             # Optimum Start (learn heating rate per outdoor-temp bucket)
             "optimum_start_enabled":           cfg.get(CONF_OPTIMUM_START_ENABLED, DEFAULT_OPTIMUM_START_ENABLED),
             # v1.8 – Holiday calendar

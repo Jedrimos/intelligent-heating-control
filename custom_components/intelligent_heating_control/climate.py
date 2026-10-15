@@ -481,6 +481,10 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "trv_low_battery": d.get("trv_low_battery", False),
             "trv_stuck_valves": d.get("trv_stuck_valves", []),
             "trv_suggested_offset": d.get("trv_suggested_offset"),  # calibration assistant, see architecture.md
+            # Warmup-stall watchdog: calling for heat but not actually warming up
+            "warmup_stall_active": d.get("warmup_stall_active", False),
+            "warmup_stall_minutes_elapsed": d.get("warmup_stall_minutes_elapsed"),
+            "warmup_stall_expected_minutes": d.get("warmup_stall_expected_minutes"),
             # Demand heatmap (7 days × 24 hours EMA)
             "demand_heatmap": d.get("demand_heatmap", []),
             # Optimum Start & Thermal Mass learning data

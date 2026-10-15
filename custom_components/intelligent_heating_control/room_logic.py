@@ -102,6 +102,16 @@ _LOGGER = logging.getLogger(__name__)
 THERMAL_BRIDGE_RATIO_THRESHOLD = 1.8
 THERMAL_BRIDGE_MIN_RATE = 0.1
 
+# Warmup-stall watchdog (see _update_warmup_stall_tracking / get_warmup_stall_info): a room
+# that's been actively calling for heat far longer than its own learned warmup time without
+# actually warming up likely has a real problem (airlock, boiler not firing, door blocking
+# circulation) rather than a mechanically stuck valve (already covered separately by
+# _detect_stuck_valves, which only looks at valve position, not whether the room responds).
+WARMUP_STALL_MULTIPLIER = 1.8      # must run at least this many times the learned warmup time
+WARMUP_STALL_MIN_MINUTES = 45.0    # ...but never trigger before this many minutes regardless
+WARMUP_STALL_FALLBACK_MINUTES = 75.0  # used while no learned warmup data exists yet for this room
+WARMUP_STALL_MIN_RISE_C = 0.3      # risen at least this much since start = not stalled
+
 
 class RoomLogicMixin:
     """Mixin for room temperature calculation and schedule evaluation."""
@@ -195,6 +205,46 @@ class RoomLogicMixin:
                 del self._cooling_start[room_id]
 
         self._cooling_prev_demand[room_id] = demand
+
+    def _update_warmup_stall_tracking(
+        self, room_id: str, demand: float, current_temp: Optional[float], window_open: bool,
+    ) -> None:
+        """Track how long a room has been continuously calling for heat (demand > 0) and
+        the room temp at the moment that started, so get_warmup_stall_info() can tell
+        whether it's taking far longer than its own learned warmup time to respond.
+
+        Resets whenever demand drops to 0 (room reached target - success, even if late),
+        the window opens (invalidates the measurement), or the sensor is unavailable.
+        """
+        if demand <= 0 or window_open or current_temp is None:
+            self._warmup_stall_start.pop(room_id, None)
+            return
+        if room_id not in self._warmup_stall_start:
+            self._warmup_stall_start[room_id] = (datetime.now(), current_temp)
+
+    def get_warmup_stall_info(
+        self, room_id: str, current_temp: Optional[float], outdoor_temp: Optional[float],
+    ) -> dict:
+        """Return whether this room's current heating-demand run has stalled: calling for
+        heat far longer than its learned warmup time (or a conservative fallback while
+        still learning) without the room temperature actually rising.
+        """
+        start_info = self._warmup_stall_start.get(room_id)
+        if start_info is None or current_temp is None:
+            return {"stalled": False, "minutes_elapsed": None, "expected_minutes": None}
+        start_time, start_temp = start_info
+        elapsed_minutes = (datetime.now() - start_time).total_seconds() / 60
+
+        expected = self.get_learned_preheat_minutes(room_id, outdoor_temp) if outdoor_temp is not None else None
+        threshold = max(expected * WARMUP_STALL_MULTIPLIER, WARMUP_STALL_MIN_MINUTES) if expected else WARMUP_STALL_FALLBACK_MINUTES
+        risen = current_temp - start_temp
+
+        return {
+            "stalled": elapsed_minutes >= threshold and risen < WARMUP_STALL_MIN_RISE_C,
+            "minutes_elapsed": round(elapsed_minutes, 1),
+            "expected_minutes": expected,
+            "risen_c": round(risen, 2),
+        }
 
     def get_learned_preheat_minutes(
         self, room_id: str, outdoor_temp: float

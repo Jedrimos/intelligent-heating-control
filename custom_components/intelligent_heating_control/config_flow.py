@@ -44,6 +44,8 @@ from .const import (
     DEFAULT_HEATING_PERIOD_AUTO_DAYS,
     CONF_HEATING_PERIOD_NOTIFY_ENABLED,
     DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED,
+    CONF_WARMUP_STALL_NOTIFY_ENABLED,
+    DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
     CONF_PRESENCE_AWAY_DELAY_MINUTES,
     DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
@@ -467,6 +469,10 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_HEATING_PERIOD_NOTIFY_ENABLED,
                 default=bool(cfg.get(CONF_HEATING_PERIOD_NOTIFY_ENABLED, DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_WARMUP_STALL_NOTIFY_ENABLED,
+                default=bool(cfg.get(CONF_WARMUP_STALL_NOTIFY_ENABLED, DEFAULT_WARMUP_STALL_NOTIFY_ENABLED))
             ): selector.selector({"boolean": {}}),
             # --- Anwesenheits-Verzögerung ---
             vol.Optional(

@@ -1354,6 +1354,15 @@ update_global_settings:
       required: false
       selector:
         boolean:
+    warmup_stall_notify_enabled:
+      name: Benachrichtigung bei Warmup-Stillstand
+      description: >-
+        Sendet eine Persistent-Notification wenn ein Zimmer weit länger als seine gelernte
+        Aufheizzeit ununterbrochen heizt, ohne tatsächlich wärmer zu werden (z.B. Luft im
+        System, Kessel feuert nicht, Tür zu).
+      required: false
+      selector:
+        boolean:
     outdoor_temp_smoothing_minutes:
       name: Außentemp. Glättung (min)
       description: Gleitender Durchschnitt der Außentemperatur in Minuten

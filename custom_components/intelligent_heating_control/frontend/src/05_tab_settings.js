@@ -183,6 +183,13 @@
               </label>
               <span class="form-hint">Sendet eine Persistent-Notification, wenn ein Zimmer eigentlich heizen würde, die Heizperiode das aber gerade verhindert (Sommerautomatik-Blocks lösen bewusst keine Benachrichtigung aus).</span>
             </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="warmup-stall-notify-enabled" ${a.warmup_stall_notify_enabled !== false ? "checked" : ""}>
+                🩺 Benachrichtigen bei Warmup-Stillstand
+              </label>
+              <span class="form-hint">Sendet eine Persistent-Notification, wenn ein Zimmer weit länger als seine gelernte Aufheizzeit heizt, ohne tatsächlich wärmer zu werden (Luft im System, Kessel feuert nicht, Tür zu).</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-temp-settings">💾 Temperaturen speichern</button>
@@ -853,6 +860,7 @@
         heating_period_auto_high_temp: hpHigh,
         heating_period_auto_days:      hpDays,
         heating_period_notify_enabled: content.querySelector("#hp-notify-enabled")?.checked === true,
+        warmup_stall_notify_enabled: content.querySelector("#warmup-stall-notify-enabled")?.checked === true,
       });
       this._toast("✓ Temperatur-Einstellungen gespeichert");
     });

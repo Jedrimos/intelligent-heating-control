@@ -397,6 +397,11 @@ DEFAULT_HEATING_PERIOD_AUTO_DAYS: Final = 3  # Fenstergröße des gleitenden Mit
 CONF_HEATING_PERIOD_NOTIFY_ENABLED: Final = "heating_period_notify_enabled"
 DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED: Final = True
 
+# Warmup-stall watchdog: notify when a room calls for heat far longer than its learned
+# warmup time without actually warming up (see room_logic.py get_warmup_stall_info)
+CONF_WARMUP_STALL_NOTIFY_ENABLED: Final = "warmup_stall_notify_enabled"
+DEFAULT_WARMUP_STALL_NOTIFY_ENABLED: Final = True
+
 # Anwesenheits-Verzögerung: Minuten bis Auto-Away nach Abwesenheit aller Personen
 CONF_PRESENCE_AWAY_DELAY_MINUTES: Final = "presence_away_delay_minutes"
 DEFAULT_PRESENCE_AWAY_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompatibel)
