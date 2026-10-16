@@ -2001,13 +2001,20 @@ class IHCCoordinator(
         # Stuck-valve detection: are any TRV valves stuck (calcified / jammed)?
         stuck_valves = self._detect_stuck_valves(room, room_id, demand)
 
+        # Raw room humidity sensor reading - independent of CONF_MOLD_PROTECTION_ENABLED,
+        # so disabling mold-risk alerting for a room doesn't also hide its humidity value
+        room_humidity = self._get_room_humidity_reading(room)
+
         # Collect mold data – use TRV humidity as fallback if no room humidity sensor
         mold_data = self._check_mold_risk(room, current_temp, trv_humidity=trv_data.get("trv_humidity"))
 
-        # Felt temperature (apparent temperature based on humidity)
+        # Felt temperature (apparent temperature based on humidity) - uses the raw sensor
+        # reading (falling back to TRV humidity) directly, independent of mold protection,
+        # so this opt-in feature keeps working even when mold-risk alerting is turned off
+        felt_humidity = room_humidity if room_humidity is not None else trv_data.get("trv_humidity")
         felt_temperature = None
-        if mold_data and mold_data.get("humidity") is not None and current_temp is not None:
-            felt_temperature = self._calculate_felt_temperature(current_temp, mold_data["humidity"])
+        if felt_humidity is not None and current_temp is not None:
+            felt_temperature = self._calculate_felt_temperature(current_temp, felt_humidity)
 
         # Optional (opt-in, off by default): if the room feels colder than the thermometer
         # says (dry air), nudge the target up a bit - capped, and skipped for fixed/override
@@ -2060,6 +2067,7 @@ class IHCCoordinator(
             "room_presence_active": room_presence_active,       # Roadmap 1.2
             "pir_presence": self._check_room_pir_presence(room),  # PIR sensor presence state
             "mold": mold_data,                                  # Roadmap 2.0
+            "humidity": round(room_humidity, 1) if room_humidity is not None else None,  # room humidity_sensor, independent of mold protection toggle
             "felt_temperature": felt_temperature,              # Gefühlte Temperatur
             # TRV sensor data (optional – all None when not available)
             "trv_raw_temp": trv_raw_temp,

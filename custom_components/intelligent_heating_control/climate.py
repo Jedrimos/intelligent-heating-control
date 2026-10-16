@@ -423,6 +423,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "mold_protection_enabled": room_cfg.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED),
             "mold_humidity_threshold": room_cfg.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD),
             "mold": d.get("mold"),
+            "humidity": d.get("humidity"),
             "felt_temperature": d.get("felt_temperature"),
             # Presence
             "room_presence_entities": room_cfg.get("room_presence_entities", []),

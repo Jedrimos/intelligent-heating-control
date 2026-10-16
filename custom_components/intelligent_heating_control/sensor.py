@@ -642,10 +642,8 @@ class IHCRoomHumiditySensor(_IHCBase, SensorEntity):
     def native_value(self) -> Optional[float]:
         if self.coordinator.data:
             room = self.coordinator.data.get("rooms", {}).get(self._room_id)
-            if room:
-                mold = room.get("mold")
-                if mold and mold.get("humidity") is not None:
-                    return round(float(mold["humidity"]), 1)
+            if room and room.get("humidity") is not None:
+                return round(float(room["humidity"]), 1)
         return None
 
     @property
@@ -694,10 +692,9 @@ class IHCRoomFeltTempSensor(_IHCBase, SensorEntity):
     def extra_state_attributes(self) -> dict:
         if self.coordinator.data:
             room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
-            mold = room.get("mold") or {}
             return {
                 "actual_temp": room.get("current_temp"),
-                "humidity": mold.get("humidity"),
+                "humidity": room.get("humidity") if room.get("humidity") is not None else room.get("trv_humidity"),
                 "room_id": self._room_id,
             }
         return {}

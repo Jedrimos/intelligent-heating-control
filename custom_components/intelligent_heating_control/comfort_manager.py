@@ -31,6 +31,24 @@ _LOGGER = logging.getLogger(__name__)
 class ComfortManagerMixin:
     """Mixin for mold protection, CO2 monitoring, and ventilation advice."""
 
+    def _get_room_humidity_reading(self, room: dict) -> Optional[float]:
+        """
+        Read the room's configured humidity_sensor, independent of mold protection.
+        Returns None if no sensor is configured or it is unavailable.
+        Deliberately NOT gated by CONF_MOLD_PROTECTION_ENABLED - dashboard/sensor display
+        of humidity should work even when mold-risk alerting is turned off for a room.
+        """
+        humidity_sensor = room.get(CONF_HUMIDITY_SENSOR)
+        if not humidity_sensor:
+            return None
+        state = self.hass.states.get(humidity_sensor)
+        if not state or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+        try:
+            return float(state.state)
+        except ValueError:
+            return None
+
     def _check_mold_risk(
         self,
         room: dict,
@@ -45,15 +63,7 @@ class ComfortManagerMixin:
         """
         if not room.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED):
             return None
-        humidity_sensor = room.get(CONF_HUMIDITY_SENSOR)
-        humidity: Optional[float] = None
-        if humidity_sensor:
-            state = self.hass.states.get(humidity_sensor)
-            if state and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-                try:
-                    humidity = float(state.state)
-                except ValueError:
-                    pass
+        humidity = self._get_room_humidity_reading(room)
         if humidity is None:
             # Fall back to TRV humidity sensor (optional)
             humidity = trv_humidity
@@ -159,15 +169,17 @@ class ComfortManagerMixin:
                 reasons.append(f"CO₂ {co2:.0f} ppm (mäßig)")
 
         # ── Indoor humidity ──────────────────────────────────────────────
-        mold = self._check_mold_risk(room, current_temp)
-        room_humidity = mold.get("humidity") if mold else None
-        if mold:
-            if mold.get("risk"):
+        # Uses the raw sensor reading directly (not _check_mold_risk) so ventilation
+        # advice keeps working even when mold-risk alerting is disabled for the room
+        room_humidity = self._get_room_humidity_reading(room)
+        if room_humidity is not None:
+            threshold = float(room.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD))
+            if room_humidity >= threshold:
                 score += 3
-                reasons.append(f"Luftfeuchtigkeit {mold.get('humidity')}% (Schimmelrisiko)")
-            elif (mold.get("humidity") or 0) > 60:
+                reasons.append(f"Luftfeuchtigkeit {room_humidity}% (Schimmelrisiko)")
+            elif room_humidity > 60:
                 score += 1
-                reasons.append(f"Luftfeuchtigkeit {mold.get('humidity')}%")
+                reasons.append(f"Luftfeuchtigkeit {room_humidity}%")
 
         # ── Outdoor conditions (negative factors) ───────────────────────
         BAD_CONDITIONS = {"rainy", "pouring", "fog", "hail", "snowy", "snowy-rainy"}
