@@ -1169,11 +1169,18 @@ Schätzung, kein Commitment.
   `warmup_stall_active`/`_minutes_elapsed`/`_expected_minutes` in `climate.py` exponiert; bewusst
   ohne eigenes Dashboard-Badge (Notification ist hier wie beim Heizperioden-Pendant das primäre
   Signal, kein Präzedenzfall für ein Custom-Panel-Badge gefunden).
-- [ ] **Mehrere Temperatursensoren pro Zimmer mit Belegungs-Gewichtung** (L) – aktuell nur ein
-  `temp_sensor`-Feld pro Zimmer. Mehrere Sensoren (z.B. verschiedene Raumteile) mit Gewichtung, die
-  den Sensor im gerade genutzten Bereich bevorzugt (nutzt vorhandene `room_presence_entities` als
-  Belegungssignal). Größerer Umbau, da `CONF_TEMP_SENSOR` an vielen Stellen als Singular-Feld
-  durchgereicht wird.
+- [x] **Mehrere Temperatursensoren pro Zimmer mit Belegungs-Gewichtung** (L→M, 2026-10-16) –
+  umgesetzt: neues `CONF_TEMP_SENSORS` (Liste von `{sensor, presence_entity?, weight?}`), per
+  `coordinator.py` `_get_room_temp_sensors_reading()` mit dem bisherigen `CONF_TEMP_SENSOR`
+  zusammengeführt. 0/1 Sensor konfiguriert = exakt bisheriges Verhalten; mehrere = gewichteter
+  Mittelwert, ein Sensor dessen `presence_entity` gerade "on" ist zählt `TEMP_SENSOR_OCCUPIED_WEIGHT_BOOST`
+  (3x) stärker. Ersetzt beide `CONF_TEMP_SENSOR`-Lesestellen (Haupt-Zyklus + `room_logic.py`'s
+  Sicherheitsschwelle, die vorher einen eigenen, unsynchronisierten Einzel-Sensor-Read hatte).
+  Deutlich kleinerer Umbau als ursprünglich befürchtet – `CONF_TEMP_SENSOR` wurde tatsächlich nur an
+  zwei Stellen gelesen, nicht "an vielen Stellen". Voll verdrahtet: config_flow (Object-Selector wie
+  `CONF_TRV_CALIBRATIONS`), services.yaml, climate.py, alle drei Zimmer-UI-Oberflächen (Add/Edit-
+  Modal + Zimmer-Detail-Inline) über drei neue geteilte Helfer in `02_utils.js`
+  (`_renderTempSensorRows`/`_bindTempSensorsAdder`/`_collectTempSensorRows`).
 - [x] **Fester Timeout für manuelle Übersteuerung** (S, 2026-10-15) – `CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES`
   (global, Standard 0 = aus) als dritte, von den bestehenden zwei Schedule-Change-Checks unabhängige
   Reset-Bedingung in `coordinator.py`'s "Manual mode auto-reset"-Block ergänzt. UI in
