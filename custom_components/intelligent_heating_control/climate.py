@@ -377,6 +377,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "energy_today_kwh": d.get("energy_today_kwh", 0.0),
             # Room config – exposed for frontend panel
             "temp_sensor": room_cfg.get("temp_sensor", ""),
+            "temp_sensors": room_cfg.get("temp_sensors", []),
             "valve_entities": room_cfg.get("valve_entities", []),
             "window_sensors": room_cfg.get("window_sensors", []),
             # Legacy fixed temps (kept for fallback / sensor-absent scenario)

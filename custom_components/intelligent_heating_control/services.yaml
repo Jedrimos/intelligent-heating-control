@@ -17,6 +17,16 @@ add_room:
       selector:
         entity:
           domain: sensor
+    temp_sensors:
+      name: Zusätzliche Temperatursensoren (pro Raumteil)
+      description: >-
+        Liste zusätzlicher Sensoren mit optionaler Belegungs-Gewichtung, z.B.
+        [{"sensor": "sensor.ecke", "presence_entity": "binary_sensor.pir_ecke", "weight": 1.0}].
+        Werden mit temp_sensor zu einem gewichteten Mittelwert kombiniert; der Sensor im gerade
+        belegten Bereich zählt stärker. Leer = nur temp_sensor wie bisher.
+      required: false
+      selector:
+        object:
     valve_entity:
       name: Thermostat/Ventil
       description: Entitäts-ID des steuerbaren Thermostats oder Ventils (optional)
@@ -556,6 +566,13 @@ update_room:
       required: false
       selector:
         text:
+    temp_sensors:
+      name: Zusätzliche Temperatursensoren (pro Raumteil)
+      description: >-
+        Liste zusätzlicher Sensoren mit optionaler Belegungs-Gewichtung, siehe add_room.
+      required: false
+      selector:
+        object:
     valve_entity:
       name: Thermostat/Ventil (primär)
       required: false

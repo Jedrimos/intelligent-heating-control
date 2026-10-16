@@ -38,6 +38,7 @@ from .const import (
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
     CONF_TEMP_SENSOR,
+    CONF_TEMP_SENSORS,
     CONF_VALVE_ENTITY,
     CONF_ROOM_OFFSET,
     CONF_DEADBAND,
@@ -310,6 +311,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         room_config = {
             CONF_ROOM_NAME: call.data.get(CONF_ROOM_NAME, "New Room"),
             CONF_TEMP_SENSOR: call.data.get(CONF_TEMP_SENSOR, ""),
+            CONF_TEMP_SENSORS: list(call.data.get(CONF_TEMP_SENSORS, [])),
             CONF_VALVE_ENTITY: call.data.get(CONF_VALVE_ENTITY, ""),
             CONF_VALVE_ENTITIES: call.data.get(CONF_VALVE_ENTITIES, []),
             CONF_ROOM_OFFSET: float(call.data.get(CONF_ROOM_OFFSET, 0.0)),

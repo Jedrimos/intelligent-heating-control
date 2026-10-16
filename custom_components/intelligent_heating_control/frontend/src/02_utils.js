@@ -614,3 +614,68 @@
   // ── HA Schedule row helpers ─────────────────────────────────────────────
   // NOTE: _makeHaSchedRow, _bindHaSchedAdder, _collectHaScheduleRows are
   // defined in 08_modals.js (authoritative versions). Do not duplicate here.
+
+  // ── Multi-sensor room temp rows (shared by Add/Edit-Room modal + the room-detail
+  // inline settings tab, so all three stay in sync automatically instead of three
+  // separate copies drifting apart) ───────────────────────────────────────────
+
+  /** One row's HTML for the temp_sensors list editor. */
+  _tempSensorRowHtml(entry, isFirst, addBtnId) {
+    const e = entry || {};
+    return `
+      <div class="entity-row ts-row">
+        <input type="text" class="form-input" placeholder="sensor.ecke (zusätzlich)" style="flex:2"
+          value="${e.sensor || ''}" data-ts-field="sensor" data-ep-domains="sensor" autocomplete="off">
+        <input type="text" class="form-input" placeholder="binary_sensor.pir (optional)" style="flex:2;max-width:180px"
+          value="${e.presence_entity || ''}" data-ts-field="presence_entity"
+          data-ep-domains="binary_sensor,person,device_tracker,input_boolean" autocomplete="off">
+        <input type="number" class="form-input" placeholder="1.0" style="max-width:65px"
+          value="${e.weight ?? ''}" data-ts-field="weight" step="0.1" min="0.1" max="10">
+        ${isFirst
+          ? `<button class="btn btn-secondary btn-icon" id="${addBtnId}">+</button>`
+          : `<button class="btn btn-danger btn-icon remove-ts-row">✕</button>`}
+      </div>`;
+  }
+
+  /** Full list HTML (at least one empty row) for the temp_sensors editor. */
+  _renderTempSensorRows(entries, addBtnId) {
+    const rows = (entries && entries.length > 0) ? entries : [null];
+    return rows.map((e, i) => this._tempSensorRowHtml(e, i === 0, addBtnId)).join("");
+  }
+
+  /** Binds add/remove buttons for a temp_sensors list (shadowRoot-scoped, like _bindSleepProfileAdder). */
+  _bindTempSensorsAdder(listId, addBtnId) {
+    setTimeout(() => {
+      const list = this.shadowRoot.querySelector(`#${listId}`);
+      if (!list) return;
+      list.querySelectorAll(".remove-ts-row").forEach(btn => {
+        btn.addEventListener("click", () => btn.closest(".ts-row").remove());
+      });
+      const addBtn = this.shadowRoot.querySelector(`#${addBtnId}`);
+      if (addBtn) {
+        addBtn.addEventListener("click", () => {
+          const row = document.createElement("div");
+          row.className = "entity-row ts-row";
+          row.innerHTML = this._tempSensorRowHtml(null, false, addBtnId).trim();
+          list.appendChild(row);
+          row.querySelector(".remove-ts-row")?.addEventListener("click", () => row.remove());
+          this._attachEntityPickers(row);
+        });
+      }
+    }, 50);
+  }
+
+  /** Collects temp_sensors rows from a container into [{sensor, presence_entity?, weight?}]. */
+  _collectTempSensorRows(container, listId) {
+    return [...container.querySelectorAll(`#${listId} .ts-row`)]
+      .map(row => {
+        const sensor = row.querySelector('[data-ts-field="sensor"]')?.value.trim() || "";
+        const presence = row.querySelector('[data-ts-field="presence_entity"]')?.value.trim() || "";
+        const weight = parseFloat(row.querySelector('[data-ts-field="weight"]')?.value);
+        const entry = { sensor };
+        if (presence) entry.presence_entity = presence;
+        if (!isNaN(weight) && weight > 0) entry.weight = weight;
+        return entry;
+      })
+      .filter(e => e.sensor);
+  }

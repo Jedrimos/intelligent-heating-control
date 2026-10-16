@@ -166,6 +166,14 @@
             data-ep-domains="sensor" autocomplete="off">
         </div>
 
+        <details class="modal-collapsible" ${room.temp_sensors && room.temp_sensors.length > 0 ? "open" : ""}>
+          <summary class="modal-section-title">🌡️ Zusätzliche Temperatursensoren <span style="font-weight:400;font-size:10px">(optional, pro Raumteil)</span></summary>
+          <div id="rs-temp-sensors-list">
+            ${this._renderTempSensorRows(room.temp_sensors || [], "rs-add-ts")}
+          </div>
+          <span class="form-hint">Werden mit dem Temperatursensor oben zu einem gewichteten Mittelwert kombiniert. Mit Belegungs-Entity zählt der Sensor im gerade genutzten Bereich stärker.</span>
+        </details>
+
         <details class="modal-collapsible" open>
           <summary class="modal-section-title">🔥 Thermostate / TRVs</summary>
           <div class="entity-list" id="rs-valve-list">${valveRows}</div>
@@ -774,6 +782,7 @@
       await this._callService("update_room", {
         id: room.room_id,
         temp_sensor:              container.querySelector("#rs-sensor")?.value.trim() || "",
+        temp_sensors:             this._collectTempSensorRows(container, "rs-temp-sensors-list"),
         valve_entity:             valves[0] || "",
         valve_entities:           valves,
         window_sensor:            windows[0] || "",
@@ -870,6 +879,7 @@
     // Add/remove buttons for the sleep-temperature-profile point rows (shared
     // helper also used by the Add/Edit-Room modal).
     this._bindSleepProfileAdder("rs-sleep-profile-list", "rs-add-sp-point");
+    this._bindTempSensorsAdder("rs-temp-sensors-list", "rs-add-ts");
   }
 
   _renderRoomScheduleInline(room, container) {

@@ -23,6 +23,14 @@
       </div>
 
       <div class="modal-section">
+        <div class="modal-section-title">Zusätzliche Temperatursensoren <span style="font-weight:400;font-size:10px">(optional, pro Raumteil)</span></div>
+        <div id="m-temp-sensors-list">
+          ${this._renderTempSensorRows([], "m-add-ts")}
+        </div>
+        <span class="form-hint">Werden mit dem Temperatursensor oben zu einem gewichteten Mittelwert kombiniert. Mit Belegungs-Entity zählt der Sensor im gerade genutzten Bereich stärker.</span>
+      </div>
+
+      <div class="modal-section">
         <div class="modal-section-title">Thermostate / TRVs (mehrere möglich)</div>
         <div class="entity-list" id="valve-list">
           <div class="entity-row">
@@ -503,6 +511,7 @@
       await this._callService("add_room", {
         name,
         temp_sensor:            modal.querySelector("#m-sensor")?.value.trim() || "",
+        temp_sensors:           this._collectTempSensorRows(modal, "m-temp-sensors-list"),
         valve_entity:           valves[0] || "",
         valve_entities:         valves,
         window_sensor:          windows[0] || "",
@@ -579,6 +588,7 @@
     this._bindHaSchedAdder([], "m-ha-sched-list", "m-add-ha-sched");
     this._bindComfortExtendAdder("m-comfort-extend-list", "m-add-ce-entry");
     this._bindSleepProfileAdder("m-sleep-profile-list", "m-add-sp-point");
+    this._bindTempSensorsAdder("m-temp-sensors-list", "m-add-ts");
     // Pickers are attached by _showModal already; schedule rows attached separately
   }
 
@@ -642,6 +652,14 @@
         <input type="text" class="form-input full" id="m-sensor"
           value="${room.temp_sensor}" placeholder="sensor.wohnzimmer_temp"
           data-ep-domains="sensor" autocomplete="off">
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-title">Zusätzliche Temperatursensoren <span style="font-weight:400;font-size:10px">(optional, pro Raumteil)</span></div>
+        <div id="m-temp-sensors-list">
+          ${this._renderTempSensorRows(room.temp_sensors || [], "m-add-ts")}
+        </div>
+        <span class="form-hint">Werden mit dem Temperatursensor oben zu einem gewichteten Mittelwert kombiniert. Mit Belegungs-Entity zählt der Sensor im gerade genutzten Bereich stärker.</span>
       </div>
 
       <div class="modal-section">
@@ -1219,6 +1237,7 @@
       await this._callService("update_room", {
         id: roomId,
         temp_sensor:    modal.querySelector("#m-sensor").value.trim(),
+        temp_sensors:   this._collectTempSensorRows(modal, "m-temp-sensors-list"),
         valve_entity:   valves[0] || "",
         valve_entities: valves,
         window_sensor:  windows[0] || "",
@@ -1318,6 +1337,7 @@
     this._bindHaSchedAdder(room.ha_schedules || [], "m-ha-sched-list", "m-add-ha-sched");
     this._bindComfortExtendAdder("m-comfort-extend-list", "m-add-ce-entry");
     this._bindSleepProfileAdder("m-sleep-profile-list", "m-add-sp-point");
+    this._bindTempSensorsAdder("m-temp-sensors-list", "m-add-ts");
   }
 
   _showConfirmModal(title, body, onConfirm) {

@@ -43,6 +43,13 @@ CONF_ROOMS: Final = "rooms"
 CONF_ROOM_ID: Final = "id"
 CONF_ROOM_NAME: Final = "name"
 CONF_TEMP_SENSOR: Final = "temp_sensor"
+# list - additional temp sensors beyond CONF_TEMP_SENSOR, each a dict:
+# {"sensor": entity_id, "presence_entity": entity_id (optional), "weight": float (optional,
+# default 1.0)}. Combined into a single weighted-average reading (see coordinator.py
+# _get_room_temp_sensors_reading) - a sensor whose presence_entity is currently "on" counts
+# TEMP_SENSOR_OCCUPIED_WEIGHT_BOOST times its base weight. Empty by default: a room with no
+# CONF_TEMP_SENSORS entries behaves exactly as before, driven solely by CONF_TEMP_SENSOR.
+CONF_TEMP_SENSORS: Final = "temp_sensors"
 CONF_VALVE_ENTITY: Final = "valve_entity"
 CONF_ROOM_OFFSET: Final = "room_offset"
 CONF_DEADBAND: Final = "deadband"

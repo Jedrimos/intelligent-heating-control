@@ -16,7 +16,6 @@ from .const import (
     CONF_MAX_TEMP,
     CONF_ROOM_OFFSET,
     CONF_DEADBAND,
-    CONF_TEMP_SENSOR,
     CONF_COMFORT_TEMP,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
@@ -634,15 +633,10 @@ class RoomLogicMixin:
         # not just when a room is manually set to AWAY.
         room_threshold = float(room.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD))
         if room_threshold > 0.0 and room_mode in (ROOM_MODE_AUTO, ROOM_MODE_ECO, ROOM_MODE_SLEEP, ROOM_MODE_AWAY):
-            temp_sensor = room.get(CONF_TEMP_SENSOR, "")
-            current_temp = None
-            if temp_sensor:
-                s = self.hass.states.get(temp_sensor)
-                if s and s.state not in ("unknown", "unavailable"):
-                    try:
-                        current_temp = float(s.state)
-                    except (ValueError, TypeError):
-                        pass
+            # Same multi-sensor-aware reading (with its last-known-value fallback) as the
+            # main per-cycle read, instead of a separate raw single-sensor state read -
+            # this safety floor benefits from the same robustness/multi-sensor averaging.
+            current_temp = self._get_room_temp_sensors_reading(room)
             if current_temp is not None and current_temp < room_threshold:
                 target = min(max_temp, max(min_temp, comfort_base + room_offset))
                 return target, {

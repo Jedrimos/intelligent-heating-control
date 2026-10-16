@@ -48,6 +48,7 @@ from .const import (
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
     CONF_TEMP_SENSOR,
+    CONF_TEMP_SENSORS,
     CONF_VALVE_ENTITY,
     CONF_ROOM_OFFSET,
     CONF_DEADBAND,
@@ -286,6 +287,10 @@ _LOGGER = logging.getLogger(__name__)
 TRV_TEMP_HYSTERESIS = 0.3       # °C – only send update if setpoint changes by at least this much
 TRV_LARGE_CHANGE_THRESHOLD = 1.0  # °C – above this, always send immediately (mode change etc.)
 TRV_SETPOINT_STEP = 0.5         # °C – quantise setpoint to TRV resolution (most TRVs: 0.5 °C)
+
+# Multi-sensor room temp averaging (see _get_room_temp_sensors_reading): how much more a
+# sensor's weight counts while its paired presence_entity reads occupied
+TEMP_SENSOR_OCCUPIED_WEIGHT_BOOST = 3.0
 
 
 class IHCCoordinator(
@@ -1466,6 +1471,50 @@ class IHCCoordinator(
                 return cached_value
         return None
 
+    def _get_room_temp_sensors_reading(self, room: dict) -> Optional[float]:
+        """Combine a room's temperature sensor(s) into a single reading.
+
+        CONF_TEMP_SENSORS (list of {sensor, presence_entity?, weight?}) is the multi-
+        sensor source; the legacy singular CONF_TEMP_SENSOR is folded in as an extra
+        entry if it isn't already present in that list, so a room with no
+        CONF_TEMP_SENSORS configured behaves exactly as before - single sensor, no
+        weighting, same _get_sensor_temp() call as pre-multi-sensor code.
+
+        With more than one sensor: weighted average, each entry's base weight (default
+        1.0) multiplied by TEMP_SENSOR_OCCUPIED_WEIGHT_BOOST while its optional
+        presence_entity reads "on" - the currently-occupied area's sensor counts for
+        more without fully discarding the others (a single flaky presence sensor can't
+        blank out the rest of the room's reading). Sensors that are unavailable (even
+        via _get_sensor_temp's own last-known-value fallback) are skipped entirely.
+        """
+        entries = list(room.get(CONF_TEMP_SENSORS) or [])
+        single = room.get(CONF_TEMP_SENSOR, "")
+        if single and not any(e.get("sensor") == single for e in entries):
+            entries = [{"sensor": single}] + entries
+        if not entries:
+            return None
+        if len(entries) == 1:
+            return self._get_sensor_temp(entries[0].get("sensor", ""))
+
+        total_weight = 0.0
+        weighted_sum = 0.0
+        for entry in entries:
+            value = self._get_sensor_temp(entry.get("sensor", ""))
+            if value is None:
+                continue
+            weight = float(entry.get("weight") or 1.0)
+            presence_entity = entry.get("presence_entity", "")
+            if presence_entity:
+                pstate = self.hass.states.get(presence_entity)
+                if pstate is not None and pstate.state == STATE_ON:
+                    weight *= TEMP_SENSOR_OCCUPIED_WEIGHT_BOOST
+            weighted_sum += value * weight
+            total_weight += weight
+
+        if total_weight <= 0:
+            return None
+        return round(weighted_sum / total_weight, 2)
+
     # ------------------------------------------------------------------
     # Main update cycle
     # ------------------------------------------------------------------
@@ -1702,8 +1751,7 @@ class IHCCoordinator(
         cold_boost = ctx["cold_boost"]
         _now_cascade = ctx["now_cascade"]
 
-        temp_sensor = room.get(CONF_TEMP_SENSOR, "")
-        raw_temp = self._get_sensor_temp(temp_sensor)
+        raw_temp = self._get_room_temp_sensors_reading(room)
         calibrated_temp = self._apply_room_calibration(room, raw_temp)
 
         # TRV sensor data integration.

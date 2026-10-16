@@ -110,6 +110,7 @@ from .const import (
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
     CONF_TEMP_SENSOR,
+    CONF_TEMP_SENSORS,
     CONF_VALVE_ENTITY,
     CONF_VALVE_ENTITIES,
     CONF_WINDOW_SENSORS,
@@ -811,6 +812,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_ROOM_ID: str(uuid.uuid4())[:8],
                 CONF_ROOM_NAME: user_input[CONF_ROOM_NAME],
                 CONF_TEMP_SENSOR: user_input.get(CONF_TEMP_SENSOR, ""),
+                CONF_TEMP_SENSORS: list(user_input.get(CONF_TEMP_SENSORS, [])),
                 CONF_VALVE_ENTITY: single_valve,
                 CONF_VALVE_ENTITIES: [single_valve] if single_valve else [],
                 CONF_ROOM_OFFSET: float(user_input.get(CONF_ROOM_OFFSET, 0.0)),
@@ -884,6 +886,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema({
             vol.Required(CONF_ROOM_NAME): str,
             vol.Optional(CONF_TEMP_SENSOR, default=""): selector.selector({"text": {}}),
+            vol.Optional(CONF_TEMP_SENSORS, default=[]): selector.selector({"object": {}}),
             vol.Optional(CONF_VALVE_ENTITY, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_WINDOW_SENSOR, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_ROOM_OFFSET, default=0.0): selector.selector({
@@ -1089,6 +1092,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema({
             vol.Optional(CONF_ROOM_NAME, default=room.get(CONF_ROOM_NAME, "")): str,
             vol.Optional(CONF_TEMP_SENSOR, default=room.get(CONF_TEMP_SENSOR, "")): selector.selector({"text": {}}),
+            vol.Optional(CONF_TEMP_SENSORS, default=room.get(CONF_TEMP_SENSORS, [])): selector.selector({"object": {}}),
             vol.Optional(CONF_VALVE_ENTITY, default=room.get(CONF_VALVE_ENTITY, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_WINDOW_SENSOR, default=room.get(CONF_WINDOW_SENSOR, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_ROOM_OFFSET, default=float(room.get(CONF_ROOM_OFFSET, 0.0))): selector.selector({
