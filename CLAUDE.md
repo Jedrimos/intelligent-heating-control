@@ -11,7 +11,7 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.1.1`
+- **Version:** `2.2.0`
 - **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`

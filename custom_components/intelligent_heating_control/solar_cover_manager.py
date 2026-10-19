@@ -33,7 +33,13 @@ from .const import (
     CONF_COMFORT_TEMP,
     DEFAULT_COMFORT_TEMP,
 )
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+
+# Literal values instead of importing from homeassistant.const - this module has
+# no other Home Assistant dependency and is unit-tested without HA installed
+# (tests/test_solar_cover_manager.py); these two string constants are stable
+# across HA core versions.
+STATE_UNAVAILABLE = "unavailable"
+STATE_UNKNOWN = "unknown"
 
 _LOGGER = logging.getLogger(__name__)
 

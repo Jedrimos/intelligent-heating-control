@@ -14,6 +14,63 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.2.0] - 2026-10-19
+
+### Neu
+- **Mehrere Temperatursensoren pro Zimmer mit Belegungs-Gewichtung:** Neues `CONF_TEMP_SENSORS`
+  (Liste von Sensor + optionaler Anwesenheits-Entity + Gewicht). Ein Sensor dessen `presence_entity`
+  gerade "on" ist zählt 3x stärker. 0/1 Sensor konfiguriert = exakt bisheriges Verhalten.
+- **Mehrtägige Wetterprognose-Vorheizung:** `CONF_FORECAST_LOOKAHEAD_DAYS` (Standard 1 Tag, bis zu
+  3) ersetzt die bisherige Nur-heute-Prüfung bei Sommerautomatik-Override, Heizperioden-
+  Reaktivierung und Vorheizzeit-Verlängerung. Kälteprognose-Banner zeigt jetzt korrekt "morgen
+  Nacht"/"in X Tagen" statt immer "heute Nacht".
+- **"Heizt laut TRV, aber Raum wird nicht wärmer"-Watchdog:** Erkennt wenn die TRV-Anforderung
+  deutlich länger als die gelernte/erwartete Aufheizzeit ansteht, ohne dass die Temperatur
+  nennenswert steigt – inkl. Persistent-Notification (`CONF_WARMUP_STALL_NOTIFY_ENABLED`).
+- **Fester Timeout für manuelle Zimmer-Übersteuerung:** `CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES`
+  (global, Standard aus) als dritte, unabhängige Reset-Bedingung für den "manuell"-Modus.
+- **Rollo-Sicherheit:** Wind-/Regen-/Schnee-/Hagel-Sicherheitsabschaltung für die passive
+  Solarsteuerung (nutzt das vorhandene `CONF_WEATHER_ENTITY`), plus getrennte Ein-/Austritts-
+  Sonnenwinkel-Toleranz (Hysterese gegen Flackern bei Grenzlage).
+- **Automatisches Release:** Neuer `Release`-Workflow taggt und veröffentlicht bei einem
+  Versionsbump in `manifest.json` auf `main` automatisch ein GitHub Release (Notizen aus diesem
+  CHANGELOG) – aber erst nachdem `Tests` und `Validate` auf demselben Commit grün sind.
+
+### Gefixt
+- **HACS-Review-Findings (hacs/default#10829):** Home-Assistant-Maintainer-Review vor Aufnahme in
+  den HACS-Standard-Store fand vier Punkte, alle behoben: ungeschütztes `innerHTML` mit Entity-
+  Namen/Status (XSS-Risiko, neuer `_esc()`-Helfer), config-ändernde Services ohne Admin-Pflicht
+  (jetzt `async_register_admin_service`, Alltags-Services bleiben offen), blockierendes
+  `panel_file.exists()` im Event-Loop (jetzt über `async_add_executor_job`), unterdrückter HACS-
+  Brands-Check in `validate.yml` (unnötig, Repo hat bereits ein in-tree `brand/icon.png`).
+  Zusätzlich: `update_room` übernahm bisher jeden beliebigen Feldnamen ungeprüft – jetzt mit
+  Allow-List abgesichert, analog zu `update_global_settings`.
+- **Raumfeuchte-Anzeige war an Schimmelschutz-Toggle gekoppelt:** `_check_mold_risk()` gab bei
+  deaktiviertem Schimmelschutz komplett `None` zurück, was auch die reine Feuchte-*Anzeige*
+  (dedizierter Luftfeuchtigkeits-Sensor, gefühlte Temperatur, Lüftungsempfehlung-Bewertung)
+  stillschweigend mit ausgeschaltet hat. Rohwert jetzt über eigenen, ungated Helfer gelesen;
+  Schimmelrisiko/Taupunkt bleiben weiterhin korrekt an den Toggle gekoppelt. Dashboard zeigt
+  wieder zwei Feuchte-Chips pro Zimmer (Raumsensor + TRV).
+- **Peak Shaving drosselte nur die Anzeige, nicht die TRVs:** Die gestaffelte Lastbegrenzung
+  deckelte bisher nur `room_data["demand"]` (Diagnose-Wert), während der normale Heiz-Pfad
+  weiterhin den vollen, ungedeckelten Sollwert an die TRVs sendete – das Feature hatte real keine
+  Wirkung. Jetzt wirkt die Deckelung direkt auf den gesendeten TRV-Sollwert.
+- **Codebase-Audit (6 Dimensionen + adversarielle Verifikation) – 6 Bugs behoben:**
+  - Entity-Picker-Dropdown im Zimmer-Detail (`_renderRoomDetailSettings`) aktivierte sich nie, da
+    `_attachEntityPickers()` nie auf den eigenen Container aufgerufen wurde; gleicher Bug auch im
+    Add/Edit-Room-Modal bei neu hinzugefügten Komfort-Verlängerungs-Zeilen.
+  - HA-`schedule.*`-Erkennung (YAML vs. UI-Helfer) war grundsätzlich falsch: suchte einen
+    `config_entry` für die Schedule-Entity, den es für Storage-Collection-Helper nie gibt.
+  - 5 globale + 2 Zimmer-Einstellungen waren über das native HA-Options-UI (Einstellungen →
+    Geräte & Dienste → Konfigurieren) gar nicht erreichbar, da `config_flow.py` keine
+    `vol.Optional`-Felder dafür hatte – nur über das Custom-Panel/Services nutzbar.
+  - Zimmer-Detail Inline-Einstellungen: 5 Felder (`sleep_temp_profile`, `cover_entities`,
+    `window_orientation`, `solar_passive_heat`, `solar_passive_cool`) fehlten dort, obwohl im
+    Add/Edit-Modal längst vorhanden.
+  - Tote Konstanten entfernt, `bool()`-Koerzierungsbug behoben (String `"false"` wurde zu `True`).
+
+---
+
 ## [2.1.1] - 2026-10-14
 
 ### Gefixt
