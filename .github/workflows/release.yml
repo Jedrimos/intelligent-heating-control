@@ -1,0 +1,76 @@
+name: Release
+
+# Fires whenever manifest.json changes on main. The version bump itself stays a
+# manual, deliberate decision (edit manifest.json per the CLAUDE.md release
+# checklist) - this workflow only automates the mechanical, error-prone part
+# that follows: tagging that exact version and publishing a GitHub Release.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "custom_components/intelligent_heating_control/manifest.json"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from manifest.json
+        id: version
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('custom_components/intelligent_heating_control/manifest.json'))['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether this version was already released
+        id: check_tag
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.version.outputs.tag }} already exists - manifest.json changed without a version bump (or this version was already released). Skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify compiled frontend panel is up to date
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          cp custom_components/intelligent_heating_control/frontend/ihc-panel.js /tmp/ihc-panel.committed.js
+          python3 custom_components/intelligent_heating_control/frontend/build.py
+          if ! diff -q /tmp/ihc-panel.committed.js custom_components/intelligent_heating_control/frontend/ihc-panel.js >/dev/null; then
+            echo "::error::ihc-panel.js is stale (differs from a fresh build of frontend/src/). Run 'python3 custom_components/intelligent_heating_control/frontend/build.py' and commit the result before releasing."
+            exit 1
+          fi
+
+      - name: Extract matching CHANGELOG.md section
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          python3 - "${{ steps.version.outputs.version }}" <<'PY'
+          import re, sys, pathlib
+
+          version = sys.argv[1]
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)"
+          match = re.search(pattern, text, re.MULTILINE | re.DOTALL)
+          body = match.group(1).strip() if match else (
+              f"_Kein Abschnitt `## [{version}]` in CHANGELOG.md gefunden._"
+          )
+          pathlib.Path("/tmp/release-notes.md").write_text(body + "\n", encoding="utf-8")
+          PY
+
+      - name: Tag and publish GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --notes-file /tmp/release-notes.md
