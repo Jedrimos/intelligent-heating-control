@@ -4,6 +4,10 @@ name: Release
 # manual, deliberate decision (edit manifest.json per the CLAUDE.md release
 # checklist) - this workflow only automates the mechanical, error-prone part
 # that follows: tagging that exact version and publishing a GitHub Release.
+#
+# The release job only runs after Tests and Validate (hassfest/HACS) have
+# passed on this exact commit - pulled in here as reusable workflows so a
+# broken main never gets auto-released just because manifest.json changed.
 on:
   push:
     branches: [main]
@@ -15,7 +19,14 @@ permissions:
   contents: write
 
 jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  validate:
+    uses: ./.github/workflows/validate.yml
+
   release:
+    needs: [tests, validate]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
