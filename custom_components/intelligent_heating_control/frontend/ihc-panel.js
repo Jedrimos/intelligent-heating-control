@@ -925,6 +925,17 @@ class IHCPanel extends HTMLElement {
     return this._hass ? this._hass.states[entityId] : null;
   }
 
+  // Escapes a value for safe insertion into innerHTML (text content or quoted
+  // attribute). Entity friendly_name/state come from HA state objects, which
+  // can contain arbitrary characters (renamed entities, free-text states) -
+  // never interpolate them into HTML without this.
+  _esc(value) {
+    if (value == null) return "";
+    return String(value).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
   // Some HA versions prepend the device name to the auto-generated object_id
   // (e.g. "sensor.intelligent_heating_control_ihc_gesamtanforderung" instead of
   // "sensor.ihc_gesamtanforderung"), depending on entity registry history.
@@ -1255,7 +1266,7 @@ class IHCPanel extends HTMLElement {
         const state = this._hass.states[id];
         const name  = state?.attributes?.friendly_name;
         const label = name && name !== id ? `${name} – ${id}` : id;
-        return `<option value="${id}" label="${label}">`;
+        return `<option value="${this._esc(id)}" label="${this._esc(label)}">`;
       })
       .join("");
   }
@@ -1296,7 +1307,7 @@ class IHCPanel extends HTMLElement {
         const s = state.state;
         if (!s || s === "unavailable" || s === "unknown") return "";
         const u = state.attributes?.unit_of_measurement || "";
-        return `<span class="ep-state">${s}${u ? " " + u : ""}</span>`;
+        return `<span class="ep-state">${this._esc(s)}${u ? " " + this._esc(u) : ""}</span>`;
       };
 
       const positionDropdown = () => {
@@ -1325,11 +1336,11 @@ class IHCPanel extends HTMLElement {
         } else {
           dropdown.innerHTML = entries.map(([id, state]) => {
             const name = state.attributes?.friendly_name;
-            return `<div class="ep-item" data-value="${id}">
+            return `<div class="ep-item" data-value="${this._esc(id)}">
               ${domainBadge(id)}
               <div class="ep-info">
-                <div class="ep-name">${name || id}</div>
-                <div class="ep-id">${id}</div>
+                <div class="ep-name">${this._esc(name || id)}</div>
+                <div class="ep-id">${this._esc(id)}</div>
               </div>
               ${stateLabel(state)}
             </div>`;
@@ -1398,9 +1409,9 @@ class IHCPanel extends HTMLElement {
       return `<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;
           padding:6px 10px;border:1px solid var(--divider-color);border-radius:8px;
           background:${checked ? "var(--primary-color,#03a9f4)1a" : "transparent"}">
-        <input type="checkbox" class="presence-cb" value="${id}" ${checked} style="margin:0">
+        <input type="checkbox" class="presence-cb" value="${this._esc(id)}" ${checked} style="margin:0">
         ${dot}
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._esc(label)}</span>
         <span style="font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${isHome ? "zuhause" : "weg"}</span>
       </label>`;
     };
@@ -2622,9 +2633,9 @@ class IHCPanel extends HTMLElement {
                   border:1px solid ${isActive ? "#388e3c" : "var(--divider-color)"}">
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                     ${dot}
-                    <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${entry.entity}</span>
-                    <span style="font-size:11px;color:var(--secondary-text-color)">= ${entry.state || "on"}</span>
-                    <span style="font-size:11px;opacity:.6">(ist: ${currentState})</span>
+                    <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._esc(entry.entity)}</span>
+                    <span style="font-size:11px;color:var(--secondary-text-color)">= ${this._esc(entry.state || "on")}</span>
+                    <span style="font-size:11px;opacity:.6">(ist: ${this._esc(currentState)})</span>
                     ${badge}
                   </div>
                 </div>`;
@@ -3129,7 +3140,7 @@ class IHCPanel extends HTMLElement {
         ? `<span style="color:#66bb6a;font-weight:700">● AN</span>`
         : `<span style="color:#9e9e9e">● AUS</span>`;
       const condBadge = condEntity
-        ? `<span style="font-size:11px;color:${condMet ? "#66bb6a" : "#ef5350"}">${condMet ? "✅" : "❌"} ${condEntity.split(".")[1]} = ${condExpected} <span style="opacity:.6">(ist: ${condState ?? "?"})</span></span>`
+        ? `<span style="font-size:11px;color:${condMet ? "#66bb6a" : "#ef5350"}">${condMet ? "✅" : "❌"} ${this._esc(condEntity.split(".")[1])} = ${this._esc(condExpected)} <span style="opacity:.6">(ist: ${this._esc(condState ?? "?")})</span></span>`
         : `<span style="font-size:11px;color:var(--secondary-text-color)">Immer aktiv</span>`;
       const winBadge = isWinning
         ? `<span style="background:#1b5e20;color:#a5d6a7;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:700;margin-left:6px">▶ AKTIV</span>`
@@ -3141,7 +3152,7 @@ class IHCPanel extends HTMLElement {
           border:1px solid ${isWinning ? "#388e3c" : "var(--divider-color)"}">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${schedDot}
-            <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.entity}</span>
+            <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._esc(s.entity)}</span>
             <span style="font-size:11px;color:var(--secondary-text-color);flex-shrink:0">${HA_MODE_LABELS[s.mode] || s.mode}</span>
             ${winBadge}
           </div>
@@ -3720,7 +3731,7 @@ class IHCPanel extends HTMLElement {
 
       const rowsHtml = etaRows.map(r => `
         <tr>
-          <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color);font-weight:500">${r.name}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color);font-weight:500">${this._esc(r.name)}</td>
           <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color)">
             ${r.time ? r.time + " Uhr" : `<span style="color:var(--secondary-text-color)">keine ETA</span>`}
           </td>
@@ -4607,7 +4618,7 @@ class IHCPanel extends HTMLElement {
                   if (mins < 0 || mins > (a.eta_preheat_threshold_minutes ?? 90)) return null;
                   const name = st.attributes?.friendly_name || eid;
                   const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-                  return `<div style="font-size:11px;color:#1565c0;margin-top:4px">⏱ ${name}: ~${mins} min (${time} Uhr)</div>`;
+                  return `<div style="font-size:11px;color:#1565c0;margin-top:4px">⏱ ${this._esc(name)}: ~${mins} min (${time} Uhr)</div>`;
                 }).filter(Boolean);
                 if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt im konfigurierten Fenster</div>`;
                 return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;

@@ -68,7 +68,7 @@
 
       const rowsHtml = etaRows.map(r => `
         <tr>
-          <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color);font-weight:500">${r.name}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color);font-weight:500">${this._esc(r.name)}</td>
           <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color)">
             ${r.time ? r.time + " Uhr" : `<span style="color:var(--secondary-text-color)">keine ETA</span>`}
           </td>

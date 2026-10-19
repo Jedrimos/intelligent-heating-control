@@ -8,6 +8,7 @@ from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers.service import async_register_admin_service
 
 from .const import (
     DOMAIN,
@@ -244,7 +245,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
     panel_dir = Path(__file__).parent / "frontend"
     panel_file = panel_dir / "ihc-panel.js"
 
-    if not panel_file.exists():
+    if not await hass.async_add_executor_job(panel_file.exists):
         _LOGGER.warning("IHC frontend panel file not found: %s", panel_file)
         return
 
@@ -411,8 +412,26 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_MOLD_PROTECTION_ENABLED, CONF_AGGRESSIVE_MODE_ENABLED, CONF_ROOM_IGNORE_HEATING_PERIOD,
             CONF_SOLAR_PASSIVE_HEAT, CONF_SOLAR_PASSIVE_COOL,
         }
+        # Remaining valid fields that pass through unchanged (str/list) - explicitly
+        # listed so arbitrary/unknown keys from the service call can't be injected
+        # into room config (mirrors the allow-list in handle_update_global_settings)
+        _STR_OR_LIST_FIELDS = {
+            CONF_TEMP_SENSOR, CONF_TEMP_SENSORS, CONF_VALVE_ENTITY, CONF_VALVE_ENTITIES,
+            CONF_WINDOW_SENSOR, CONF_WINDOW_SENSORS, CONF_HA_SCHEDULE_OFF_MODE,
+            CONF_SCHEDULES, CONF_HA_SCHEDULES, CONF_SLEEP_TEMP_PROFILE,
+            CONF_HUMIDITY_SENSOR, CONF_CO2_SENSOR, CONF_HKV_SENSOR,
+            CONF_ROOM_PRESENCE_ENTITIES, CONF_TRV_CALIBRATIONS,
+            CONF_WINDOW_RESTORE_MODE, CONF_WINDOW_CASCADE_ROOMS, CONF_COVER_ENTITIES,
+            CONF_WINDOW_ORIENTATION, CONF_COMFORT_TEMP_ENTITY, CONF_ECO_TEMP_ENTITY,
+            CONF_COMFORT_EXTEND_ENTRIES, CONF_COMFORT_EXTEND_ENTITY, CONF_COMFORT_EXTEND_STATE,
+            CONF_PRESENCE_SENSOR,
+        }
+        _ALLOWED_FIELDS = _FLOAT_FIELDS | _INT_FIELDS | _BOOL_FIELDS | _STR_OR_LIST_FIELDS
         updates: dict = {}
         for k, v in raw.items():
+            if k not in _ALLOWED_FIELDS:
+                _LOGGER.warning("IHC update_room: unknown field %s, ignoring", k)
+                continue
             try:
                 if k in _FLOAT_FIELDS:
                     updates[k] = float(v)
@@ -582,20 +601,27 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         if group_id:
             await coordinator.async_set_group_mode(group_id=group_id, mode=mode)
 
-    hass.services.async_register(DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
-    hass.services.async_register(DOMAIN, SERVICE_REMOVE_ROOM, handle_remove_room)
-    hass.services.async_register(DOMAIN, SERVICE_UPDATE_ROOM, handle_update_room)
+    # Config-changing services (create/edit/delete rooms or groups, rewrite global
+    # settings, destructively reset learned stats) require admin - a non-admin
+    # household member can control heating day-to-day but can't rewrite the setup.
+    async_register_admin_service(hass, DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
+    async_register_admin_service(hass, DOMAIN, SERVICE_REMOVE_ROOM, handle_remove_room)
+    async_register_admin_service(hass, DOMAIN, SERVICE_UPDATE_ROOM, handle_update_room)
+    async_register_admin_service(hass, DOMAIN, SERVICE_RELOAD, handle_reload)
+    async_register_admin_service(hass, DOMAIN, SERVICE_UPDATE_GLOBAL_SETTINGS, handle_update_global_settings)
+    async_register_admin_service(hass, DOMAIN, SERVICE_RESET_STATS, handle_reset_stats)
+
+    # Day-to-day operational services stay open to any authenticated user,
+    # same as HA's own built-in climate services.
     hass.services.async_register(DOMAIN, SERVICE_SET_ROOM_MODE, handle_set_room_mode)
     hass.services.async_register(DOMAIN, SERVICE_SET_SYSTEM_MODE, handle_set_system_mode)
     hass.services.async_register(DOMAIN, SERVICE_BOOST_ROOM, handle_boost_room)
-    hass.services.async_register(DOMAIN, SERVICE_RELOAD, handle_reload)
     hass.services.async_register(DOMAIN, SERVICE_EXPORT_CONFIG, handle_export_config)
-    hass.services.async_register(DOMAIN, SERVICE_UPDATE_GLOBAL_SETTINGS, handle_update_global_settings)
     hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_GUEST_MODE, handle_activate_guest_mode)
     hass.services.async_register(DOMAIN, SERVICE_DEACTIVATE_GUEST_MODE, handle_deactivate_guest_mode)
-    hass.services.async_register(DOMAIN, SERVICE_RESET_STATS, handle_reset_stats)
-    # v1.7 – Heizgruppen
-    hass.services.async_register(DOMAIN, SERVICE_ADD_GROUP, handle_add_group)
-    hass.services.async_register(DOMAIN, SERVICE_REMOVE_GROUP, handle_remove_group)
-    hass.services.async_register(DOMAIN, SERVICE_UPDATE_GROUP, handle_update_group)
+
+    # v1.7 – Heizgruppen: add/remove/update are config-changing, set_group_mode is day-to-day
+    async_register_admin_service(hass, DOMAIN, SERVICE_ADD_GROUP, handle_add_group)
+    async_register_admin_service(hass, DOMAIN, SERVICE_REMOVE_GROUP, handle_remove_group)
+    async_register_admin_service(hass, DOMAIN, SERVICE_UPDATE_GROUP, handle_update_group)
     hass.services.async_register(DOMAIN, SERVICE_SET_GROUP_MODE, handle_set_group_mode)

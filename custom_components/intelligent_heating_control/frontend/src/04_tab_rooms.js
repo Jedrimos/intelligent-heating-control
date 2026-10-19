@@ -600,9 +600,9 @@
                   border:1px solid ${isActive ? "#388e3c" : "var(--divider-color)"}">
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                     ${dot}
-                    <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${entry.entity}</span>
-                    <span style="font-size:11px;color:var(--secondary-text-color)">= ${entry.state || "on"}</span>
-                    <span style="font-size:11px;opacity:.6">(ist: ${currentState})</span>
+                    <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._esc(entry.entity)}</span>
+                    <span style="font-size:11px;color:var(--secondary-text-color)">= ${this._esc(entry.state || "on")}</span>
+                    <span style="font-size:11px;opacity:.6">(ist: ${this._esc(currentState)})</span>
                     ${badge}
                   </div>
                 </div>`;
@@ -1107,7 +1107,7 @@
         ? `<span style="color:#66bb6a;font-weight:700">● AN</span>`
         : `<span style="color:#9e9e9e">● AUS</span>`;
       const condBadge = condEntity
-        ? `<span style="font-size:11px;color:${condMet ? "#66bb6a" : "#ef5350"}">${condMet ? "✅" : "❌"} ${condEntity.split(".")[1]} = ${condExpected} <span style="opacity:.6">(ist: ${condState ?? "?"})</span></span>`
+        ? `<span style="font-size:11px;color:${condMet ? "#66bb6a" : "#ef5350"}">${condMet ? "✅" : "❌"} ${this._esc(condEntity.split(".")[1])} = ${this._esc(condExpected)} <span style="opacity:.6">(ist: ${this._esc(condState ?? "?")})</span></span>`
         : `<span style="font-size:11px;color:var(--secondary-text-color)">Immer aktiv</span>`;
       const winBadge = isWinning
         ? `<span style="background:#1b5e20;color:#a5d6a7;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:700;margin-left:6px">▶ AKTIV</span>`
@@ -1119,7 +1119,7 @@
           border:1px solid ${isWinning ? "#388e3c" : "var(--divider-color)"}">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${schedDot}
-            <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.entity}</span>
+            <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._esc(s.entity)}</span>
             <span style="font-size:11px;color:var(--secondary-text-color);flex-shrink:0">${HA_MODE_LABELS[s.mode] || s.mode}</span>
             ${winBadge}
           </div>

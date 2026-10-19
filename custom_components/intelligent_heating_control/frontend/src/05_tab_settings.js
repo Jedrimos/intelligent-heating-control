@@ -363,7 +363,7 @@
                   if (mins < 0 || mins > (a.eta_preheat_threshold_minutes ?? 90)) return null;
                   const name = st.attributes?.friendly_name || eid;
                   const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-                  return `<div style="font-size:11px;color:#1565c0;margin-top:4px">⏱ ${name}: ~${mins} min (${time} Uhr)</div>`;
+                  return `<div style="font-size:11px;color:#1565c0;margin-top:4px">⏱ ${this._esc(name)}: ~${mins} min (${time} Uhr)</div>`;
                 }).filter(Boolean);
                 if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt im konfigurierten Fenster</div>`;
                 return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;

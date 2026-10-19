@@ -25,6 +25,17 @@
     return this._hass ? this._hass.states[entityId] : null;
   }
 
+  // Escapes a value for safe insertion into innerHTML (text content or quoted
+  // attribute). Entity friendly_name/state come from HA state objects, which
+  // can contain arbitrary characters (renamed entities, free-text states) -
+  // never interpolate them into HTML without this.
+  _esc(value) {
+    if (value == null) return "";
+    return String(value).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
   // Some HA versions prepend the device name to the auto-generated object_id
   // (e.g. "sensor.intelligent_heating_control_ihc_gesamtanforderung" instead of
   // "sensor.ihc_gesamtanforderung"), depending on entity registry history.
@@ -355,7 +366,7 @@
         const state = this._hass.states[id];
         const name  = state?.attributes?.friendly_name;
         const label = name && name !== id ? `${name} – ${id}` : id;
-        return `<option value="${id}" label="${label}">`;
+        return `<option value="${this._esc(id)}" label="${this._esc(label)}">`;
       })
       .join("");
   }
@@ -396,7 +407,7 @@
         const s = state.state;
         if (!s || s === "unavailable" || s === "unknown") return "";
         const u = state.attributes?.unit_of_measurement || "";
-        return `<span class="ep-state">${s}${u ? " " + u : ""}</span>`;
+        return `<span class="ep-state">${this._esc(s)}${u ? " " + this._esc(u) : ""}</span>`;
       };
 
       const positionDropdown = () => {
@@ -425,11 +436,11 @@
         } else {
           dropdown.innerHTML = entries.map(([id, state]) => {
             const name = state.attributes?.friendly_name;
-            return `<div class="ep-item" data-value="${id}">
+            return `<div class="ep-item" data-value="${this._esc(id)}">
               ${domainBadge(id)}
               <div class="ep-info">
-                <div class="ep-name">${name || id}</div>
-                <div class="ep-id">${id}</div>
+                <div class="ep-name">${this._esc(name || id)}</div>
+                <div class="ep-id">${this._esc(id)}</div>
               </div>
               ${stateLabel(state)}
             </div>`;
@@ -498,9 +509,9 @@
       return `<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;
           padding:6px 10px;border:1px solid var(--divider-color);border-radius:8px;
           background:${checked ? "var(--primary-color,#03a9f4)1a" : "transparent"}">
-        <input type="checkbox" class="presence-cb" value="${id}" ${checked} style="margin:0">
+        <input type="checkbox" class="presence-cb" value="${this._esc(id)}" ${checked} style="margin:0">
         ${dot}
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._esc(label)}</span>
         <span style="font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${isHome ? "zuhause" : "weg"}</span>
       </label>`;
     };
