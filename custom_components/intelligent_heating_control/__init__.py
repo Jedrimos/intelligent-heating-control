@@ -539,6 +539,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "manual_override_timeout_minutes",
             # Warmup-Stall-Watchdog
             "warmup_stall_notify_enabled",
+            # Heizgradtage
+            "degree_day_base_temp", "degree_day_threshold_temp",
         }
         updates = {k: v for k, v in call.data.items() if k in allowed}
         if updates:

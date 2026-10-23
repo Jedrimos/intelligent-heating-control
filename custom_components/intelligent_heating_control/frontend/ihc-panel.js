@@ -4445,6 +4445,14 @@ class IHCPanel extends HTMLElement {
               </label>
               <span class="form-hint">Sendet eine Persistent-Notification, wenn ein Zimmer weit länger als seine gelernte Aufheizzeit heizt, ohne tatsächlich wärmer zu werden (Luft im System, Kessel feuert nicht, Tür zu).</span>
             </div>
+            <div class="settings-item">
+              <label>🔥 Heizgradtage – Basis- / Schwellentemperatur (°C)</label>
+              <div style="display:flex;gap:8px">
+                <input type="number" class="form-input" id="dd-base-temp" min="15" max="22" step="0.5" value="${a.degree_day_base_temp ?? 20}" title="Basistemperatur" style="flex:1">
+                <input type="number" class="form-input" id="dd-threshold-temp" min="10" max="20" step="0.5" value="${a.degree_day_threshold_temp ?? 15}" title="Schwelle" style="flex:1">
+              </div>
+              <span class="form-hint">Speist sensor.ihc_heizgradtage (kumulativ – HA liefert daraus Monats-/Jahressummen). Gradtag = Basis − Tagesmittel Außentemp., nur an Tagen mit Tagesmittel unter der Schwelle.</span>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-temp-settings">💾 Temperaturen speichern</button>
@@ -5103,7 +5111,9 @@ class IHCPanel extends HTMLElement {
       const hpLow    = parseFloat(content.querySelector("#hp-auto-low")?.value);
       const hpHigh   = parseFloat(content.querySelector("#hp-auto-high")?.value);
       const hpDays   = parseInt(content.querySelector("#hp-auto-days")?.value, 10);
-      if ([awayT, vacT, frostT, sumT, sumBand, sumDays, hpLow, hpHigh, hpDays].some(isNaN)) { this._toast("⚠️ Ungültiger Temperaturwert"); return; }
+      const ddBase      = parseFloat(content.querySelector("#dd-base-temp")?.value);
+      const ddThreshold = parseFloat(content.querySelector("#dd-threshold-temp")?.value);
+      if ([awayT, vacT, frostT, sumT, sumBand, sumDays, hpLow, hpHigh, hpDays, ddBase, ddThreshold].some(isNaN)) { this._toast("⚠️ Ungültiger Temperaturwert"); return; }
       this._callService("update_global_settings", {
         away_temp:                awayT,
         vacation_temp:            vacT,
@@ -5122,6 +5132,8 @@ class IHCPanel extends HTMLElement {
         heating_period_auto_days:      hpDays,
         heating_period_notify_enabled: content.querySelector("#hp-notify-enabled")?.checked === true,
         warmup_stall_notify_enabled: content.querySelector("#warmup-stall-notify-enabled")?.checked === true,
+        degree_day_base_temp:      ddBase,
+        degree_day_threshold_temp: ddThreshold,
       });
       this._toast("✓ Temperatur-Einstellungen gespeichert");
     });

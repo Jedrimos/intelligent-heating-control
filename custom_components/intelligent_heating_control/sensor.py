@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfTemperature, PERCENTAGE
+from homeassistant.const import UnitOfTemperature, PERCENTAGE, UnitOfPower
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -118,12 +118,15 @@ async def async_setup_entry(
         IHCHeatingRuntimeSensor(coordinator, entry),
         IHCEnergyTodaySensor(coordinator, entry),
         IHCEnergyYesterdaySensor(coordinator, entry),
+        IHCDegreeDaysSensor(coordinator, entry),
         IHCHeatingRuntimeYesterdaySensor(coordinator, entry),
     ]
     for room in coordinator.get_rooms():
         entities.append(IHCRoomDemandSensor(coordinator, entry, room))
         entities.append(IHCRoomTargetTempSensor(coordinator, entry, room))
         entities.append(IHCRoomRuntimeSensor(coordinator, entry, room))
+        entities.append(IHCRoomEnergySensor(coordinator, entry, room))
+        entities.append(IHCRoomPowerSensor(coordinator, entry, room))
         if room.get("humidity_sensor"):
             entities.append(IHCRoomHumiditySensor(coordinator, entry, room))
         entities.append(IHCRoomFeltTempSensor(coordinator, entry, room))
@@ -573,6 +576,30 @@ class IHCEnergyYesterdaySensor(_IHCBase, SensorEntity):
         return None
 
 
+class IHCDegreeDaysSensor(_IHCBase, SensorEntity):
+    """Cumulative Heizgradtage (heating degree days), ever-increasing.
+
+    A total_increasing sensor so HA's own long-term statistics provide correct
+    daily/monthly/yearly sums without IHC having to store years of history itself -
+    same idiom as a utility meter. See CONF_DEGREE_DAY_BASE_TEMP/_THRESHOLD_TEMP.
+    """
+
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_native_unit_of_measurement = "Kd"
+    _attr_icon = "mdi:thermometer-lines"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_cumulative_degree_days"
+        self._attr_name = "IHC Heizgradtage"
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data:
+            return self.coordinator.data.get("cumulative_degree_days", 0.0)
+        return None
+
+
 class IHCHeatingRuntimeYesterdaySensor(_IHCBase, SensorEntity):
     """Heating runtime yesterday in minutes."""
 
@@ -616,6 +643,72 @@ class IHCRoomRuntimeSensor(_IHCBase, SensorEntity):
             room = self.coordinator.data.get("rooms", {}).get(self._room_id)
             if room:
                 return room.get("runtime_today_minutes", 0.0)
+        return None
+
+
+class IHCRoomEnergySensor(_IHCBase, SensorEntity):
+    """Estimated energy consumption today for a single room in kWh (HKV sensor or
+    runtime × radiator_kw - same estimate as the global energy sensor, per room)."""
+
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_native_unit_of_measurement = "kWh"
+    _attr_icon = "mdi:lightning-bolt"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
+        super().__init__(coordinator, entry)
+        self._room_id = room[CONF_ROOM_ID]
+        self._room_name = room.get(CONF_ROOM_NAME, self._room_id)
+        self._attr_unique_id = f"{entry.entry_id}_room_{self._room_id}_energy_today"
+        self._attr_name = f"IHC {self._room_name} Energie heute"
+
+    @property
+    def device_info(self):
+        return self._room_device_info(self._room_id, self._room_name)
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data:
+            room = self.coordinator.data.get("rooms", {}).get(self._room_id)
+            if room:
+                return room.get("energy_today_kwh", 0.0)
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        if self.coordinator.data:
+            room = self.coordinator.data.get("rooms", {}).get(self._room_id)
+            if room:
+                return {"energy_yesterday_kwh": room.get("energy_yesterday_kwh", 0.0)}
+        return {}
+
+
+class IHCRoomPowerSensor(_IHCBase, SensorEntity):
+    """Estimated current heat output for a single room in Watts: rated radiator
+    power × how open the TRV valve currently is (see _calculate_room_instant_power_w)."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_icon = "mdi:radiator"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
+        super().__init__(coordinator, entry)
+        self._room_id = room[CONF_ROOM_ID]
+        self._room_name = room.get(CONF_ROOM_NAME, self._room_id)
+        self._attr_unique_id = f"{entry.entry_id}_room_{self._room_id}_power"
+        self._attr_name = f"IHC {self._room_name} Leistung"
+
+    @property
+    def device_info(self):
+        return self._room_device_info(self._room_id, self._room_name)
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data:
+            room = self.coordinator.data.get("rooms", {}).get(self._room_id)
+            if room:
+                return room.get("instant_power_w", 0.0)
         return None
 
 

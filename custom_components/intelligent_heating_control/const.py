@@ -410,6 +410,15 @@ DEFAULT_HEATING_PERIOD_AUTO_DAYS: Final = 3  # Fenstergröße des gleitenden Mit
 CONF_HEATING_PERIOD_NOTIFY_ENABLED: Final = "heating_period_notify_enabled"
 DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED: Final = True
 
+# Heizgradtage (degree days): rides the same rolling daily-outdoor-temp-average
+# infrastructure as the Heizperioden-Erkennung above. Accumulated into a single
+# ever-increasing sensor (state_class total_increasing) so HA's own long-term
+# statistics provide daily/monthly/yearly sums for free - no extra storage in IHC.
+CONF_DEGREE_DAY_BASE_TEMP: Final = "degree_day_base_temp"
+DEFAULT_DEGREE_DAY_BASE_TEMP: Final = 20.0  # °C Referenztemperatur (Gt = Basis − Tagesmittel)
+CONF_DEGREE_DAY_THRESHOLD_TEMP: Final = "degree_day_threshold_temp"
+DEFAULT_DEGREE_DAY_THRESHOLD_TEMP: Final = 15.0  # °C – nur Tage mit Tagesmittel darunter zählen
+
 # Warmup-stall watchdog: notify when a room calls for heat far longer than its learned
 # warmup time without actually warming up (see room_logic.py get_warmup_stall_info)
 CONF_WARMUP_STALL_NOTIFY_ENABLED: Final = "warmup_stall_notify_enabled"

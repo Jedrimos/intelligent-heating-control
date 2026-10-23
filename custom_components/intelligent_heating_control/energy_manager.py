@@ -129,6 +129,28 @@ class EnergyManagerMixin:
             self._room_demand_started[room_id] = datetime.now()
         _LOGGER.info("IHC: Runtime and energy stats reset by user.")
 
+    @staticmethod
+    def _get_room_radiator_kw(room: dict) -> float:
+        """Resolve a room's rated radiator power: explicit radiator_kw, or - if
+        that's still at the default - a rough area-based estimate (65 W/m²)."""
+        radiator_kw = float(room.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW))
+        room_qm_e = float(room.get(CONF_ROOM_QM, DEFAULT_ROOM_QM))
+        if room_qm_e > 0 and radiator_kw == DEFAULT_RADIATOR_KW:
+            radiator_kw = round(room_qm_e * 0.065, 2)  # 65 W/m² → kW
+        return radiator_kw
+
+    def _calculate_room_instant_power_w(self, room: dict, rdata: dict) -> float:
+        """Estimate the room's current heat output in Watts: rated radiator power ×
+        how open the TRV valve currently is (falls back to calculated demand % when
+        no valve-position signal is available). Same signal priority as the energy
+        estimate, just instantaneous instead of integrated over runtime.
+        """
+        fraction = rdata.get("trv_avg_valve")
+        if fraction is None:
+            fraction = rdata.get("demand", 0.0)
+        fraction = max(0.0, min(100.0, fraction or 0.0)) / 100.0
+        return round(self._get_room_radiator_kw(room) * 1000.0 * fraction, 1)
+
     def _calculate_room_energy_today(self, room: dict, room_id: str) -> float:
         """
         Calculate today's energy estimate for one room.
@@ -168,12 +190,7 @@ class EnergyManagerMixin:
                     pass  # fall through to runtime estimate
 
         # --- Option 2: runtime × radiator power ---
-        radiator_kw = float(room.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW))
-        # If room_qm is set and radiator_kw is at default, estimate from area
-        # (rough rule: ~50 W/m² for well-insulated, ~80 W/m² for older buildings → use 65 W/m²)
-        room_qm_e = float(room.get(CONF_ROOM_QM, DEFAULT_ROOM_QM))
-        if room_qm_e > 0 and radiator_kw == DEFAULT_RADIATOR_KW:
-            radiator_kw = round(room_qm_e * 0.065, 2)  # 65 W/m² → kW
+        radiator_kw = self._get_room_radiator_kw(room)
         room_runtime_min = self.get_room_runtime_today_minutes(room_id)
         return round(room_runtime_min / 60.0 * radiator_kw, 3)
 
@@ -185,10 +202,7 @@ class EnergyManagerMixin:
         (that needs a live delta since midnight, not available for a past day)
         - it always uses runtime × radiator_kw.
         """
-        radiator_kw = float(room.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW))
-        room_qm_e = float(room.get(CONF_ROOM_QM, DEFAULT_ROOM_QM))
-        if room_qm_e > 0 and radiator_kw == DEFAULT_RADIATOR_KW:
-            radiator_kw = round(room_qm_e * 0.065, 2)  # 65 W/m² → kW
+        radiator_kw = self._get_room_radiator_kw(room)
         room_runtime_min = self.get_room_runtime_yesterday_minutes(room_id)
         return round(room_runtime_min / 60.0 * radiator_kw, 3)
 
