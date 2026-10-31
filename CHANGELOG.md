@@ -14,6 +14,24 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.3.0] - 2026-10-31
+
+### Neu
+- **Pro-Zimmer Energie- und Leistungs-Sensoren:** `sensor.ihc_<zimmer>_energie_heute` (kWh,
+  total_increasing – dieselbe Schätzung die intern schon lief, jetzt als eigene Entity statt nur
+  als Climate-Attribut; `energy_yesterday_kwh` als Attribut dran) und
+  `sensor.ihc_<zimmer>_leistung` (W, momentan – Heizkörper-Nennleistung × aktuelle TRV-
+  Ventilöffnung, Fallback auf berechnete Anforderung ohne Ventilsignal).
+- **Heizgradtage:** `sensor.ihc_heizgradtage` (Kd, kumulativ, total_increasing) – gespeist aus dem
+  bereits vorhandenen rollierenden Außentemperatur-Tagesmittel der automatischen
+  Heizperioden-Erkennung. Referenz-/Schwellentemperatur konfigurierbar (`degree_day_base_temp`/
+  `_threshold_temp`, Standard 20 °C / 15 °C). Als `total_increasing`-Sensor liefert HAs eigene
+  Langzeitstatistik automatisch Monats-/Jahressummen, ohne dass IHC selbst Jahre an Historie
+  vorhalten muss – Grundlage für ein TRV-basiertes Effizienz-Dashboard (Lovelace, analog zu einem
+  Gas-Verbrauchs-Dashboard, nur mit TRV-Daten statt Gaszähler).
+
+---
+
 ## [2.2.0] - 2026-10-19
 
 ### Neu
