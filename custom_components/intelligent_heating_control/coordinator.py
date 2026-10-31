@@ -81,6 +81,10 @@ from .const import (
     DEFAULT_ROOM_IGNORE_HEATING_PERIOD,
     CONF_HEATING_PERIOD_NOTIFY_ENABLED,
     DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED,
+    CONF_DEGREE_DAY_BASE_TEMP,
+    DEFAULT_DEGREE_DAY_BASE_TEMP,
+    CONF_DEGREE_DAY_THRESHOLD_TEMP,
+    DEFAULT_DEGREE_DAY_THRESHOLD_TEMP,
     CONF_PRESENCE_AWAY_DELAY_MINUTES,
     DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
@@ -491,6 +495,9 @@ class IHCCoordinator(
         self._heating_period_day_count: int = 0
         self._heating_period_day_date: Optional[date] = None
         self._heating_period_auto_active: bool = True  # hysteresis state; safe default until enough history
+        # Heizgradtage: ever-increasing cumulative total (see _update_heating_period_auto_tracking),
+        # exposed as a total_increasing sensor so HA's recorder gives us daily/monthly/yearly sums.
+        self._cumulative_degree_days: float = 0.0
         # Sommerautomatik hysteresis state (shares the daily-avg history above, own thresholds/band)
         self._summer_mode_auto_active: bool = False
         # Rooms currently shown a "Heizperiode blockiert dieses Zimmer" notification -
@@ -654,6 +661,7 @@ class IHCCoordinator(
             except ValueError:
                 self._heating_period_day_date = None
         self._heating_period_auto_active = bool(data.get("heating_period_auto_active", True))
+        self._cumulative_degree_days = float(data.get("cumulative_degree_days", 0.0))
         self._summer_mode_auto_active = bool(data.get("summer_mode_auto_active", False))
 
     def _schedule_save(self) -> None:
@@ -714,6 +722,7 @@ class IHCCoordinator(
             "heating_period_day_count": self._heating_period_day_count,
             "heating_period_day_date": self._heating_period_day_date.isoformat() if self._heating_period_day_date else None,
             "heating_period_auto_active": self._heating_period_auto_active,
+            "cumulative_degree_days": self._cumulative_degree_days,
             "summer_mode_auto_active": self._summer_mode_auto_active,
         })
 
@@ -1016,6 +1025,11 @@ class IHCCoordinator(
             if self._heating_period_day_count > 0:
                 avg = self._heating_period_day_sum / self._heating_period_day_count
                 self._heating_period_daily_avg.append((self._heating_period_day_date.isoformat(), round(avg, 1)))
+                cfg_dd = self.get_config()
+                dd_base = float(cfg_dd.get(CONF_DEGREE_DAY_BASE_TEMP, DEFAULT_DEGREE_DAY_BASE_TEMP))
+                dd_threshold = float(cfg_dd.get(CONF_DEGREE_DAY_THRESHOLD_TEMP, DEFAULT_DEGREE_DAY_THRESHOLD_TEMP))
+                if avg < dd_threshold:
+                    self._cumulative_degree_days += max(0.0, dd_base - avg)
                 self._schedule_save()
             self._heating_period_day_sum = 0.0
             self._heating_period_day_count = 0
@@ -2332,6 +2346,8 @@ class IHCCoordinator(
             room_id = room.get(CONF_ROOM_ID, "")
             if room_id and room_id in room_data:
                 room_data[room_id]["energy_today_kwh"] = self._calculate_room_energy_today(room, room_id)
+                room_data[room_id]["energy_yesterday_kwh"] = self._calculate_room_energy_yesterday(room, room_id)
+                room_data[room_id]["instant_power_w"] = self._calculate_room_instant_power_w(room, room_data[room_id])
 
         energy_today_kwh = round(
             sum(rd.get("energy_today_kwh", 0.0) for rd in room_data.values()), 2
@@ -2455,6 +2471,7 @@ class IHCCoordinator(
             "heating_runtime_yesterday": self.get_heating_runtime_yesterday_minutes(),
             "energy_today_kwh": ctx["energy_today_kwh"],
             "energy_yesterday_kwh": ctx["energy_yesterday_kwh"],
+            "cumulative_degree_days": round(self._cumulative_degree_days, 1),
             "efficiency_score": ctx["efficiency_score"],
             "solar_boost": ctx["solar_boost"],
             "cold_boost": ctx["cold_boost"],

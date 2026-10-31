@@ -375,6 +375,8 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "night_setback": d.get("night_setback", 0.0),
             "runtime_today_minutes": d.get("runtime_today_minutes", 0.0),
             "energy_today_kwh": d.get("energy_today_kwh", 0.0),
+            "energy_yesterday_kwh": d.get("energy_yesterday_kwh", 0.0),
+            "instant_power_w": d.get("instant_power_w", 0.0),
             # Room config – exposed for frontend panel
             "temp_sensor": room_cfg.get("temp_sensor", ""),
             "temp_sensors": room_cfg.get("temp_sensors", []),

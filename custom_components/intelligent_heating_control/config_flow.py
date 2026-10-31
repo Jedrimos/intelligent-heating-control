@@ -48,6 +48,10 @@ from .const import (
     DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED,
     CONF_WARMUP_STALL_NOTIFY_ENABLED,
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
+    CONF_DEGREE_DAY_BASE_TEMP,
+    DEFAULT_DEGREE_DAY_BASE_TEMP,
+    CONF_DEGREE_DAY_THRESHOLD_TEMP,
+    DEFAULT_DEGREE_DAY_THRESHOLD_TEMP,
     CONF_PRESENCE_AWAY_DELAY_MINUTES,
     DEFAULT_PRESENCE_AWAY_DELAY_MINUTES,
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
@@ -483,6 +487,15 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_WARMUP_STALL_NOTIFY_ENABLED,
                 default=bool(cfg.get(CONF_WARMUP_STALL_NOTIFY_ENABLED, DEFAULT_WARMUP_STALL_NOTIFY_ENABLED))
             ): selector.selector({"boolean": {}}),
+            # --- Heizgradtage (für die kumulative Heizgradtage-Entity) ---
+            vol.Optional(
+                CONF_DEGREE_DAY_BASE_TEMP,
+                default=float(cfg.get(CONF_DEGREE_DAY_BASE_TEMP, DEFAULT_DEGREE_DAY_BASE_TEMP))
+            ): selector.selector({"number": {"min": 15, "max": 22, "step": 0.5, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_DEGREE_DAY_THRESHOLD_TEMP,
+                default=float(cfg.get(CONF_DEGREE_DAY_THRESHOLD_TEMP, DEFAULT_DEGREE_DAY_THRESHOLD_TEMP))
+            ): selector.selector({"number": {"min": 10, "max": 20, "step": 0.5, "unit_of_measurement": "°C"}}),
             # --- Anwesenheits-Verzögerung ---
             vol.Optional(
                 CONF_PRESENCE_AWAY_DELAY_MINUTES,
