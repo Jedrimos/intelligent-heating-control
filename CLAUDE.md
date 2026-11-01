@@ -1206,10 +1206,26 @@ Schätzung, kein Commitment.
   `forecast_coldnight_days_ahead`/`_min_temp` ergänzt, damit das Dashboard-Banner korrekt "morgen
   Nacht"/"in X Tagen" statt immer "heute Nacht" anzeigt, wenn der Kälteeinbruch nicht heute ist.
   UI-Feld in `05_tab_settings.js` neben der bestehenden Kälteprognose-Konfiguration.
-- [ ] **Echtes Lastmanagement gegen Solar/Batterie/dynamische Tarife** (L) – über die aktuelle
-  einfache Preis-Schwelle (`CONF_ENERGY_PRICE_THRESHOLD`/`_ECO_OFFSET`) hinaus: echtes
-  Load-Shifting unter Berücksichtigung von Solarüberschuss/Batteriestand, nicht nur Strompreis
-  isoliert. Größter Umbau in dieser Liste, eher ein eigenes Mini-Projekt als ein einzelner Fix.
+- [x] **Echtes Lastmanagement gegen Solar/Batterie/dynamische Tarife** (L→M, 2026-11-01) –
+  umgesetzt, aber bewusst kleiner geschnitten als ursprünglich befürchtet: statt eines separaten
+  Optimierungs-Subsystems koppelt `CONF_LOAD_MANAGEMENT_ENABLED` (global, Standard aus) die
+  **bereits bestehenden** `_get_solar_boost()`/`_get_price_forecast_offset()`
+  (`climate_adjustments.py`) an einen neuen `CONF_BATTERY_SOC_ENTITY`-Sensor, statt dass beide
+  isoliert auf Solarüberschuss bzw. Preis reagieren:
+  - `_get_solar_boost()`: Boost erst ab `CONF_BATTERY_SOC_FULL_THRESHOLD` (Standard 90%) – ein
+    PV-Überschuss lädt zuerst die Batterie, statt die Heizung sofort weiter aufzudrehen.
+  - `_get_price_forecast_offset()`: unter `CONF_BATTERY_SOC_LOW_THRESHOLD` (Standard 20%) ohne
+    aktuellen Solarüberschuss wird das Ergebnis auf mindestens den Eco-Offset gedeckelt (Wrapper
+    `_is_battery_low_without_solar_surplus()`, Original-Logik unverändert in
+    `_get_price_forecast_offset_raw()`) – kein Vorheiz-Boost und keine neutrale Stunde mehr,
+    solange die Batterie leer ist und kein Solarertrag die Lücke füllt.
+  - **Bekannte Vereinfachung:** keine Batterie-Laderate verfügbar, nur Ladestand (%) – kann
+    "Überschuss deckt Batterie UND Heizung" nicht von "knapp über der Schwelle" unterscheiden.
+    Gröber als echtes energieflussbasiertes Load-Shifting, aber bereits eine echte Kopplung statt
+    zweier isoliert reagierender Mechanismen wie zuvor.
+  - `battery_soc` als Live-Attribut am Energie-Sensor, neue Karte „🔋 Echtes Lastmanagement" in
+    `05_tab_settings.js`. Voll verdrahtet: const.py, config_flow.py, `__init__.py`-Allow-Liste,
+    services.yaml, sensor.py.
 
 **Niedrige Priorität / Nische (aus der Recherche, nicht weiter verfolgt bis Bedarf entsteht):**
 - Aggregiertes Heizanforderungssignal für Nutzer mit altem Kessel-Relais-Setup (Hybrid TRV+Schalter)
