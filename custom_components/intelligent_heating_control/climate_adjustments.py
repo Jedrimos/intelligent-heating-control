@@ -27,6 +27,13 @@ from .const import (
     DEFAULT_ETA_PREHEAT_THRESHOLD_MINUTES,
     CONF_PRESENCE_ENTITIES,
     CONF_PRICE_FORECAST_ATTRIBUTE,
+    CONF_LOAD_MANAGEMENT_ENABLED,
+    DEFAULT_LOAD_MANAGEMENT_ENABLED,
+    CONF_BATTERY_SOC_ENTITY,
+    CONF_BATTERY_SOC_LOW_THRESHOLD,
+    DEFAULT_BATTERY_SOC_LOW_THRESHOLD,
+    CONF_BATTERY_SOC_FULL_THRESHOLD,
+    DEFAULT_BATTERY_SOC_FULL_THRESHOLD,
     DEFAULT_FROST_PROTECTION_TEMP,
     DEFAULT_SOLAR_SURPLUS_THRESHOLD,
     DEFAULT_SOLAR_BOOST_TEMP,
@@ -60,8 +67,30 @@ class ClimateAdjustmentsMixin:
         cfg = self.get_config()
         return float(cfg.get(CONF_FROST_PROTECTION_TEMP, DEFAULT_FROST_PROTECTION_TEMP))
 
+    def _get_battery_soc(self) -> Optional[float]:
+        """Return the configured home battery's state of charge (%), or None if no
+        battery sensor is configured/available. Used by the load-management extensions
+        to _get_solar_boost/_get_price_forecast_offset below."""
+        cfg = self.get_config()
+        entity = cfg.get(CONF_BATTERY_SOC_ENTITY)
+        if not entity:
+            return None
+        state = self.hass.states.get(entity)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+        try:
+            return float(state.state)
+        except ValueError:
+            return None
+
     def _get_solar_boost(self) -> float:
-        """Return temperature boost (°C) when solar surplus is available."""
+        """Return temperature boost (°C) when solar surplus is available.
+
+        Echtes Lastmanagement (opt-in via CONF_LOAD_MANAGEMENT_ENABLED): if a home battery
+        is configured and not yet reasonably full, the surplus is needed there first - the
+        boost is suppressed until CONF_BATTERY_SOC_FULL_THRESHOLD is reached, instead of
+        opening the heating wider on every momentary PV surplus regardless of battery state.
+        """
         cfg = self.get_config()
         solar_entity = cfg.get(CONF_SOLAR_ENTITY)
         if not solar_entity:
@@ -74,9 +103,15 @@ class ClimateAdjustmentsMixin:
         except ValueError:
             return 0.0
         threshold = float(cfg.get(CONF_SOLAR_SURPLUS_THRESHOLD, DEFAULT_SOLAR_SURPLUS_THRESHOLD))
-        if surplus_w >= threshold:
-            return float(cfg.get(CONF_SOLAR_BOOST_TEMP, DEFAULT_SOLAR_BOOST_TEMP))
-        return 0.0
+        if surplus_w < threshold:
+            return 0.0
+        if cfg.get(CONF_LOAD_MANAGEMENT_ENABLED, DEFAULT_LOAD_MANAGEMENT_ENABLED):
+            battery_soc = self._get_battery_soc()
+            if battery_soc is not None:
+                full_threshold = float(cfg.get(CONF_BATTERY_SOC_FULL_THRESHOLD, DEFAULT_BATTERY_SOC_FULL_THRESHOLD))
+                if battery_soc < full_threshold:
+                    return 0.0
+        return float(cfg.get(CONF_SOLAR_BOOST_TEMP, DEFAULT_SOLAR_BOOST_TEMP))
 
     def _get_energy_price_eco_offset(self) -> float:
         """Return temperature reduction (°C) when electricity price is high."""
@@ -212,7 +247,32 @@ class ClimateAdjustmentsMixin:
         Returns a positive value to RAISE the setpoint (cheap hour → store heat)
         or a negative value to LOWER it (expensive hour → save energy).
         Falls back to the simple threshold logic when no hourly prices are found.
+
+        Echtes Lastmanagement (opt-in via CONF_LOAD_MANAGEMENT_ENABLED): when the home
+        battery is configured and below CONF_BATTERY_SOC_LOW_THRESHOLD, and there's no
+        solar surplus to draw on right now, the result is clamped to at most the eco
+        offset - a cheap-hour pre-heat boost is suppressed (importing grid power to both
+        pre-heat AND leave the battery depleted isn't the point) and a neutral/no-signal
+        hour still gets nudged into eco, same as an expensive one.
         """
+        eco_offset = float(self.get_config().get(CONF_ENERGY_PRICE_ECO_OFFSET, DEFAULT_ENERGY_PRICE_ECO_OFFSET))
+        offset = self._get_price_forecast_offset_raw()
+        if self._is_battery_low_without_solar_surplus():
+            return min(offset, -eco_offset)
+        return offset
+
+    def _is_battery_low_without_solar_surplus(self) -> bool:
+        cfg = self.get_config()
+        if not cfg.get(CONF_LOAD_MANAGEMENT_ENABLED, DEFAULT_LOAD_MANAGEMENT_ENABLED):
+            return False
+        battery_soc = self._get_battery_soc()
+        if battery_soc is None:
+            return False
+        low_threshold = float(cfg.get(CONF_BATTERY_SOC_LOW_THRESHOLD, DEFAULT_BATTERY_SOC_LOW_THRESHOLD))
+        return battery_soc < low_threshold and self._get_solar_boost() == 0.0
+
+    def _get_price_forecast_offset_raw(self) -> float:
+        """The price-forecast offset before the load-management battery clamp above."""
         cfg = self.get_config()
         price_entity = cfg.get(CONF_ENERGY_PRICE_ENTITY)
         if not price_entity:

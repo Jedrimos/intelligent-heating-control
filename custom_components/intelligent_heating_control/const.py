@@ -213,6 +213,17 @@ CONF_ENERGY_PRICE_THRESHOLD: Final = "energy_price_threshold"   # €/kWh above 
 CONF_ENERGY_PRICE_ECO_OFFSET: Final = "energy_price_eco_offset" # °C reduction when price is high
 CONF_STATIC_ENERGY_PRICE: Final = "static_energy_price"         # fallback price €/kWh when no sensor
 
+# Backlog 2026-10-15 – Echtes Lastmanagement: makes the existing solar-boost and price-forecast
+# offset above battery-state-aware instead of reacting to solar surplus / price in isolation.
+# Opt-in - when disabled, both functions behave exactly as before this feature.
+CONF_LOAD_MANAGEMENT_ENABLED: Final = "load_management_enabled"
+DEFAULT_LOAD_MANAGEMENT_ENABLED: Final = False
+CONF_BATTERY_SOC_ENTITY: Final = "battery_soc_entity"  # sensor.* (%) - home battery state of charge
+CONF_BATTERY_SOC_LOW_THRESHOLD: Final = "battery_soc_low_threshold"
+DEFAULT_BATTERY_SOC_LOW_THRESHOLD: Final = 20.0  # below this: avoid extra grid draw for heating
+CONF_BATTERY_SOC_FULL_THRESHOLD: Final = "battery_soc_full_threshold"
+DEFAULT_BATTERY_SOC_FULL_THRESHOLD: Final = 90.0  # solar-boost only once the battery is this full
+
 # Roadmap 2.1 – Passive Solar Heating/Shading via Rollosteuerung. Opt-in per room
 # (CONF_SOLAR_PASSIVE_HEAT/_COOL below) - IHC never touches a room's covers unless
 # explicitly told to for that room.

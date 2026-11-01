@@ -1688,6 +1688,42 @@ update_global_settings:
           min: 0
           max: 5
           step: 0.5
+    load_management_enabled:
+      name: Echtes Lastmanagement aktivieren
+      description: >-
+        Koppelt den Solar-Boost und den Strompreis-Offset an den Batteriestand (battery_soc_entity),
+        statt beide isoliert reagieren zu lassen: Solar-Boost erst wenn die Batterie ausreichend
+        voll ist, Eco-Offset auch bei niedrigem Batteriestand ohne aktuellen Solarüberschuss.
+        Standard: aus (beide Mechanismen verhalten sich dann exakt wie vor diesem Feature).
+      required: false
+      selector:
+        boolean:
+    battery_soc_entity:
+      name: Batterie-Ladestand-Sensor
+      description: Heimspeicher-Ladestand in % – nur relevant wenn load_management_enabled aktiv ist.
+      required: false
+      selector:
+        entity:
+          domain: sensor
+    battery_soc_low_threshold:
+      name: Lastmanagement – Batterie niedrig ab (%)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 50
+          step: 5
+          unit_of_measurement: "%"
+    battery_soc_full_threshold:
+      name: Lastmanagement – Batterie voll genug ab (%)
+      description: Solar-Boost wird erst ab diesem Ladestand freigegeben.
+      required: false
+      selector:
+        number:
+          min: 50
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
     vacation_start:
       name: Urlaubsstart
       description: "ISO-Datum YYYY-MM-DD"

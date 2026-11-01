@@ -2481,6 +2481,7 @@ class IHCCoordinator(
             "solar_boost": ctx["solar_boost"],
             "cold_boost": ctx["cold_boost"],
             "solar_power": self._get_solar_power(),
+            "battery_soc": self._get_battery_soc(),
             "energy_price": self._get_current_energy_price(),
             "energy_price_eco_offset": ctx["price_eco_offset"],
             "weather_forecast": ctx["weather_forecast"],

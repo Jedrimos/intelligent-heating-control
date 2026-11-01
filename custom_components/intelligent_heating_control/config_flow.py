@@ -125,6 +125,13 @@ from .const import (
     CONF_ENERGY_PRICE_ENTITY,
     CONF_ENERGY_PRICE_THRESHOLD,
     CONF_ENERGY_PRICE_ECO_OFFSET,
+    CONF_LOAD_MANAGEMENT_ENABLED,
+    DEFAULT_LOAD_MANAGEMENT_ENABLED,
+    CONF_BATTERY_SOC_ENTITY,
+    CONF_BATTERY_SOC_LOW_THRESHOLD,
+    DEFAULT_BATTERY_SOC_LOW_THRESHOLD,
+    CONF_BATTERY_SOC_FULL_THRESHOLD,
+    DEFAULT_BATTERY_SOC_FULL_THRESHOLD,
     DEFAULT_SOLAR_SURPLUS_THRESHOLD,
     DEFAULT_SOLAR_BOOST_TEMP,
     DEFAULT_ENERGY_PRICE_THRESHOLD,
@@ -664,6 +671,23 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "number": {"min": 0.5, "max": 6, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
+            # --- Backlog 2026-10-15: Echtes Lastmanagement ---
+            vol.Optional(
+                CONF_LOAD_MANAGEMENT_ENABLED,
+                default=bool(cfg.get(CONF_LOAD_MANAGEMENT_ENABLED, DEFAULT_LOAD_MANAGEMENT_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_BATTERY_SOC_ENTITY,
+                default=cfg.get(CONF_BATTERY_SOC_ENTITY, "")
+            ): selector.selector({"entity": {"domain": "sensor"}}),
+            vol.Optional(
+                CONF_BATTERY_SOC_LOW_THRESHOLD,
+                default=float(cfg.get(CONF_BATTERY_SOC_LOW_THRESHOLD, DEFAULT_BATTERY_SOC_LOW_THRESHOLD))
+            ): selector.selector({"number": {"min": 0, "max": 50, "step": 5, "unit_of_measurement": "%"}}),
+            vol.Optional(
+                CONF_BATTERY_SOC_FULL_THRESHOLD,
+                default=float(cfg.get(CONF_BATTERY_SOC_FULL_THRESHOLD, DEFAULT_BATTERY_SOC_FULL_THRESHOLD))
+            ): selector.selector({"number": {"min": 50, "max": 100, "step": 5, "unit_of_measurement": "%"}}),
             # --- Weather integration ---
             vol.Optional(
                 CONF_WEATHER_ENTITY,

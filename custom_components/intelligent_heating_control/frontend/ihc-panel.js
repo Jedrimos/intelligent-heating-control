@@ -4874,10 +4874,42 @@ class IHCPanel extends HTMLElement {
               <span class="form-hint">Attributname für stündliche Preise (Tibber/Nordpool). Standard: <code>today_prices</code>.</span>
             </div>
           </div>
+          <hr class="divider">
+          <div class="card-title" style="font-size:13px;margin:8px 0">🔋 Echtes Lastmanagement
+            ${a.load_management_enabled && g.battery_soc != null ? activeBadge(`${g.battery_soc.toFixed(0)}% Batterie`) : ""}
+          </div>
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
+            Koppelt den Solar-Boost und den Strompreis-Offset oben an den Batteriestand, statt beide
+            isoliert reagieren zu lassen: Solar-Boost erst wenn die Batterie ausreichend voll ist,
+            Eco-Absenkung auch bei niedrigem Batteriestand ohne aktuellen Solarüberschuss. Ohne
+            diese Einstellung verhalten sich Solar-Boost/Preis-Offset exakt wie bisher.
+          </p>
+          <div class="settings-item" style="margin-bottom:10px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="load-management-enabled" ${a.load_management_enabled ? "checked" : ""}>
+              Lastmanagement aktivieren
+            </label>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Batterie-Ladestand-Sensor</label>
+              <input type="text" class="form-input" id="battery-soc-entity" value="${a.battery_soc_entity ?? ""}"
+                placeholder="sensor.hausbatterie_ladestand" data-ep-domains="sensor" autocomplete="off">
+            </div>
+            <div class="settings-item">
+              <label>Batterie niedrig ab (%)</label>
+              <input type="number" class="form-input" id="battery-soc-low" min="0" max="50" step="5" value="${a.battery_soc_low_threshold ?? 20}">
+            </div>
+            <div class="settings-item">
+              <label>Batterie voll genug ab (%)</label>
+              <input type="number" class="form-input" id="battery-soc-full" min="50" max="100" step="5" value="${a.battery_soc_full_threshold ?? 90}">
+              <span class="form-hint">Solar-Boost wird erst ab diesem Ladestand freigegeben.</span>
+            </div>
+          </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="save-energy-settings">💾 Energie / Solar speichern</button>
           </div>
-          <div class="info-box" style="margin-top:8px">💡 Aktuelle Messwerte (Laufzeit, Energie, Solar, Preis) sind im Tab <strong>📊 Übersicht</strong> zu sehen.</div>
+          <div class="info-box" style="margin-top:8px">💡 Aktuelle Messwerte (Laufzeit, Energie, Solar, Preis, Batterie) sind im Tab <strong>📊 Übersicht</strong> zu sehen.</div>
         </div>
       </details>
 
@@ -5307,8 +5339,11 @@ class IHCPanel extends HTMLElement {
       const solarLuxOff = parseFloat(content.querySelector("#solar-lux-off")?.value);
       const solarGlareMaxElevation = parseFloat(content.querySelector("#solar-glare-max-elevation")?.value);
       const solarGlarePosition = parseInt(content.querySelector("#solar-glare-position")?.value, 10);
+      const batterySocLow = parseFloat(content.querySelector("#battery-soc-low")?.value);
+      const batterySocFull = parseFloat(content.querySelector("#battery-soc-full")?.value);
       if ([solarSurplus, solarBoost, priceThresh, priceEco, solarMinElevation, solarShadePosition, solarHeatMinOutdoor, solarWindSpeedThreshold,
-           solarOverrideRearm, solarPrivacyPosition, solarLuxOn, solarLuxOff, solarGlareMaxElevation, solarGlarePosition].some(isNaN)) {
+           solarOverrideRearm, solarPrivacyPosition, solarLuxOn, solarLuxOff, solarGlareMaxElevation, solarGlarePosition,
+           batterySocLow, batterySocFull].some(isNaN)) {
         this._toast("⚠️ Ungültiger Wert"); return;
       }
       const staticPrice = parseFloat(content.querySelector("#static-energy-price").value);
@@ -5332,6 +5367,10 @@ class IHCPanel extends HTMLElement {
         energy_price_entity:     content.querySelector("#energy-price-entity").value.trim(),
         energy_price_threshold:  priceThresh,
         energy_price_eco_offset: priceEco,
+        load_management_enabled: content.querySelector("#load-management-enabled")?.checked === true,
+        battery_soc_entity:      content.querySelector("#battery-soc-entity")?.value.trim() || "",
+        battery_soc_low_threshold:  batterySocLow,
+        battery_soc_full_threshold: batterySocFull,
         ...((!isNaN(staticPrice) && staticPrice > 0) ? { static_energy_price: staticPrice } : {}),
         price_forecast_attribute: content.querySelector("#price-forecast-attribute")?.value.trim() || "today_prices",
       });

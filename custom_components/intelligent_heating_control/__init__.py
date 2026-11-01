@@ -501,6 +501,9 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "lux_on_threshold", "lux_off_threshold", "solar_cover_override_rearm_minutes",
             "solar_glare_max_elevation", "solar_glare_position",
             "energy_price_entity", "energy_price_threshold", "energy_price_eco_offset",
+            # Backlog 2026-10-15 – Echtes Lastmanagement
+            "load_management_enabled", "battery_soc_entity",
+            "battery_soc_low_threshold", "battery_soc_full_threshold",
             # Vacation assistant + calendar integration
             "vacation_start", "vacation_end",
             "vacation_calendar", "vacation_calendar_keyword",
