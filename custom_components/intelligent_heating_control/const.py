@@ -237,6 +237,50 @@ DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED: Final = False
 CONF_SOLAR_WIND_SPEED_THRESHOLD: Final = "solar_wind_speed_threshold"  # global, km/h
 DEFAULT_SOLAR_WIND_SPEED_THRESHOLD: Final = 40.0
 
+# Backlog 2026-10-15 – Rollo-Sicherheit/Komfort (Recherche), vier Erweiterungen des obigen
+# Passive-Solar-Features, alle opt-in und ohne Wirkung auf Zimmer ohne konfigurierte Rolladen.
+
+# 1) Abendliche Privatsphäre-Schließung: fix nach Uhrzeit oder nach Sonnenuntergang, unabhängig
+# von der Heiz-/Kühl-Temperaturlogik oben. Übersteuert passive_heat "voll offen", da es nachts
+# ohnehin keinen nennenswerten Solarertrag gibt.
+CONF_SOLAR_EVENING_PRIVACY_ENABLED: Final = "solar_evening_privacy_enabled"  # per room, bool
+DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED: Final = False
+CONF_SOLAR_EVENING_PRIVACY_MODE: Final = "solar_evening_privacy_mode"  # global, "sunset" | "time"
+DEFAULT_SOLAR_EVENING_PRIVACY_MODE: Final = "sunset"
+CONF_SOLAR_EVENING_PRIVACY_TIME: Final = "solar_evening_privacy_time"  # global, "HH:MM"
+DEFAULT_SOLAR_EVENING_PRIVACY_TIME: Final = "21:00"
+CONF_SOLAR_EVENING_PRIVACY_POSITION: Final = "solar_evening_privacy_position"  # global, cover %
+DEFAULT_SOLAR_EVENING_PRIVACY_POSITION: Final = 0
+
+# 2) Helligkeits-/Lux-Hysterese: optionaler Lux-Sensor pro Zimmer verschärft den rein geometrischen
+# Sonnenwinkel-Check (sun_hits_orientation) um ein Helligkeits-Ein/Aus-Paar mit 30-Min-Mittel, um
+# Flackern bei durchziehenden Wolken zu vermeiden (Loxone-Vorbild). Ohne konfigurierten Sensor bleibt
+# das Verhalten exakt wie bisher (rein geometrisch).
+CONF_LUX_SENSOR: Final = "lux_sensor"  # per room, optional sensor.* (lx)
+CONF_LUX_ON_THRESHOLD: Final = "lux_on_threshold"  # global, lx – darüber: Sonne "scharf"
+DEFAULT_LUX_ON_THRESHOLD: Final = 350.0
+CONF_LUX_OFF_THRESHOLD: Final = "lux_off_threshold"  # global, lx – darunter: Sonne "nicht scharf"
+DEFAULT_LUX_OFF_THRESHOLD: Final = 270.0
+
+# 3) Manuelle-Übersteuerung-Erkennung für Rollos: bestätigungsbasiert wie die TRV-Override-Erkennung
+# (_trv_cmd_pending) – IHC merkt sich den zuletzt gesendeten Sollwert, erkennt eine Abweichung erst
+# wenn sie nach einer Bestätigungsfrist noch besteht, und lässt das Rollo dann in Ruhe statt es jeden
+# Zyklus zurückzufahren. Re-arm nach einer festen Pause statt eines expliziten Reset-Triggers (Rollos
+# haben keine "Zeitplan-Wechsel"-Entsprechung wie Zimmer).
+CONF_SOLAR_COVER_OVERRIDE_REARM_MINUTES: Final = "solar_cover_override_rearm_minutes"  # global, min
+DEFAULT_SOLAR_COVER_OVERRIDE_REARM_MINUTES: Final = 120
+
+# 4) Blendschutz-Zone fürs TV/Bildschirm: bei niedrigem Sonnenwinkel (Nahe am Horizont, Richtung
+# window_orientation) stärker runterfahren als die reine Heiz-/Kühllogik verlangen würde – eher
+# Komfort- als Sicherheitsfeature, übersteuert daher nur passive_heat "voll offen", nicht aber die
+# davor geprüfte Privatsphäre-Schließung/Fenster-offen/Wetter-Sicherheit/manuelle Übersteuerung.
+CONF_SOLAR_GLARE_PROTECTION_ENABLED: Final = "solar_glare_protection_enabled"  # per room, bool
+DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED: Final = False
+CONF_SOLAR_GLARE_MAX_ELEVATION: Final = "solar_glare_max_elevation"  # global, ° – Band 0..diesem Wert
+DEFAULT_SOLAR_GLARE_MAX_ELEVATION: Final = 15.0
+CONF_SOLAR_GLARE_POSITION: Final = "solar_glare_position"  # global, cover %
+DEFAULT_SOLAR_GLARE_POSITION: Final = 30
+
 # Roadmap 1.4 – Advanced room control
 CONF_TEMP_CALIBRATION: Final = "temp_calibration"               # per-room sensor offset (°C)
 CONF_ROOM_PRESENCE_ENTITIES: Final = "room_presence_entities"   # per-room presence list

@@ -103,6 +103,11 @@ from .const import (
     DEFAULT_SOLAR_PASSIVE_HEAT,
     CONF_SOLAR_PASSIVE_COOL,
     DEFAULT_SOLAR_PASSIVE_COOL,
+    CONF_LUX_SENSOR,
+    CONF_SOLAR_EVENING_PRIVACY_ENABLED,
+    DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED,
+    CONF_SOLAR_GLARE_PROTECTION_ENABLED,
+    DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
     CONF_COMFORT_EXTEND_ENTITY,
@@ -448,6 +453,11 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "solar_passive_cool": room_cfg.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL),
             "solar_cover_active": d.get("solar_cover_active", False),
             "solar_cover_position": d.get("solar_cover_position"),
+            "solar_cover_overridden": d.get("solar_cover_overridden", False),
+            # Rollo-Backlog 2026-10-15
+            "lux_sensor": room_cfg.get(CONF_LUX_SENSOR, ""),
+            "solar_evening_privacy_enabled": room_cfg.get(CONF_SOLAR_EVENING_PRIVACY_ENABLED, DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED),
+            "solar_glare_protection_enabled": room_cfg.get(CONF_SOLAR_GLARE_PROTECTION_ENABLED, DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED),
             # Dynamic temperature entities
             "comfort_temp_entity": room_cfg.get(CONF_COMFORT_TEMP_ENTITY, ""),
             "eco_temp_entity": room_cfg.get(CONF_ECO_TEMP_ENTITY, ""),

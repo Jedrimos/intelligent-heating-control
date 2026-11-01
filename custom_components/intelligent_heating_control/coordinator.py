@@ -392,6 +392,11 @@ class IHCCoordinator(
         # Roadmap 2.1 backlog – passive-solar sun-angle hysteresis: was this room's cover
         # logic already "armed" last cycle? (wider exit tolerance while True, see solar_cover_manager.py)
         self._solar_cover_armed: Dict[str, bool] = {}
+        # Rollo-Backlog 2026-10-15: manual-override detection (cover_entity keyed, not persisted -
+        # transient like _room_demand_started, resets cleanly on HA restart) + rolling lux buffers.
+        self._cover_cmd_pending: Dict[str, dict] = {}     # cover_entity -> {"position", "sent_at"}
+        self._cover_override_since: Dict[str, "datetime"] = {}  # cover_entity -> when override was detected
+        self._lux_buffer: Dict[str, "deque"] = {}         # room_id -> deque of recent lux readings
 
         # Heating-automation backlog – warmup-stall watchdog: room_id → (start_time, start_temp)
         # while demand > 0, see room_logic.py _update_warmup_stall_tracking / get_warmup_stall_info

@@ -125,6 +125,11 @@ from .const import (
     DEFAULT_SOLAR_PASSIVE_HEAT,
     CONF_SOLAR_PASSIVE_COOL,
     DEFAULT_SOLAR_PASSIVE_COOL,
+    CONF_LUX_SENSOR,
+    CONF_SOLAR_EVENING_PRIVACY_ENABLED,
+    DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED,
+    CONF_SOLAR_GLARE_PROTECTION_ENABLED,
+    DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED,
     DEFAULT_WINDOW_CASCADE_DELAY_MINUTES,
     DEFAULT_WINDOW_CASCADE_OFFSET,
     CONF_AGGRESSIVE_MODE_ENABLED,
@@ -377,6 +382,9 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_WINDOW_ORIENTATION: call.data.get(CONF_WINDOW_ORIENTATION, ""),
             CONF_SOLAR_PASSIVE_HEAT: bool(call.data.get(CONF_SOLAR_PASSIVE_HEAT, DEFAULT_SOLAR_PASSIVE_HEAT)),
             CONF_SOLAR_PASSIVE_COOL: bool(call.data.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL)),
+            CONF_LUX_SENSOR: call.data.get(CONF_LUX_SENSOR, ""),
+            CONF_SOLAR_EVENING_PRIVACY_ENABLED: bool(call.data.get(CONF_SOLAR_EVENING_PRIVACY_ENABLED, DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED)),
+            CONF_SOLAR_GLARE_PROTECTION_ENABLED: bool(call.data.get(CONF_SOLAR_GLARE_PROTECTION_ENABLED, DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED)),
         }
         await coordinator.async_add_room(room_config)
 
@@ -411,6 +419,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         _BOOL_FIELDS = {
             CONF_MOLD_PROTECTION_ENABLED, CONF_AGGRESSIVE_MODE_ENABLED, CONF_ROOM_IGNORE_HEATING_PERIOD,
             CONF_SOLAR_PASSIVE_HEAT, CONF_SOLAR_PASSIVE_COOL,
+            CONF_SOLAR_EVENING_PRIVACY_ENABLED, CONF_SOLAR_GLARE_PROTECTION_ENABLED,
         }
         # Remaining valid fields that pass through unchanged (str/list) - explicitly
         # listed so arbitrary/unknown keys from the service call can't be injected
@@ -424,7 +433,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_WINDOW_RESTORE_MODE, CONF_WINDOW_CASCADE_ROOMS, CONF_COVER_ENTITIES,
             CONF_WINDOW_ORIENTATION, CONF_COMFORT_TEMP_ENTITY, CONF_ECO_TEMP_ENTITY,
             CONF_COMFORT_EXTEND_ENTRIES, CONF_COMFORT_EXTEND_ENTITY, CONF_COMFORT_EXTEND_STATE,
-            CONF_PRESENCE_SENSOR,
+            CONF_PRESENCE_SENSOR, CONF_LUX_SENSOR,
         }
         _ALLOWED_FIELDS = _FLOAT_FIELDS | _INT_FIELDS | _BOOL_FIELDS | _STR_OR_LIST_FIELDS
         updates: dict = {}
@@ -487,6 +496,10 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "solar_entity", "solar_surplus_threshold", "solar_boost_temp",
             "solar_min_elevation", "solar_shade_position", "solar_heat_min_outdoor",
             "solar_weather_protection_enabled", "solar_wind_speed_threshold",
+            # Rollo-Backlog 2026-10-15
+            "solar_evening_privacy_mode", "solar_evening_privacy_time", "solar_evening_privacy_position",
+            "lux_on_threshold", "lux_off_threshold", "solar_cover_override_rearm_minutes",
+            "solar_glare_max_elevation", "solar_glare_position",
             "energy_price_entity", "energy_price_threshold", "energy_price_eco_offset",
             # Vacation assistant + calendar integration
             "vacation_start", "vacation_end",

@@ -304,6 +304,32 @@ add_room:
       required: false
       selector:
         boolean:
+    lux_sensor:
+      name: Lux-Sensor (optional)
+      description: >-
+        Helligkeitssensor für die Lux-Hysterese – verschärft den rein geometrischen
+        Sonnenwinkel-Check um ein Ein-/Ausschalt-Schwellenpaar (globale Einstellungen), um
+        Flackern bei durchziehenden Wolken zu vermeiden. Ohne Sensor rein geometrisch wie bisher.
+      required: false
+      selector:
+        entity:
+          domain: sensor
+    solar_evening_privacy_enabled:
+      name: Abendliche Privatsphäre-Schließung aktivieren
+      description: >-
+        Schließt die Rolladen dieses Zimmers fix nach Uhrzeit oder Sonnenuntergang (globale
+        Einstellung solar_evening_privacy_mode), unabhängig von der Heiz-/Kühllogik. Standard: aus.
+      required: false
+      selector:
+        boolean:
+    solar_glare_protection_enabled:
+      name: Blendschutz-Zone (TV/Bildschirm) aktivieren
+      description: >-
+        Fährt die Rolladen bei niedrigem Sonnenwinkel (Richtung window_orientation) stärker
+        runter als die reine Heiz-/Kühllogik verlangen würde, um Blendung zu vermeiden. Standard: aus.
+      required: false
+      selector:
+        boolean:
     schedules:
       name: IHC-Zeitpläne
       required: false
@@ -858,6 +884,22 @@ update_room:
         boolean:
     solar_passive_cool:
       name: Passive Beschattung aktivieren
+      required: false
+      selector:
+        boolean:
+    lux_sensor:
+      name: Lux-Sensor (optional)
+      required: false
+      selector:
+        entity:
+          domain: sensor
+    solar_evening_privacy_enabled:
+      name: Abendliche Privatsphäre-Schließung aktivieren
+      required: false
+      selector:
+        boolean:
+    solar_glare_protection_enabled:
+      name: Blendschutz-Zone (TV/Bildschirm) aktivieren
       required: false
       selector:
         boolean:
@@ -1536,6 +1578,82 @@ update_global_settings:
           max: 120
           step: 5
           unit_of_measurement: "km/h"
+    solar_evening_privacy_mode:
+      name: Abendliche Privatsphäre-Schließung – Modus
+      description: >-
+        "sunset" (Standard): schließt sobald die Sonne unter dem Horizont ist, saisonunabhängig.
+        "time": schließt zur festen Uhrzeit (solar_evening_privacy_time), unabhängig von der
+        Jahreszeit. Gilt nur für Zimmer mit solar_evening_privacy_enabled.
+      required: false
+      selector:
+        select:
+          options: ["sunset", "time"]
+    solar_evening_privacy_time:
+      name: Abendliche Privatsphäre-Schließung – Uhrzeit (HH:MM)
+      description: Nur relevant im Modus "time".
+      required: false
+      selector:
+        text:
+    solar_evening_privacy_position:
+      name: Abendliche Privatsphäre-Schließung – Rolladen-Position (%)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+    lux_on_threshold:
+      name: Lux-Hysterese – Einschalt-Schwelle (lx)
+      description: Nur relevant für Zimmer mit konfiguriertem lux_sensor.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 2000
+          step: 10
+          unit_of_measurement: "lx"
+    lux_off_threshold:
+      name: Lux-Hysterese – Ausschalt-Schwelle (lx)
+      description: Nur relevant für Zimmer mit konfiguriertem lux_sensor.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 2000
+          step: 10
+          unit_of_measurement: "lx"
+    solar_cover_override_rearm_minutes:
+      name: Rollo-Übersteuerung – Re-Arm-Zeit (Minuten)
+      description: >-
+        Nach einer erkannten manuellen Rollo-Übersteuerung wartet IHC diese Zeit, bevor es die
+        automatische Steuerung für das betroffene Rollo wieder übernimmt.
+      required: false
+      selector:
+        number:
+          min: 10
+          max: 720
+          step: 10
+          unit_of_measurement: "min"
+    solar_glare_max_elevation:
+      name: Blendschutz – maximale Sonnenhöhe (°)
+      description: Sonnenwinkel-Band (0° bis diesem Wert) in dem die Blendschutz-Zone aktiv wird.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 1
+          unit_of_measurement: "°"
+    solar_glare_position:
+      name: Blendschutz – Rolladen-Position (%)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
     manual_override_timeout_minutes:
       name: Fester Timeout für manuelle Zimmer-Übersteuerung (Minuten)
       description: >-

@@ -506,6 +506,66 @@
               <input type="number" class="form-input" id="solar-wind-speed-threshold" min="10" max="120" step="5" value="${a.solar_wind_speed_threshold ?? 40}">
               <span class="form-hint">Ab dieser Windgeschwindigkeit werden Rolladen angehoben. Muss zur Einheit des Wetter-Entity passen.</span>
             </div>
+            <div class="settings-item">
+              <label>Rollo-Übersteuerung – Re-Arm-Zeit (min)</label>
+              <input type="number" class="form-input" id="solar-override-rearm" min="10" max="720" step="10" value="${a.solar_cover_override_rearm_minutes ?? 120}">
+              <span class="form-hint">Wie lange IHC ein von Hand verstelltes Rollo in Ruhe lässt, bevor es die Steuerung wieder übernimmt.</span>
+            </div>
+          </div>
+          <hr class="divider">
+          <div class="card-title" style="font-size:13px;margin:8px 0">🌙 Abendliche Privatsphäre-Schließung</div>
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
+            Schließt opt-in konfigurierte Zimmer (Zimmer-Bearbeiten-Dialog) fix nach Uhrzeit oder Sonnenuntergang,
+            unabhängig von der Heiz-/Kühllogik.
+          </p>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Modus</label>
+              <select class="form-select" id="solar-privacy-mode">
+                <option value="sunset" ${(a.solar_evening_privacy_mode ?? "sunset") === "sunset" ? "selected" : ""}>Bei Sonnenuntergang</option>
+                <option value="time" ${a.solar_evening_privacy_mode === "time" ? "selected" : ""}>Feste Uhrzeit</option>
+              </select>
+            </div>
+            <div class="settings-item">
+              <label>Uhrzeit (nur Modus "Feste Uhrzeit")</label>
+              <input type="time" class="form-input" id="solar-privacy-time" value="${a.solar_evening_privacy_time ?? "21:00"}">
+            </div>
+            <div class="settings-item">
+              <label>Rolladen-Position (%)</label>
+              <input type="number" class="form-input" id="solar-privacy-position" min="0" max="100" step="5" value="${a.solar_evening_privacy_position ?? 0}">
+            </div>
+          </div>
+          <hr class="divider">
+          <div class="card-title" style="font-size:13px;margin:8px 0">💡 Helligkeits-/Lux-Hysterese</div>
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
+            Nur relevant für Zimmer mit konfiguriertem Lux-Sensor (Zimmer-Bearbeiten-Dialog) – verschärft den
+            geometrischen Sonnenwinkel-Check, um Flackern bei durchziehenden Wolken zu vermeiden.
+          </p>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Ein-Schwelle (lx)</label>
+              <input type="number" class="form-input" id="solar-lux-on" min="0" max="2000" step="10" value="${a.lux_on_threshold ?? 350}">
+            </div>
+            <div class="settings-item">
+              <label>Aus-Schwelle (lx)</label>
+              <input type="number" class="form-input" id="solar-lux-off" min="0" max="2000" step="10" value="${a.lux_off_threshold ?? 270}">
+            </div>
+          </div>
+          <hr class="divider">
+          <div class="card-title" style="font-size:13px;margin:8px 0">📺 Blendschutz-Zone (TV/Bildschirm)</div>
+          <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
+            Nur relevant für Zimmer mit aktiviertem Blendschutz (Zimmer-Bearbeiten-Dialog) – fährt bei niedrigem
+            Sonnenwinkel stärker runter als die Heiz-/Kühllogik verlangen würde.
+          </p>
+          <div class="settings-grid">
+            <div class="settings-item">
+              <label>Max. Sonnenhöhe (°)</label>
+              <input type="number" class="form-input" id="solar-glare-max-elevation" min="0" max="30" step="1" value="${a.solar_glare_max_elevation ?? 15}">
+            </div>
+            <div class="settings-item">
+              <label>Rolladen-Position (%)</label>
+              <input type="number" class="form-input" id="solar-glare-position" min="0" max="100" step="5" value="${a.solar_glare_position ?? 30}">
+            </div>
           </div>
           <hr class="divider">
           <div class="card-title" style="font-size:13px;margin:8px 0">💶 Dynamischer Strompreis (z.B. Tibber)</div>
@@ -965,7 +1025,16 @@
       const solarShadePosition = parseInt(content.querySelector("#solar-shade-position")?.value, 10);
       const solarHeatMinOutdoor = parseFloat(content.querySelector("#solar-heat-min-outdoor")?.value);
       const solarWindSpeedThreshold = parseFloat(content.querySelector("#solar-wind-speed-threshold")?.value);
-      if ([solarSurplus, solarBoost, priceThresh, priceEco, solarMinElevation, solarShadePosition, solarHeatMinOutdoor, solarWindSpeedThreshold].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
+      const solarOverrideRearm = parseInt(content.querySelector("#solar-override-rearm")?.value, 10);
+      const solarPrivacyPosition = parseInt(content.querySelector("#solar-privacy-position")?.value, 10);
+      const solarLuxOn = parseFloat(content.querySelector("#solar-lux-on")?.value);
+      const solarLuxOff = parseFloat(content.querySelector("#solar-lux-off")?.value);
+      const solarGlareMaxElevation = parseFloat(content.querySelector("#solar-glare-max-elevation")?.value);
+      const solarGlarePosition = parseInt(content.querySelector("#solar-glare-position")?.value, 10);
+      if ([solarSurplus, solarBoost, priceThresh, priceEco, solarMinElevation, solarShadePosition, solarHeatMinOutdoor, solarWindSpeedThreshold,
+           solarOverrideRearm, solarPrivacyPosition, solarLuxOn, solarLuxOff, solarGlareMaxElevation, solarGlarePosition].some(isNaN)) {
+        this._toast("⚠️ Ungültiger Wert"); return;
+      }
       const staticPrice = parseFloat(content.querySelector("#static-energy-price").value);
       this._callService("update_global_settings", {
         solar_entity:            content.querySelector("#solar-entity").value.trim(),
@@ -976,6 +1045,14 @@
         solar_heat_min_outdoor:  solarHeatMinOutdoor,
         solar_weather_protection_enabled: content.querySelector("#solar-weather-protection-enabled")?.checked === true,
         solar_wind_speed_threshold: solarWindSpeedThreshold,
+        solar_cover_override_rearm_minutes: solarOverrideRearm,
+        solar_evening_privacy_mode:     content.querySelector("#solar-privacy-mode")?.value || "sunset",
+        solar_evening_privacy_time:     content.querySelector("#solar-privacy-time")?.value || "21:00",
+        solar_evening_privacy_position: solarPrivacyPosition,
+        lux_on_threshold:  solarLuxOn,
+        lux_off_threshold: solarLuxOff,
+        solar_glare_max_elevation: solarGlareMaxElevation,
+        solar_glare_position:      solarGlarePosition,
         energy_price_entity:     content.querySelector("#energy-price-entity").value.trim(),
         energy_price_threshold:  priceThresh,
         energy_price_eco_offset: priceEco,

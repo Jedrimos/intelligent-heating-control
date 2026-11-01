@@ -99,6 +99,27 @@ from .const import (
     DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED,
     CONF_SOLAR_WIND_SPEED_THRESHOLD,
     DEFAULT_SOLAR_WIND_SPEED_THRESHOLD,
+    CONF_SOLAR_EVENING_PRIVACY_ENABLED,
+    DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED,
+    CONF_SOLAR_EVENING_PRIVACY_MODE,
+    DEFAULT_SOLAR_EVENING_PRIVACY_MODE,
+    CONF_SOLAR_EVENING_PRIVACY_TIME,
+    DEFAULT_SOLAR_EVENING_PRIVACY_TIME,
+    CONF_SOLAR_EVENING_PRIVACY_POSITION,
+    DEFAULT_SOLAR_EVENING_PRIVACY_POSITION,
+    CONF_LUX_SENSOR,
+    CONF_LUX_ON_THRESHOLD,
+    DEFAULT_LUX_ON_THRESHOLD,
+    CONF_LUX_OFF_THRESHOLD,
+    DEFAULT_LUX_OFF_THRESHOLD,
+    CONF_SOLAR_COVER_OVERRIDE_REARM_MINUTES,
+    DEFAULT_SOLAR_COVER_OVERRIDE_REARM_MINUTES,
+    CONF_SOLAR_GLARE_PROTECTION_ENABLED,
+    DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED,
+    CONF_SOLAR_GLARE_MAX_ELEVATION,
+    DEFAULT_SOLAR_GLARE_MAX_ELEVATION,
+    CONF_SOLAR_GLARE_POSITION,
+    DEFAULT_SOLAR_GLARE_POSITION,
     CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
     CONF_ENERGY_PRICE_ENTITY,
@@ -590,6 +611,39 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_SOLAR_WIND_SPEED_THRESHOLD,
                 default=float(cfg.get(CONF_SOLAR_WIND_SPEED_THRESHOLD, DEFAULT_SOLAR_WIND_SPEED_THRESHOLD))
             ): selector.selector({"number": {"min": 10, "max": 120, "step": 5, "unit_of_measurement": "km/h"}}),
+            # --- Rollo-Backlog 2026-10-15 ---
+            vol.Optional(
+                CONF_SOLAR_EVENING_PRIVACY_MODE,
+                default=cfg.get(CONF_SOLAR_EVENING_PRIVACY_MODE, DEFAULT_SOLAR_EVENING_PRIVACY_MODE)
+            ): selector.selector({"select": {"options": ["sunset", "time"]}}),
+            vol.Optional(
+                CONF_SOLAR_EVENING_PRIVACY_TIME,
+                default=cfg.get(CONF_SOLAR_EVENING_PRIVACY_TIME, DEFAULT_SOLAR_EVENING_PRIVACY_TIME)
+            ): selector.selector({"text": {}}),
+            vol.Optional(
+                CONF_SOLAR_EVENING_PRIVACY_POSITION,
+                default=int(cfg.get(CONF_SOLAR_EVENING_PRIVACY_POSITION, DEFAULT_SOLAR_EVENING_PRIVACY_POSITION))
+            ): selector.selector({"number": {"min": 0, "max": 100, "step": 5, "unit_of_measurement": "%"}}),
+            vol.Optional(
+                CONF_LUX_ON_THRESHOLD,
+                default=float(cfg.get(CONF_LUX_ON_THRESHOLD, DEFAULT_LUX_ON_THRESHOLD))
+            ): selector.selector({"number": {"min": 0, "max": 2000, "step": 10, "unit_of_measurement": "lx"}}),
+            vol.Optional(
+                CONF_LUX_OFF_THRESHOLD,
+                default=float(cfg.get(CONF_LUX_OFF_THRESHOLD, DEFAULT_LUX_OFF_THRESHOLD))
+            ): selector.selector({"number": {"min": 0, "max": 2000, "step": 10, "unit_of_measurement": "lx"}}),
+            vol.Optional(
+                CONF_SOLAR_COVER_OVERRIDE_REARM_MINUTES,
+                default=int(cfg.get(CONF_SOLAR_COVER_OVERRIDE_REARM_MINUTES, DEFAULT_SOLAR_COVER_OVERRIDE_REARM_MINUTES))
+            ): selector.selector({"number": {"min": 10, "max": 720, "step": 10, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_SOLAR_GLARE_MAX_ELEVATION,
+                default=float(cfg.get(CONF_SOLAR_GLARE_MAX_ELEVATION, DEFAULT_SOLAR_GLARE_MAX_ELEVATION))
+            ): selector.selector({"number": {"min": 0, "max": 30, "step": 1, "unit_of_measurement": "°"}}),
+            vol.Optional(
+                CONF_SOLAR_GLARE_POSITION,
+                default=int(cfg.get(CONF_SOLAR_GLARE_POSITION, DEFAULT_SOLAR_GLARE_POSITION))
+            ): selector.selector({"number": {"min": 0, "max": 100, "step": 5, "unit_of_measurement": "%"}}),
             vol.Optional(
                 CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
                 default=int(cfg.get(CONF_MANUAL_OVERRIDE_TIMEOUT_MINUTES, DEFAULT_MANUAL_OVERRIDE_TIMEOUT_MINUTES))
@@ -888,6 +942,9 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_WINDOW_ORIENTATION: user_input.get(CONF_WINDOW_ORIENTATION, ""),
                 CONF_SOLAR_PASSIVE_HEAT: bool(user_input.get(CONF_SOLAR_PASSIVE_HEAT, DEFAULT_SOLAR_PASSIVE_HEAT)),
                 CONF_SOLAR_PASSIVE_COOL: bool(user_input.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL)),
+                CONF_LUX_SENSOR: user_input.get(CONF_LUX_SENSOR, ""),
+                CONF_SOLAR_EVENING_PRIVACY_ENABLED: bool(user_input.get(CONF_SOLAR_EVENING_PRIVACY_ENABLED, DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED)),
+                CONF_SOLAR_GLARE_PROTECTION_ENABLED: bool(user_input.get(CONF_SOLAR_GLARE_PROTECTION_ENABLED, DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED)),
                 CONF_SCHEDULES: [],
                 CONF_HA_SCHEDULES: [],
             }
@@ -984,6 +1041,9 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_SOLAR_PASSIVE_HEAT, default=DEFAULT_SOLAR_PASSIVE_HEAT): selector.selector({"boolean": {}}),
             vol.Optional(CONF_SOLAR_PASSIVE_COOL, default=DEFAULT_SOLAR_PASSIVE_COOL): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_LUX_SENSOR, default=""): selector.selector({"entity": {"domain": "sensor"}}),
+            vol.Optional(CONF_SOLAR_EVENING_PRIVACY_ENABLED, default=DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_SOLAR_GLARE_PROTECTION_ENABLED, default=DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED): selector.selector({"boolean": {}}),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=DEFAULT_HA_SCHEDULE_OFF_MODE): selector.selector({
                 "select": {"options": ["eco", "sleep", "away"]}
             }),
@@ -1190,6 +1250,9 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_SOLAR_PASSIVE_HEAT, default=bool(room.get(CONF_SOLAR_PASSIVE_HEAT, DEFAULT_SOLAR_PASSIVE_HEAT))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_SOLAR_PASSIVE_COOL, default=bool(room.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL))): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_LUX_SENSOR, default=room.get(CONF_LUX_SENSOR, "")): selector.selector({"entity": {"domain": "sensor"}}),
+            vol.Optional(CONF_SOLAR_EVENING_PRIVACY_ENABLED, default=bool(room.get(CONF_SOLAR_EVENING_PRIVACY_ENABLED, DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED))): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_SOLAR_GLARE_PROTECTION_ENABLED, default=bool(room.get(CONF_SOLAR_GLARE_PROTECTION_ENABLED, DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=room.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE)): selector.selector({
                 "select": {"options": ["eco", "sleep", "away"]}
             }),

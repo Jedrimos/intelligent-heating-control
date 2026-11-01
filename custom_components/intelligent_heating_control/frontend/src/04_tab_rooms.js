@@ -690,6 +690,24 @@
                 Passive Beschattung
               </label>
             </div>
+            <div class="settings-item">
+              <label>Lux-Sensor (optional)</label>
+              <input type="text" class="form-input" id="rs-lux-sensor" value="${room.lux_sensor || ""}"
+                placeholder="sensor.wohnzimmer_helligkeit" data-ep-domains="sensor" autocomplete="off">
+              <span class="form-hint">Verschärft den Sonnenwinkel-Check um eine Helligkeits-Hysterese.</span>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="rs-solar-evening-privacy" ${room.solar_evening_privacy_enabled ? "checked" : ""}>
+                🌙 Abendliche Privatsphäre-Schließung
+              </label>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="rs-solar-glare-protection" ${room.solar_glare_protection_enabled ? "checked" : ""}>
+                📺 Blendschutz-Zone (TV/Bildschirm)
+              </label>
+            </div>
           </div>
         </details>
 
@@ -845,6 +863,9 @@
         window_orientation:       container.querySelector("#rs-window-orientation")?.value || "",
         solar_passive_heat:       container.querySelector("#rs-solar-passive-heat")?.checked === true,
         solar_passive_cool:       container.querySelector("#rs-solar-passive-cool")?.checked === true,
+        lux_sensor:               container.querySelector("#rs-lux-sensor")?.value.trim() || "",
+        solar_evening_privacy_enabled: container.querySelector("#rs-solar-evening-privacy")?.checked === true,
+        solar_glare_protection_enabled: container.querySelector("#rs-solar-glare-protection")?.checked === true,
         aggressive_mode_enabled:  container.querySelector("#rs-aggressive-mode")?.checked === true,
         aggressive_mode_range:    parseFloat(container.querySelector("#rs-aggressive-range")?.value ?? "2") || 2.0,
         aggressive_mode_offset:   parseFloat(container.querySelector("#rs-aggressive-offset")?.value ?? "3") || 3.0,

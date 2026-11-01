@@ -469,6 +469,24 @@
                 Passive Beschattung
               </label>
             </div>
+            <div class="settings-item">
+              <label>Lux-Sensor (optional)</label>
+              <input type="text" class="form-input" id="m-lux-sensor" placeholder="sensor.wohnzimmer_helligkeit"
+                data-ep-domains="sensor" autocomplete="off">
+              <span class="form-hint">Verschärft den Sonnenwinkel-Check um eine Helligkeits-Hysterese.</span>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-evening-privacy">
+                🌙 Abendliche Privatsphäre-Schließung
+              </label>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-glare-protection">
+                📺 Blendschutz-Zone (TV/Bildschirm)
+              </label>
+            </div>
           </div>
         </div>
       </details>
@@ -539,6 +557,9 @@
         window_orientation:     modal.querySelector("#m-window-orientation")?.value || "",
         solar_passive_heat:     modal.querySelector("#m-solar-passive-heat")?.checked === true,
         solar_passive_cool:     modal.querySelector("#m-solar-passive-cool")?.checked === true,
+        lux_sensor:             modal.querySelector("#m-lux-sensor")?.value.trim() || "",
+        solar_evening_privacy_enabled: modal.querySelector("#m-solar-evening-privacy")?.checked === true,
+        solar_glare_protection_enabled: modal.querySelector("#m-solar-glare-protection")?.checked === true,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
@@ -1031,6 +1052,24 @@
                 Passive Beschattung
               </label>
             </div>
+            <div class="settings-item">
+              <label>Lux-Sensor (optional)</label>
+              <input type="text" class="form-input" id="m-lux-sensor" value="${room.lux_sensor || ""}"
+                placeholder="sensor.wohnzimmer_helligkeit" data-ep-domains="sensor" autocomplete="off">
+              <span class="form-hint">Verschärft den Sonnenwinkel-Check um eine Helligkeits-Hysterese.</span>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-evening-privacy" ${room.solar_evening_privacy_enabled ? "checked" : ""}>
+                🌙 Abendliche Privatsphäre-Schließung
+              </label>
+            </div>
+            <div class="settings-item">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+                <input type="checkbox" id="m-solar-glare-protection" ${room.solar_glare_protection_enabled ? "checked" : ""}>
+                📺 Blendschutz-Zone (TV/Bildschirm)
+              </label>
+            </div>
           </div>
         </div>
       </details>
@@ -1265,6 +1304,9 @@
         window_orientation:     modal.querySelector("#m-window-orientation")?.value || "",
         solar_passive_heat:     modal.querySelector("#m-solar-passive-heat")?.checked === true,
         solar_passive_cool:     modal.querySelector("#m-solar-passive-cool")?.checked === true,
+        lux_sensor:             modal.querySelector("#m-lux-sensor")?.value.trim() || "",
+        solar_evening_privacy_enabled: modal.querySelector("#m-solar-evening-privacy")?.checked === true,
+        solar_glare_protection_enabled: modal.querySelector("#m-solar-glare-protection")?.checked === true,
         room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
         room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
         window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
