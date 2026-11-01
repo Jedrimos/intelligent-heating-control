@@ -1125,11 +1125,13 @@ Schätzung, kein Commitment.
 
 #### Rollo (passive Solarheizung/-beschattung, `solar_cover_manager.py`)
 
-- [ ] **Manuelle-Übersteuerung-Erkennung für Rollos** (M) – höchste Priorität: häufigste
-  Nutzer-Beschwerde bei Rollo-Automatisierung ist "Automation kämpft gegen mich". Aktuell wird ein
-  von Hand verstelltes Rollo beim nächsten Zyklus stillschweigend zurückgefahren, sobald die
-  Bedingung noch zutrifft. Gleiches Muster wie die bereits vorhandene TRV-Override-Erkennung
-  (bestätigungsbasiert, `_trv_cmd_pending`) wiederverwenden.
+- [x] **Manuelle-Übersteuerung-Erkennung für Rollos** (M, 2026-11-01) – umgesetzt:
+  `_record_cover_command()`/`_is_cover_overridden()` in `solar_cover_manager.py`, gleiches Muster
+  wie die TRV-Override-Erkennung (bestätigungsbasiert). IHC merkt sich den zuletzt gesendeten
+  Sollwert pro Cover-Entity; weicht die gemeldete Position nach `COVER_OVERRIDE_CONFIRM_SECONDS`
+  (90s Bestätigungsfrist) noch ab, gilt das Rollo als manuell übersteuert und wird in Ruhe gelassen,
+  bis `CONF_SOLAR_COVER_OVERRIDE_REARM_MINUTES` (Standard 120 min) abgelaufen ist. Wetterschutz
+  (Hardware-Sicherheit) übersteuert eine erkannte manuelle Übersteuerung weiterhin bewusst.
 - [x] **Wind-/Regen-/Schnee-/Hagel-Sicherheitsabschaltung** (M→S, 2026-10-15) – umgesetzt in
   `solar_cover_manager.py` `_is_solar_weather_protection_active()` + `_update_solar_covers()`.
   Vereinfacht gegenüber dem ursprünglichen Plan: nutzt das bereits vorhandene globale
@@ -1140,16 +1142,26 @@ Schätzung, kein Commitment.
   normale Heiz-/Kühllogik. **Noch nicht umgesetzt:** zwei getrennte Schwellen (leicht/stark) +
   Hysterese-Verzögerung vor Wiederaufnahme, wie ursprünglich geplant – aktuell ein einzelner
   Schwellwert ohne Verzögerung. Bei Bedarf nachrüstbar.
-- [ ] **Helligkeits-/Lux-Hysterese** (M) – behebt die einzige konkrete Abweichung von Loxones
-  echtem Trigger-Verhalten: wir reagieren rein geometrisch (Sonnenwinkel trifft Fenster), Loxone
-  nutzt zusätzlich einen Lux-Sensor mit Hysterese (Beispiel aus der Recherche: 350 lux an / 270 lux
-  aus, 30-Min-Mittel) um Flackern bei durchziehenden Wolken zu vermeiden. Optional – nur falls Lux-
-  Sensor konfiguriert, sonst wie bisher rein geometrisch.
-- [ ] **Abendliche Privatsphäre-Schließung** (S) – fix nach Uhrzeit/Sonnenuntergang, unabhängig von
-  Temperaturlogik. Pro Zimmer opt-in, analog zu den anderen Rollo-Flags.
-- [ ] **Blendschutz-Zone fürs TV/Bildschirm** (M) – eigene Zielzone, die bei niedrigem Sonnenwinkel
-  (~0–15°) in Richtung der Zone stärker runterfährt als die reine Heiz-/Kühllogik verlangen würde.
-  Eher Komfort- als Sicherheitsfeature, niedrigere Priorität als die ersten vier.
+- [x] **Helligkeits-/Lux-Hysterese** (M, 2026-11-01) – umgesetzt: optionaler `CONF_LUX_SENSOR` pro
+  Zimmer; `_update_and_get_lux_average()` führt einen rollierenden 30-Werte-Puffer (`LUX_BUFFER_MAXLEN`,
+  ~30 Min bei einer Messung/Zyklus), `lux_hysteresis_active()` (reine Funktion, unit-getestet) wendet
+  das Ein-/Ausschalt-Schwellenpaar (`CONF_LUX_ON_THRESHOLD`/`_OFF_THRESHOLD`, Standard 350/270 lx) auf
+  den Mittelwert an, zusätzlich zum bestehenden geometrischen Sonnenwinkel-Check – nicht anstelle davon.
+  Ohne konfigurierten Sensor exakt bisheriges (rein geometrisches) Verhalten; fehlt eine Lux-Messung
+  (noch) failt die Hysterese offen (blockiert die geometrische Entscheidung nicht).
+- [x] **Abendliche Privatsphäre-Schließung** (S, 2026-11-01) – umgesetzt: `CONF_SOLAR_EVENING_PRIVACY_ENABLED`
+  pro Zimmer, globaler Modus `CONF_SOLAR_EVENING_PRIVACY_MODE` ("sunset" = Sonnenuntergang,
+  saisonunabhängig, oder "time" = feste Uhrzeit `CONF_SOLAR_EVENING_PRIVACY_TIME`). Reine Funktion
+  `is_evening_privacy_window()` (unit-getestet) wrapt den "time"-Modus über Mitternacht bis
+  `EVENING_PRIVACY_MORNING_CUTOFF` (06:00). Übersteuert die passive Heizlogik ("voll offen"), da es
+  nachts ohnehin keinen Solarertrag gibt – kein Konflikt mit der Blendschutz-Zone (die braucht Sonne
+  über dem Horizont).
+- [x] **Blendschutz-Zone fürs TV/Bildschirm** (M, 2026-11-01) – umgesetzt: `CONF_SOLAR_GLARE_PROTECTION_ENABLED`
+  pro Zimmer (nutzt dieselbe `window_orientation`), reine Funktion `sun_in_glare_band()` (unit-getestet)
+  prüft ein eigenes, engeres Sonnenwinkel-Band (0° bis `CONF_SOLAR_GLARE_MAX_ELEVATION`, Standard 15°)
+  unabhängig vom `CONF_SOLAR_MIN_ELEVATION`-Gate der normalen Heiz-/Kühllogik. Übersteuert nur
+  passive_heat "voll offen" (Komfort vor marginalem Solarertrag), nicht aber die davor geprüfte
+  Privatsphäre-Schließung/Fenster-offen/Wetter-Sicherheit/manuelle Übersteuerung.
 - [x] **Getrennte Ein-/Austritts-Sonnenwinkel-Toleranz** (S, 2026-10-15) – `sun_hits_orientation()`
   nimmt jetzt ein `was_active`-Flag: 45° enger Eintritts-Schwellwert (`SUN_HIT_ENTER_TOLERANCE_DEG`),
   70° weiterer Austritts-Schwellwert (`SUN_HIT_EXIT_TOLERANCE_DEG`) sobald schon aktiv. Pro-Zimmer-
