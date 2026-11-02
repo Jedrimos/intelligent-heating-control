@@ -577,6 +577,12 @@ class RoomLogicMixin:
           3. Active schedule period temperature
           4. Heating curve target + room offset (default)
 
+        This is only Phase A of the full decision chain - coordinator._process_room()
+        applies further modifiers afterwards (boosts, window restore/cascade, felt-temp),
+        and _update_phase_apply_trv_setpoints() can still override everything at send time
+        (window open, startup grace, summer mode, ...). See CLAUDE.md Kapitel 15
+        "Prioritätenkette" for the full, accurate A→D chain and where to add a new rule.
+
         Returns (effective_target_temp, metadata_dict)
         """
         room_id = room.get(CONF_ROOM_ID, "")

@@ -1236,3 +1236,130 @@ Schätzung, kein Commitment.
   gefunden, eher Nebenprodukt wenn Wind/Manuell-Erkennung ohnehin gebaut wird
 - Rollo: Fassaden-Gruppierung / Lamellen-Teilöffnung – Kernfeatures spezialisierter Lösungen
   (Adaptive Cover Pro), aber in den durchsuchten Nutzer-Threads nicht explizit gefordert
+
+---
+
+### Backlog 2026-11-02: Vergleich mit `sandreialexandru/Smart-Heating-Control`
+
+Nutzer-Link zu einer ähnlichen HA-Integration ("advanced_climate"). Abgleich ergab 3 Ideen, die
+IHC noch nicht hatte, plus die explizite Nutzeranfrage "das mit dem Kessel" wieder aufzunehmen -
+dazu per Rückfrage geklärt: **nur** ein einfaches additives Kessel-/Pumpen-Relais-Signal aus dem
+aggregierten Raum-Wärmebedarf, **keine** Rückkehr zum in v2.0.0 entfernten Switch-Modus (TRVs
+regeln weiterhin jedes Zimmer einzeln, siehe Kapitel 1/14).
+
+- [x] **Kessel-/Pumpen-Relais-Signal** – `CONF_BOILER_SWITCH_ENTITY` (optional, global): schaltet
+  einen externen `switch.*` anhand des bereits vorhandenen `any_room_heating`-Aggregatsignals,
+  mit konfigurierbaren Mindest-Ein/Ausschaltzeiten (`energy_manager.py` `_update_boiler_relay()`).
+  Rein additiv - für Haushalte mit TRVs UND einem Wärmeerzeuger mit Ein/Aus-Signal.
+- [x] **Decision-Sensor pro Zimmer + Event** – `sensor.ihc_<zimmer>_entscheidung`: State = die
+  rohe `source`-Regel (siehe Kapitel 15), Attribut `reason` übersetzt sie menschenlesbar
+  (neues `decision_reason.py`, HA-frei + unit-getestet). `no_heat_reason` erklärt zusätzlich
+  warum ein Zimmer trotz Untertemperatur gerade nicht heizt. `EVENT_DECISION_CHANGED` feuert bei
+  jeder Änderung von Regel oder Zieltemperatur eines Zimmers.
+- [x] **Prioritätenliste dokumentieren** – siehe Kapitel 15 "Prioritätenkette" unten. IHCs
+  Entscheidungslogik war schon immer strikt priorisiert, aber über vier Methoden verteilt und
+  nie an einer Stelle aufgeschrieben.
+- [ ] **Kindersicherung + globaler Reset-Button** – pro Zimmer eine Sperre, die IHC komplett
+  von diesem Zimmer fernhält (auch Fenster-Erkennung/Sommerautomatik dürfen es nicht mehr
+  anfassen), plus ein globaler "alle Zimmer zurück auf Auto"-Button/Service.
+
+---
+
+## 15. Prioritätenkette (zentrale Entscheidungsreihenfolge)
+
+> **Backlog 2026-11-02** (Vergleich mit `sandreialexandru/Smart-Heating-Control`, deren Blueprint
+> eine flache 9-stufige Prioritätenliste dokumentiert - safety → pause → valve exercise → mode →
+> window → manual change → vacation → presence → schedule). IHC hat de-facto eine ähnliche, aber
+> deutlich tiefere Kette, die bisher nur über vier verschiedene Methoden verteilt war und nie an
+> einer Stelle aufgeschrieben wurde. Dieses Kapitel ist diese Stelle - bei jeder neuen Regel die
+> hier einsortiert werden muss: hier **und** am passenden Punkt im Code eintragen.
+>
+> Die Kette läuft in vier getrennten Phasen: **A) Zieltemperatur** → **B) Nachträgliche
+> Modifikatoren** → **C) Anforderung/Demand** → **D) TRV-Sende-Gate**. Eine Regel in Phase A kann
+> durch eine spätere Phase noch übersteuert werden - z.B. verwirft Phase D eine in Phase A
+> berechnete `target_temp` komplett, wenn ein Fenster offen ist.
+
+### A) Zieltemperatur-Berechnung (`room_logic.py` `_calculate_target_temp()`)
+
+Jede Stufe `return`et sofort - die erste zutreffende gewinnt, alle folgenden werden gar nicht
+erst ausgewertet:
+
+1. Systemmodus **Aus** (`system_off`, oder `frost_protection` je nach `CONF_OFF_USE_FROST_PROTECTION`)
+2. Systemmodus **Abwesend** (`system_away`)
+3. Systemmodus **Urlaub** (`system_vacation`)
+4. Systemmodus **Gäste** (`guest_mode`)
+5. Systemmodus **Heizen erzwungen** (`system_heat`)
+6. **Temperaturschwelle** `CONF_ROOM_TEMP_THRESHOLD` (`temp_threshold_override`) – Sicherheits-
+   Boden, läuft bewusst VOR den Anwesenheits-Checks (7/8), damit er auch bei "niemand da" greift
+7. **Feiertags-Komfort** (`holiday_comfort`, nur `room_mode==auto` + Modus `"comfort"`)
+8. **Zimmer-Anwesenheit** leer (`room_presence_away`, nur `room_mode==auto`)
+9. **PIR-Abwesenheit** (`pir_absence`, nur `room_mode==auto`)
+10. Zimmermodus **Aus** (`room_off`)
+11. Zimmermodus **Abwesend** (`room_away`)
+12. Zimmermodus **Komfort** (`comfort`, inkl. Boost-Sonderfall `boost`)
+13. Zimmermodus **Eco** (`eco`)
+14. Zimmermodus **Schlafen** (`sleep`)
+15. Zimmermodus **Manuell** (`manual` – fällt ohne gespeicherten Wert auf `auto` zurück und
+    läuft dann durch Stufe 16+)
+16. **HA-Zeitplan-Entitäten** (`ha_schedule`, Einträge mit Bedingung vor denen ohne) bzw. deren
+    Fallback (`ha_schedule_eco`/`ha_schedule_sleep`, inkl. ETA-Vorheizen `preheat`)
+17. **Internes IHC-Zeitplan** (`schedule`, inkl. Vorheizfenster `preheat`)
+18. **Heizkurve** als Default (`heating_curve`) – greift nur außerhalb jedes Zeitplans
+
+### B) Nachträgliche Modifikatoren (`coordinator.py` `_process_room()`, nach A, in dieser Reihenfolge)
+
+19. **Notfrost bei System Aus** (`system_off` + Außentemp <0°C + Raum <10°C + Fenster zu) –
+    übersteuert Stufe 1 komplett zu `frost_protection`
+20. **Solar-Boost** (additiv, übersprungen bei frost/away/vacation/room_off)
+21. **Energiepreis-Offset** (additiv/subtraktiv, gleiche Sperrliste wie 20)
+22. **Schimmelschutz-Boost** (additiv, übersprungen bei frost/away/vacation)
+23. **Kälteprognose-Boost** (additiv, gleiche Sperrliste wie 20)
+24. **CO₂-Vorheiz-Boost** (+1°C, gleiche Sperrliste wie 20)
+25. **Fenster-Restore** (`CONF_WINDOW_RESTORE_MODE=="previous"`) – stellt beim Schließen den
+    Wert von VOR dem Öffnen wieder her, überschreibt 1-24 komplett für diesen Zyklus
+26. **Fenster-Kaskade** (Nachbarraum lüftet zu lange) – senkt ab, übersprungen bei eigenem
+    offenem Fenster oder Zimmermodus Aus
+27. **Gefühlte-Temperatur-Anpassung** (`CONF_FELT_TEMP_ADJUSTMENT_ENABLED`, opt-in, additiv,
+    gleiche Sperrliste wie 20)
+28. Quantisierung auf 0.5°C-Schritte (`display_target` – das was TRVs tatsächlich bekommen)
+
+### C) Anforderung/Demand-Gating (ebenfalls `_process_room()`, nach B, plus Phase 5)
+
+29. Basis-Demand aus Soll/Ist + Totband (`heating_controller.py`)
+30. TRV-Ventilposition-Blending (60 % Ventil + 40 % Temperaturdelta, siehe Kapitel 13)
+31. **Sicherheits-Gate**: Ist ≥ Soll − Totband → Demand zwingend 0
+32. **Optimum-Stop**: Nachlaufwärme reicht voraussichtlich → Demand zwingend 0 (übersprungen bei
+    Zimmermodus Aus/Manuell/Komfort)
+33. (Phase 5) **Peak Shaving**: untere 50 % der anfordernden Zimmer auf max. 30 % gedeckelt, nur
+    für die konfigurierte Verzögerung nach Heizstart
+
+### D) TRV-Sende-Gate (`_update_phase_apply_trv_setpoints()` – entscheidet ob/was tatsächlich
+gesendet wird, unabhängig von A-C, kann deren Ergebnis komplett verwerfen)
+
+34. **Start-Gnadenfrist** (`startup_grace_active`) – ALLE Zimmer auf Frostschutz, Sensoren werden
+    noch initialisiert (höchste Priorität in Phase D)
+35. **Fenster offen** – TRV aus (oder `CONF_WINDOW_OPEN_TEMP` falls konfiguriert)
+36. Zimmermodus **Aus** (außer `system_override_active`) ODER Systemmodus **Aus** (außer
+    `CONF_OFF_USE_FROST_PROTECTION`) – TRV aus
+37. **Boost aktiv** – übersteuert Sommerautomatik/inaktive Heizperiode bewusst (zeitlich
+    begrenzt, läuft automatisch ab)
+38. **Temperaturschwelle** (`temp_threshold_override`) – aus demselben Grund wie Boost
+39. **Sommerautomatik** ODER **Heizperiode inaktiv** (außer `CONF_ROOM_IGNORE_HEATING_PERIOD`)
+    – TRV aus
+40. Sonst: normaler Sollwert-Versand (inkl. `_apply_aggressive_mode` + Peak-Shaving-Clamp)
+
+### Wo eine neue Regel einsortiert wird
+
+- Betrifft sie **nur die Zieltemperatur** (fixer Wert, der alles andere ersetzt)? → neue Stufe
+  in A, nach Priorität einsortiert (höher = früher im `if`-Baum)
+- Ist sie ein **additiver/subtraktiver Boost/Offset** auf eine bereits berechnete Zieltemperatur?
+  → neue Stufe in B, meist mit derselben "nicht bei frost/away/vacation(/room_off)"-Sperrliste
+- Beeinflusst sie **ob überhaupt geheizt wird** (Demand), nicht die Zieltemperatur selbst? →
+  Stufe in C
+- Entscheidet sie **ob der TRV-Befehl überhaupt gesendet wird** (Hardware-Ebene, z.B. Fenster,
+  Sommer, Start)? → Stufe in D
+
+> Die geplante Kindersicherung (siehe Backlog oben) ist ein Beispiel für eine neue Regel in
+> Phase D: sie muss so hoch wie möglich stehen (direkt nach der Start-Gnadenfrist, noch vor
+> Fenster-offen) – ein gesperrtes Zimmer darf von IHC überhaupt nicht mehr angefasst werden,
+> auch nicht um es bei offenem Fenster abzuschalten (das wäre ja ebenfalls eine Zustandsänderung).
