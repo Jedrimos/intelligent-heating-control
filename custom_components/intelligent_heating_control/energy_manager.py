@@ -16,6 +16,11 @@ from .const import (
     DEFAULT_HKV_FACTOR,
     DEFAULT_RADIATOR_KW,
     DEFAULT_ROOM_QM,
+    CONF_BOILER_SWITCH_ENTITY,
+    CONF_BOILER_MIN_ON_SECONDS,
+    DEFAULT_BOILER_MIN_ON_SECONDS,
+    CONF_BOILER_MIN_OFF_SECONDS,
+    DEFAULT_BOILER_MIN_OFF_SECONDS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -95,6 +100,44 @@ class EnergyManagerMixin:
                     self._room_runtime_today[room_id] = (
                         self._room_runtime_today.get(room_id, 0.0) + elapsed
                     )
+
+    def _update_boiler_relay(self, any_room_heating: bool) -> None:
+        """Optional: drive an external boiler/pump relay switch from the aggregate
+        "any room heating" signal, with minimum on/off times so real hardware isn't
+        short-cycled. Purely additive to the existing TRV-only control - TRVs keep
+        doing all per-room regulation, this just also flips one extra switch for
+        users whose heat source needs an explicit on/off call.
+        """
+        cfg = self.get_config()
+        switch_entity = cfg.get(CONF_BOILER_SWITCH_ENTITY)
+        if not switch_entity:
+            return
+        now = dt_util.utcnow()
+        if self._boiler_state is None:
+            # First cycle (fresh install or nothing persisted yet) - sync to the
+            # switch's actual current state rather than guessing, so a restart
+            # can't immediately flip real hardware before we know its history.
+            state = self.hass.states.get(switch_entity)
+            self._boiler_state = (state.state == "on") if state else any_room_heating
+            self._boiler_last_change = now
+
+        if any_room_heating == self._boiler_state:
+            return
+        min_seconds = (
+            float(cfg.get(CONF_BOILER_MIN_OFF_SECONDS, DEFAULT_BOILER_MIN_OFF_SECONDS))
+            if any_room_heating
+            else float(cfg.get(CONF_BOILER_MIN_ON_SECONDS, DEFAULT_BOILER_MIN_ON_SECONDS))
+        )
+        elapsed = (now - self._boiler_last_change).total_seconds() if self._boiler_last_change else min_seconds
+        if elapsed < min_seconds:
+            return  # not yet - re-evaluated next cycle, no command sent
+        service = "turn_on" if any_room_heating else "turn_off"
+        self.hass.async_create_task(
+            self.hass.services.async_call("switch", service, {"entity_id": switch_entity})
+        )
+        self._boiler_state = any_room_heating
+        self._boiler_last_change = now
+        self._schedule_save()
 
     def get_heating_runtime_today_minutes(self) -> float:
         """Total heating runtime today in minutes (including current session)."""

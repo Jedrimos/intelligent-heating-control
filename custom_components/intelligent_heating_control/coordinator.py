@@ -517,6 +517,11 @@ class IHCCoordinator(
         self._was_heating: bool = False
         self._heating_start_time: Optional[datetime] = None
 
+        # Backlog 2026-11-02 – Kessel-Relais-Signal: last commanded state + when, for the
+        # min-on/off-time protection in energy_manager.py's _update_boiler_relay().
+        self._boiler_state: Optional[bool] = None
+        self._boiler_last_change: Optional[datetime] = None
+
         # v1.8 – Holiday calendar: cached per-cycle flags (set in _async_update_data)
         self._holiday_active: bool = False
         self._holiday_schedule_mode: str = "weekend"
@@ -667,6 +672,13 @@ class IHCCoordinator(
                 self._heating_period_day_date = None
         self._heating_period_auto_active = bool(data.get("heating_period_auto_active", True))
         self._cumulative_degree_days = float(data.get("cumulative_degree_days", 0.0))
+        self._boiler_state = data.get("boiler_state")
+        boiler_change_str = data.get("boiler_last_change")
+        if boiler_change_str:
+            try:
+                self._boiler_last_change = datetime.fromisoformat(boiler_change_str)
+            except (ValueError, TypeError):
+                self._boiler_last_change = None
         self._summer_mode_auto_active = bool(data.get("summer_mode_auto_active", False))
 
     def _schedule_save(self) -> None:
@@ -728,6 +740,8 @@ class IHCCoordinator(
             "heating_period_day_date": self._heating_period_day_date.isoformat() if self._heating_period_day_date else None,
             "heating_period_auto_active": self._heating_period_auto_active,
             "cumulative_degree_days": self._cumulative_degree_days,
+            "boiler_state": self._boiler_state,
+            "boiler_last_change": self._boiler_last_change.isoformat() if self._boiler_last_change else None,
             "summer_mode_auto_active": self._summer_mode_auto_active,
         })
 
@@ -2167,6 +2181,8 @@ class IHCCoordinator(
             any_room_heating = any_boost_active or any_threshold_override_active or any_ignore_period_heating
         else:
             any_room_heating = any(self._trv_room_is_heating(rd) for rd in room_data.values())
+
+        self._update_boiler_relay(any_room_heating)
 
         # v1.8 – Peak Shaving: stagger room demand during the first N minutes after
         # heating starts (trigger: any room just went from idle to demanding heat).

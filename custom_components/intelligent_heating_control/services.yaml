@@ -1851,6 +1851,34 @@ update_global_settings:
           min: 1
           max: 15
           step: 1
+    boiler_switch_entity:
+      name: Kessel-/Pumpen-Schalter (optional)
+      description: >-
+        Zusätzlich zur TRV-only-Steuerung: schaltet diesen Schalter ein/aus, je nachdem ob
+        irgendein Zimmer gerade Wärme anfordert. TRVs regeln weiterhin jedes Zimmer einzeln.
+      required: false
+      selector:
+        entity:
+          domain: switch
+    boiler_min_on_seconds:
+      name: Kessel-Relais – Mindest-Einschaltzeit (s)
+      description: Schützt die Hardware vor Kurztakten.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 1800
+          step: 30
+          unit_of_measurement: s
+    boiler_min_off_seconds:
+      name: Kessel-Relais – Mindest-Ausschaltzeit (s)
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 1800
+          step: 30
+          unit_of_measurement: s
 
 reload:
   name: Integration neu laden

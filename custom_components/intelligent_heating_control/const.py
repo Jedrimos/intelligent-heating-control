@@ -555,6 +555,16 @@ DEFAULT_LIMESCALE_TIME: Final = "10:00"      # Uhrzeit für Kalkschutz-Übung
 CONF_LIMESCALE_DURATION_MINUTES: Final = "limescale_duration_minutes"
 DEFAULT_LIMESCALE_DURATION_MINUTES: Final = 5  # Minuten vollständig geöffnet
 
+# Backlog 2026-11-02 – Kessel-/Pumpen-Relais-Signal aus aggregiertem Raum-Wärmebedarf. Rein
+# additiv zur bestehenden TRV-only-Steuerung (siehe Kapitel 1/14 CLAUDE.md) - TRVs regeln
+# weiterhin jedes Zimmer einzeln, dieses Signal schaltet nur zusätzlich einen externen Kessel-/
+# Pumpen-Schalter, für Nutzer die TRVs UND einen Wärmeerzeuger mit Ein/Aus-Signal haben.
+CONF_BOILER_SWITCH_ENTITY: Final = "boiler_switch_entity"  # global, optional switch.*
+CONF_BOILER_MIN_ON_SECONDS: Final = "boiler_min_on_seconds"
+DEFAULT_BOILER_MIN_ON_SECONDS: Final = 300  # 5 min - gegen Kurztakten/Relais-Verschleiß
+CONF_BOILER_MIN_OFF_SECONDS: Final = "boiler_min_off_seconds"
+DEFAULT_BOILER_MIN_OFF_SECONDS: Final = 300
+
 # v1.8 – Peak Shaving: stagger room demand activation after boiler start
 CONF_PEAK_SHAVING_ENABLED: Final = "peak_shaving_enabled"
 DEFAULT_PEAK_SHAVING_ENABLED: Final = False

@@ -5133,6 +5133,43 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
+      <!-- ── Kessel-Relais-Signal ───────────────────────────── -->
+      <details class="ihc-card" ${a.boiler_switch_entity ? "open" : ""}>
+        <summary>
+          <span class="ihc-card-title">🔥 Kessel-/Pumpen-Relais
+            ${a.boiler_switch_entity ? activeBadge("Aktiv") : ""}
+          </span>
+        </summary>
+        <div class="ihc-card-body">
+          <div class="info-box">
+            Zusätzlich zur TRV-Steuerung: schaltet einen externen Kessel-/Pumpen-Schalter ein/aus,
+            je nachdem ob irgendein Zimmer gerade Wärme anfordert. Die TRVs regeln weiterhin jedes
+            Zimmer einzeln – das hier ist nur ein zusätzliches Ausgangssignal für Nutzer mit TRVs
+            UND einem Wärmeerzeuger, der ein Ein/Aus-Signal braucht. Ohne konfigurierten Schalter
+            passiert nichts.
+          </div>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label>Kessel-/Pumpen-Schalter</label>
+              <input type="text" class="form-input" id="boiler-switch-entity" value="${a.boiler_switch_entity ?? ""}"
+                placeholder="switch.heizungspumpe" data-ep-domains="switch" autocomplete="off">
+            </div>
+            <div class="settings-item">
+              <label>Mindest-Einschaltzeit (s)</label>
+              <input type="number" class="form-input" id="boiler-min-on" min="0" max="1800" step="30" value="${a.boiler_min_on_seconds ?? 300}">
+              <span class="form-hint">Schützt die Hardware vor Kurztakten.</span>
+            </div>
+            <div class="settings-item">
+              <label>Mindest-Ausschaltzeit (s)</label>
+              <input type="number" class="form-input" id="boiler-min-off" min="0" max="1800" step="30" value="${a.boiler_min_off_seconds ?? 300}">
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="save-boiler-settings">💾 Kessel-Relais speichern</button>
+          </div>
+        </div>
+      </details>
+
       <!-- ── Urlaubs-Assistent ───────────────────────────── -->
       <details class="ihc-card" ${g.vacation_auto_active || a.vacation_start ? "open" : ""}>
         <summary>
@@ -5406,6 +5443,18 @@ class IHCPanel extends HTMLElement {
         peak_shaving_delay_minutes: parseInt(content.querySelector("#peak-shaving-delay")?.value, 10) || 3,
       });
       this._toast("✓ Peak Shaving gespeichert");
+    });
+
+    content.querySelector("#save-boiler-settings")?.addEventListener("click", () => {
+      const boilerMinOn  = parseInt(content.querySelector("#boiler-min-on")?.value, 10);
+      const boilerMinOff = parseInt(content.querySelector("#boiler-min-off")?.value, 10);
+      if ([boilerMinOn, boilerMinOff].some(isNaN)) { this._toast("⚠️ Ungültiger Wert"); return; }
+      this._callService("update_global_settings", {
+        boiler_switch_entity:    content.querySelector("#boiler-switch-entity")?.value.trim() || "",
+        boiler_min_on_seconds:   boilerMinOn,
+        boiler_min_off_seconds:  boilerMinOff,
+      });
+      this._toast("✓ Kessel-Relais gespeichert");
     });
 
     content.querySelector("#save-limescale-settings")?.addEventListener("click", () => {

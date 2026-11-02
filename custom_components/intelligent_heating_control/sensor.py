@@ -107,6 +107,9 @@ from .const import (
     CONF_HOLIDAY_SCHEDULE_MODE,
     DEFAULT_HOLIDAY_SCHEDULE_MODE,
     # v1.8 – Peak Shaving
+    CONF_BOILER_SWITCH_ENTITY,
+    CONF_BOILER_MIN_ON_SECONDS, DEFAULT_BOILER_MIN_ON_SECONDS,
+    CONF_BOILER_MIN_OFF_SECONDS, DEFAULT_BOILER_MIN_OFF_SECONDS,
     CONF_PEAK_SHAVING_ENABLED,
     DEFAULT_PEAK_SHAVING_ENABLED,
     CONF_PEAK_SHAVING_DELAY_MINUTES,
@@ -356,6 +359,10 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             # v1.8 – Peak Shaving
             "peak_shaving_enabled":            cfg.get(CONF_PEAK_SHAVING_ENABLED, DEFAULT_PEAK_SHAVING_ENABLED),
             "peak_shaving_delay_minutes":      cfg.get(CONF_PEAK_SHAVING_DELAY_MINUTES, DEFAULT_PEAK_SHAVING_DELAY_MINUTES),
+            # Backlog 2026-11-02 – Kessel-Relais-Signal
+            "boiler_switch_entity":     cfg.get(CONF_BOILER_SWITCH_ENTITY, ""),
+            "boiler_min_on_seconds":    cfg.get(CONF_BOILER_MIN_ON_SECONDS, DEFAULT_BOILER_MIN_ON_SECONDS),
+            "boiler_min_off_seconds":   cfg.get(CONF_BOILER_MIN_OFF_SECONDS, DEFAULT_BOILER_MIN_OFF_SECONDS),
         }
 
 

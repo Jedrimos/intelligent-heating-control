@@ -551,6 +551,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "holiday_calendar", "holiday_schedule_mode",
             # v1.8 – Peak Shaving
             "peak_shaving_enabled", "peak_shaving_delay_minutes",
+            # Backlog 2026-11-02 – Kessel-Relais-Signal
+            "boiler_switch_entity", "boiler_min_on_seconds", "boiler_min_off_seconds",
             # Fester Timeout für manuelle Zimmer-Übersteuerung
             "manual_override_timeout_minutes",
             # Warmup-Stall-Watchdog

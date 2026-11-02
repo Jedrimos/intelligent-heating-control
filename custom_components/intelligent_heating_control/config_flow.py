@@ -213,6 +213,11 @@ from .const import (
     DEFAULT_PEAK_SHAVING_ENABLED,
     CONF_PEAK_SHAVING_DELAY_MINUTES,
     DEFAULT_PEAK_SHAVING_DELAY_MINUTES,
+    CONF_BOILER_SWITCH_ENTITY,
+    CONF_BOILER_MIN_ON_SECONDS,
+    DEFAULT_BOILER_MIN_ON_SECONDS,
+    CONF_BOILER_MIN_OFF_SECONDS,
+    DEFAULT_BOILER_MIN_OFF_SECONDS,
     # New features
     CONF_TRV_CALIBRATIONS,
     CONF_ROOM_TEMP_THRESHOLD,
@@ -798,6 +803,19 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "number": {"min": 1, "max": 15, "step": 1, "unit_of_measurement": "min", "mode": "slider"}
             }),
+            # --- Backlog 2026-11-02: Kessel-/Pumpen-Relais-Signal (additiv zu TRV-only) ---
+            vol.Optional(
+                CONF_BOILER_SWITCH_ENTITY,
+                default=cfg.get(CONF_BOILER_SWITCH_ENTITY, "")
+            ): selector.selector({"entity": {"domain": "switch"}}),
+            vol.Optional(
+                CONF_BOILER_MIN_ON_SECONDS,
+                default=int(cfg.get(CONF_BOILER_MIN_ON_SECONDS, DEFAULT_BOILER_MIN_ON_SECONDS))
+            ): selector.selector({"number": {"min": 0, "max": 1800, "step": 30, "unit_of_measurement": "s"}}),
+            vol.Optional(
+                CONF_BOILER_MIN_OFF_SECONDS,
+                default=int(cfg.get(CONF_BOILER_MIN_OFF_SECONDS, DEFAULT_BOILER_MIN_OFF_SECONDS))
+            ): selector.selector({"number": {"min": 0, "max": 1800, "step": 30, "unit_of_measurement": "s"}}),
             # --- Urlaubs-Assistent / Gäste-Modus / Preisprognose ---
             # Plain text (not a date selector) so an empty/unset value round-trips cleanly -
             # the custom panel's own date inputs write the same "YYYY-MM-DD" / "" format.
