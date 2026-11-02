@@ -337,6 +337,9 @@ class IHCCoordinator(
         self._window_open_counters: Dict[str, int] = {}  # room_id → consecutive drops
         self._boost_until: Dict[str, datetime] = {}  # room_id → boost expiry time
         self._room_pre_boost_mode: Dict[str, str] = {}  # room_id → mode before boost
+        # Backlog 2026-11-02 – Kindersicherung: room_id → locked. Runtime state like
+        # room_mode (toggled via switch.ihc_<room>_kindersicherung, not config_flow).
+        self._room_child_locks: Dict[str, bool] = {}
         # HA schedule.* entities already warned about (logged once, not every 60s cycle)
         self._ha_schedule_warned: set = set()  # entity_ids already warned about
 
@@ -588,6 +591,7 @@ class IHCCoordinator(
         self._system_mode = loaded_mode if loaded_mode in SYSTEM_MODES else SYSTEM_MODE_AUTO
         self._room_modes = data.get("room_modes", {})
         self._room_manual_temps = data.get("room_manual_temps", {})
+        self._room_child_locks = data.get("room_child_locks", {})
         # Populate manual tracking for rooms that were in MANUAL mode before restart.
         # Without a timestamp, the auto-reset logic would never fire after restart.
         # Setting utcnow() means: any schedule change AFTER restart will trigger auto-reset.
@@ -704,6 +708,7 @@ class IHCCoordinator(
             "system_mode": self._system_mode,
             "room_modes": self._room_modes,
             "room_manual_temps": self._room_manual_temps,
+            "room_child_locks": self._room_child_locks,
             "presence_away_active": self._presence_away_active,
             "presence_away_pending_since": self._presence_away_pending_since.isoformat() if self._presence_away_pending_since else None,
             "presence_arrive_pending_since": self._presence_arrive_pending_since.isoformat() if self._presence_arrive_pending_since else None,
@@ -869,6 +874,37 @@ class IHCCoordinator(
 
     def get_room_mode(self, room_id: str) -> str:
         return self._room_modes.get(room_id, ROOM_MODE_AUTO)
+
+    def is_room_child_locked(self, room_id: str) -> bool:
+        """Backlog 2026-11-02 – Kindersicherung: True = IHC must not touch this room's
+        TRVs or mode at all (enforced in _update_phase_apply_trv_setpoints, the one place
+        that actually writes to hardware - see CLAUDE.md Kapitel 15 Phase D)."""
+        return self._room_child_locks.get(room_id, False)
+
+    def set_child_lock(self, room_id: str, locked: bool) -> None:
+        self._room_child_locks[room_id] = locked
+        self.async_update_listeners()
+        self._schedule_save()
+        self.hass.async_create_task(self.async_request_refresh())
+
+    async def async_reset_all_rooms(self) -> None:
+        """Backlog 2026-11-02 – globaler Reset: every room back to AUTO in one action.
+        Skips child-locked rooms - a lock means hands-off, not even a "helpful" reset.
+        """
+        for room in self.get_rooms():
+            room_id = room.get(CONF_ROOM_ID, "")
+            if not room_id or self.is_room_child_locked(room_id):
+                continue
+            if room_id in self._boost_until:
+                self._boost_until.pop(room_id, None)
+                self._room_pre_boost_mode.pop(room_id, None)
+            self._room_manual_since.pop(room_id, None)
+            self._room_manual_period_key.pop(room_id, None)
+            self._room_modes[room_id] = ROOM_MODE_AUTO
+        self._prefill_window_states()
+        self.async_update_listeners()
+        await self._async_save_runtime_state()
+        await self.async_request_refresh()
 
     def set_room_manual_temp(self, room_id: str, temp: float) -> None:
         self._room_manual_temps[room_id] = temp
@@ -1189,6 +1225,8 @@ class IHCCoordinator(
                 rdata = room_data[room_id]
                 if rdata.get("source") == "temp_threshold_override":
                     continue
+                if rdata.get("child_lock"):
+                    continue  # Kindersicherung: hands-off, no "would like to heat" hint either
                 current_temp = rdata.get("current_temp")
                 target_temp = rdata.get("target_temp")
                 if current_temp is None or target_temp is None:
@@ -1238,7 +1276,7 @@ class IHCCoordinator(
         else:
             should_notify_now = {
                 room_id for room_id, rdata in room_data.items()
-                if rdata.get("warmup_stall_active")
+                if rdata.get("warmup_stall_active") and not rdata.get("child_lock")
             }
 
         for room_id in should_notify_now - self._warmup_stall_notified_rooms:
@@ -2086,6 +2124,8 @@ class IHCCoordinator(
             "window_open": window_open,
             "room_mode": room_mode,
             "ignore_heating_period": bool(room.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
+            # Backlog 2026-11-02 – Kindersicherung: enforced in _update_phase_apply_trv_setpoints
+            "child_lock": self.is_room_child_locked(room_id),
             "manual_temp": self.get_room_manual_temp(room_id),
             "boost_remaining": self.get_boost_remaining_minutes(room_id),
             "temp_history":   self.get_temp_history(room_id),    # Roadmap 1.1
@@ -2258,9 +2298,9 @@ class IHCCoordinator(
         elif not heating_period_active:
             global_suppressed_reason = "Heizperiode inaktiv"
         for room_id, rdata in room_data.items():
-            reason = get_decision_reason(rdata.get("source"))
+            reason = "\U0001f512 Kindersicherung aktiv" if rdata.get("child_lock") else get_decision_reason(rdata.get("source"))
             rdata["reason"] = reason
-            rdata["no_heat_reason"] = get_no_heat_reason(rdata, global_suppressed_reason)
+            rdata["no_heat_reason"] = None if rdata.get("child_lock") else get_no_heat_reason(rdata, global_suppressed_reason)
             decision_key = (rdata.get("source"), rdata.get("target_temp"))
             last_decision = self._room_last_decision.get(room_id)
             if last_decision is not None and last_decision != decision_key:
@@ -2315,12 +2355,18 @@ class IHCCoordinator(
         if startup_grace_active:
             # Startup grace: hold all TRVs at frost-protection temp until sensors report.
             # Windows might be open — don't blast heat into unknown room states.
+            # Kindersicherung (Backlog 2026-11-02) outranks even this - a locked room must
+            # not be touched by IHC at all, see CLAUDE.md Kapitel 15 Phase D.
             _frost = self._get_frost_protection_temp()
             for _room in self.get_rooms():
+                if self.is_room_child_locked(_room.get(CONF_ROOM_ID, "")):
+                    continue
                 self._set_valve_entities(_room, _frost)
         for room in self.get_rooms():
             room_id = room.get(CONF_ROOM_ID, "")
             if not room_id or room_id not in room_data:
+                continue
+            if room_data[room_id].get("child_lock"):
                 continue
             if startup_grace_active:
                 continue  # already handled above
@@ -2690,6 +2736,7 @@ class IHCCoordinator(
         )
         self._room_modes.pop(room_id, None)
         self._room_manual_temps.pop(room_id, None)
+        self._room_child_locks.pop(room_id, None)
         self._schedule_managers.pop(room_id, None)
 
         # Remove all HA entities associated with this room from the entity registry

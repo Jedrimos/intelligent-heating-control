@@ -2,7 +2,8 @@
 from typing import Final
 
 DOMAIN: Final = "intelligent_heating_control"
-PLATFORMS: Final = ["climate", "sensor", "binary_sensor", "switch", "number", "select"]
+# "button" added Backlog 2026-11-02 for the globale Reset-Button (Kindersicherung-Feature)
+PLATFORMS: Final = ["climate", "sensor", "binary_sensor", "switch", "number", "select", "button"]
 
 # Config keys - global
 CONF_OUTDOOR_TEMP_SENSOR: Final = "outdoor_temp_sensor"
@@ -208,6 +209,11 @@ SERVICE_RESET_STATS: Final = "reset_stats"
 # "source" (the rule that decided target_temp - see room_logic.py _calculate_target_temp)
 # changes, analogous to home-assistant's own *_changed event naming convention.
 EVENT_DECISION_CHANGED: Final = f"{DOMAIN}_decision_changed"
+
+# Backlog 2026-11-02 – Kindersicherung: globaler "alle Zimmer zurück auf Auto" Service.
+# Per-room lock itself is runtime state (switch.ihc_<room>_kindersicherung, like room_mode -
+# no CONF_* needed), persisted via coordinator runtime state, not config_flow.
+SERVICE_RESET_ALL_ROOMS: Final = "reset_all_rooms"
 
 # Roadmap 1.3 – Energy optimisation
 CONF_SOLAR_ENTITY: Final = "solar_entity"                       # solar power sensor (W)

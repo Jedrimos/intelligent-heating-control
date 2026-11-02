@@ -1259,9 +1259,17 @@ regeln weiterhin jedes Zimmer einzeln, siehe Kapitel 1/14).
 - [x] **Prioritätenliste dokumentieren** – siehe Kapitel 15 "Prioritätenkette" unten. IHCs
   Entscheidungslogik war schon immer strikt priorisiert, aber über vier Methoden verteilt und
   nie an einer Stelle aufgeschrieben.
-- [ ] **Kindersicherung + globaler Reset-Button** – pro Zimmer eine Sperre, die IHC komplett
-  von diesem Zimmer fernhält (auch Fenster-Erkennung/Sommerautomatik dürfen es nicht mehr
-  anfassen), plus ein globaler "alle Zimmer zurück auf Auto"-Button/Service.
+- [x] **Kindersicherung + globaler Reset-Button** – `switch.ihc_<zimmer>_kindersicherung` pro
+  Zimmer: Runtime-State wie `room_mode` (kein `CONF_*`/config_flow, bewusst zum häufigen
+  Umschalten gedacht), persistiert, enforced als höchste Regel in Phase D direkt nach der
+  Start-Gnadenfrist (`coordinator._update_phase_apply_trv_setpoints` – siehe Kapitel 15): ein
+  gesperrtes Zimmer wird von IHC in keiner Weise mehr angefasst, auch nicht bei offenem Fenster
+  oder inaktiver Heizperiode/Sommerautomatik. Decision-Sensor/climate-Attribut `reason` zeigt
+  "🔒 Kindersicherung aktiv", Heizperioden-/Warmup-Stall-Benachrichtigungen werden für gesperrte
+  Zimmer unterdrückt. Globaler Reset als echter `button.ihc_alle_zimmer_zuruecksetzen`
+  (`coordinator.async_reset_all_rooms()`, neue Plattform `button.py`) **und** Service
+  `reset_all_rooms` – setzt jedes nicht gesperrte Zimmer zurück auf Auto (bricht
+  Boost/Manuell/etc. ab), gesperrte Zimmer werden übersprungen.
 
 ---
 

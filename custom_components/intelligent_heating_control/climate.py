@@ -379,6 +379,8 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             # plus why a below-target room isn't heating right now (None = nothing to explain)
             "reason": d.get("reason", ""),
             "no_heat_reason": d.get("no_heat_reason"),
+            # Backlog 2026-11-02 – Kindersicherung: see switch.ihc_<room>_kindersicherung
+            "child_lock": d.get("child_lock", False),
             "room_id": self._room_id,
             "boost_remaining": d.get("boost_remaining", 0),
             "night_setback": d.get("night_setback", 0.0),

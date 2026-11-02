@@ -28,6 +28,8 @@ from .const import (
     SERVICE_ACTIVATE_GUEST_MODE,
     SERVICE_DEACTIVATE_GUEST_MODE,
     SERVICE_RESET_STATS,
+    # Backlog 2026-11-02 – Kindersicherung: globaler Reset-Button/Service
+    SERVICE_RESET_ALL_ROOMS,
     # v1.7 – Heizgruppen
     SERVICE_ADD_GROUP,
     SERVICE_REMOVE_GROUP,
@@ -215,6 +217,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_SET_ROOM_MODE, SERVICE_SET_SYSTEM_MODE, SERVICE_BOOST_ROOM,
         SERVICE_RELOAD, SERVICE_EXPORT_CONFIG, SERVICE_UPDATE_GLOBAL_SETTINGS,
         SERVICE_ACTIVATE_GUEST_MODE, SERVICE_DEACTIVATE_GUEST_MODE, SERVICE_RESET_STATS,
+        SERVICE_RESET_ALL_ROOMS,
         # v1.7 – Heizgruppen (must be unregistered here too)
         SERVICE_ADD_GROUP, SERVICE_REMOVE_GROUP, SERVICE_UPDATE_GROUP, SERVICE_SET_GROUP_MODE,
     ]:
@@ -594,6 +597,10 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         coordinator.reset_runtime_stats()
         await coordinator.async_request_refresh()
 
+    async def handle_reset_all_rooms(call: ServiceCall) -> None:
+        """Backlog 2026-11-02 – globaler Reset: every room back to AUTO mode."""
+        await coordinator.async_reset_all_rooms()
+
     # v1.7 – Heizgruppen
     async def handle_add_group(call: ServiceCall) -> None:
         name = call.data.get(CONF_GROUP_NAME, "Neue Gruppe")
@@ -639,6 +646,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     hass.services.async_register(DOMAIN, SERVICE_EXPORT_CONFIG, handle_export_config)
     hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_GUEST_MODE, handle_activate_guest_mode)
     hass.services.async_register(DOMAIN, SERVICE_DEACTIVATE_GUEST_MODE, handle_deactivate_guest_mode)
+    hass.services.async_register(DOMAIN, SERVICE_RESET_ALL_ROOMS, handle_reset_all_rooms)
 
     # v1.7 – Heizgruppen: add/remove/update are config-changing, set_group_mode is day-to-day
     async_register_admin_service(hass, DOMAIN, SERVICE_ADD_GROUP, handle_add_group)

@@ -870,5 +870,6 @@ class IHCRoomDecisionSensor(_IHCBase, SensorEntity):
                 "demand": room.get("demand"),
                 "window_open": room.get("window_open", False),
                 "room_mode": room.get("room_mode", "auto"),
+                "child_lock": room.get("child_lock", False),
             }
         return {}

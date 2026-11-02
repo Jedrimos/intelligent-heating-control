@@ -10,10 +10,21 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, SYSTEM_MODE_OFF, SYSTEM_MODE_AUTO
+from .const import DOMAIN, SYSTEM_MODE_OFF, SYSTEM_MODE_AUTO, CONF_ROOM_ID, CONF_ROOM_NAME
 from .coordinator import IHCCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _room_device_info(entry_id: str, room_id: str, room_name: str) -> dict:
+    """Return per-room device info linked to the hub device."""
+    return {
+        "identifiers": {(DOMAIN, f"{entry_id}_{room_id}")},
+        "name": f"IHC {room_name}",
+        "manufacturer": "IHC",
+        "model": "Zimmer",
+        "via_device": (DOMAIN, entry_id),
+    }
 
 
 async def async_setup_entry(
@@ -22,9 +33,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: IHCCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([
+    entities: list = [
         IHCHeatingSwitch(coordinator, entry),
-    ], update_before_add=True)
+    ]
+    for room in coordinator.get_rooms():
+        entities.append(IHCRoomChildLockSwitch(coordinator, entry, room))
+    async_add_entities(entities, update_before_add=True)
 
 
 class IHCHeatingSwitch(CoordinatorEntity, SwitchEntity):
@@ -72,3 +86,38 @@ class IHCHeatingSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self.coordinator.set_system_mode(SYSTEM_MODE_OFF)
+
+
+class IHCRoomChildLockSwitch(CoordinatorEntity, SwitchEntity):
+    """Backlog 2026-11-02 – Kindersicherung pro Zimmer.
+
+    ON = IHC must not touch this room's TRVs or mode at all - no schedule, no mode
+    auto-reset, no window/Sommerautomatik shutoff, nothing (enforced in
+    coordinator._update_phase_apply_trv_setpoints - see CLAUDE.md Kapitel 15 Phase D).
+    Runtime state like room_mode, not config_flow - meant to be flipped often.
+    """
+
+    _attr_has_entity_name = False
+    _attr_icon = "mdi:lock"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
+        super().__init__(coordinator)
+        self._room_id = room[CONF_ROOM_ID]
+        self._room_name = room.get(CONF_ROOM_NAME, self._room_id)
+        self._entry_id = entry.entry_id
+        self._attr_unique_id = f"{entry.entry_id}_room_{self._room_id}_child_lock"
+        self._attr_name = f"IHC {self._room_name} Kindersicherung"
+
+    @property
+    def device_info(self):
+        return _room_device_info(self._entry_id, self._room_id, self._room_name)
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.is_room_child_locked(self._room_id)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self.coordinator.set_child_lock(self._room_id, True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self.coordinator.set_child_lock(self._room_id, False)

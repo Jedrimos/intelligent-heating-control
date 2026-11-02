@@ -1912,6 +1912,12 @@ reset_stats:
   name: Statistik zurücksetzen
   description: Setzt alle Laufzeit- und Energiestatistiken auf Null zurück.
 
+reset_all_rooms:
+  name: Alle Zimmer zurücksetzen
+  description: >-
+    Setzt jedes Zimmer auf den Automatik-Modus zurück (bricht Boost/Manuell/Eco/etc. ab).
+    Zimmer mit aktiver Kindersicherung werden dabei übersprungen.
+
 # ── v1.7 Heizgruppen ──────────────────────────────────────────────────────────
 
 add_group:
