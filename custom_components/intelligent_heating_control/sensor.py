@@ -145,6 +145,7 @@ async def async_setup_entry(
         if room.get("humidity_sensor"):
             entities.append(IHCRoomHumiditySensor(coordinator, entry, room))
         entities.append(IHCRoomFeltTempSensor(coordinator, entry, room))
+        entities.append(IHCRoomDecisionSensor(coordinator, entry, room))
     async_add_entities(entities, update_before_add=True)
 
 
@@ -823,5 +824,51 @@ class IHCRoomFeltTempSensor(_IHCBase, SensorEntity):
                 "actual_temp": room.get("current_temp"),
                 "humidity": room.get("humidity") if room.get("humidity") is not None else room.get("trv_humidity"),
                 "room_id": self._room_id,
+            }
+        return {}
+
+
+class IHCRoomDecisionSensor(_IHCBase, SensorEntity):
+    """Backlog 2026-11-02 – which rule currently decides this room's target temperature.
+
+    State is the raw, stable "source" tag (good for automations); the human-readable
+    translation lives in the "reason" attribute (see decision_reason.get_decision_reason).
+    Fires EVENT_DECISION_CHANGED (coordinator._update_phase_aggregate_and_runtime)
+    whenever this changes, instead of only being pollable here.
+    """
+
+    _attr_icon = "mdi:thought-bubble-outline"
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict) -> None:
+        super().__init__(coordinator, entry)
+        self._room_id = room[CONF_ROOM_ID]
+        self._room_name = room.get(CONF_ROOM_NAME, self._room_id)
+        self._attr_unique_id = f"{entry.entry_id}_room_{self._room_id}_decision"
+        self._attr_name = f"IHC {self._room_name} Entscheidung"
+
+    @property
+    def device_info(self):
+        return self._room_device_info(self._room_id, self._room_name)
+
+    @property
+    def native_value(self) -> Optional[str]:
+        if self.coordinator.data:
+            room = self.coordinator.data.get("rooms", {}).get(self._room_id)
+            if room:
+                return room.get("source") or "unknown"
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        if self.coordinator.data:
+            room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+            return {
+                "reason": room.get("reason", ""),
+                "no_heat_reason": room.get("no_heat_reason"),
+                "target_temp": room.get("target_temp"),
+                "current_temp": room.get("current_temp"),
+                "demand": room.get("demand"),
+                "window_open": room.get("window_open", False),
+                "room_mode": room.get("room_mode", "auto"),
             }
         return {}

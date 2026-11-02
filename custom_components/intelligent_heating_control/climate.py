@@ -375,6 +375,10 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             ATTR_WINDOW_OPEN: d.get("window_open", False),
             ATTR_ROOM_MODE: d.get("room_mode", ROOM_MODE_AUTO),
             "source": d.get("source", ""),
+            # Backlog 2026-11-02 – Decision-Sensor: human translation of "source" above,
+            # plus why a below-target room isn't heating right now (None = nothing to explain)
+            "reason": d.get("reason", ""),
+            "no_heat_reason": d.get("no_heat_reason"),
             "room_id": self._room_id,
             "boost_remaining": d.get("boost_remaining", 0),
             "night_setback": d.get("night_setback", 0.0),

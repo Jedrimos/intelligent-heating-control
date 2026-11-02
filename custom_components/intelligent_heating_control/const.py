@@ -204,6 +204,11 @@ SERVICE_ACTIVATE_GUEST_MODE: Final = "activate_guest_mode"
 SERVICE_DEACTIVATE_GUEST_MODE: Final = "deactivate_guest_mode"
 SERVICE_RESET_STATS: Final = "reset_stats"
 
+# Backlog 2026-11-02 – Decision-Sensor: fired per room whenever its priority-chain
+# "source" (the rule that decided target_temp - see room_logic.py _calculate_target_temp)
+# changes, analogous to home-assistant's own *_changed event naming convention.
+EVENT_DECISION_CHANGED: Final = f"{DOMAIN}_decision_changed"
+
 # Roadmap 1.3 – Energy optimisation
 CONF_SOLAR_ENTITY: Final = "solar_entity"                       # solar power sensor (W)
 CONF_SOLAR_SURPLUS_THRESHOLD: Final = "solar_surplus_threshold" # W above which surplus is detected

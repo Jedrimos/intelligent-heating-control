@@ -33,6 +33,7 @@ from .presence_manager import PresenceManagerMixin
 from .window_manager import WindowManagerMixin
 from .trv_controller import TRVControllerMixin
 from .room_logic import RoomLogicMixin
+from .decision_reason import get_decision_reason, get_no_heat_reason
 from .energy_manager import EnergyManagerMixin
 from .comfort_manager import ComfortManagerMixin
 from .vacation_manager import VacationManagerMixin
@@ -249,6 +250,8 @@ from .const import (
     DEFAULT_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
     CONF_WARMUP_STALL_NOTIFY_ENABLED,
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
+    # Backlog 2026-11-02 – Decision-Sensor pro Zimmer + Event
+    EVENT_DECISION_CHANGED,
     # v1.5 – Price forecast
     CONF_PRICE_FORECAST_ATTRIBUTE,
     DEFAULT_PRICE_FORECAST_ATTRIBUTE,
@@ -469,6 +472,10 @@ class IHCCoordinator(
         # Window restore mode: track per-room state to detect open→closed transitions
         self._prev_window_open: Dict[str, bool] = {}               # room_id → was window open last cycle
         self._pre_window_temps: Dict[str, float] = {}              # room_id → target_temp before window opened
+        # Backlog 2026-11-02 – Decision-Sensor: last-seen (source, target_temp) per room, to
+        # fire EVENT_DECISION_CHANGED only when the decision actually changes, not every cycle.
+        # Transient (not persisted) - a restart just re-fires once for the first real change.
+        self._room_last_decision: Dict[str, tuple] = {}
         # Last-known sensor temperature cache: entity_id → (value, timestamp)
         # Used as fallback when a sensor goes unavailable during normal operation.
         # Stale after SENSOR_FALLBACK_SECONDS (30 min) → returns None again.
@@ -2239,6 +2246,34 @@ class IHCCoordinator(
         room_ids = list(room_data.keys())
         for room_id, rdata in room_data.items():
             rdata["thermal_bridge"] = self.get_thermal_bridge_status(room_id, room_ids)
+
+        # Backlog 2026-11-02 – Decision-Sensor pro Zimmer: translate each room's raw
+        # "source" into a human reason, explain why it isn't heating despite being below
+        # target (if applicable), and fire EVENT_DECISION_CHANGED when the decision changes.
+        global_suppressed_reason = None
+        if startup_grace_active:
+            global_suppressed_reason = "Start-Gnadenfrist aktiv (Sensoren initialisieren)"
+        elif summer_mode:
+            global_suppressed_reason = "Sommerautomatik aktiv"
+        elif not heating_period_active:
+            global_suppressed_reason = "Heizperiode inaktiv"
+        for room_id, rdata in room_data.items():
+            reason = get_decision_reason(rdata.get("source"))
+            rdata["reason"] = reason
+            rdata["no_heat_reason"] = get_no_heat_reason(rdata, global_suppressed_reason)
+            decision_key = (rdata.get("source"), rdata.get("target_temp"))
+            last_decision = self._room_last_decision.get(room_id)
+            if last_decision is not None and last_decision != decision_key:
+                self.hass.bus.async_fire(EVENT_DECISION_CHANGED, {
+                    "room_id": room_id,
+                    "room_name": rdata.get("name", room_id),
+                    "old_rule": last_decision[0],
+                    "rule": decision_key[0],
+                    "old_target": last_decision[1],
+                    "target": decision_key[1],
+                    "reason": reason,
+                })
+            self._room_last_decision[room_id] = decision_key
 
         ctx.update({
             "heating_period_active": heating_period_active,
