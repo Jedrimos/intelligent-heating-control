@@ -8,7 +8,7 @@ from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers.service import async_register_admin_service
+from homeassistant.exceptions import Unauthorized
 
 from .const import (
     DOMAIN,
@@ -165,6 +165,22 @@ def _coerce_bool(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in ("1", "true", "yes", "on")
     return bool(value)
+
+
+def async_register_admin_service(hass: HomeAssistant, domain: str, service: str, handler) -> None:
+    """Admin-only service WITHOUT a call-data schema.
+
+    HA's own async_register_admin_service defaults to an empty schema that rejects every
+    key since HA 2026.11 ("not a valid option at 'id'"), breaking all our admin services.
+    """
+    async def _admin_handler(call: ServiceCall) -> None:
+        if call.context.user_id:
+            user = await hass.auth.async_get_user(call.context.user_id)
+            if user is None or not user.is_admin:
+                raise Unauthorized(context=call.context)
+        await handler(call)
+
+    hass.services.async_register(domain, service, _admin_handler)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
