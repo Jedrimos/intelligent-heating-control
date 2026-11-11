@@ -14,6 +14,15 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.3.1] - 2026-11-11
+
+### Behoben
+- **Eco-/Schlaf-/Abwesend-Maximum wurde von Aufschlägen übersprungen:** Schimmelschutz (+1 °C),
+  Solar-, Preis-, Kälteprognose- und CO₂-Aufschlag begrenzten nur auf das harte Raummaximum.
+  Bei Schlaf-Maximum 17 °C und Schimmelrisiko wurde so 16,8 + 1 = 17,8 (angezeigt 18 °C) geheizt.
+  Nach allen Aufschlägen wird jetzt auf das Maximum des aktiven Modus begrenzt (ausgenommen
+  Komfort-Verlängerung und Schlaf-Temperaturprofil).
+
 ## [2.3.0] - 2026-10-31
 
 ### Neu
