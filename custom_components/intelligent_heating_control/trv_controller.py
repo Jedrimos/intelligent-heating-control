@@ -6,6 +6,7 @@ import time
 from typing import Optional
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -46,6 +47,11 @@ TRV_TEMP_HYSTERESIS = 0.3       # °C – only send update if setpoint changes b
 TRV_LARGE_CHANGE_THRESHOLD = 1.0  # °C – above this, always send immediately (mode change etc.)
 TRV_SETPOINT_STEP = 0.5         # °C – quantise setpoint to TRV resolution (most TRVs: 0.5 °C)
 
+# Heating inference for TRVs that report neither hvac_action nor a valve position (e.g. Matter
+# thermostats): a TRV only opens its valve while its own (radiator-side) temperature is below its
+# setpoint, so "setpoint - own temperature >= gap" means the valve is open and the radiator heats.
+TRV_HEATING_INFER_GAP_C = 0.5
+
 # TRV offset calibration assistant (see _update_trv_offset_calibration /
 # get_suggested_trv_offset): rolling sample cap and the minimum sample count
 # before a suggestion is considered reliable enough to show.
@@ -77,6 +83,7 @@ class TRVControllerMixin:
         humidities: list[float] = []
         valve_positions: list[float] = []
         hvac_actions: list[str] = []
+        inferred_heating = False
 
         calibrations: dict = room.get(CONF_TRV_CALIBRATIONS) or {}
 
@@ -97,6 +104,8 @@ class TRVControllerMixin:
             # Use "is not None" checks to avoid falsy-0 fallthrough (humidity=0 is valid)
             _h = attrs.get("humidity")
             h = _h if _h is not None else attrs.get("current_humidity")
+            if h is None:
+                h = self._get_trv_sibling_humidity(eid)
             if h is not None:
                 try:
                     humidities.append(float(h))
@@ -120,6 +129,15 @@ class TRVControllerMixin:
             action = attrs.get("hvac_action", "")
             if action:
                 hvac_actions.append(str(action))
+            elif vp is None and state.state != "off":
+                # No hvac_action and no valve position: infer from setpoint vs. own temperature
+                _sp = attrs.get("temperature")
+                if _sp is not None and t is not None:
+                    try:
+                        if float(_sp) - float(t) >= TRV_HEATING_INFER_GAP_C:
+                            inferred_heating = True
+                    except (ValueError, TypeError):
+                        pass
 
         batteries: list[float] = []
         for eid in entities:
@@ -145,11 +163,36 @@ class TRVControllerMixin:
             "trv_humidity": round(sum(humidities) / len(humidities), 1) if humidities else None,
             "trv_valve_positions": valve_positions,
             "trv_avg_valve": round(sum(valve_positions) / len(valve_positions), 1) if valve_positions else None,
-            "trv_any_heating": any(a == "heating" for a in hvac_actions),
+            "trv_any_heating": any(a == "heating" for a in hvac_actions) or inferred_heating,
+            "trv_heating_inferred": inferred_heating,
             "trv_hvac_actions": hvac_actions,
             "trv_min_battery": trv_min_battery,
             "trv_low_battery": trv_low_battery,
         }
+
+    def _get_trv_sibling_humidity(self, climate_entity_id: str) -> Optional[float]:
+        """Humidity of the TRV's own device when the climate entity doesn't carry it as an
+        attribute (Matter/other integrations expose it as a separate sensor entity)."""
+        try:
+            reg = er.async_get(self.hass)
+            entry = reg.async_get(climate_entity_id)
+            if entry is None or not entry.device_id:
+                return None
+            for sib in er.async_entries_for_device(reg, entry.device_id):
+                if sib.domain != "sensor":
+                    continue
+                if (sib.device_class or sib.original_device_class) != "humidity":
+                    continue
+                st = self.hass.states.get(sib.entity_id)
+                if st is None or st.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                    continue
+                try:
+                    return float(st.state)
+                except (ValueError, TypeError):
+                    continue
+        except Exception:  # noqa: BLE001 - registry lookup must never break the update cycle
+            _LOGGER.debug("IHC: TRV humidity lookup failed for %s", climate_entity_id, exc_info=True)
+        return None
 
     def _blend_trv_temp(
         self,

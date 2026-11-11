@@ -349,7 +349,10 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
         # Fallback for TRVs that don't report valve position or hvac_action:
         # show HEATING whenever IHC is actively trying to heat the room
         # (target above current – the TRV received a setpoint above room temp).
+        # Only when the TRV gave us no data at all - otherwise trv_any_heating already holds the
+        # (reported or inferred) answer and a closed valve must show IDLE.
         if (trv_avg_valve is None and not trv_any_heating
+                and d.get("trv_raw_temp") is None
                 and current_temp is not None and target_temp is not None
                 and current_temp < target_temp):
             return HVACAction.HEATING

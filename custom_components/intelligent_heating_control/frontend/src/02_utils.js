@@ -128,6 +128,8 @@
         temp_calibration:     state.attributes.temp_calibration ?? 0,
         trv_raw_temp:         state.attributes.trv_raw_temp ?? null,
         trv_humidity:         state.attributes.trv_humidity ?? null,
+        humidity:             state.attributes.humidity ?? null,
+        felt_temperature:     state.attributes.felt_temperature ?? null,
         trv_avg_valve:        state.attributes.trv_avg_valve ?? null,
         trv_any_heating:      state.attributes.trv_any_heating === true,
         trv_min_battery:      state.attributes.trv_min_battery ?? null,
