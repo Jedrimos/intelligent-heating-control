@@ -14,6 +14,15 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.3.2] - 2026-11-11
+
+### Behoben
+- **Admin-Services unter HA 2026.11 unbenutzbar:** `update_room`, `add_room`, `remove_room`,
+  `update_global_settings`, `reset_stats` und die Gruppen-Services schlugen mit „not a valid option
+  at 'id'" fehl (Zimmer-Einstellungen speichern ging nicht). HA registriert Admin-Services seitdem
+  standardmäßig mit einem leeren, strikten Schema. IHC nutzt jetzt einen eigenen Admin-Wrapper
+  ohne Schema (gleiche Admin-Prüfung).
+
 ## [2.3.1] - 2026-11-11
 
 ### Behoben
