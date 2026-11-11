@@ -14,6 +14,35 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.5.0] - 2026-11-11
+
+### Neu
+- **Heizt-Anzeige ohne Ventilstellung:** Thermostate ohne `hvac_action`/Ventilposition (z. B. Matter)
+  gelten als heizend, wenn ihr Sollwert mindestens 0,5 °C über ihrer eigenen Temperatur liegt –
+  ein geschlossenes Ventil zeigt jetzt „Leerlauf" statt „heizt". Wirkt auch auf Laufzeit/kWh.
+- **Dashboard-Karten:** Luftfeuchte vom Thermostat (💧 TRV) und gefühlte Temperatur (🥵) als Chips;
+  die Raum-Luftfeuchte kam bisher nie im Panel an (Mapping fehlte). TRV-Luftfeuchte wird bei
+  Thermostaten ohne Attribut aus dem Feuchte-Sensor des eigenen Geräts gelesen.
+- **Decision-Sensor pro Zimmer:** `sensor.ihc_<zimmer>_entscheidung` (Regel + lesbarer Grund +
+  „warum heizt es nicht"), Event `intelligent_heating_control_decision_changed`.
+- **Kindersicherung pro Zimmer** (`switch.ihc_<zimmer>_kindersicherung`) und globaler
+  **Reset-Button**/Service `reset_all_rooms`.
+- **Kessel-/Pumpen-Relais-Signal** (optional, additiv zur TRV-Steuerung) mit Mindest-Ein/Aus-Zeiten.
+- **Rollo:** abendliche Privatsphäre-Schließung, Lux-Hysterese, Erkennung manueller Übersteuerung,
+  Blendschutz-Zone.
+- **Echtes Lastmanagement:** Solar-Boost und Preis-Offset berücksichtigen den Batterie-Ladestand.
+- **Schimmelschutz-Option:** darf das Eco-/Schlaf-/Abwesend-Maximum überschreiten (Standard aus).
+- **Prioritätenkette** dokumentiert (CLAUDE.md Kapitel 15).
+
+### Behoben
+- Eco-/Schlaf-/Abwesend-Maximum wird von Aufschlägen nicht mehr überschritten (2.3.1).
+- Admin-Services (Zimmer speichern/löschen, Einstellungen) unter HA 2026.11 (2.3.2).
+- `hacs.json`: Mindest-HA auf 2024.7.0 korrigiert (Panel nutzt `StaticPathConfig`).
+
+### Geplant (2.5.1)
+- `via_device` → `via_device_id`, `native_*`-Climate-Attribute, `runtime_data` (HA-Deprecations,
+  Frist 2027.8/2027.11).
+
 ## [2.3.2] - 2026-11-11
 
 ### Behoben
