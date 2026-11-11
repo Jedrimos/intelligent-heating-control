@@ -196,6 +196,7 @@ from .const import (
     CONF_AWAY_OFFSET,
     CONF_ECO_MAX_TEMP,
     CONF_SLEEP_MAX_TEMP,
+    CONF_SLEEP_TEMP_PROFILE,
     CONF_AWAY_MAX_TEMP,
     CONF_HA_SCHEDULE_OFF_MODE,
     DEFAULT_ECO_OFFSET,
@@ -1946,6 +1947,22 @@ class IHCCoordinator(
                 if _co2_eta is not None and _co2_eta <= 5.0:
                     target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + 1.0)
                     meta["co2_preheat_boost"] = True
+
+        # Additive boosts above (mold/solar/price/cold/CO2) only clamp to the room's hard
+        # max_temp, so they used to push an eco/sleep/away target past that preset's own
+        # configured maximum (e.g. sleep_max 17 -> 16.8 + mold +1 = 17.8 shown as 18).
+        _src = meta.get("source", "")
+        _mode_tag = meta.get("schedule_mode") or meta.get("ha_schedule_mode") or ""
+        _preset_max = None
+        if _src in ("eco", "ha_schedule_eco") or _mode_tag == "eco":
+            _preset_max = float(room.get(CONF_ECO_MAX_TEMP, DEFAULT_ECO_MAX_TEMP))
+        elif _src in ("sleep", "ha_schedule_sleep") or _mode_tag == "sleep":
+            if not room.get(CONF_SLEEP_TEMP_PROFILE):
+                _preset_max = float(room.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP))
+        elif _src == "room_away" or _mode_tag == "away":
+            _preset_max = float(room.get(CONF_AWAY_MAX_TEMP, DEFAULT_AWAY_MAX_TEMP))
+        if _preset_max is not None and meta.get("source") != "comfort_extended" and target_temp > _preset_max:
+            target_temp = max(_preset_max, float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)))
 
         # Window restore mode: snapshot/restore target_temp around window open events
         prev_win = self._prev_window_open.get(room_id, False)
