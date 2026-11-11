@@ -197,6 +197,8 @@ from .const import (
     CONF_ECO_MAX_TEMP,
     CONF_SLEEP_MAX_TEMP,
     CONF_SLEEP_TEMP_PROFILE,
+    CONF_MOLD_BOOST_EXCEEDS_PRESET_MAX,
+    DEFAULT_MOLD_BOOST_EXCEEDS_PRESET_MAX,
     CONF_AWAY_MAX_TEMP,
     CONF_HA_SCHEDULE_OFF_MODE,
     DEFAULT_ECO_OFFSET,
@@ -1961,6 +1963,8 @@ class IHCCoordinator(
                 _preset_max = float(room.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP))
         elif _src == "room_away" or _mode_tag == "away":
             _preset_max = float(room.get(CONF_AWAY_MAX_TEMP, DEFAULT_AWAY_MAX_TEMP))
+        if _preset_max is not None and cfg.get(CONF_MOLD_BOOST_EXCEEDS_PRESET_MAX, DEFAULT_MOLD_BOOST_EXCEEDS_PRESET_MAX):
+            _preset_max += mold_boost  # opt-in: only the mold boost may exceed the preset max
         if _preset_max is not None and meta.get("source") != "comfort_extended" and target_temp > _preset_max:
             target_temp = max(_preset_max, float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)))
 

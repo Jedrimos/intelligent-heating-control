@@ -573,6 +573,9 @@ DEFAULT_LIMESCALE_DURATION_MINUTES: Final = 5  # Minuten vollständig geöffnet
 CONF_BOILER_SWITCH_ENTITY: Final = "boiler_switch_entity"  # global, optional switch.*
 CONF_BOILER_MIN_ON_SECONDS: Final = "boiler_min_on_seconds"
 DEFAULT_BOILER_MIN_ON_SECONDS: Final = 300  # 5 min - gegen Kurztakten/Relais-Verschleiß
+# Schimmelschutz-Aufschlag (+1 °C) darf das Eco-/Schlaf-/Abwesend-Maximum des Zimmers überschreiten
+CONF_MOLD_BOOST_EXCEEDS_PRESET_MAX: Final = "mold_boost_exceeds_preset_max"
+DEFAULT_MOLD_BOOST_EXCEEDS_PRESET_MAX: Final = False
 CONF_BOILER_MIN_OFF_SECONDS: Final = "boiler_min_off_seconds"
 DEFAULT_BOILER_MIN_OFF_SECONDS: Final = 300
 

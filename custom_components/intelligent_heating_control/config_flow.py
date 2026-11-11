@@ -217,6 +217,8 @@ from .const import (
     CONF_BOILER_MIN_ON_SECONDS,
     DEFAULT_BOILER_MIN_ON_SECONDS,
     CONF_BOILER_MIN_OFF_SECONDS,
+    CONF_MOLD_BOOST_EXCEEDS_PRESET_MAX,
+    DEFAULT_MOLD_BOOST_EXCEEDS_PRESET_MAX,
     DEFAULT_BOILER_MIN_OFF_SECONDS,
     # New features
     CONF_TRV_CALIBRATIONS,
@@ -816,6 +818,10 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_BOILER_MIN_OFF_SECONDS,
                 default=int(cfg.get(CONF_BOILER_MIN_OFF_SECONDS, DEFAULT_BOILER_MIN_OFF_SECONDS))
             ): selector.selector({"number": {"min": 0, "max": 1800, "step": 30, "unit_of_measurement": "s"}}),
+            vol.Optional(
+                CONF_MOLD_BOOST_EXCEEDS_PRESET_MAX,
+                default=bool(cfg.get(CONF_MOLD_BOOST_EXCEEDS_PRESET_MAX, DEFAULT_MOLD_BOOST_EXCEEDS_PRESET_MAX))
+            ): selector.selector({"boolean": {}}),
             # --- Urlaubs-Assistent / Gäste-Modus / Preisprognose ---
             # Plain text (not a date selector) so an empty/unset value round-trips cleanly -
             # the custom panel's own date inputs write the same "YYYY-MM-DD" / "" format.

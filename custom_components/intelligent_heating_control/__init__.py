@@ -556,6 +556,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "peak_shaving_enabled", "peak_shaving_delay_minutes",
             # Backlog 2026-11-02 – Kessel-Relais-Signal
             "boiler_switch_entity", "boiler_min_on_seconds", "boiler_min_off_seconds",
+            "mold_boost_exceeds_preset_max",
             # Fester Timeout für manuelle Zimmer-Übersteuerung
             "manual_override_timeout_minutes",
             # Warmup-Stall-Watchdog

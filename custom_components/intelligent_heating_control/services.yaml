@@ -1870,6 +1870,13 @@ update_global_settings:
           max: 1800
           step: 30
           unit_of_measurement: s
+    mold_boost_exceeds_preset_max:
+      name: Schimmelschutz darf Preset-Maximum überschreiten
+      description: "An: der Schimmelschutz-Aufschlag (+1 °C) darf über Eco-/Schlaf-/Abwesend-Maximum hinaus heizen. Aus: Maximum bleibt hart."
+      required: false
+      default: false
+      selector:
+        boolean:
     boiler_min_off_seconds:
       name: Kessel-Relais – Mindest-Ausschaltzeit (s)
       required: false

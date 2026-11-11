@@ -5170,6 +5170,22 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>
 
+      <details class="ihc-card">
+        <summary>💧 Schimmelschutz &amp; Maximaltemperatur</summary>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Schimmelschutz darf Preset-Maximum überschreiten</label>
+            <select class="form-select" id="mold-boost-exceeds-max">
+              <option value="false" ${!a.mold_boost_exceeds_preset_max ? "selected" : ""}>Nein – Eco-/Schlaf-/Abwesend-Maximum bleibt hart</option>
+              <option value="true"  ${a.mold_boost_exceeds_preset_max  ? "selected" : ""}>Ja – +1 °C Aufschlag bei Schimmelrisiko erlaubt</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="save-mold-settings">💾 Speichern</button>
+        </div>
+      </details>
+
       <!-- ── Urlaubs-Assistent ───────────────────────────── -->
       <details class="ihc-card" ${g.vacation_auto_active || a.vacation_start ? "open" : ""}>
         <summary>
@@ -5455,6 +5471,13 @@ class IHCPanel extends HTMLElement {
         boiler_min_off_seconds:  boilerMinOff,
       });
       this._toast("✓ Kessel-Relais gespeichert");
+    });
+
+    content.querySelector("#save-mold-settings")?.addEventListener("click", () => {
+      this._callService("update_global_settings", {
+        mold_boost_exceeds_preset_max: content.querySelector("#mold-boost-exceeds-max")?.value === "true",
+      });
+      this._toast("✓ Schimmelschutz-Einstellung gespeichert");
     });
 
     content.querySelector("#save-limescale-settings")?.addEventListener("click", () => {
