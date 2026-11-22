@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Grundindstillinger",
+        "description": "Valgfrit: vælg en udetemperatursensor. Lad feltet være tomt, hvis du ikke har en – så bruger IHC automatisk din vejrintegration (f.eks. Met.no). Åbn derefter panelet »IHC« i sidebjælken: IHC kan finde dine rum og termostater automatisk.",
+        "data": {
+          "outdoor_temp_sensor": "Udetemperatursensor"
+        },
+        "data_description": {
+          "outdoor_temp_sensor": "Sensor der måler den aktuelle udetemperatur. Valgfri – uden den bruges temperaturen fra din vejrudsigt."
+        }
+      },
+      "temperatures": {
+        "title": "Forudindstillede temperaturer",
+        "description": "Globale temperaturer for fraværs- og ferietilstand.",
+        "data": {
+          "away_temp": "Fraværstemperatur (°C)",
+          "vacation_temp": "Ferietemperatur (°C)"
+        },
+        "data_description": {
+          "away_temp": "Måltemperatur for alle rum i tilstanden »Ude«. Typisk: 16–18 °C.",
+          "vacation_temp": "Måltemperatur i ferietilstand. Kun frostbeskyttelse. Typisk: 14–16 °C."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Entitet ikke fundet. Kontrollér entitets-ID'et.",
+      "cannot_connect": "Forbindelsen mislykkedes",
+      "unknown": "Ukendt fejl"
+    },
+    "abort": {
+      "already_configured": "Integrationen er allerede konfigureret"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "IHC-indstillinger",
+        "menu_options": {
+          "global_settings": "Globale indstillinger",
+          "heating_curve": "Rediger varmekurve",
+          "add_room": "Tilføj rum",
+          "edit_room": "Rediger rum",
+          "remove_room": "Fjern rum"
+        }
+      }
+    }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "IHC: {role} {entity} ikke fundet",
+      "description": "Rummet **{room}** bruger {role} `{entity}`, men denne entitet findes ikke i Home Assistant (omdøbt eller fjernet enhed?). IHC fortsætter uden den. Ret det i IHC-panelet under Rum → {room} → Indstillinger, eller gendan entiteten."
+    },
+    "entity_unavailable": {
+      "title": "IHC: {role} {entity} utilgængelig",
+      "description": "{role} `{entity}` i rummet **{room}** har været utilgængelig i {minutes} minutter (tomt batteri, uden for rækkevidde, integration offline?). Imens bruger IHC reserveværdier (sidst kendte værdi, termostatens temperatur)."
+    }
+  }
+}

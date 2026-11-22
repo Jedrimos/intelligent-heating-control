@@ -11,7 +11,7 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.5.0`
+- **Version:** `2.6.0`
 - **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
@@ -156,9 +156,12 @@ custom_components/intelligent_heating_control/frontend/
     ├── 06_tab_diagnose.js   # Diagnose-Tab: _renderDiagnose()
     │                        # → System-Status, Sensor-Werte, Energie-Statistiken
     ├── 07_tab_curve.js      # Heizkurve-Tab: _renderCurve(), _drawCurve()
-    ├── 08_modals.js         # Modale Dialoge: _showAddRoomModal(), _showEditRoomModal(),
+    ├── 08_modals.js         # Modale Dialoge: _showAddRoomModal() (Schnellstart, bewusst minimal),
+    │                        # _showDiscoverRoomsModal() (Auto-Erkennung aus HA-Bereichen),
     │                        # _showConfirmModal(), _showModal()
-    │                        # → Zimmer hinzufügen/bearbeiten
+    │                        # → Bearbeiten passiert NUR im Zimmer-Detail (04_tab_rooms.js,
+    │                        #   Sub-Tab ⚙️ Einstellungen). _showEditRoomModal gibt es seit 2.6.0
+    │                        #   nicht mehr (war toter Code, nie aufgerufen)
     └── 09_main.js           # IHCPanel Klasse: constructor, lifecycle (set hass, connectedCallback),
                              # _renderTabContent() Switch-Case
                              # → Tab-Navigation, Panel-Mounting, Klasse-Definition
@@ -243,13 +246,14 @@ this._modalOpen         // true wenn Add/Edit-Modal offen
   ]
 }]
 
-// HA Schedule-Format (CONF_HA_SCHEDULES)
+// HA Schedule-Format (CONF_HA_SCHEDULES) – Modus-basiert (Preset des Zimmers), KEINE Temperatur
 [{
   entity: "schedule.wohnzimmer_heizung",
-  temperature: 22.0,
+  mode: "comfort",                 // comfort | eco | sleep | away
   condition_entity: "person.max",  // optional
   condition_state: "home"          // optional, default "on"
 }]
+// IHC-Perioden haben ebenfalls `mode` (comfort/eco/sleep/away/manual); `temperature` zählt nur bei mode "manual"
 ```
 
 ### Service-Calls (Frontend → Backend)
@@ -534,27 +538,32 @@ Alle gefundenen Stellen müssen **im gleichen Commit** bereinigt werden:
 
 ### Wenn eine neue Zimmer-Konstante hinzugefügt wird (KRITISCH: 5+2 Stellen!)
 
-Zimmer-Felder existieren in **sieben** Stellen – alle müssen synchron sein:
+Zimmer-Felder existieren an diesen Stellen – alle müssen synchron sein:
 
 ```
-const.py → coordinator.py → climate.py → __init__.py (handle_add_room)
+const.py → coordinator.py → climate.py → __init__.py (_build_room_config, genutzt von add_room + add_rooms)
                                         → config_flow.py (Add-Schema + Edit-Schema)
-                                        → ihc-panel.js (_showAddRoomModal HTML + saveHandler)
-                                        → ihc-panel.js (_showEditRoomModal HTML + saveHandler)
+                                        → src/04_tab_rooms.js (Zimmer-Detail ⚙️ Einstellungen: HTML + save-handler)
 ```
+
+> **Seit 2.6.0:** Der Add-Room-Dialog (`_showAddRoomModal`) ist ein **bewusst minimaler Schnellstart**
+> (Name, Thermostate, Thermometer, Fenster, Wohlfühltemperatur) – neue Felder kommen dort NICHT
+> hinein, alles hat Backend-Defaults. Neue Felder gehören ins Zimmer-Detail. Ist ein Feld nur für
+> Bastler interessant: dessen `<details>`/`settings-item` bekommt die Klasse `expert-only`
+> (siehe "Einfach/Experte" unten).
 
 Checkliste:
 - [ ] `const.py` – `CONF_*` + `DEFAULT_*` Definition
 - [ ] `coordinator.py` – Import + Verwendung in Logik
 - [ ] `climate.py` – Import + in `extra_state_attributes` mit korrektem Fallback
-- [ ] `__init__.py` – in `handle_add_room()` aus `call.data.get(...)` mit Typ-Konvertierung
+- [ ] `__init__.py` – in `_build_room_config()` aus `data.get(...)` mit Typ-Konvertierung
 - [ ] `config_flow.py` Add-Room schema – Feld mit `vol.Optional()` + `selector.selector()`
 - [ ] `config_flow.py` Add-Room save-handler – Feld in `new_room` dict mit Typ-Konvertierung
 - [ ] `config_flow.py` Edit-Room schema – Feld mit `vol.Optional(default=room.get(...))` + selector
-- [ ] `ihc-panel.js` `_showAddRoomModal()` – HTML-Eingabefeld mit id `m-*`
-- [ ] `ihc-panel.js` `_showAddRoomModal()` save-handler – Feld im `_callService()` Aufruf
-- [ ] `ihc-panel.js` `_showEditRoomModal()` – HTML-Eingabefeld mit Vorbelegung aus `room.*`
-- [ ] `ihc-panel.js` `_showEditRoomModal()` save-handler – Feld im `_callService()` Aufruf
+- [ ] `src/04_tab_rooms.js` Zimmer-Detail – Eingabefeld mit Vorbelegung aus `room.*` + save-handler
+- [ ] `src/02_utils.js` `_getRoomData()` – Attribut ins room-Objekt mappen
+- [ ] Einsteigerrelevant? Sonst `expert-only`. Ändert es, was IHC automatisch tut? Dann
+      `_renderRoomCapabilities()` (02_utils.js) anpassen
 
 > **Hinweis:** Edit-Room in config_flow braucht keinen eigenen save-handler – `{**room, **user_input}` merged automatisch. Aber das Schema muss das Feld enthalten, sonst wird es nie geändert.
 
@@ -582,13 +591,24 @@ Beide Stellen sind immer gemeinsam zu ändern:
 - [ ] JS: `case "xyz": this._renderXyz(content); break;` in `_renderTabContent()` entfernen
 - [ ] JS: Auto-Refresh-Timer prüfen (suche nach `this._activeTab === "xyz"`)
 
-### Wenn ein Feld zu einem Modal hinzugefügt wird
+### UX-Grundsätze (seit 2.6.0) – "für jeden: wenig bis alle Sensoren, Laie bis Bastler"
 
-Add-Room und Edit-Room Modal müssen **immer synchron** bleiben:
-- [ ] Feld im `_showAddRoomModal()` HTML ergänzt
-- [ ] Feld im `_showAddRoomModal()` save-handler ergänzt (mit `?.value` für sichere Abfrage)
-- [ ] Feld im `_showEditRoomModal()` HTML ergänzt (mit Vorbelegung aus `room.xyz`)
-- [ ] Feld im `_showEditRoomModal()` save-handler ergänzt
+- **Alles Optionale braucht einen automatischen Fallback** und einen Satz, der ihn erklärt:
+  kein Raumthermometer → TRV-Temperatur; kein Fensterkontakt → Temperatursturz-Erkennung
+  (Standard an); kein Außensensor → Wetter-Entität (automatisch erste `weather.*`); keine
+  Wetter-Entität konfiguriert → erste vorhandene. Neue Features folgen demselben Muster.
+- **Einfach/Experte:** Umschalter oben rechts (`_uiMode()`, localStorage `ihc_ui_mode`, Standard
+  "einfach"). CSS `:host(.ui-simple) .expert-only:not(.in-use)` blendet aus; ein `expert-only`-
+  Bereich, der mit `open`-Attribut gerendert wird (= schon konfiguriert), bleibt sichtbar
+  (MutationObserver in 09_main.js setzt `.in-use`). Tabs "Analyse"/"Heizkurve" sind expert-only.
+- **Sprache:** Laien-Begriffe in der Oberfläche ("Wohlfühltemperatur", "Heizt gerade",
+  "Fensterkontakt"), Fachbegriffe (TRV, Hysterese, Deadband) nur im Expertenbereich.
+- **Erklärende Karten:** "🤖 Was IHC automatisch macht" (Einstellungen) und "🧭 Was IHC in diesem
+  Zimmer nutzt" (Zimmer-Detail) – beide zeigen ✓ / automatisch / 💡 Tipp.
+- **Auto-Erkennung:** `_discoverRooms()` (02_utils.js) gruppiert climate/Temperatur/Feuchte/Fenster
+  nach HA-Bereich (Entity-Bereich, sonst Geräte-Bereich), überspringt Diagnose-/versteckte
+  Entitäten und den eingebauten Sensor des Thermostats. Angelegt wird über `add_rooms`
+  (EIN Options-Update = ein Reload).
 
 ### Typen zwischen Frontend und Backend
 
@@ -1273,6 +1293,85 @@ regeln weiterhin jedes Zimmer einzeln, siehe Kapitel 1/14).
 
 ---
 
+### Release 2.6.0 (2026-11-22): Review + Konkurrenzvergleich
+
+- [x] Sensorlose Fenstererkennung (Temperatursturz) – global, Standard an, nur Zimmer ohne Fenstersensor
+  (`CONF_WINDOW_AUTO_DETECT_*`, reine Logik in `window_auto_detect.py`, unit-getestet). Wirkt NICHT
+  auf die Fenster-Kaskade (die liest nur echte Sensoren in Phase 3).
+- [x] `diagnostics.py` (Diagnose-Download, geschwärzt)
+- [x] 8 Backend- + 5 Panel-Bugs, siehe CHANGELOG 2.6.0
+- **Zeitzonen-Regel:** Uhrzeit-/Wochentag-Entscheidungen IMMER mit `dt_util.now()`, nie
+  `datetime.now()` (OS-Zeitzone ≠ HA-Zeitzone in Docker). `ScheduleManager`-Methoden bekommen
+  `now=dt_util.now()` explizit übergeben. Reine Dauer-Messungen (Boost-Ende etc.) dürfen naiv bleiben.
+- **Frontend-Regel:** Zimmernamen und andere Freitexte nur über `this._esc()` ins HTML,
+  `localStorage` nur über `this._lsGet()/_lsSet()`.
+- [x] Rollläden Loxone-Tageszyklus (`solar_cover_manager._update_solar_covers`, Priorität:
+  Wetterschutz > Handbetrieb > Fenster offen > Nacht (Dämmung/Privatsphäre) > Morgen-Halt >
+  Blendschutz > Beschattung bei Überhitzung > Sonnenwärme > Tageslicht). Logische Position
+  100 = keine Beschattung; Markisen über `physical_position()` invertiert. Heizsaison =
+  `heating_period_active and not summer_mode` (aus Phase D übergeben).
+- [x] Virtuelle Sensoren: `_get_presence_entities()` (Personen-Automatik), Wetter-Feuchte,
+  wärmeabhängiger TRV-Offset (`_update_trv_warmth_factor`), adaptive Fenster-Schwelle.
+- [x] Sparen: `CONF_SAVING_OFFSET` (Phase B, nach Preset-Max-Clamp), Fenster-Erinnerung.
+- [x] Reparaturen (`_check_repairs`, issue_registry, Übersetzungen unter "issues" in strings.json).
+- [x] UX-Umbau "für jeden" (siehe Kapitel 10 "UX-Grundsätze"): Willkommensbildschirm,
+  Auto-Erkennung + `add_rooms`, Schnellstart-Dialog, Einfach/Experte, Erklärkarten,
+  Wetter-Fallback für Außentemperatur, Vorhersage über `weather.get_forecasts` (das
+  `forecast`-Attribut gibt es seit HA 2024.3 nicht mehr – vorher waren alle Prognose-Features tot)
+- Offen (Vorschläge aus dem Review): englische Panel-Übersetzung (Voraussetzung für breite
+  HACS-Nutzung), Repairs statt Persistent-Notifications, Sicherheitsmodus bei ausgefallenem
+  Raumsensor (Versatile-Thermostat-Stil), Lernende Fenster-Schwellwerte pro Zimmer.
+
+---
+
+## 16. Tests, Übersetzung, Qualitätssicherung (seit 2.6.0)
+
+**Drei Test-Ebenen – vor jedem Commit alle laufen lassen:**
+
+```bash
+python3 -m pytest -q                              # reine Logik + Sync-Wächter (ohne HA)
+pip install -r requirements-test-ha.txt           # einmalig (pytest-homeassistant-custom-component)
+python3 -m pytest -c pytest_ha.ini -q             # ~50 Szenarien in einem ECHTEN HA-Core
+```
+
+- `tests_ha/` startet IHC in Home Assistant, simuliert Thermostate/Sensoren/Rollläden/Wetter und
+  prüft die tatsächlich gesendeten Befehle (`Hw`-Rekorder in `tests_ha/conftest.py`). Zeit wird mit
+  `freezer` gesteuert (HA-Zeitzone Europe/Berlin, OS-Zeit UTC → fängt Zeitzonen-Fehler).
+  **Neue Funktion = neues Szenario dort.** Achtung: `hw.register()` muss nach dem Setup laufen
+  (HA registriert sonst seine echten climate.*-Dienste über die Mocks); IHCs eigene Klima-Entität
+  im Test direkt aufrufen (`hass.data["entity_components"]["climate"].get_entity(...)`).
+- `tests/test_frontend_sync.py` (Sync-Wächter) schlägt an, wenn das Panel ein Zimmer-/Global-Feld
+  benutzt, das `_getRoomData()`/`sensor.py` nie liefern, oder Einstellungen sendet, die
+  `update_global_settings` verwirft – genau der Fehlertyp aus Kapitel 9, der in 2.6.0 noch 15×
+  vorhanden war (Datenverlust beim Speichern).
+- `tests/test_i18n.py` kompiliert alle Übersetzungsmuster mit der echten JS-Engine.
+
+**Englische Oberfläche:** Das Panel bleibt deutsch geschrieben. `frontend/i18n/en.py` (EXACT /
+PATTERNS / WORDS) ist die einzige Quelle; `build.py` erzeugt daraus die JS-Konstanten. Zur Laufzeit
+übersetzt `_translateTree()` (02_utils.js) das gerenderte DOM für jede Nicht-de-Sprache (ausgelöst
+vom MutationObserver in 09_main.js). Neuer deutscher UI-Text → Zeile in `en.py` ergänzen.
+Zimmer-/Bereichsnamen werden nie übersetzt. Backend-Benachrichtigungen: `self._t(de, en)`.
+Python-Regex in `PATTERNS` muss im JS-`u`-Modus gültig sein (z. B. kein `\"`).
+
+**Weitere Sprachen (fr, nl, es, it, pl, cs, da, sv):** `frontend/i18n/languages.py` – `T` (deutscher
+Text → 8-Tupel in `LANGS`-Reihenfolge), `PATTERNS[code]` (dynamische Texte), `CARD` (nur Lovelace-
+Karten). `build.py` erzeugt `IHC_I18N_LANGS`/`IHC_I18N_LANG_PATTERNS` im Panel und schreibt
+`_IHC_CARD_LANGS` zwischen die `<IHC_CARD_LANGS>`-Marker beider Karten. Reihenfolge zur Laufzeit
+(`_uiLang()`/`_trCore()` in 02_utils.js): Sprache → Englisch → Deutsch. Wort-Fallback nur für
+Englisch (sonst Sprachmix). HA-Übersetzungen `translations/{es,it,pl,cs,da,sv}.json` enthalten
+config + Options-Menü + issues, Rest fällt in HA auf Englisch zurück. `tests/test_i18n.py` prüft
+Vollständigkeit der Tupel und gleiche Platzhalter.
+
+**Neue Module seit 2.6.0 (HA-frei, unit-getestet):** `comfort_learning.py` („Mir ist kalt/warm“-
+Lernen), `heat_output.py` (EN-442-Verbrauchsmodell, Heizkörper-Rechner, Zählereinheiten),
+`trv_capabilities.py` (Geschwister-Entitäten eines Thermostats klassifizieren, Fühlereingang,
+Eigenheiten-Tabelle `QUIRKS`).
+
+**Panel im Browser prüfen** (ohne HA): Playwright + Mock-`hass` (siehe Git-Historie von 2.6.0) –
+alle Tabs in einfach/experte und de/en rendern, JS-Fehler sammeln, Screenshots ansehen.
+
+---
+
 ## 15. Prioritätenkette (zentrale Entscheidungsreihenfolge)
 
 > **Backlog 2026-11-02** (Vergleich mit `sandreialexandru/Smart-Heating-Control`, deren Blueprint
@@ -1323,12 +1422,16 @@ erst ausgewertet:
 22. **Schimmelschutz-Boost** (additiv, übersprungen bei frost/away/vacation)
 23. **Kälteprognose-Boost** (additiv, gleiche Sperrliste wie 20)
 24. **CO₂-Vorheiz-Boost** (+1°C, gleiche Sperrliste wie 20)
+24b. Preset-Maximum-Clamp (Eco/Schlaf/Abwesend-Max), danach **Spar-Regler** `CONF_SAVING_OFFSET`
+    (seit 2.6.0, subtraktiv, nicht bei Frost/Aus/Abwesend/Urlaub/Manuell/Schwelle/Boost)
 25. **Fenster-Restore** (`CONF_WINDOW_RESTORE_MODE=="previous"`) – stellt beim Schließen den
-    Wert von VOR dem Öffnen wieder her, überschreibt 1-24 komplett für diesen Zyklus
+    Wert von VOR dem Öffnen wieder her und **hält** ihn (`_window_restore_hold`, seit 2.6.0), bis
+    sich die Basis-Entscheidung aus A (Regel + Zieltemp vor Boosts) ändert. Nicht bei System-/
+    Schwellen-/Aus-Regeln
 26. **Fenster-Kaskade** (Nachbarraum lüftet zu lange) – senkt ab, übersprungen bei eigenem
     offenem Fenster oder Zimmermodus Aus
 27. **Gefühlte-Temperatur-Anpassung** (`CONF_FELT_TEMP_ADJUSTMENT_ENABLED`, opt-in, additiv,
-    gleiche Sperrliste wie 20)
+    gleiche Sperrliste wie 20) – seit 2.6.0 VOR der Demand-Berechnung (Phase C), vorher danach
 28. Quantisierung auf 0.5°C-Schritte (`display_target` – das was TRVs tatsächlich bekommen)
 
 ### C) Anforderung/Demand-Gating (ebenfalls `_process_room()`, nach B, plus Phase 5)
@@ -1346,9 +1449,13 @@ gesendet wird, unabhängig von A-C, kann deren Ergebnis komplett verwerfen)
 
 34. **Start-Gnadenfrist** (`startup_grace_active`) – ALLE Zimmer auf Frostschutz, Sensoren werden
     noch initialisiert (höchste Priorität in Phase D)
-35. **Fenster offen** – TRV aus (oder `CONF_WINDOW_OPEN_TEMP` falls konfiguriert)
+35. **Fenster offen** (Sensor ODER seit 2.6.0 sensorlose Temperatursturz-Erkennung,
+    `window_auto_detect.py`) – TRV aus. `CONF_WINDOW_OPEN_TEMP` wird nur gesendet, wenn das Zimmer
+    sonst heizen würde (nicht bei 36/39 – vor 2.6.0 bekam ein ausgeschaltetes Zimmer 15 °C)
 36. Zimmermodus **Aus** (außer `system_override_active`) ODER Systemmodus **Aus** (außer
     `CONF_OFF_USE_FROST_PROTECTION`) – TRV aus
+    (Kalkschutz-Ventilübung: Ventile in `_limescale_in_progress` werden von Phase D und der
+    Override-Erkennung komplett übersprungen, bis die Übung endet)
 37. **Boost aktiv** – übersteuert Sommerautomatik/inaktive Heizperiode bewusst (zeitlich
     begrenzt, läuft automatisch ab)
 38. **Temperaturschwelle** (`temp_threshold_override`) – aus demselben Grund wie Boost

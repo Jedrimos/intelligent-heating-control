@@ -112,9 +112,10 @@
         alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
       }
       if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
+      if (room.window_auto_detected)       alerts.push(`<div class="room-alert alert-info" title="Kein Fenstersensor - erkannt an einem plötzlichen Temperatursturz">🪟 Fenster offen erkannt (Temperatursturz) – Heizung pausiert</div>`);
       // Fenster-Kaskade: zeigt welches Zimmer diese Absenkung verursacht
       if (room.window_cascade_active) {
-        const src = room.window_cascade_source || "anderes Zimmer";
+        const src = this._esc(room.window_cascade_source || "anderes Zimmer");
         const off = room.window_cascade_offset != null ? ` (–${parseFloat(room.window_cascade_offset).toFixed(1)} °C)` : "";
         alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${off}: Fenster offen in <strong>${src}</strong></div>`);
       }
@@ -143,22 +144,29 @@
       const batIcon  = room.trv_min_battery != null && room.trv_min_battery < 20 ? "🪫" : "🔋";
       const trvChips = hasTrvInfo ? `
         <div class="trv-chips">
-          ${room.trv_raw_temp != null ? `<span class="trv-chip" style="background:#fff3e0;color:#e65100" title="TRV-Rohtemperatur">🌡️ TRV ${parseFloat(room.trv_raw_temp).toFixed(1)}°</span>` : ""}
-          ${room.trv_avg_valve != null && room.trv_avg_valve > 0 ? `<span class="trv-chip" style="background:#e3f2fd;color:#1565c0" title="Ventilöffnung Ø">🔧 ${Math.round(room.trv_avg_valve)}%</span>` : ""}
+          ${room.trv_raw_temp != null ? `<span class="trv-chip expert-only" style="background:#fff3e0;color:#e65100" title="TRV-Rohtemperatur">🌡️ TRV ${parseFloat(room.trv_raw_temp).toFixed(1)}°</span>` : ""}
+          ${room.trv_avg_valve != null && room.trv_avg_valve > 0 ? `<span class="trv-chip expert-only" style="background:#e3f2fd;color:#1565c0" title="Ventilöffnung Ø">🔧 ${Math.round(room.trv_avg_valve)}%</span>` : ""}
           ${room.humidity != null ? `<span class="trv-chip" style="background:#e1f5fe;color:#0277bd" title="Raum-Luftfeuchtigkeit (Sensor)">💧 ${Math.round(room.humidity)}%</span>` : ""}
-          ${room.trv_humidity != null ? `<span class="trv-chip" style="background:#e8f5e9;color:#2e7d32" title="Luftfeuchtigkeit am Thermostat">💧 TRV ${Math.round(room.trv_humidity)}%</span>` : ""}
-          ${room.felt_temperature != null ? `<span class="trv-chip" style="background:#fff8e1;color:#f57f17" title="Gefühlte Temperatur">🥵 gefühlt ${parseFloat(room.felt_temperature).toFixed(1)}°</span>` : ""}
-          ${room.trv_min_battery != null ? `<span class="trv-chip" style="background:${batBg};color:${batColor}" title="TRV-Batterie (niedrigster Wert)">${batIcon} ${room.trv_min_battery}%</span>` : ""}
-          ${room.trv_any_heating ? `<span class="trv-chip" style="background:#fce4ec;color:#c62828" title="TRV heizt aktiv">🔥</span>` : ""}
+          ${room.trv_humidity != null ? `<span class="trv-chip ${room.humidity != null ? "expert-only" : ""}" style="background:#e8f5e9;color:#2e7d32" title="Luftfeuchtigkeit am Thermostat">💧 TRV ${Math.round(room.trv_humidity)}%</span>` : ""}
+          ${room.felt_temperature != null ? (() => {
+            // Emoji follows the direction of the deviation - a room that feels colder
+            // than measured used to show the "hot face" emoji too.
+            const felt = parseFloat(room.felt_temperature);
+            const diff = room.current_temp != null ? felt - parseFloat(room.current_temp) : 0;
+            const icon = diff <= -0.5 ? "🥶" : diff >= 0.5 ? "🥵" : "🙂";
+            return `<span class="trv-chip" style="background:#fff8e1;color:#f57f17" title="Gefühlte Temperatur (Luftfeuchte berücksichtigt)">${icon} gefühlt ${felt.toFixed(1)}°</span>`;
+          })() : ""}
+          ${room.trv_min_battery != null ? `<span class="trv-chip ${room.trv_min_battery >= 40 ? "expert-only" : ""}" style="background:${batBg};color:${batColor}" title="TRV-Batterie (niedrigster Wert)">${batIcon} ${room.trv_min_battery}%</span>` : ""}
+          ${room.trv_any_heating ? `<span class="trv-chip expert-only" style="background:#fce4ec;color:#c62828" title="TRV heizt aktiv">🔥</span>` : ""}
         </div>` : "";
 
       // Footer info
       const footerParts = [];
-      const showRuntime = localStorage.getItem("ihc_show_runtime") !== "false";
-      const showCosts   = localStorage.getItem("ihc_show_costs") !== "false";
+      const showRuntime = this._lsGet("ihc_show_runtime") !== "false";
+      const showCosts   = this._lsGet("ihc_show_costs") !== "false";
       if (showRuntime && room.runtime_today_minutes > 0) footerParts.push(`⏱ ${room.runtime_today_minutes} min`);
       if (showCosts && room.energy_today_kwh > 0) footerParts.push(this._costStr(room.energy_today_kwh, g.static_energy_price));
-      if (room.avg_warmup_minutes) footerParts.push(`Ø Aufheiz: ${room.avg_warmup_minutes} min`);
+      if (room.avg_warmup_minutes) footerParts.push(`Ø Aufheiz: ${Math.round(room.avg_warmup_minutes)} min`);
       if (room.next_period && !room.schedule_active) {
         const np = room.next_period;
         const npMode = np.mode && np.mode !== "manual" ? np.mode : null;
@@ -176,7 +184,7 @@
           <div class="room-card-inner">
             ${alertsHtml}
             <div class="room-header">
-              <div class="room-name">${room.name}</div>
+              <div class="room-name">${this._esc(room.name)}</div>
               <div class="room-status-chips">${statusBadge}</div>
             </div>
             <div class="room-temp-row">
@@ -221,6 +229,16 @@
                 ? `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost-cancel" title="Boost beenden" style="background:#ff7043;color:white;border-color:#ff7043">⚡ ${room.boost_remaining}min ✕</button>`
                 : `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost" title="Boost starten">⚡</button>`}
             </div>
+            <div class="feel-row">
+              <button class="feel-btn" data-room-id="${room.room_id}" data-feel="cold" title="+1 °C für 2 Stunden – IHC lernt mit">🥶 Mir ist kalt</button>
+              <button class="feel-btn" data-room-id="${room.room_id}" data-feel="warm" title="−1 °C für 2 Stunden – IHC lernt mit">🥵 Mir ist warm</button>
+            </div>
+            ${(room.feel_temp_offset || room.feel_learned_offset || room.person_offset || room.wakeup_active) ? `<div class="feel-badge">${[
+              room.feel_temp_offset ? `${room.feel_temp_offset > 0 ? "+" : ""}${room.feel_temp_offset} °C auf Wunsch${room.feel_temp_until ? ` bis ${new Date(room.feel_temp_until).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}` : "",
+              room.feel_learned_offset ? `${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C gelernt` : "",
+              room.person_offset ? `${room.person_offset > 0 ? "+" : ""}${room.person_offset} °C für die Anwesenden` : "",
+              room.wakeup_active ? "⏰ warm aufwachen" : "",
+            ].filter(Boolean).join(" · ")}${room.feel_temp_offset ? ` <a href="#" data-feel-reset="${room.room_id}">zurücksetzen</a>` : ""}</div>` : ""}
             ${footerParts.length ? `<div class="room-footer"><span class="room-footer-meta">${footerParts.join(" · ")}</span></div>` : ""}
           </div>
         </div>`;
@@ -266,7 +284,7 @@
 
     // Hero section
     const trvActive = (g.rooms_demanding || 0) > 0;
-    const heatingState = trvActive ? "🌡️ TRVs aktiv" : "✓ Bereit";
+    const heatingState = trvActive ? "🔥 Heizt gerade" : "✓ Bereit";
     const heatingCls   = trvActive ? "heating" : "ok";
     const demandNum    = g.total_demand != null ? `${g.total_demand} %` : "—";
     const demandCls    = (g.total_demand || 0) > 0 ? "warn" : "ok";
@@ -281,16 +299,16 @@
     const heroSection = `
       <div class="overview-hero">
         <div class="hero-card state-${heatingCls}">
-          <div class="hero-label">TRV-Modus</div>
+          <div class="hero-label">Heizung</div>
           <div class="hero-value ${heatingCls}">${heatingState}</div>
-          <div class="hero-sub">${g.rooms_demanding} Zimmer mit Anforderung</div>
+          <div class="hero-sub">${g.rooms_demanding ? `${g.rooms_demanding} Zimmer ${g.rooms_demanding === 1 ? "wird" : "werden"} geheizt` : "Alle Zimmer sind warm genug"}</div>
         </div>
         <div class="hero-card state-${demandCls}">
           <div class="hero-label">Gesamtanforderung</div>
           <div class="hero-value ${demandCls}">${demandNum}</div>
           ${(() => {
-            const showRuntime = localStorage.getItem("ihc_show_runtime") !== "false";
-            const showCosts   = localStorage.getItem("ihc_show_costs") !== "false";
+            const showRuntime = this._lsGet("ihc_show_runtime") !== "false";
+            const showCosts   = this._lsGet("ihc_show_costs") !== "false";
             if (!showRuntime && !showCosts) return "";
             const parts = [];
             if (showRuntime && g.heating_runtime_today > 0) parts.push(`⏱ ${g.heating_runtime_today} min`);
@@ -350,7 +368,7 @@
           <div class="status-value" style="color:${g.energy_price_eco_active ? "#ef5350" : "#66bb6a"}">${g.energy_price.toFixed(3)}</div>
           <div style="font-size:10px;color:var(--secondary-text-color)">€/kWh</div>
         </div>` : ""}
-        ${g.heating_runtime_yesterday > 0 && localStorage.getItem("ihc_show_energy") !== "false" ? `<div class="status-item" title="Gestriger Verbrauch">
+        ${g.heating_runtime_yesterday > 0 && this._lsGet("ihc_show_energy") !== "false" ? `<div class="status-item" title="Gestriger Verbrauch">
           <div class="status-label">Gestern</div>
           <div class="status-value ${g.energy_today_kwh > g.energy_yesterday_kwh ? "on" : "ok"}" style="font-size:13px">${this._costStr(g.energy_yesterday_kwh, g.static_energy_price)}</div>
         </div>` : ""}
@@ -360,10 +378,28 @@
         </div>` : ""}
       </div>`;
 
+    // v2.6 – first-run welcome: one click to a working setup
+    if (Object.keys(rooms).length === 0) {
+      const found = this._discoverRooms().filter(r => !r.exists);
+      content.innerHTML = `
+        <div class="card welcome">
+          <div style="font-size:42px">🔥</div>
+          <h2>Willkommen bei Intelligent Heating Control</h2>
+          <p>Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.</p>
+          ${found.length
+            ? `<p><b>${found.length} Zimmer mit Thermostaten</b> wurden in deinen Home-Assistant-Bereichen gefunden: ${found.slice(0, 6).map(r => this._esc(r.name)).join(", ")}${found.length > 6 ? " …" : ""}</p>`
+            : `<p>Tipp: Weise deine Thermostate in Home Assistant einem Bereich zu – dann findet IHC sie automatisch.</p>`}
+          <div class="btn-row">
+            ${found.length ? `<button class="btn btn-primary" id="welcome-discover">🔍 Zimmer automatisch anlegen</button>` : ""}
+            <button class="btn ${found.length ? "btn-secondary" : "btn-primary"}" id="welcome-add">+ Zimmer manuell anlegen</button>
+          </div>
+        </div>`;
+      content.querySelector("#welcome-discover")?.addEventListener("click", () => this._showDiscoverRoomsModal());
+      content.querySelector("#welcome-add")?.addEventListener("click", () => this._showAddRoomModal());
+      return;
+    }
+
     content.innerHTML = `
-      ${Object.keys(rooms).length === 0 ? `<div class="info-box">
-        Noch keine Zimmer konfiguriert. Gehe zum Tab <strong>Zimmer</strong> und füge dein erstes Zimmer hinzu.
-      </div>` : ""}
 
       ${banners}
       ${heroSection}
@@ -408,6 +444,24 @@
           setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
         });
         this._toast(`✓ Modus: ${MODE_LABELS[m] || m}`);
+      });
+    });
+
+    // v2.6 – "Mir ist kalt / warm"
+    content.querySelectorAll(".feel-btn[data-room-id]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const cold = btn.dataset.feel === "cold";
+        this._callService("feel", { id: btn.dataset.roomId, feeling: btn.dataset.feel }).then(() => {
+          setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
+        });
+        this._toast(cold ? "🥶 +1 °C für 2 Stunden – IHC merkt sich das" : "🥵 −1 °C für 2 Stunden – IHC merkt sich das");
+      });
+    });
+    content.querySelectorAll("[data-feel-reset]").forEach(link => {
+      link.addEventListener("click", e => {
+        e.preventDefault();
+        this._callService("feel", { id: link.dataset.feelReset, feeling: "reset" });
+        this._toast("↩ Zurückgesetzt");
       });
     });
 

@@ -2,14 +2,21 @@
 from __future__ import annotations
 
 import logging
+import math
 import time
 from typing import Optional
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr
+
+from .trv_capabilities import classify_sibling, external_option, external_temp_value, quirks_for
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_TRV_EXTERNAL_SENSOR_SYNC,
+    DEFAULT_TRV_EXTERNAL_SENSOR_SYNC,
+    EXTERNAL_SYNC_RESEND_S,
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
     CONF_VALVE_ENTITY,
@@ -114,12 +121,7 @@ class TRVControllerMixin:
 
             # Valve position: different TRVs use different attribute names.
             # Must use explicit None checks – valve=0 (fully closed) is valid and falsy.
-            _vp = attrs.get("valve_position")
-            if _vp is None:
-                _vp = attrs.get("position")
-            if _vp is None:
-                _vp = attrs.get("pi_heating_demand")
-            vp = _vp
+            vp = self._read_valve_position(eid, attrs)
             if vp is not None:
                 try:
                     valve_positions.append(float(vp))
@@ -169,6 +171,156 @@ class TRVControllerMixin:
             "trv_min_battery": trv_min_battery,
             "trv_low_battery": trv_low_battery,
         }
+
+    def _read_valve_position(self, climate_entity_id: str, attrs) -> Optional[float]:
+        """Valve opening % of a TRV: climate attribute (valve_position / position /
+        pi_heating_demand) or - v2.6 - the device's separate valve sensor, which is how
+        current Zigbee2MQTT/ZHA/Shelly/Homematic setups expose it. None = not available."""
+        vp = attrs.get("valve_position")
+        if vp is None:
+            vp = attrs.get("position")
+        if vp is None:
+            vp = attrs.get("pi_heating_demand")
+        if vp is None:
+            valve_eid = self._get_trv_capabilities(climate_entity_id).get("valve_entity")
+            vst = self.hass.states.get(valve_eid) if valve_eid else None
+            if vst is not None and vst.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                vp = vst.state
+        return vp
+
+    _CAPS_TTL_S = 600.0
+
+    def _get_trv_capabilities(self, climate_entity_id: str) -> dict:
+        """v2.6 – what this thermostat's device offers (see trv_capabilities.py), cached
+        for 10 min. Works for unknown models: it inspects the device's own entities."""
+        if not hasattr(self, "_trv_caps_cache"):
+            self._trv_caps_cache = {}
+        now = time.monotonic()
+        cached = self._trv_caps_cache.get(climate_entity_id)
+        if cached is not None and now - cached[1] < self._CAPS_TTL_S:
+            return cached[0]
+        caps: dict = {"entity": climate_entity_id, "manufacturer": None, "model": None,
+                      "valve_entity": None, "external_temp_entity": None, "sensor_select_entity": None,
+                      "sensor_select_option": None, "calibration_entity": None, "quirks": []}
+        try:
+            reg = er.async_get(self.hass)
+            entry = reg.async_get(climate_entity_id)
+            if entry is not None and entry.device_id:
+                device = dr.async_get(self.hass).async_get(entry.device_id)
+                if device is not None:
+                    caps["manufacturer"], caps["model"] = device.manufacturer, device.model
+                for sib in er.async_entries_for_device(reg, entry.device_id):
+                    if sib.entity_id == climate_entity_id or sib.disabled_by:
+                        continue
+                    st = self.hass.states.get(sib.entity_id)
+                    attrs = st.attributes if st else {}
+                    role = classify_sibling(
+                        sib.entity_id, sib.translation_key, sib.original_name,
+                        unit=attrs.get("unit_of_measurement") or sib.unit_of_measurement,
+                        options=attrs.get("options"),
+                    )
+                    if role == "valve" and not caps["valve_entity"]:
+                        caps["valve_entity"] = sib.entity_id
+                    elif role == "external_temp" and not caps["external_temp_entity"]:
+                        caps["external_temp_entity"] = sib.entity_id
+                    elif role == "sensor_select" and not caps["sensor_select_entity"]:
+                        caps["sensor_select_entity"] = sib.entity_id
+                        caps["sensor_select_option"] = external_option(attrs.get("options"))
+                    elif role == "calibration" and not caps["calibration_entity"]:
+                        caps["calibration_entity"] = sib.entity_id
+        except Exception:  # noqa: BLE001 - registry lookup must never break the update cycle
+            _LOGGER.debug("IHC: capability detection failed for %s", climate_entity_id, exc_info=True)
+        caps["quirks"] = [
+            {k: v for k, v in q.items() if k != "match"} for q in quirks_for(caps["manufacturer"], caps["model"])
+        ]
+        self._trv_caps_cache[climate_entity_id] = (caps, now)
+        return caps
+
+    def _room_valve_entities(self, room: dict) -> list:
+        entities = [e for e in (room.get(CONF_VALVE_ENTITIES) or []) if e]
+        single = room.get(CONF_VALVE_ENTITY)
+        if single and single not in entities:
+            entities.insert(0, single)
+        return entities
+
+    def _room_trv_capabilities(self, room: dict) -> list:
+        """Per-TRV capability summary for the panel ("IHC hat erkannt: …")."""
+        out = []
+        for eid in self._room_valve_entities(room):
+            if not eid.startswith("climate."):
+                continue
+            caps = self._get_trv_capabilities(eid)
+            st = self.hass.states.get(eid)
+            attrs = st.attributes if st else {}
+            out.append({
+                "entity": eid,
+                "manufacturer": caps.get("manufacturer"),
+                "model": caps.get("model"),
+                "valve_source": ("attribute" if any(attrs.get(k) is not None for k in ("valve_position", "position", "pi_heating_demand"))
+                                 else ("sensor" if caps.get("valve_entity") else None)),
+                "valve_entity": caps.get("valve_entity"),
+                "external_sensor": bool(caps.get("external_temp_entity")),
+                "calibration": bool(caps.get("calibration_entity")),
+                "step": attrs.get("target_temp_step"),
+                "supports_off": "off" in (attrs.get("hvac_modes") or []),
+                "supports_boost": "boost" in (attrs.get("preset_modes") or []),
+                "quirks": [q.get("note") for q in caps.get("quirks", []) if q.get("note")],
+            })
+        return out
+
+    def _sync_external_sensor(self, room: dict, room_temp: Optional[float]) -> None:
+        """v2.6 – "Raumfühler ins Thermostat": push the real room temperature into every TRV
+        of the room that has an external-temperature input, and switch the TRV to that
+        sensor where it needs a select (Sonoff/Aqara). Re-sent on change (≥0.1 °C) and at
+        least every EXTERNAL_SYNC_RESEND_S (Bosch/Danfoss fall back to the internal sensor
+        if no value arrives for 30 min). Opt-in per room."""
+        if room_temp is None or not room.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC):
+            return
+        if not hasattr(self, "_ext_sync_last"):
+            self._ext_sync_last = {}
+        now = time.monotonic()
+        for eid in self._room_valve_entities(room):
+            caps = self._get_trv_capabilities(eid)
+            target = caps.get("external_temp_entity")
+            if not target:
+                continue
+            sel = caps.get("sensor_select_entity")
+            opt = caps.get("sensor_select_option")
+            if sel and opt:
+                sst = self.hass.states.get(sel)
+                if sst is not None and sst.state != opt:
+                    self.hass.async_create_task(self.hass.services.async_call(
+                        "select", "select_option", {"entity_id": sel, "option": opt}))
+            nst = self.hass.states.get(target)
+            number_max = None
+            if nst is not None:
+                try:
+                    number_max = float(nst.attributes.get("max"))
+                except (TypeError, ValueError):
+                    number_max = None
+            value = external_temp_value(room_temp, number_max)
+            last = self._ext_sync_last.get(target)
+            resend = float(self._trv_quirk_value(eid, "external_resend_s", EXTERNAL_SYNC_RESEND_S))
+            min_delta = 10 if number_max is not None and number_max >= 1000 else 0.1
+            if last is not None and abs(last[0] - value) < min_delta and now - last[1] < resend:
+                continue
+            self.hass.async_create_task(self._async_send_external_temp(target, value, now))
+
+    async def _async_send_external_temp(self, target: str, value: float, ts: float) -> None:
+        """Send and only then remember it - a failed call is retried next cycle instead of
+        after the full resend interval."""
+        try:
+            await self.hass.services.async_call("number", "set_value", {"entity_id": target, "value": value},
+                                                blocking=True)
+            self._ext_sync_last[target] = (value, ts)
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("IHC: sending external temperature to %s failed", target, exc_info=True)
+
+    def _trv_quirk_value(self, climate_entity_id: str, key: str, default=None):
+        for q in self._get_trv_capabilities(climate_entity_id).get("quirks", []):
+            if key in q:
+                return q[key]
+        return default
 
     def _get_trv_sibling_humidity(self, climate_entity_id: str) -> Optional[float]:
         """Humidity of the TRV's own device when the climate entity doesn't carry it as an
@@ -223,6 +375,18 @@ class TRVControllerMixin:
         weight = float(room.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT))
         offset = float(room.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET))
 
+        # v2.6 – the TRV's own sensor only reads too warm while the radiator is warm. A
+        # static offset (default -2 °C) made rooms WITHOUT a room thermometer show 2 °C too
+        # little whenever the radiator was cold. The offset now follows a "radiator warmth"
+        # factor: 1 while the TRV heats, decaying with a ~20 min time constant afterwards.
+        # A user-chosen offset (e.g. from the calibration assistant, measured while idle)
+        # stays static as before - only the generic default is made warmth-dependent.
+        warmth = self._update_trv_warmth_factor(room.get(CONF_ROOM_ID, ""), trv_data)
+        if offset == DEFAULT_TRV_TEMP_OFFSET:
+            offset *= warmth
+        if room.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC) and room_temp is not None:
+            offset = 0.0  # TRV regulates with (and reports) the real room temperature
+
         corrected_trv = round(trv_avg + offset, 1) if trv_avg is not None else None
 
         # --- display_temp: room sensor first, TRV only when no room sensor ----
@@ -245,6 +409,29 @@ class TRVControllerMixin:
             demand_temp = corrected_trv
 
         return display_temp, demand_temp, trv_avg
+
+    _TRV_WARMTH_TAU_S = 1200.0  # radiator cool-down time constant for the TRV offset
+
+    def _update_trv_warmth_factor(self, room_id: str, trv_data: dict) -> float:
+        """0..1: how warm the radiator (and with it the TRV's own sensor) currently is."""
+        if not hasattr(self, "_trv_warmth"):
+            self._trv_warmth = {}
+        now = time.monotonic()
+        valve = trv_data.get("trv_avg_valve")
+        heating = bool(trv_data.get("trv_any_heating")) or (valve is not None and valve > 8)
+        prev = self._trv_warmth.get(room_id)
+        if prev is None:
+            factor = 1.0 if heating else 0.0
+        else:
+            last_factor, last_ts = prev
+            target = 1.0 if heating else 0.0
+            alpha = 1.0 - math.exp(-max(0.0, now - last_ts) / self._TRV_WARMTH_TAU_S)
+            # warming up is fast (hot water reaches the valve within minutes)
+            if heating:
+                alpha = max(alpha, 0.5)
+            factor = last_factor + (target - last_factor) * alpha
+        self._trv_warmth[room_id] = (factor, now)
+        return factor
 
     def _update_trv_offset_calibration(
         self,
@@ -321,13 +508,20 @@ class TRVControllerMixin:
         """
         if not valve_entity:
             return
+        if valve_entity in self._limescale_in_progress:
+            return  # Kalkschutz exercise owns this valve until it finishes
         state = self.hass.states.get(valve_entity)
         if state is None:
             return
         if valve_entity.split(".")[0] == "climate":
-            # Quantise to TRV resolution (0.5 °C) to reduce unnecessary radio traffic.
-            # e.g. 21.1 → 21.0, 21.3 → 21.5, 21.7 → 21.5
-            target_temp = round(target_temp / TRV_SETPOINT_STEP) * TRV_SETPOINT_STEP
+            # Quantise to TRV resolution to reduce unnecessary radio traffic: 0.5 °C, or the
+            # device's own coarser step (v2.6 - some Tuya TRVs only accept whole degrees).
+            try:
+                step = max(TRV_SETPOINT_STEP, float(state.attributes.get("target_temp_step") or TRV_SETPOINT_STEP))
+            except (TypeError, ValueError):
+                step = TRV_SETPOINT_STEP
+            target_temp = round(round(target_temp / step) * step, 1)
+            min_send_interval = max(min_send_interval, int(self._trv_quirk_value(valve_entity, "min_send_interval", 0)))
             last = self._last_sent_temps.get(valve_entity)
             now  = time.monotonic()
 
@@ -364,11 +558,18 @@ class TRVControllerMixin:
         state = self.hass.states.get(valve_entity)
         if state is None:
             return
+        if valve_entity in self._limescale_in_progress:
+            return  # Kalkschutz exercise owns this valve until it finishes
         if valve_entity.split(".")[0] == "climate":
             hvac_modes = state.attributes.get("hvac_modes", [])
             # Prefer setting hvac_mode to off (saves battery, no hunting)
             if "off" in hvac_modes:
                 self._last_sent_temps.pop(valve_entity, None)  # force update when turning back on
+                self._trv_cmd_pending.pop(valve_entity, None)
+                if state.state == "off":
+                    # Already off - re-sending set_hvac_mode every 60 s cycle meant one
+                    # radio command per TRV per minute for the whole summer (battery drain).
+                    return
                 self._trv_command_sent_at[valve_entity] = time.monotonic()
                 self.hass.async_create_task(
                     self.hass.services.async_call(
@@ -379,20 +580,33 @@ class TRVControllerMixin:
                 )
             else:
                 # Fallback: set to frost protection temperature
+                # No force: the normal hysteresis skips re-sending an unchanged frost
+                # setpoint every cycle (force=True did that, draining TRV batteries).
                 frost_temp = self._get_frost_protection_temp()
-                self._set_valve_entity(valve_entity, frost_temp, force=True)
+                self._set_valve_entity(valve_entity, frost_temp)
 
-    def _turn_on_valve_entity(self, valve_entity: str) -> None:
-        """Ensure TRV is in heat mode (turn on if it was set to off)."""
+    def _turn_on_valve_entity(self, valve_entity: str) -> bool:
+        """Ensure TRV is in heat mode (turn on if it was set to off).
+
+        Returns True if a turn-on command was sent - the caller then force-sends the
+        setpoint once, because many TRVs (e.g. several Tuya models) restore their own
+        stored setpoint when switching off -> heat.
+        """
         if not valve_entity:
-            return
+            return False
         state = self.hass.states.get(valve_entity)
         if state is None:
-            return
+            return False
         if valve_entity.split(".")[0] == "climate":
             current_hvac = state.state  # "off", "heat", "auto", etc.
+            hvac_modes = state.attributes.get("hvac_modes", [])
+            # v2.6 – in "auto" many TRVs (Tuya, Sonoff, tado) follow their OWN schedule and
+            # overwrite IHC's setpoint. IHC is the scheduler, so use plain "heat".
+            if current_hvac == "auto" and "heat" in hvac_modes:
+                self.hass.async_create_task(self.hass.services.async_call(
+                    "climate", "set_hvac_mode", {"entity_id": valve_entity, "hvac_mode": "heat"}))
+                return True
             if current_hvac == "off":
-                hvac_modes = state.attributes.get("hvac_modes", [])
                 preferred = "heat" if "heat" in hvac_modes else ("auto" if "auto" in hvac_modes else None)
                 if preferred:
                     self.hass.async_create_task(
@@ -402,6 +616,8 @@ class TRVControllerMixin:
                             {"entity_id": valve_entity, "hvac_mode": preferred},
                         )
                     )
+                    return True
+        return False
 
     def _set_valve_entities(self, room: dict, target_temp: float, force: bool = False) -> None:
         """Set setpoint on all TRV / climate entities configured for a room."""
@@ -410,13 +626,13 @@ class TRVControllerMixin:
         for entity in room.get(CONF_VALVE_ENTITIES, []):
             if entity:
                 # Ensure TRV is in heat mode before setting temperature
-                self._turn_on_valve_entity(entity)
-                self._set_valve_entity(entity, target_temp, force=force, min_send_interval=min_interval)
+                turned_on = self._turn_on_valve_entity(entity)
+                self._set_valve_entity(entity, target_temp, force=force or turned_on, min_send_interval=min_interval)
         # Legacy: single valve entity
         single = room.get(CONF_VALVE_ENTITY)
         if single and single not in room.get(CONF_VALVE_ENTITIES, []):
-            self._turn_on_valve_entity(single)
-            self._set_valve_entity(single, target_temp, force=force, min_send_interval=min_interval)
+            turned_on = self._turn_on_valve_entity(single)
+            self._set_valve_entity(single, target_temp, force=force or turned_on, min_send_interval=min_interval)
 
     def _turn_off_valve_entities(self, room: dict) -> None:
         """Turn off all TRV entities for a room (window open / room off)."""
@@ -535,6 +751,10 @@ class TRVControllerMixin:
                     entity_id,
                 )
                 continue
+            if entity_id in self._limescale_in_progress:
+                # Kalkschutz is holding this valve at max_temp on purpose - that is
+                # not a manual change (used to flip the room to MANUAL at 30 °C).
+                continue
             trv_target = state.attributes.get("temperature")
             if trv_target is None:
                 continue
@@ -604,7 +824,8 @@ class TRVControllerMixin:
                 next_str = ""
                 if next_period:
                     try:
-                        next_str = f" bis {next_period.get('start', '')} Uhr"
+                        next_str = self._t(f" bis {next_period.get('start', '')} Uhr",
+                                           f" until {next_period.get('start', '')}")
                     except Exception as exc:
                         _LOGGER.debug("IHC: Could not format next period for notification: %s", exc)
                 # Send HA notification
@@ -613,12 +834,16 @@ class TRVControllerMixin:
                         "persistent_notification",
                         "create",
                         {
-                            "title": f"IHC: Manueller Eingriff – {room_name}",
-                            "message": (
+                            "title": self._t(f"IHC: Manueller Eingriff – {room_name}",
+                                             f"IHC: manual change – {room_name}"),
+                            "message": self._t(
                                 f"**{room_name}** wurde manuell am Gerät auf "
                                 f"**{trv_target:.1f} °C** gestellt "
                                 f"und bleibt bis zur nächsten Schaltzeit{next_str} im Modus **Manuell**.\n\n"
-                                "Der Modus wird beim nächsten Zeitplan-Event automatisch zurückgesetzt."
+                                "Der Modus wird beim nächsten Zeitplan-Event automatisch zurückgesetzt.",
+                                f"**{room_name}** was set to **{trv_target:.1f} °C** on the device and stays "
+                                f"in **manual** mode{next_str}.\n\nThe mode is reset automatically at the "
+                                "next schedule change.",
                             ),
                             "notification_id": f"ihc_manual_override_{room_id}",
                         },
@@ -661,12 +886,7 @@ class TRVControllerMixin:
                 continue
             attrs = state.attributes
             # Explicit None checks: valve=0 (fully closed) is valid but falsy
-            _vp = attrs.get("valve_position")
-            if _vp is None:
-                _vp = attrs.get("position")
-            if _vp is None:
-                _vp = attrs.get("pi_heating_demand")
-            vp = _vp
+            vp = self._read_valve_position(eid, attrs)
             if vp is None:
                 # TRV does not report valve position → cannot detect stuck
                 self._trv_stuck_since.pop(eid, None)
@@ -748,6 +968,10 @@ class TRVControllerMixin:
         )
 
         for room in self.get_rooms():
+            room_id = room.get(CONF_ROOM_ID, "")
+            # Kindersicherung: IHC must not touch a locked room's TRVs at all
+            if room_id and self.is_room_child_locked(room_id):
+                continue
             entities: list[str] = list(room.get(CONF_VALVE_ENTITIES) or [])
             single = room.get(CONF_VALVE_ENTITY, "")
             if single and single not in entities:
@@ -766,16 +990,12 @@ class TRVControllerMixin:
                         # Exercise done – remove from in-progress (normal control resumes)
                         del self._limescale_in_progress[eid]
                         self._last_sent_temps.pop(eid, None)  # force fresh setpoint next cycle
+                        self._trv_cmd_pending.pop(eid, None)
                         _LOGGER.info("IHC: Kalkschutz abgeschlossen für %s", eid)
                     # Still in progress – keep max_temp (set again to be safe)
-                    else:
-                        max_temp = float(state.attributes.get("max_temp", 30.0))
-                        self.hass.async_create_task(
-                            self.hass.services.async_call(
-                                "climate", "set_temperature",
-                                {"entity_id": eid, "temperature": max_temp},
-                            )
-                        )
+                    # Still in progress: nothing to resend - Phase D skips valves in
+                    # _limescale_in_progress, so the max_temp setpoint stays in place
+                    # (re-sending it every cycle only cost TRV battery).
                     continue
 
                 # Not in progress – check if due
@@ -790,6 +1010,9 @@ class TRVControllerMixin:
                     )
                     self._limescale_in_progress[eid] = now_mono
                     self._limescale_last_exercise[eid] = today
+                    # The exercise is most useful in summer, when IHC has the TRV in
+                    # hvac_mode "off" - a setpoint alone would not open the valve then.
+                    self._turn_on_valve_entity(eid)
                     self.hass.async_create_task(
                         self.hass.services.async_call(
                             "climate", "set_temperature",

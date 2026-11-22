@@ -36,6 +36,272 @@
     }[c]));
   }
 
+  // localStorage can throw (privacy mode, restricted webviews in the companion
+  // app, blocked site data). A throw here used to abort the whole tab render
+  // and leave the panel blank - these wrappers fail soft instead.
+  _lsGet(key) {
+    try { return window.localStorage.getItem(key); } catch (e) { return null; }
+  }
+
+  _lsSet(key, value) {
+    try { window.localStorage.setItem(key, value); } catch (e) { /* ignore */ }
+  }
+
+  // ── English UI (v2.6) ──────────────────────────────────────────────────────
+  // The panel is written in German. For every other HA language the rendered DOM is
+  // translated in place (text nodes + placeholder/title/aria-label) from the generated
+  // dictionary (frontend/i18n/en.py): exact match → match without leading emoji/symbols →
+  // patterns for texts with numbers/names → word fallback for longer sentences.
+  _lang() {
+    const h = this._hass;
+    return String((h && ((h.locale && h.locale.language) || h.language)) || "de").toLowerCase();
+  }
+
+  _i18nActive() {
+    return typeof IHC_I18N_EN !== "undefined" && !this._lang().startsWith("de");
+  }
+
+  // 2-letter UI language: "de" (no translation), one of IHC_I18N_LANGS, else "en"
+  _uiLang() {
+    const l = this._lang().slice(0, 2);
+    if (l === "de") return "de";
+    return (typeof IHC_I18N_LANGS !== "undefined" && IHC_I18N_LANGS[l]) ? l : "en";
+  }
+
+  _trCore(norm) {
+    const lang = this._uiLang();
+    if (lang !== "en" && lang !== "de") {
+      const dict = IHC_I18N_LANGS[lang];
+      if (Object.prototype.hasOwnProperty.call(dict, norm)) return dict[norm];
+      for (const [re, rep] of (IHC_I18N_LANG_PATTERNS[lang] || [])) {
+        if (re.test(norm)) return norm.replace(re, rep);
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(IHC_I18N_EN, norm)) return IHC_I18N_EN[norm];
+    for (const [re, rep] of IHC_I18N_EN_PATTERNS) {
+      if (re.test(norm)) {
+        const days = { Mo: "Mon", Di: "Tue", Mi: "Wed", Do: "Thu", Fr: "Fri", Sa: "Sat", So: "Sun" };
+        return norm.replace(re, rep).replace(/^(Mo|Di|Mi|Do|Fr|Sa|So)\b/, d => days[d]);
+      }
+    }
+    return null;
+  }
+
+  _tr(text) {
+    if (!text || !/[A-Za-zÄÖÜäöüß]/.test(text)) return text;
+    const m = text.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    const lead = m[1], trail = m[3];
+    const norm = m[2].replace(/\s+/g, " ");
+    let out = this._trCore(norm);
+    if (out == null) {
+      // strip leading emoji / symbols / punctuation ("🔥 Heizen", "· Zeitplan", "+ Punkt")
+      const pm = norm.match(/^([^\p{L}„"(]+)([\s\S]+)$/u);
+      if (pm) {
+        const core = this._trCore(pm[2]);
+        if (core != null) out = pm[1] + core;
+      }
+    }
+    if (out == null && norm.split(" ").length >= 3 && this._uiLang() === "en") {
+      // word fallback only for sentences - short texts are often user room names
+      out = norm;
+      for (const [de, en] of IHC_I18N_EN_WORDS) {
+        out = out.replace(new RegExp(`(?<![\\p{L}])${de.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"), en);
+      }
+      if (out === norm) out = null;
+    }
+    return out == null ? text : lead + out + trail;
+  }
+
+  _translateTree(root) {
+    if (!root || !this._i18nActive()) return;
+    const skip = new Set(["STYLE", "SCRIPT", "CODE", "TEXTAREA"]);
+    // user-given room/area names are never translated ("Gäste-WC" stays "Gäste-WC")
+    const names = new Set([
+      ...Object.values(this._getRoomData()).map(r => r.name),
+      ...Object.values((this._hass && this._hass.areas) || {}).map(a => a.name),
+    ].filter(Boolean).map(x => String(x).trim()));
+    const isName = t => {
+      const core = t.trim().replace(/^[^\p{L}]+/u, "").replace(/[:\s]+$/, "");
+      return names.has(t.trim()) || names.has(core);
+    };
+    const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = tw.nextNode())) {
+      if (n.parentNode && skip.has(n.parentNode.nodeName)) continue;
+      if (n._ihcTr === n.nodeValue) continue;
+      if (isName(n.nodeValue)) { n._ihcTr = n.nodeValue; continue; }
+      const t = this._tr(n.nodeValue);
+      if (t !== n.nodeValue) n.nodeValue = t;
+      n._ihcTr = n.nodeValue;
+    }
+    root.querySelectorAll("[placeholder],[title],[aria-label]").forEach(el => {
+      for (const a of ["placeholder", "title", "aria-label"]) {
+        const v = el.getAttribute(a);
+        if (v && el[`_ihcTr_${a}`] !== v) {
+          const t = this._tr(v);
+          if (t !== v) el.setAttribute(a, t);
+          el[`_ihcTr_${a}`] = el.getAttribute(a);
+        }
+      }
+    });
+  }
+
+  // ── Einfach/Experte (v2.6) ─────────────────────────────────────────────────
+  _uiMode() {
+    return this._lsGet("ihc_ui_mode") === "expert" ? "expert" : "simple";
+  }
+
+  _setUiMode(mode) {
+    this._lsSet("ihc_ui_mode", mode);
+    this.classList.toggle("ui-simple", mode === "simple");
+  }
+
+  // ── Automatic room discovery from HA areas (v2.6) ──────────────────────────
+  // Groups thermostats, temperature/humidity sensors and window contacts by their
+  // HA area (entity area, else device area). Every area with at least one
+  // thermostat that IHC doesn't manage yet becomes a ready-to-create room.
+  _discoverRooms() {
+    const h = this._hass;
+    if (!h || !h.areas || !h.entities) return [];
+    const rooms = Object.values(this._getRoomData());
+    const used = new Set();
+    rooms.forEach(r => [
+      ...(r.valve_entities || []), ...(r.window_sensors || []), r.temp_sensor, r.humidity_sensor,
+    ].forEach(e => e && used.add(e)));
+    const existingNames = new Set(rooms.map(r => (r.name || "").toLowerCase()));
+    const deviceOf = eid => h.entities[eid]?.device_id || null;
+    const areaOf = eid => {
+      const ent = h.entities[eid];
+      if (!ent) return null;
+      return ent.area_id || (ent.device_id && h.devices?.[ent.device_id]?.area_id) || null;
+    };
+    const byArea = {};
+    for (const [eid, st] of Object.entries(h.states)) {
+      const ent = h.entities[eid];
+      if (!ent || ent.hidden || ent.entity_category) continue;
+      if (ent.platform === "intelligent_heating_control" || used.has(eid)) continue;
+      const area = areaOf(eid);
+      if (!area) continue;
+      const domain = eid.split(".")[0];
+      const dc = st.attributes?.device_class;
+      const a = byArea[area] || (byArea[area] = { valves: [], temps: [], windows: [], humidity: [] });
+      if (domain === "climate") a.valves.push(eid);
+      else if (domain === "sensor" && dc === "temperature") a.temps.push(eid);
+      else if (domain === "sensor" && dc === "humidity") a.humidity.push(eid);
+      else if (domain === "binary_sensor" && (dc === "window" || dc === "opening")) a.windows.push(eid);
+    }
+    return Object.entries(byArea)
+      .filter(([, a]) => a.valves.length > 0)
+      .map(([areaId, a]) => {
+        // A thermostat's own built-in temperature/humidity entity is not a room sensor -
+        // IHC reads that from the TRV anyway. Prefer a separate device.
+        const valveDevices = new Set(a.valves.map(deviceOf).filter(Boolean));
+        const pick = list => list.find(e => !valveDevices.has(deviceOf(e))) || "";
+        const name = h.areas[areaId]?.name || areaId;
+        return {
+          area_id: areaId, name,
+          valves: a.valves.sort(),
+          temp_sensor: pick(a.temps),
+          humidity_sensor: pick(a.humidity),
+          windows: a.windows.sort(),
+          exists: existingNames.has(name.toLowerCase()),
+        };
+      })
+      .sort((x, y) => x.name.localeCompare(y.name));
+  }
+
+  _friendly(eid) {
+    const st = this._hass?.states?.[eid];
+    return st?.attributes?.friendly_name || eid;
+  }
+
+  // ── Thermostat-Fähigkeiten (v2.6) ───────────────────────────────────────────
+  _renderTrvCapabilities(room) {
+    const caps = room.trv_capabilities || [];
+    if (!caps.length) return "";
+    const anyExternal = caps.some(c => c.external_sensor);
+    const hasSensor = !!room.temp_sensor || (room.temp_sensors || []).length > 0;
+    const yes = "✓", no = "–";
+    const rows = caps.map(c => `
+      <div class="trv-cap">
+        <div class="trv-cap-name">${this._esc(this._friendly(c.entity))}
+          ${c.manufacturer || c.model ? `<span class="trv-cap-model">${this._esc([c.manufacturer, c.model].filter(Boolean).join(" "))}</span>` : ""}</div>
+        <div class="trv-cap-list">
+          <span title="Ventilstellung">${c.valve_source ? yes : no} Ventilstellung</span>
+          <span title="Externer Raumfühler-Eingang">${c.external_sensor ? yes : no} Raumfühler-Eingang</span>
+          <span>${c.supports_off ? yes : no} Aus-Modus</span>
+          <span>${c.supports_boost ? yes : no} Boost</span>
+          ${c.step ? `<span>Schritt ${c.step} °C</span>` : ""}
+        </div>
+        ${(c.quirks || []).map(q => `<div class="form-hint">💡 ${this._esc(q)}</div>`).join("")}
+      </div>`).join("");
+    return `
+      <div class="trv-caps">
+        <div class="trv-caps-title">🔎 IHC hat erkannt</div>
+        ${rows}
+        ${anyExternal ? `
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px">
+            <input type="checkbox" id="rs-external-sync" ${room.external_sensor_sync ? "checked" : ""} ${hasSensor ? "" : "disabled"}>
+            🌡️ Raumfühler ins Thermostat übertragen
+          </label>
+          <span class="form-hint">${hasSensor
+            ? "Das Thermostat regelt dann mit der echten Raumtemperatur statt mit seinem Fühler am heißen Heizkörper – genauer, keine Korrekturwerte nötig."
+            : "Dafür zuerst oben einen Temperatursensor für das Zimmer eintragen."}</span>` : ""}
+      </div>`;
+  }
+
+  // ── "Was nutzt dieses Zimmer?" (v2.6) ──────────────────────────────────────
+  // Plain-language list of what IHC does automatically for a room and which
+  // optional sensor would improve it. Same component for every sensor budget.
+  _renderRoomCapabilities(room) {
+    const g = this._getGlobal();
+    const hasTrv = (room.valve_entities || []).length > 0;
+    const hasTemp = !!room.temp_sensor || (room.temp_sensors || []).length > 0;
+    const hasWindow = (room.window_sensors || []).length > 0;
+    const autoWindow = g.window_auto_detect_enabled !== false;
+    const hasHumidity = !!room.humidity_sensor || room.trv_humidity != null;
+    const hasPresence = (room.room_presence_entities || []).length > 0 || !!room.presence_sensor;
+    const hasSchedule = (room.schedules || []).length > 0 || (room.ha_schedules || []).length > 0;
+    const row = (ok, icon, title, text) => `
+      <div class="cap-row ${ok === true ? "cap-ok" : ok === "auto" ? "cap-auto" : "cap-tip"}">
+        <span class="cap-icon">${icon}</span>
+        <div><div class="cap-title">${title}</div><div class="cap-text">${text}</div></div>
+      </div>`;
+    return `
+      <div class="card cap-card">
+        <div class="card-title">🧭 Was IHC in diesem Zimmer nutzt</div>
+        ${row(hasTrv, "🔥", hasTrv ? "Thermostat verbunden" : "Kein Thermostat",
+          hasTrv ? `${(room.valve_entities || []).map(e => this._esc(this._friendly(e))).join(", ")} – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst.`
+                 : "Ohne Thermostat kann IHC hier nichts steuern. Unter „Thermostate / TRVs“ hinzufügen.")}
+        ${row(hasTemp ? true : "auto", "🌡️", hasTemp ? "Eigener Temperatursensor" : "Temperatur vom Thermostat",
+          hasTemp ? "Misst die echte Raumtemperatur – am genauesten."
+                  : "💡 Tipp: Ein Raumthermometer (ab ~10 €) misst genauer als das Thermostat direkt am Heizkörper.")}
+        ${row(hasWindow ? true : (autoWindow ? "auto" : false), "🪟",
+          hasWindow ? "Fenstersensor" : (autoWindow ? "Fenster: automatische Erkennung" : "Keine Fenstererkennung"),
+          hasWindow ? "Heizung pausiert sofort, wenn das Fenster offen ist."
+                    : (autoWindow ? "IHC erkennt offene Fenster an einem plötzlichen Temperatursturz. 💡 Ein Fensterkontakt reagiert schneller."
+                                  : "💡 In den Einstellungen die sensorlose Fenstererkennung einschalten oder einen Fensterkontakt hinzufügen."))}
+        ${row(hasSchedule ? true : "auto", "📅", hasSchedule ? "Zeitplan aktiv" : "Kein Zeitplan",
+          hasSchedule ? "Heizt nach deinem Wochenplan." : "Heizt nach Heizkurve/Wohlfühltemperatur. 💡 Unter „📅 Zeitplan“ Heizzeiten festlegen und Energie sparen.")}
+        ${row(hasHumidity ? true : false, "💧", hasHumidity ? "Luftfeuchte bekannt" : "Keine Luftfeuchte",
+          hasHumidity ? "Schimmelschutz und Lüftungsempfehlung sind aktiv." : "💡 Ein Feuchtesensor aktiviert Schimmelschutz und Lüftungsempfehlung.")}
+        ${(() => {
+          const hasCovers = (room.cover_entities || []).length > 0;
+          const coverAuto = hasCovers && (room.solar_passive_heat || room.solar_passive_cool);
+          return row(coverAuto ? true : false, "🪟",
+            coverAuto ? "Rollläden automatisch" : hasCovers ? "Rollläden verbunden, Automatik aus" : "Keine Rollläden",
+            coverAuto ? "Nachts dämmen, Sonnenwärme nutzen, bei Hitze beschatten (wie Loxone)."
+                      : hasCovers ? "💡 Unter „Rollläden automatisch steuern“ einschalten – spart Heizenergie."
+                                  : "Optional: Rollläden zuordnen – nachts geschlossen sparen sie Wärme, tagsüber holen sie Sonnenwärme rein.");
+        })()}
+        ${room.external_sensor_sync ? row(true, "🌡️", "Raumfühler im Thermostat", "Das Thermostat regelt mit der echten Raumtemperatur.") : ""}
+        ${room.wakeup_enabled ? row(true, "⏰", "Warm aufwachen", "Warm, wenn der Handy-Wecker klingelt.") : ""}
+        ${room.feel_learned_offset ? row(true, "🧠", `Gelernt: ${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C um diese Zeit`, "Aus deinen „Mir ist kalt/warm“-Rückmeldungen gelernt.") : ""}
+        ${row(hasPresence ? true : false, "👤", hasPresence ? "Anwesenheit im Zimmer" : "Keine Zimmer-Anwesenheit",
+          hasPresence ? "Senkt ab, wenn niemand im Zimmer ist." : "Optional: Bewegungsmelder oder Personen zuordnen, um leere Zimmer abzusenken.")}
+      </div>`;
+  }
+
   // Some HA versions prepend the device name to the auto-generated object_id
   // (e.g. "sensor.intelligent_heating_control_ihc_gesamtanforderung" instead of
   // "sensor.ihc_gesamtanforderung"), depending on entity registry history.
@@ -67,6 +333,42 @@
         preset: state.attributes.preset_mode || "auto",
         demand: state.attributes.demand || 0,
         window_open: state.attributes.window_open || false,
+        window_auto_detected: state.attributes.window_auto_detected === true,
+        // v2.6 – fields the panel used but never mapped from the climate attributes.
+        // Room settings showed them empty and SAVING wiped them (covers, sleep profile,
+        // extra temperature sensors); mold/CO2/ventilation alerts never appeared.
+        cover_entities:          state.attributes.cover_entities || [],
+        window_orientation:      state.attributes.window_orientation || "",
+        lux_sensor:              state.attributes.lux_sensor || "",
+        solar_passive_heat:      state.attributes.solar_passive_heat === true,
+        solar_passive_cool:      state.attributes.solar_passive_cool === true,
+        solar_evening_privacy_enabled:  state.attributes.solar_evening_privacy_enabled === true,
+        solar_glare_protection_enabled: state.attributes.solar_glare_protection_enabled === true,
+        sleep_temp_profile:      state.attributes.sleep_temp_profile || [],
+        temp_sensors:            state.attributes.temp_sensors || [],
+        mold:                    state.attributes.mold || null,
+        co2_ppm:                 state.attributes.co2_ppm ?? null,
+        ventilation:             state.attributes.ventilation || null,
+        room_presence_active:    state.attributes.room_presence_active ?? null,
+        thermal_bridge:          state.attributes.thermal_bridge || null,
+        trv_suggested_offset:    state.attributes.trv_suggested_offset ?? null,
+        manual_temp:             state.attributes.manual_temp ?? null,
+        // v2.6 comfort + TRV capabilities
+        ignore_heating_period:   state.attributes.ignore_heating_period === true,
+        wakeup_enabled:          state.attributes.wakeup_enabled === true,
+        wakeup_active:           state.attributes.wakeup_active === true,
+        person_offset:           state.attributes.person_offset ?? 0,
+        feel_temp_offset:        state.attributes.feel_temp_offset ?? 0,
+        feel_temp_until:         state.attributes.feel_temp_until || null,
+        feel_learned_offset:     state.attributes.feel_learned_offset ?? 0,
+        feel_learned_profile:    state.attributes.feel_learned_profile || [],
+        external_sensor_sync:    state.attributes.external_sensor_sync === true,
+        trv_capabilities:        state.attributes.trv_capabilities || [],
+        // Rollladen-Automatik live status (was never mapped -> badge never showed)
+        solar_cover_active:     state.attributes.solar_cover_active === true,
+        solar_cover_position:   state.attributes.solar_cover_position ?? null,
+        solar_cover_reason:     state.attributes.solar_cover_reason || null,
+        solar_cover_overridden: state.attributes.solar_cover_overridden === true,
         room_mode: state.attributes.room_mode || "auto",
         schedule_active: state.attributes.schedule_active || false,
         source: state.attributes.source || "",
@@ -75,7 +377,6 @@
         runtime_today_minutes: 0,
         temp_history: [],
         target_history: [],
-        avg_warmup_minutes: null,
         // Room config (from climate entity extra_state_attributes)
         temp_sensor: state.attributes.temp_sensor || "",
         valve_entities: state.attributes.valve_entities || [],
@@ -247,6 +548,13 @@
     const ea   = egy ? (egy.attributes || {}) : {};
     return {
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
+      // v2.6 – automatic fallbacks, shown in plain language in the UI
+      window_auto_detect_enabled: a.window_auto_detect_enabled !== false,
+      battery_soc:               ea.battery_soc != null ? parseFloat(ea.battery_soc) : null,
+      outdoor_temp_source:       a.outdoor_temp_source || null,
+      flow_temp_now:             a.flow_temp_now ?? null,
+      weather_entity_effective:  a.weather_entity_effective || null,
+      presence_entities:         a.presence_entities || [],
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
       system_mode:               (sel && SYSTEM_MODE_LABEL_TO_KEY[sel.state]) || a.system_mode || "—",
       curve_target:              ct  ? (isNaN(parseFloat(ct.state)) ? null : parseFloat(ct.state)) : null,
@@ -334,7 +642,7 @@
   // ── Energy correction factor ────────────────────────────────────────────────
   // Applies the user-set calibration factor (stored in localStorage) to kWh values.
   _kwh(raw) {
-    const factor = parseFloat(localStorage.getItem("ihc_energy_factor") || "1") || 1;
+    const factor = parseFloat(this._lsGet("ihc_energy_factor") || "1") || 1;
     return Math.round(raw * factor * 10) / 10;
   }
 
@@ -343,7 +651,7 @@
   _costStr(rawKwh, staticPrice) {
     const kwh = this._kwh(rawKwh);
     const parts = [`~${kwh} kWh`];
-    const price = staticPrice ?? (parseFloat(localStorage.getItem("ihc_static_price") || "") || null);
+    const price = staticPrice ?? (parseFloat(this._lsGet("ihc_static_price") || "") || null);
     if (price && kwh > 0) parts.push(`≈ ${(kwh * price).toFixed(2)} €`);
     return parts.join(" · ");
   }

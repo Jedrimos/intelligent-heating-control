@@ -17,6 +17,7 @@ from .const import (
     PANEL_TITLE,
     PANEL_ICON,
     SERVICE_ADD_ROOM,
+    SERVICE_ADD_ROOMS,
     SERVICE_REMOVE_ROOM,
     SERVICE_UPDATE_ROOM,
     SERVICE_UPDATE_GLOBAL_SETTINGS,
@@ -30,6 +31,12 @@ from .const import (
     SERVICE_RESET_STATS,
     # Backlog 2026-11-02 – Kindersicherung: globaler Reset-Button/Service
     SERVICE_RESET_ALL_ROOMS,
+    SERVICE_FEEL,
+    SERVICE_RESET_COMFORT_LEARNING,
+    CONF_TRV_EXTERNAL_SENSOR_SYNC,
+    DEFAULT_TRV_EXTERNAL_SENSOR_SYNC,
+    CONF_WAKEUP_ENABLED,
+    DEFAULT_WAKEUP_ENABLED,
     # v1.7 – Heizgruppen
     SERVICE_ADD_GROUP,
     SERVICE_REMOVE_GROUP,
@@ -229,11 +236,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     # Unregister services so they are re-registered with the new coordinator on reload
     for service in [
-        SERVICE_ADD_ROOM, SERVICE_REMOVE_ROOM, SERVICE_UPDATE_ROOM,
+        SERVICE_ADD_ROOM, SERVICE_ADD_ROOMS, SERVICE_REMOVE_ROOM, SERVICE_UPDATE_ROOM,
         SERVICE_SET_ROOM_MODE, SERVICE_SET_SYSTEM_MODE, SERVICE_BOOST_ROOM,
         SERVICE_RELOAD, SERVICE_EXPORT_CONFIG, SERVICE_UPDATE_GLOBAL_SETTINGS,
         SERVICE_ACTIVATE_GUEST_MODE, SERVICE_DEACTIVATE_GUEST_MODE, SERVICE_RESET_STATS,
-        SERVICE_RESET_ALL_ROOMS,
+        SERVICE_RESET_ALL_ROOMS, SERVICE_FEEL, SERVICE_RESET_COMFORT_LEARNING,
         # v1.7 – Heizgruppen (must be unregistered here too)
         SERVICE_ADD_GROUP, SERVICE_REMOVE_GROUP, SERVICE_UPDATE_GROUP, SERVICE_SET_GROUP_MODE,
     ]:
@@ -288,7 +295,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         config={
             "_panel_custom": {
                 "name": "ihc-panel",
-                "js_url": "/ihc_static/ihc-panel.js?v=2.5.0",
+                "js_url": "/ihc_static/ihc-panel.js?v=2.6.0",
                 "embed_iframe": False,
                 "trust_external_script": True,
             }
@@ -332,80 +339,93 @@ async def _async_register_lovelace_cards(hass: HomeAssistant) -> None:
 def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: ConfigEntry) -> None:
     """Register custom HA services."""
 
-    async def handle_add_room(call: ServiceCall) -> None:
-        room_config = {
-            CONF_ROOM_NAME: call.data.get(CONF_ROOM_NAME, "New Room"),
-            CONF_TEMP_SENSOR: call.data.get(CONF_TEMP_SENSOR, ""),
-            CONF_TEMP_SENSORS: list(call.data.get(CONF_TEMP_SENSORS, [])),
-            CONF_VALVE_ENTITY: call.data.get(CONF_VALVE_ENTITY, ""),
-            CONF_VALVE_ENTITIES: call.data.get(CONF_VALVE_ENTITIES, []),
-            CONF_ROOM_OFFSET: float(call.data.get(CONF_ROOM_OFFSET, 0.0)),
-            CONF_DEADBAND: float(call.data.get(CONF_DEADBAND, DEFAULT_DEADBAND)),
-            CONF_COMFORT_TEMP: float(call.data.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)),
-            CONF_AWAY_TEMP_ROOM: float(call.data.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
-            CONF_ECO_OFFSET: float(call.data.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET)),
-            CONF_SLEEP_OFFSET: float(call.data.get(CONF_SLEEP_OFFSET, DEFAULT_SLEEP_OFFSET)),
-            CONF_AWAY_OFFSET: float(call.data.get(CONF_AWAY_OFFSET, DEFAULT_AWAY_OFFSET)),
-            CONF_ECO_MAX_TEMP: float(call.data.get(CONF_ECO_MAX_TEMP, DEFAULT_ECO_MAX_TEMP)),
-            CONF_SLEEP_MAX_TEMP: float(call.data.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP)),
-            CONF_SLEEP_TEMP_PROFILE: list(call.data.get(CONF_SLEEP_TEMP_PROFILE, [])),
-            CONF_AWAY_MAX_TEMP: float(call.data.get(CONF_AWAY_MAX_TEMP, DEFAULT_AWAY_MAX_TEMP)),
-            CONF_HA_SCHEDULE_OFF_MODE: call.data.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE),
-            CONF_WINDOW_SENSOR: call.data.get(CONF_WINDOW_SENSOR, ""),
-            CONF_WINDOW_SENSORS: call.data.get(CONF_WINDOW_SENSORS, []),
-            CONF_MIN_TEMP: float(call.data.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)),
-            CONF_MAX_TEMP: float(call.data.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
-            CONF_SCHEDULES: call.data.get(CONF_SCHEDULES, []),
-            CONF_HA_SCHEDULES: call.data.get(CONF_HA_SCHEDULES, []),
-            CONF_HUMIDITY_SENSOR: call.data.get(CONF_HUMIDITY_SENSOR, ""),
-            CONF_MOLD_PROTECTION_ENABLED: _coerce_bool(call.data.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED)),
-            CONF_CO2_SENSOR: call.data.get(CONF_CO2_SENSOR, ""),
-            CONF_CO2_THRESHOLD_GOOD: int(call.data.get(CONF_CO2_THRESHOLD_GOOD, DEFAULT_CO2_THRESHOLD_GOOD)),
-            CONF_CO2_THRESHOLD_BAD: int(call.data.get(CONF_CO2_THRESHOLD_BAD, DEFAULT_CO2_THRESHOLD_BAD)),
-            CONF_RADIATOR_KW: float(call.data.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW)),
-            CONF_HKV_SENSOR: call.data.get(CONF_HKV_SENSOR, ""),
-            CONF_HKV_FACTOR: float(call.data.get(CONF_HKV_FACTOR, DEFAULT_HKV_FACTOR)),
-            CONF_WINDOW_REACTION_TIME: int(call.data.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME)),
-            CONF_WINDOW_CLOSE_DELAY: int(call.data.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY)),
-            CONF_ROOM_QM: float(call.data.get(CONF_ROOM_QM, DEFAULT_ROOM_QM)),
-            CONF_ABSOLUTE_MIN_TEMP: float(call.data.get(CONF_ABSOLUTE_MIN_TEMP, DEFAULT_ABSOLUTE_MIN_TEMP)),
-            CONF_ROOM_PREHEAT_MINUTES: int(call.data.get(CONF_ROOM_PREHEAT_MINUTES, DEFAULT_ROOM_PREHEAT_MINUTES)),
-            CONF_ROOM_PRESENCE_ENTITIES: call.data.get(CONF_ROOM_PRESENCE_ENTITIES, []),
-            CONF_BOOST_DEFAULT_DURATION: int(call.data.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION)),
-            CONF_BOOST_TEMP: float(call.data.get(CONF_BOOST_TEMP, DEFAULT_BOOST_TEMP)),
-            CONF_MOLD_HUMIDITY_THRESHOLD: float(call.data.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD)),
-            CONF_TRV_TEMP_WEIGHT: float(call.data.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT)),
-            CONF_TRV_TEMP_OFFSET: float(call.data.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET)),
-            CONF_TRV_MIN_SEND_INTERVAL: int(call.data.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL)),
-            CONF_TRV_CALIBRATIONS: call.data.get(CONF_TRV_CALIBRATIONS) or {},
-            CONF_WINDOW_OPEN_TEMP: float(call.data.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP)),
-            CONF_WINDOW_RESTORE_MODE: str(call.data.get(CONF_WINDOW_RESTORE_MODE, DEFAULT_WINDOW_RESTORE_MODE)),
-            CONF_PRESENCE_SENSOR: call.data.get(CONF_PRESENCE_SENSOR, ""),
-            CONF_PRESENCE_SENSOR_ON_DELAY: int(call.data.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY)),
-            CONF_PRESENCE_SENSOR_OFF_DELAY: int(call.data.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY)),
-            CONF_ROOM_TEMP_THRESHOLD: float(call.data.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
-            CONF_ROOM_IGNORE_HEATING_PERIOD: bool(call.data.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
-            CONF_COMFORT_TEMP_ENTITY: call.data.get(CONF_COMFORT_TEMP_ENTITY, ""),
-            CONF_ECO_TEMP_ENTITY: call.data.get(CONF_ECO_TEMP_ENTITY, ""),
-            CONF_COMFORT_EXTEND_ENTITY: call.data.get(CONF_COMFORT_EXTEND_ENTITY, ""),
-            CONF_COMFORT_EXTEND_STATE: call.data.get(CONF_COMFORT_EXTEND_STATE, DEFAULT_COMFORT_EXTEND_STATE),
-            CONF_COMFORT_EXTEND_ENTRIES: list(call.data.get(CONF_COMFORT_EXTEND_ENTRIES, [])),
-            CONF_AGGRESSIVE_MODE_ENABLED: _coerce_bool(call.data.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED)),
-            CONF_AGGRESSIVE_MODE_RANGE: float(call.data.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE)),
-            CONF_AGGRESSIVE_MODE_OFFSET: float(call.data.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET)),
-            CONF_TEMP_CALIBRATION: float(call.data.get(CONF_TEMP_CALIBRATION, 0.0)),
-            CONF_WINDOW_CASCADE_ROOMS: list(call.data.get(CONF_WINDOW_CASCADE_ROOMS, [])),
-            CONF_WINDOW_CASCADE_DELAY_MINUTES: int(call.data.get(CONF_WINDOW_CASCADE_DELAY_MINUTES, DEFAULT_WINDOW_CASCADE_DELAY_MINUTES)),
-            CONF_WINDOW_CASCADE_OFFSET: float(call.data.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET)),
-            CONF_COVER_ENTITIES: list(call.data.get(CONF_COVER_ENTITIES, [])),
-            CONF_WINDOW_ORIENTATION: call.data.get(CONF_WINDOW_ORIENTATION, ""),
-            CONF_SOLAR_PASSIVE_HEAT: bool(call.data.get(CONF_SOLAR_PASSIVE_HEAT, DEFAULT_SOLAR_PASSIVE_HEAT)),
-            CONF_SOLAR_PASSIVE_COOL: bool(call.data.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL)),
-            CONF_LUX_SENSOR: call.data.get(CONF_LUX_SENSOR, ""),
-            CONF_SOLAR_EVENING_PRIVACY_ENABLED: bool(call.data.get(CONF_SOLAR_EVENING_PRIVACY_ENABLED, DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED)),
-            CONF_SOLAR_GLARE_PROTECTION_ENABLED: bool(call.data.get(CONF_SOLAR_GLARE_PROTECTION_ENABLED, DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED)),
+    def _build_room_config(data) -> dict:
+        """Room dict with defaults for every field (shared by add_room/add_rooms)."""
+        return {
+            CONF_ROOM_NAME: data.get(CONF_ROOM_NAME, "New Room"),
+            CONF_TEMP_SENSOR: data.get(CONF_TEMP_SENSOR, ""),
+            CONF_TEMP_SENSORS: list(data.get(CONF_TEMP_SENSORS, [])),
+            CONF_VALVE_ENTITY: data.get(CONF_VALVE_ENTITY, ""),
+            CONF_VALVE_ENTITIES: data.get(CONF_VALVE_ENTITIES, []),
+            CONF_ROOM_OFFSET: float(data.get(CONF_ROOM_OFFSET, 0.0)),
+            CONF_DEADBAND: float(data.get(CONF_DEADBAND, DEFAULT_DEADBAND)),
+            CONF_COMFORT_TEMP: float(data.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)),
+            CONF_AWAY_TEMP_ROOM: float(data.get(CONF_AWAY_TEMP_ROOM, DEFAULT_AWAY_TEMP_ROOM)),
+            CONF_ECO_OFFSET: float(data.get(CONF_ECO_OFFSET, DEFAULT_ECO_OFFSET)),
+            CONF_SLEEP_OFFSET: float(data.get(CONF_SLEEP_OFFSET, DEFAULT_SLEEP_OFFSET)),
+            CONF_AWAY_OFFSET: float(data.get(CONF_AWAY_OFFSET, DEFAULT_AWAY_OFFSET)),
+            CONF_ECO_MAX_TEMP: float(data.get(CONF_ECO_MAX_TEMP, DEFAULT_ECO_MAX_TEMP)),
+            CONF_SLEEP_MAX_TEMP: float(data.get(CONF_SLEEP_MAX_TEMP, DEFAULT_SLEEP_MAX_TEMP)),
+            CONF_SLEEP_TEMP_PROFILE: list(data.get(CONF_SLEEP_TEMP_PROFILE, [])),
+            CONF_AWAY_MAX_TEMP: float(data.get(CONF_AWAY_MAX_TEMP, DEFAULT_AWAY_MAX_TEMP)),
+            CONF_HA_SCHEDULE_OFF_MODE: data.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE),
+            CONF_WINDOW_SENSOR: data.get(CONF_WINDOW_SENSOR, ""),
+            CONF_WINDOW_SENSORS: data.get(CONF_WINDOW_SENSORS, []),
+            CONF_MIN_TEMP: float(data.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)),
+            CONF_MAX_TEMP: float(data.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
+            CONF_SCHEDULES: data.get(CONF_SCHEDULES, []),
+            CONF_HA_SCHEDULES: data.get(CONF_HA_SCHEDULES, []),
+            CONF_HUMIDITY_SENSOR: data.get(CONF_HUMIDITY_SENSOR, ""),
+            CONF_MOLD_PROTECTION_ENABLED: _coerce_bool(data.get(CONF_MOLD_PROTECTION_ENABLED, DEFAULT_MOLD_PROTECTION_ENABLED)),
+            CONF_CO2_SENSOR: data.get(CONF_CO2_SENSOR, ""),
+            CONF_CO2_THRESHOLD_GOOD: int(data.get(CONF_CO2_THRESHOLD_GOOD, DEFAULT_CO2_THRESHOLD_GOOD)),
+            CONF_CO2_THRESHOLD_BAD: int(data.get(CONF_CO2_THRESHOLD_BAD, DEFAULT_CO2_THRESHOLD_BAD)),
+            CONF_RADIATOR_KW: float(data.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW)),
+            CONF_HKV_SENSOR: data.get(CONF_HKV_SENSOR, ""),
+            CONF_HKV_FACTOR: float(data.get(CONF_HKV_FACTOR, DEFAULT_HKV_FACTOR)),
+            CONF_WINDOW_REACTION_TIME: int(data.get(CONF_WINDOW_REACTION_TIME, DEFAULT_WINDOW_REACTION_TIME)),
+            CONF_WINDOW_CLOSE_DELAY: int(data.get(CONF_WINDOW_CLOSE_DELAY, DEFAULT_WINDOW_CLOSE_DELAY)),
+            CONF_ROOM_QM: float(data.get(CONF_ROOM_QM, DEFAULT_ROOM_QM)),
+            CONF_ABSOLUTE_MIN_TEMP: float(data.get(CONF_ABSOLUTE_MIN_TEMP, DEFAULT_ABSOLUTE_MIN_TEMP)),
+            CONF_ROOM_PREHEAT_MINUTES: int(data.get(CONF_ROOM_PREHEAT_MINUTES, DEFAULT_ROOM_PREHEAT_MINUTES)),
+            CONF_ROOM_PRESENCE_ENTITIES: data.get(CONF_ROOM_PRESENCE_ENTITIES, []),
+            CONF_BOOST_DEFAULT_DURATION: int(data.get(CONF_BOOST_DEFAULT_DURATION, DEFAULT_BOOST_DEFAULT_DURATION)),
+            CONF_BOOST_TEMP: float(data.get(CONF_BOOST_TEMP, DEFAULT_BOOST_TEMP)),
+            CONF_MOLD_HUMIDITY_THRESHOLD: float(data.get(CONF_MOLD_HUMIDITY_THRESHOLD, DEFAULT_MOLD_HUMIDITY_THRESHOLD)),
+            CONF_TRV_TEMP_WEIGHT: float(data.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT)),
+            CONF_TRV_TEMP_OFFSET: float(data.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET)),
+            CONF_TRV_MIN_SEND_INTERVAL: int(data.get(CONF_TRV_MIN_SEND_INTERVAL, DEFAULT_TRV_MIN_SEND_INTERVAL)),
+            CONF_TRV_CALIBRATIONS: data.get(CONF_TRV_CALIBRATIONS) or {},
+            CONF_WINDOW_OPEN_TEMP: float(data.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP)),
+            CONF_WINDOW_RESTORE_MODE: str(data.get(CONF_WINDOW_RESTORE_MODE, DEFAULT_WINDOW_RESTORE_MODE)),
+            CONF_PRESENCE_SENSOR: data.get(CONF_PRESENCE_SENSOR, ""),
+            CONF_PRESENCE_SENSOR_ON_DELAY: int(data.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY)),
+            CONF_PRESENCE_SENSOR_OFF_DELAY: int(data.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY)),
+            CONF_ROOM_TEMP_THRESHOLD: float(data.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
+            CONF_ROOM_IGNORE_HEATING_PERIOD: bool(data.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
+            CONF_TRV_EXTERNAL_SENSOR_SYNC: _coerce_bool(data.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC)),
+            CONF_WAKEUP_ENABLED: _coerce_bool(data.get(CONF_WAKEUP_ENABLED, DEFAULT_WAKEUP_ENABLED)),
+            CONF_COMFORT_TEMP_ENTITY: data.get(CONF_COMFORT_TEMP_ENTITY, ""),
+            CONF_ECO_TEMP_ENTITY: data.get(CONF_ECO_TEMP_ENTITY, ""),
+            CONF_COMFORT_EXTEND_ENTITY: data.get(CONF_COMFORT_EXTEND_ENTITY, ""),
+            CONF_COMFORT_EXTEND_STATE: data.get(CONF_COMFORT_EXTEND_STATE, DEFAULT_COMFORT_EXTEND_STATE),
+            CONF_COMFORT_EXTEND_ENTRIES: list(data.get(CONF_COMFORT_EXTEND_ENTRIES, [])),
+            CONF_AGGRESSIVE_MODE_ENABLED: _coerce_bool(data.get(CONF_AGGRESSIVE_MODE_ENABLED, DEFAULT_AGGRESSIVE_MODE_ENABLED)),
+            CONF_AGGRESSIVE_MODE_RANGE: float(data.get(CONF_AGGRESSIVE_MODE_RANGE, DEFAULT_AGGRESSIVE_MODE_RANGE)),
+            CONF_AGGRESSIVE_MODE_OFFSET: float(data.get(CONF_AGGRESSIVE_MODE_OFFSET, DEFAULT_AGGRESSIVE_MODE_OFFSET)),
+            CONF_TEMP_CALIBRATION: float(data.get(CONF_TEMP_CALIBRATION, 0.0)),
+            CONF_WINDOW_CASCADE_ROOMS: list(data.get(CONF_WINDOW_CASCADE_ROOMS, [])),
+            CONF_WINDOW_CASCADE_DELAY_MINUTES: int(data.get(CONF_WINDOW_CASCADE_DELAY_MINUTES, DEFAULT_WINDOW_CASCADE_DELAY_MINUTES)),
+            CONF_WINDOW_CASCADE_OFFSET: float(data.get(CONF_WINDOW_CASCADE_OFFSET, DEFAULT_WINDOW_CASCADE_OFFSET)),
+            CONF_COVER_ENTITIES: list(data.get(CONF_COVER_ENTITIES, [])),
+            CONF_WINDOW_ORIENTATION: data.get(CONF_WINDOW_ORIENTATION, ""),
+            CONF_SOLAR_PASSIVE_HEAT: bool(data.get(CONF_SOLAR_PASSIVE_HEAT, DEFAULT_SOLAR_PASSIVE_HEAT)),
+            CONF_SOLAR_PASSIVE_COOL: bool(data.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL)),
+            CONF_LUX_SENSOR: data.get(CONF_LUX_SENSOR, ""),
+            CONF_SOLAR_EVENING_PRIVACY_ENABLED: bool(data.get(CONF_SOLAR_EVENING_PRIVACY_ENABLED, DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED)),
+            CONF_SOLAR_GLARE_PROTECTION_ENABLED: bool(data.get(CONF_SOLAR_GLARE_PROTECTION_ENABLED, DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED)),
         }
-        await coordinator.async_add_room(room_config)
+
+    async def handle_add_room(call: ServiceCall) -> None:
+        await coordinator.async_add_room(_build_room_config(call.data))
+
+    async def handle_add_rooms(call: ServiceCall) -> None:
+        """v2.6 – add several rooms in ONE options update (used by the panel's
+        automatic room discovery). Separate add_room calls would each trigger a
+        full reload and race each other."""
+        rooms = [r for r in (call.data.get("rooms") or []) if isinstance(r, dict) and r.get(CONF_ROOM_NAME)]
+        if rooms:
+            await coordinator.async_add_rooms([_build_room_config(r) for r in rooms])
 
     async def handle_remove_room(call: ServiceCall) -> None:
         room_id = call.data.get(CONF_ROOM_ID)
@@ -439,6 +459,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_MOLD_PROTECTION_ENABLED, CONF_AGGRESSIVE_MODE_ENABLED, CONF_ROOM_IGNORE_HEATING_PERIOD,
             CONF_SOLAR_PASSIVE_HEAT, CONF_SOLAR_PASSIVE_COOL,
             CONF_SOLAR_EVENING_PRIVACY_ENABLED, CONF_SOLAR_GLARE_PROTECTION_ENABLED,
+            CONF_TRV_EXTERNAL_SENSOR_SYNC, CONF_WAKEUP_ENABLED,
         }
         # Remaining valid fields that pass through unchanged (str/list) - explicitly
         # listed so arbitrary/unknown keys from the service call can't be injected
@@ -514,6 +535,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # Roadmap 1.3 – Energy
             "solar_entity", "solar_surplus_threshold", "solar_boost_temp",
             "solar_min_elevation", "solar_shade_position", "solar_heat_min_outdoor",
+            "solar_night_insulation_enabled", "solar_morning_mode", "solar_morning_latest_time",
             "solar_weather_protection_enabled", "solar_wind_speed_threshold",
             # Rollo-Backlog 2026-10-15
             "solar_evening_privacy_mode", "solar_evening_privacy_time", "solar_evening_privacy_position",
@@ -577,6 +599,16 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "manual_override_timeout_minutes",
             # Warmup-Stall-Watchdog
             "warmup_stall_notify_enabled",
+            # v2.6 – Sensorlose Fenstererkennung
+            "window_auto_detect_enabled", "window_auto_detect_drop",
+            "window_auto_detect_minutes", "window_auto_detect_hold_minutes",
+            # v2.6 – Sparen / virtuelle Anwesenheit
+            "saving_offset", "window_reminder_minutes", "presence_auto_persons",
+            # v2.6 – Komfort
+            "wakeup_alarm_entities", "wakeup_preheat_minutes", "wakeup_comfort_minutes",
+            "person_preferences", "feel_duration_minutes", "feel_learning_enabled",
+            # v2.6 – Verbrauch
+            "heating_system", "heating_efficiency", "design_flow_temp", "flow_temp_sensor", "energy_meter_entity",
             # Heizgradtage
             "degree_day_base_temp", "degree_day_threshold_temp",
         }
@@ -618,6 +650,20 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
         """Backlog 2026-11-02 – globaler Reset: every room back to AUTO mode."""
         await coordinator.async_reset_all_rooms()
 
+    async def handle_feel(call: ServiceCall) -> None:
+        """v2.6 – "Mir ist kalt / warm" for one room (id) or every room (no id)."""
+        feeling = str(call.data.get("feeling", "cold")).lower()
+        if feeling not in ("cold", "warm", "reset"):
+            return
+        room_id = call.data.get(CONF_ROOM_ID)
+        ids = [room_id] if room_id else [r.get(CONF_ROOM_ID) for r in coordinator.get_rooms()]
+        for rid in ids:
+            if rid:
+                await coordinator.async_feel(rid, feeling)
+
+    async def handle_reset_comfort_learning(call: ServiceCall) -> None:
+        await coordinator.async_reset_comfort_learning(call.data.get(CONF_ROOM_ID))
+
     # v1.7 – Heizgruppen
     async def handle_add_group(call: ServiceCall) -> None:
         name = call.data.get(CONF_GROUP_NAME, "Neue Gruppe")
@@ -649,6 +695,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     # settings, destructively reset learned stats) require admin - a non-admin
     # household member can control heating day-to-day but can't rewrite the setup.
     async_register_admin_service(hass, DOMAIN, SERVICE_ADD_ROOM, handle_add_room)
+    async_register_admin_service(hass, DOMAIN, SERVICE_ADD_ROOMS, handle_add_rooms)
     async_register_admin_service(hass, DOMAIN, SERVICE_REMOVE_ROOM, handle_remove_room)
     async_register_admin_service(hass, DOMAIN, SERVICE_UPDATE_ROOM, handle_update_room)
     async_register_admin_service(hass, DOMAIN, SERVICE_RELOAD, handle_reload)
@@ -664,6 +711,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_GUEST_MODE, handle_activate_guest_mode)
     hass.services.async_register(DOMAIN, SERVICE_DEACTIVATE_GUEST_MODE, handle_deactivate_guest_mode)
     hass.services.async_register(DOMAIN, SERVICE_RESET_ALL_ROOMS, handle_reset_all_rooms)
+    hass.services.async_register(DOMAIN, SERVICE_FEEL, handle_feel)
+    hass.services.async_register(DOMAIN, SERVICE_RESET_COMFORT_LEARNING, handle_reset_comfort_learning)
 
     # v1.7 – Heizgruppen: add/remove/update are config-changing, set_group_mode is day-to-day
     async_register_admin_service(hass, DOMAIN, SERVICE_ADD_GROUP, handle_add_group)

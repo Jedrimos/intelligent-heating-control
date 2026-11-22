@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Základní nastavení",
+        "description": "Volitelné: vyberte čidlo venkovní teploty. Pokud žádné nemáte, nechte prázdné – IHC pak automaticky použije vaši integraci počasí (např. Met.no). Po instalaci otevřete panel „IHC” v postranním panelu: IHC umí místnosti a termostaty najít automaticky.",
+        "data": {
+          "outdoor_temp_sensor": "Čidlo venkovní teploty"
+        },
+        "data_description": {
+          "outdoor_temp_sensor": "Čidlo měřící aktuální venkovní teplotu. Volitelné – bez něj se použije teplota z předpovědi počasí."
+        }
+      },
+      "temperatures": {
+        "title": "Přednastavené teploty",
+        "description": "Globální teploty pro režimy nepřítomnost a dovolená.",
+        "data": {
+          "away_temp": "Teplota při nepřítomnosti (°C)",
+          "vacation_temp": "Teplota dovolené (°C)"
+        },
+        "data_description": {
+          "away_temp": "Cílová teplota všech místností v režimu „Nepřítomen”. Typicky: 16–18 °C.",
+          "vacation_temp": "Cílová teplota v režimu dovolené. Pouze ochrana proti mrazu. Typicky: 14–16 °C."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Entita nenalezena. Zkontrolujte ID entity.",
+      "cannot_connect": "Připojení selhalo",
+      "unknown": "Neznámá chyba"
+    },
+    "abort": {
+      "already_configured": "Integrace je již nastavena"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Možnosti IHC",
+        "menu_options": {
+          "global_settings": "Globální nastavení",
+          "heating_curve": "Upravit topnou křivku",
+          "add_room": "Přidat místnost",
+          "edit_room": "Upravit místnost",
+          "remove_room": "Odebrat místnost"
+        }
+      }
+    }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "IHC: {role} {entity} nenalezeno",
+      "description": "Místnost **{room}** používá {role} `{entity}`, ale tato entita v Home Assistant neexistuje (přejmenované nebo odebrané zařízení?). IHC funguje dál bez ní. Opravte to v panelu IHC v Místnosti → {room} → Nastavení, nebo entitu obnovte."
+    },
+    "entity_unavailable": {
+      "title": "IHC: {role} {entity} nedostupné",
+      "description": "{role} `{entity}` v místnosti **{room}** je nedostupné už {minutes} minut (vybitá baterie, mimo dosah, integrace offline?). Mezitím IHC používá náhradní hodnoty (poslední známá hodnota, teplota termostatu)."
+    }
+  }
+}

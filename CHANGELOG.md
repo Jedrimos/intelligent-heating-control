@@ -14,6 +14,146 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.6.0] - 2026-11-22
+
+### Für jeden: wenig bis alle Sensoren, Einsteiger bis Bastler
+- **Willkommensbildschirm + automatische Zimmererkennung:** IHC liest deine Home-Assistant-Bereiche
+  und schlägt pro Bereich ein fertiges Zimmer vor (Thermostate, Raumthermometer, Fensterkontakte,
+  Feuchtesensor) – Haken setzen, anlegen, fertig. Neuer Service `add_rooms`.
+- **Schnellstart beim Zimmer anlegen:** statt über 130 Feldern nur noch Name, Thermostat(e),
+  optionales Thermometer/Fensterkontakt und Wohlfühltemperatur (Regler). Optional „aus
+  HA-Bereich übernehmen“. Alles Weitere im Zimmer unter ⚙️ Einstellungen.
+- **Einfach-/Experten-Ansicht** (Schalter oben rechts, Standard: einfach): Profi-Funktionen
+  (Kalibrierung, Rollladen, Energiepreise, Kessel-Relais, Kalkschutz, Analyse- und Heizkurven-Tab …)
+  werden ausgeblendet, solange sie nicht genutzt werden.
+- **Erklärkarten:** „🤖 Was IHC automatisch macht“ (Einstellungen) und „🧭 Was IHC in diesem Zimmer
+  nutzt“ (Zimmer) – mit Tipps, welcher Sensor was verbessern würde.
+- **Ohne Außensensor:** Außentemperatur kommt automatisch aus der Wetter-Entität (eine frische
+  HA-Installation hat Met.no). Ohne konfigurierte Wetter-Entität nimmt IHC die erste vorhandene.
+- **Sensorlose Fenstererkennung ist jetzt standardmäßig an** (nur für Zimmer ohne Fensterkontakt).
+- Verständlichere Begriffe: „Heizung – Heizt gerade / Alle Zimmer sind warm genug“ statt
+  „TRV-Modus“, „Wohlfühltemperatur“ statt „Komfort Fallback“; Einrichtungsassistent erklärt,
+  dass der Außensensor optional ist.
+
+### Rollläden wie bei Loxone
+- **Tagesablauf in der Heizsaison:** nachts zu (Wärmedämmung) → morgens zu, bis die Sonne auf die
+  Fassade kommt (spätestens zu einer einstellbaren Uhrzeit, z. B. für Nordfenster) → Sonnenwärme
+  nutzen, beschattet wird erst bei echter Überhitzung → abends wieder zu. Im Sommer vorsorglich
+  beschatten. Neue Optionen „Nachts schließen“, „Morgens öffnen“ (Sonne/Sonnenaufgang),
+  „Spätestens öffnen um“.
+- Bewölkung über den Helligkeitssensor oder – ohne Sensor – über die Wettervorhersage
+  (Zustand/`cloud_coverage`); bei Wolken keine Sonnenlogik.
+- **Markisen** werden richtig herum gefahren (offen = ausgefahren) und nicht nachts geschlossen.
+- Kindersicherung gilt auch für Rollläden; IHC öffnet nur Rollläden wieder, die es selbst
+  geschlossen hat. Statusanzeige im Zimmer („🌙 nachts zu“, „☀️ offen – Sonnenwärme“, …).
+- Solarwärme nicht mehr erst ab +5 °C außen (Standard jetzt −20 °C) – gerade an kalten
+  Sonnentagen bringt sie am meisten.
+
+### Gleiche Automatik mit wenigen Sensoren
+- Anwesenheit automatisch aus allen HA-Personen mit Standort (Companion-App), mind. 20 min
+  Verzögerung; unbekannte/offline Tracker lösen nie „Abwesend“ aus (auch nicht beim Start).
+- Außenfeuchte aus der Wetter-Entität; ohne Raumthermometer wird die Thermostat-Temperatur nur noch
+  korrigiert, solange der Heizkörper warm ist (vorher pauschal −2 °C → im Leerlauf 2 °C zu wenig).
+- Sensorlose Fenstererkennung lernt pro Zimmer die normale Temperatur-Unruhe (z. B. Bad nach dem
+  Duschen) und hebt die Schwelle dort automatisch an.
+
+### Heizkosten sparen
+- **Spar-Regler** (0–3 °C) für alle Wohlfühl-/Zeitplan-Temperaturen mit Ersparnis-Schätzung.
+- **Fenster-offen-Erinnerung** nach 15 min bei Kälte (Benachrichtigung + Event
+  `intelligent_heating_control_window_open_too_long` für eigene Automationen).
+- **Zeitplan-Vorlagen** (Berufstätig, Homeoffice, Familie, Immer zu Hause, Schlafzimmer, Bad).
+
+### Komfort
+- **„🥶 Mir ist kalt / 🥵 Mir ist warm“** pro Zimmer (Dashboard, Buttons `button.ihc_<zimmer>_mir_ist_kalt/warm`,
+  Service `feel`): sofort ±1 °C für eine einstellbare Zeit (stapelbar bis ±2 °C). IHC lernt daraus
+  vorsichtig pro Tageszeit (ab 3 Rückmeldungen, max. ±1,5 °C, 30 Tage Gedächtnis); zurücksetzbar
+  (Service `reset_comfort_learning`).
+- **Warm aufwachen:** nutzt den Handy-Wecker aus der HA-App (`sensor.*_next_alarm`) – das Zimmer
+  ist warm, wenn der Wecker klingelt, auch wenn er sich jeden Tag ändert.
+- **Lieblingstemperatur pro Person:** ±°C je HA-Person; es gilt der Mittelwert aller, die zuhause sind.
+- **Raumfühler ins Thermostat:** IHC erkennt Thermostate mit Eingang für einen externen Fühler
+  (Sonoff TRVZB, Danfoss Ally, Bosch …) und überträgt die echte Raumtemperatur dorthin.
+
+### Thermostat-Erkennung & Verbrauch
+- **IHC erkennt das Thermostat-Modell** (Geräteregister): Ventilstellung auch als eigener Sensor,
+  Fühlereingang, Kalibrierung, Schrittweite, Aus-/Boost-Unterstützung; kleine Eigenheiten-Tabelle
+  (eQ-3 Funk-Duty-Cycle, Bosch/Danfoss Fühler-Wiederholung, Tuya „auto“-Modus). Sichtbar als
+  „🔎 IHC hat erkannt“ im Zimmer.
+- **Verbrauch physikalisch statt „Heizminuten × Nennleistung“** (vorher 2–10× zu hoch): Heizkörper-
+  Leistung nach EN 442 bei der tatsächlichen Vorlauftemperatur (witterungsgeführt geschätzt oder
+  Vorlauffühler), Ventilöffnung, Wirkungsgrad/JAZ je Heizungsart; optional echter Zähler zur
+  täglichen Kalibrierung. Heizkörper-Rechner (Typ + Größe → kW) im Zimmer.
+
+### Mehr Sprachen
+- Oberfläche jetzt zusätzlich auf **Französisch, Niederländisch, Spanisch, Italienisch, Polnisch,
+  Tschechisch, Dänisch und Schwedisch** (alles aus der einfachen Ansicht; längere Hilfetexte und
+  Expertenbereich auf Englisch). Lovelace-Karten und HA-Einrichtung/Reparaturen ebenfalls übersetzt.
+
+### Englisch & Reparaturen
+- **Englische Oberfläche** für alle nicht-deutschen HA-Sprachen (Panel und Dashboard-Karten),
+  Benachrichtigungen in der HA-Sprache.
+- **Einstellungen → Reparaturen:** Einträge für Entitäten, die in IHC konfiguriert sind aber nicht
+  existieren, oder Thermostate/Sensoren, die über eine Stunde nicht erreichbar sind.
+
+### Neu
+- **Sensorlose Fenstererkennung (Temperatursturz):** Zimmer **ohne** Fenstersensor erkennen ein
+  offenes Fenster jetzt an einem plötzlichen Temperaturabfall (Standard: 0,8 °C in 6 min) und
+  pausieren das Thermostat – bis die Temperatur wieder steigt, höchstens 20 min. Abschaltbar unter
+  Einstellungen; ein echter Fenstersensor hat immer Vorrang. Dashboard-Hinweis
+  „🪟 Fenster offen erkannt (Temperatursturz)", Attribut `window_auto_detected`.
+- **Diagnose-Download:** Geräte & Dienste → IHC → ⋮ → „Diagnose herunterladen" liefert
+  Konfiguration + Live-Entscheidung pro Zimmer als JSON (Standort/Personen geschwärzt) – ideal für
+  Bug-Reports.
+
+### Behoben
+- **Neuinstallationen speicherten nie ihren Zustand:** zwei Attribute existierten nur, wenn schon
+  ein Speicherstand vorhanden war – jedes Speichern brach ab (Zimmermodi, Boost, Verlauf gingen bei
+  jedem Neustart bis zum ersten Mitternachtswechsel verloren).
+- **Datenverlust im Zimmer-Detail:** 15 Felder kamen nie im Panel an. Beim Speichern wurden
+  Rollläden, Himmelsrichtung, Schlaf-Profil und zusätzliche Temperatursensoren gelöscht;
+  Schimmel-, CO₂- und Lüftungshinweise wurden nie angezeigt. Heizgradtage-Einstellungen wurden beim
+  Speichern auf Standard zurückgesetzt. Ein neuer Test verhindert solche Lücken künftig.
+- Nach „Thermostat aus → heizen“ wird der Sollwert einmal sicher gesendet (Tuya & Co. stellen
+  sonst ihren eigenen Wert ein).
+- Strompreise: 15-Minuten-Preise (Nordpool seit 10/2025) und Preislisten als Objekte; ein solcher
+  Eintrag brach vorher den ganzen Regelzyklus ab. Preisdiagramm zeigt stündliche Mittelwerte.
+- Urlaubskalender: neuer Versuch, wenn der Kalender beim Start noch nicht geladen ist; eine
+  Neulade-Sperre wurde nach Kalender- und Heizgruppen-Änderungen nie aufgehoben (Änderungen im
+  HA-Optionsdialog wirkten dann erst nach einem Neustart).
+- Dashboard-Karten: „Nächste Schaltzeit“ war immer leer, Neuaufbau bei jedem HA-Update
+  verschluckte Klicks, Boost-Abbruch setzte den Zimmermodus zurück, Namen nicht escaped.
+- Fehler in optionalen Funktionen werden einmal als Warnung geloggt statt unsichtbar.
+- **Wettervorhersage-Funktionen waren auf aktuellem Home Assistant tot:** HA liefert das
+  `forecast`-Attribut seit 2024.3 nicht mehr – Kälteprognose-Frühstart, Mehrtages-Vorschau und
+  Prognose-Vorheizen bekamen immer eine leere Liste. IHC fragt die Vorhersage jetzt über
+  `weather.get_forecasts` ab (alle 30 min, täglich oder zweimal täglich).
+- **Lüftungsempfehlung war komplett kaputt:** ein Tippfehler (`mold` statt `room_humidity`) warf bei
+  jedem Zyklus einen stillen Fehler – Lüftungsempfehlung, `co2_ppm` und CO₂-Prognose blieben für
+  alle Zimmer leer, die Lüftungs-Binary-Sensoren waren nie „an".
+- **Kalkschutz schaltete Zimmer auf „Manuell 30 °C":** während der Ventilübung meldete das
+  Thermostat seinen Maximalwert, IHC hielt das für eine Handverstellung – das Zimmer heizte danach
+  bis zum nächsten Zeitplanwechsel auf Maximum. Außerdem: Kindersicherung wird respektiert, im
+  Sommer ausgeschaltete Thermostate werden für die Übung eingeschaltet (vorher öffnete das Ventil
+  gar nicht), kein Hin-und-Her mehr zwischen Übung und normalem Sollwert.
+- **Batterie-Drain im Sommer:** „Thermostat aus" wurde jede Minute erneut an jedes TRV gesendet,
+  auch wenn es schon aus war (ebenso der Frostschutz-Sollwert bei TRVs ohne Aus-Modus).
+- **Fenster-offen-Temperatur heizte ausgeschaltete Zimmer:** mit konfigurierter
+  `window_open_temp` bekam ein Zimmer im Modus Aus, bei System Aus oder Sommerautomatik trotzdem
+  z. B. 15 °C gesendet, sobald ein Fenster offen war.
+- **Fenster-Wiederherstellung „vorheriger Wert" wirkte nur 60 Sekunden:** der wiederhergestellte
+  Sollwert wird jetzt gehalten, bis Zeitplan/Modus wirklich wechseln.
+- **Zeitpläne liefen in der falschen Zeitzone,** wenn Betriebssystem und Home Assistant
+  unterschiedliche Zeitzonen haben (z. B. Docker ohne `TZ`): Zeitplan, Vorheizen, Manuell-Reset und
+  Verlaufs-Zeitstempel nutzen jetzt durchgehend die HA-Zeitzone.
+- **Gefühlte-Temperatur-Anpassung** wurde erst nach der Anforderungsberechnung angewendet –
+  angezeigte Anforderung und gesendeter Sollwert passten nicht zusammen.
+- **Boost per TRV-Preset** konnte fälschlich als manuelle Verstellung erkannt werden.
+- Ungenutzter „Zimmer bearbeiten“-Dialog (~770 Zeilen toter Code) entfernt.
+- **Panel:** Zimmernamen mit `&`, `<` oder Anführungszeichen zerschossen die Anzeige (jetzt
+  escaped); Panel blieb leer, wenn der Browser `localStorage` blockiert (Privatmodus,
+  eingeschränkte App-Webviews); Übersicht zeigte TRV- statt Raumsensor-Luftfeuchte; „gefühlt"-Chip
+  zeigte immer 🥵, auch wenn es sich kälter anfühlt; Ø-Aufheizzeit wird gerundet.
+
 ## [2.5.0] - 2026-11-11
 
 ### Neu

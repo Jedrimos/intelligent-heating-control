@@ -374,12 +374,12 @@ class RoomLogicMixin:
         if mgr is None:
             return result
 
-        minutes_until_change = mgr.get_active_period_end_minutes()
+        minutes_until_change = mgr.get_active_period_end_minutes(now=dt_util.now())
         if minutes_until_change is None or minutes_until_change <= 0 or minutes_until_change > 90:
             # Only optimise within 90 min of period end to avoid false triggers
             return result
 
-        next_period = mgr.get_next_period()
+        next_period = mgr.get_next_period(now=dt_util.now())
         if next_period is None:
             return result
 
@@ -470,7 +470,7 @@ class RoomLogicMixin:
         if mgr is None:
             return None
         active_scheds = [s for s in mgr.schedules if self._is_schedule_group_active(s)]
-        return ScheduleManager(active_scheds).get_next_period()
+        return ScheduleManager(active_scheds).get_next_period(now=dt_util.now())
 
     def get_avg_warmup_minutes(self, room_id: str) -> Optional[float]:
         """Average warmup duration in minutes for predictive pre-heating."""
@@ -886,7 +886,10 @@ class RoomLogicMixin:
             schedule_mgr = ScheduleManager(active_scheds)
 
             # v1.8 – Holiday weekend override: treat today as Saturday for schedule lookup
-            _sched_now = None
+            # Always evaluate schedules in Home Assistant's configured time zone.
+            # ScheduleManager's own default (datetime.now()) uses the OS/process time
+            # zone, which differs on e.g. a UTC Docker host -> schedules ran 1-2 h off.
+            _sched_now = dt_util.now()
             if getattr(self, "_holiday_force_weekend", False):
                 _real_now = dt_util.now()
                 # Move to next Saturday: weekday=5; timedelta shifts days

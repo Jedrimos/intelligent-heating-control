@@ -497,6 +497,20 @@ add_room:
           min: 0
           max: 25
           step: 0.5
+    trv_external_sensor_sync:
+      name: Raumfühler ins Thermostat
+      description: >-
+        Sendet die Raumtemperatur an Thermostate mit externem Fühler-Eingang (Sonoff TRVZB,
+        Aqara E1, Bosch BTH-RA, Danfoss Ally, Shelly BLU TRV) und schaltet sie auf "extern".
+      required: false
+      selector:
+        boolean:
+    wakeup_enabled:
+      name: Warm aufwachen
+      description: Zimmer ist beim Klingeln des Handy-Weckers (HA-App, next_alarm) schon warm.
+      required: false
+      selector:
+        boolean:
     room_ignore_heating_period:
       name: Heizperiode für dieses Zimmer ignorieren
       description: >-
@@ -565,6 +579,19 @@ add_room:
           min: -5
           max: 5
           step: 0.1
+
+add_rooms:
+  name: Mehrere Zimmer hinzufügen
+  description: >-
+    Legt mehrere Zimmer auf einmal an (wird von der automatischen Zimmererkennung im Panel
+    genutzt). Jedes Element akzeptiert dieselben Felder wie add_room.
+  fields:
+    rooms:
+      name: Zimmer
+      description: 'Liste von Zimmern, z.B. [{"name": "Bad", "valve_entities": ["climate.bad"]}]'
+      required: true
+      selector:
+        object:
 
 remove_room:
   name: Zimmer entfernen
@@ -912,6 +939,20 @@ update_room:
           min: 0
           max: 25
           step: 0.5
+    trv_external_sensor_sync:
+      name: Raumfühler ins Thermostat
+      description: >-
+        Sendet die Raumtemperatur an Thermostate mit externem Fühler-Eingang (Sonoff TRVZB,
+        Aqara E1, Bosch BTH-RA, Danfoss Ally, Shelly BLU TRV) und schaltet sie auf "extern".
+      required: false
+      selector:
+        boolean:
+    wakeup_enabled:
+      name: Warm aufwachen
+      description: Zimmer ist beim Klingeln des Handy-Weckers (HA-App, next_alarm) schon warm.
+      required: false
+      selector:
+        boolean:
     room_ignore_heating_period:
       name: Heizperiode für dieses Zimmer ignorieren
       description: >-
@@ -1424,6 +1465,142 @@ update_global_settings:
       required: false
       selector:
         boolean:
+    window_auto_detect_enabled:
+      name: Sensorlose Fenstererkennung
+      description: >-
+        Standard an. Erkennt offene Fenster in Zimmern OHNE Fenstersensor an einem plötzlichen
+        Temperatursturz und schaltet deren Thermostate vorübergehend ab.
+      required: false
+      selector:
+        boolean:
+    window_auto_detect_drop:
+      name: Fenstererkennung – Temperatursturz
+      description: Temperaturabfall (°C), ab dem ein offenes Fenster angenommen wird.
+      required: false
+      selector:
+        number:
+          min: 0.3
+          max: 3
+          step: 0.1
+          unit_of_measurement: "°C"
+    window_auto_detect_minutes:
+      name: Fenstererkennung – Zeitfenster
+      description: Innerhalb wie vieler Minuten der Temperatursturz passieren muss.
+      required: false
+      selector:
+        number:
+          min: 2
+          max: 20
+          step: 1
+          unit_of_measurement: min
+    window_auto_detect_hold_minutes:
+      name: Fenstererkennung – maximale Dauer
+      description: >-
+        Spätestens nach dieser Zeit heizt das Zimmer wieder (Schutz gegen Fehlerkennung).
+        Vorher endet die Erkennung, sobald die Temperatur wieder steigt.
+      required: false
+      selector:
+        number:
+          min: 5
+          max: 90
+          step: 5
+          unit_of_measurement: min
+    wakeup_preheat_minutes:
+      name: Warm aufwachen – Vorlauf (min)
+      description: So lange vor dem Wecker wird geheizt.
+      required: false
+      selector:
+        number: {min: 0, max: 180, step: 5, unit_of_measurement: min}
+    wakeup_comfort_minutes:
+      name: Warm aufwachen – Nachlauf (min)
+      description: So lange nach dem Wecker bleibt es warm.
+      required: false
+      selector:
+        number: {min: 0, max: 240, step: 5, unit_of_measurement: min}
+    wakeup_alarm_entities:
+      name: Wecker-Sensoren
+      description: sensor.*_next_alarm der HA-App. Leer = automatisch alle gefundenen.
+      required: false
+      selector:
+        entity: {domain: sensor, multiple: true}
+    person_preferences:
+      name: Wärmeempfinden pro Person
+      description: 'Liste, z.B. [{"person": "person.anna", "offset": 1.0}] - Durchschnitt der Anwesenden gilt.'
+      required: false
+      selector:
+        object:
+    feel_duration_minutes:
+      name: '"Mir ist kalt/warm" – Dauer (min)'
+      required: false
+      selector:
+        number: {min: 15, max: 480, step: 15, unit_of_measurement: min}
+    feel_learning_enabled:
+      name: Aus "Mir ist kalt/warm" lernen
+      required: false
+      selector:
+        boolean:
+    heating_system:
+      name: Heizungsart
+      description: Für die Umrechnung Wärme → bezahlte Energie (Wirkungsgrad/JAZ) und die Vorlauftemperatur.
+      required: false
+      selector:
+        select:
+          options: ["gas", "oil", "pellets", "heatpump", "district", "electric"]
+    heating_efficiency:
+      name: Wirkungsgrad bzw. JAZ
+      description: 0 = automatisch nach Heizungsart (Gas 0,92, Öl 0,88, Wärmepumpe 3,5 …).
+      required: false
+      selector:
+        number: {min: 0, max: 7, step: 0.05}
+    design_flow_temp:
+      name: Vorlauftemperatur bei -12 °C außen
+      description: 0 = automatisch nach Heizungsart. Wird witterungsgeführt mit der Außentemperatur abgesenkt.
+      required: false
+      selector:
+        number: {min: 0, max: 90, step: 1, unit_of_measurement: "°C"}
+    flow_temp_sensor:
+      name: Vorlauf-Sensor
+      required: false
+      selector:
+        entity: {domain: sensor}
+    energy_meter_entity:
+      name: Echter Zähler
+      description: Gas- (m³/kWh), Wärmemengen- oder Wärmepumpen-Stromzähler zur täglichen Kalibrierung.
+      required: false
+      selector:
+        entity: {domain: sensor}
+    saving_offset:
+      name: Spar-Regler (°C)
+      description: >-
+        Senkt alle Wohlfühl- und Zeitplan-Temperaturen um diesen Wert (nicht Frostschutz,
+        Abwesend, Urlaub, Manuell). Faustregel - jedes Grad weniger spart rund 6 % Heizenergie.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 3
+          step: 0.5
+          unit_of_measurement: "°C"
+    window_reminder_minutes:
+      name: Fenster-offen-Erinnerung (min)
+      description: >-
+        Benachrichtigung (und Event intelligent_heating_control_window_open_too_long), wenn ein
+        Fenster bei unter 15 °C draußen länger offen ist. 0 = aus.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 120
+          step: 5
+          unit_of_measurement: min
+    presence_auto_persons:
+      name: Anwesenheit automatisch aus HA-Personen
+      description: >-
+        Ohne eingetragene Anwesenheits-Entitäten nutzt IHC alle HA-Personen mit Standort
+        (z. B. Companion-App) für die Abwesenheitsabsenkung, mit mindestens 20 min Verzögerung.
+      required: false
+      selector:
+        boolean:
     warmup_stall_notify_enabled:
       name: Benachrichtigung bei Warmup-Stillstand
       description: >-
@@ -1549,14 +1726,40 @@ update_global_settings:
           unit_of_measurement: "%"
     solar_heat_min_outdoor:
       name: Passive Solarheizung – Min. Außentemperatur (°C)
-      description: Unterhalb dieser Außentemperatur lohnt sich das Öffnen der Rolladen nicht
+      description: >-
+        Unterhalb dieser Außentemperatur werden Rollläden nicht für Sonnenwärme geöffnet.
+        Standard -20 °C (praktisch immer) - Sonne durchs Fenster lohnt sich auch bei Frost.
       required: false
       selector:
         number:
-          min: -10
+          min: -25
           max: 15
           step: 0.5
           unit_of_measurement: "°C"
+    solar_night_insulation_enabled:
+      name: Rollläden nachts schließen (Wärmedämmung)
+      description: >-
+        In der Heizsaison schließen Zimmer mit aktivierter Solarheizung ihre Rollläden nach
+        Sonnenuntergang - geschlossene Rollläden verringern den Wärmeverlust über die Fenster.
+      required: false
+      selector:
+        boolean:
+    solar_morning_mode:
+      name: Rollläden morgens öffnen
+      description: >-
+        "sun" = zu lassen, bis die Sonne auf die Fassade kommt (spätestens zur Uhrzeit unten),
+        "sunrise" = bei Sonnenaufgang öffnen.
+      required: false
+      selector:
+        select:
+          options: ["sun", "sunrise"]
+    solar_morning_latest_time:
+      name: Rollläden spätestens öffnen um
+      description: 'Uhrzeit "HH:MM" - für Fassaden, auf die keine Sonne kommt (z. B. Nordseite).'
+      required: false
+      example: "09:30"
+      selector:
+        text:
     solar_weather_protection_enabled:
       name: Rolladen-Wetterschutz aktiv
       description: >-
@@ -1924,6 +2127,36 @@ reset_all_rooms:
   description: >-
     Setzt jedes Zimmer auf den Automatik-Modus zurück (bricht Boost/Manuell/Eco/etc. ab).
     Zimmer mit aktiver Kindersicherung werden dabei übersprungen.
+
+feel:
+  name: Mir ist kalt / warm
+  description: >-
+    Hebt (kalt) oder senkt (warm) die Temperatur eines Zimmers für eine Weile um 1 °C (bis ±2 °C).
+    IHC lernt daraus: wer oft zur gleichen Tageszeit friert, bekommt dauerhaft etwas mehr Wärme.
+  fields:
+    id:
+      name: Zimmer-ID
+      description: Leer = alle Zimmer
+      required: false
+      selector:
+        text:
+    feeling:
+      name: Empfinden
+      required: true
+      selector:
+        select:
+          options: ["cold", "warm", "reset"]
+
+reset_comfort_learning:
+  name: Gelerntes Wärmeempfinden zurücksetzen
+  description: Löscht die aus "Mir ist kalt/warm" gelernten Anpassungen (eines Zimmers oder aller).
+  fields:
+    id:
+      name: Zimmer-ID
+      description: Leer = alle Zimmer
+      required: false
+      selector:
+        text:
 
 # ── v1.7 Heizgruppen ──────────────────────────────────────────────────────────
 

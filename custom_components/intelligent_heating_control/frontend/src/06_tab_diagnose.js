@@ -113,7 +113,7 @@
           <div style="display:flex;flex-wrap:wrap;gap:6px">
             ${preheatingRooms.map(r =>
               `<span style="background:color-mix(in srgb,#ef5350 15%,transparent);padding:3px 10px;border-radius:12px;font-size:12px">
-                ⏱ ${r.name} → ${r.target_temp != null ? r.target_temp + " °C" : "—"}
+                ⏱ ${this._esc(r.name)} → ${r.target_temp != null ? r.target_temp + " °C" : "—"}
               </span>`).join("")}
           </div>` : `
           <div style="font-size:12px;color:var(--secondary-text-color)">
@@ -135,8 +135,9 @@
       else if (r.room_mode === "away")    effTemp = r.away_temp_eff;
       const effHtml = effTemp != null ? `<span style="font-size:10px;color:var(--secondary-text-color);margin-left:2px">(→${parseFloat(effTemp).toFixed(1)})</span>` : "";
 
-      // Humidity from TRV or mold data
-      const humidity = r.trv_humidity != null ? r.trv_humidity : (r.mold?.humidity ?? null);
+      // Humidity: dedicated room sensor first (matches the dashboard card and the
+      // mold check), TRV reading only as fallback - the TRV sits at the radiator.
+      const humidity = r.humidity != null ? r.humidity : (r.trv_humidity != null ? r.trv_humidity : (r.mold?.humidity ?? null));
       const moldRisk = r.mold && r.mold.risk;
 
       // Status cell: window, boost, anomaly, mold, CO2
@@ -149,7 +150,7 @@
       if (r.ventilation?.level === "urgent") statusParts.push("🪟❗ Lüften");
 
       return `<tr>
-        <td style="font-weight:500;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${r.name}</td>
+        <td style="font-weight:500;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${this._esc(r.name)}</td>
         <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">
           <div style="font-size:13px">${r.current_temp != null ? r.current_temp + " °C" : "—"}</div>
           ${r.trv_raw_temp != null && hasTrvData ? `<div style="font-size:10px;color:#e65100;margin-top:1px" title="TRV-Rohtemperatur">TRV: ${parseFloat(r.trv_raw_temp).toFixed(1)}°</div>` : ""}
@@ -434,7 +435,7 @@
     selector.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;padding:12px 0 4px";
     selector.innerHTML = roomList.map(r => {
       const active = r.entity_id === this._analyseRoom;
-      return `<button class="sysmode-pill${active ? " active-auto" : ""}" data-room="${r.entity_id}">${r.name}</button>`;
+      return `<button class="sysmode-pill${active ? " active-auto" : ""}" data-room="${r.entity_id}">${this._esc(r.name)}</button>`;
     }).join("");
     content.appendChild(selector);
     selector.querySelectorAll("[data-room]").forEach(btn =>
@@ -450,7 +451,7 @@
     hmCard.style.marginTop = "12px";
     if (room.demand_heatmap && room.demand_heatmap.length === 7) {
       hmCard.innerHTML = `
-        <div class="card-title">🔥 Anforderungs-Heatmap – ${room.name}</div>
+        <div class="card-title">🔥 Anforderungs-Heatmap – ${this._esc(room.name)}</div>
         <div class="card-subtitle">
           Gleitender Durchschnitt (EMA) der Heizanforderung nach Wochentag und Uhrzeit.
           Wird über mehrere Wochen gelernt. Blau = niedrige, Rot = hohe Anforderung.
@@ -461,7 +462,7 @@
         this._renderDemandHeatmapGrid(room.demand_heatmap);
     } else {
       hmCard.innerHTML = `
-        <div class="card-title">🔥 Anforderungs-Heatmap – ${room.name}</div>
+        <div class="card-title">🔥 Anforderungs-Heatmap – ${this._esc(room.name)}</div>
         <div style="color:var(--secondary-text-color);font-size:13px;padding:4px 0 8px">
           IHC sammelt Heatmap-Daten automatisch über mehrere Wochen. Noch keine Daten vorhanden.
         </div>`;
@@ -488,7 +489,7 @@
     learnCard.innerHTML = `
       <div class="card-title">🧠 Optimum Start – Lernkurve</div>
       <div class="card-subtitle">
-        IHC misst wie lange ${room.name} zum Aufheizen braucht und passt die Vorheizzeit automatisch an.
+        IHC misst wie lange ${this._esc(room.name)} zum Aufheizen braucht und passt die Vorheizzeit automatisch an.
         Je mehr Daten gesammelt werden, desto präziser die Vorhersage.
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:${warmupCurve.length > 0 ? "16px" : "0"}">
@@ -559,7 +560,7 @@
       bridgeCard.innerHTML = `
         <div class="card-title">🧱 Mögliche Wärmebrücke erkannt</div>
         <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
-          ${room.name} kühlt ca. <strong>${room.thermal_bridge.ratio}×</strong> schneller aus als der
+          ${this._esc(room.name)} kühlt ca. <strong>${room.thermal_bridge.ratio}×</strong> schneller aus als der
           Durchschnitt der übrigen Zimmer – ein Hinweis auf schlechte Dämmung, eine undichte
           Fensterdichtung oder eine ungedämmte Außenwandecke. Basiert auf der gelernten Abkühlrate
           (siehe oben) und ist rein informativ.
@@ -577,7 +578,7 @@
       offsetCard.innerHTML = `
         <div class="card-title">🎯 TRV-Offset-Vorschlag</div>
         <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
-          Basierend auf ${room.name}s Raumsensor-vs-TRV-Differenz im Leerlauf (Heizung aus,
+          Basierend auf ${this._esc(room.name)}s Raumsensor-vs-TRV-Differenz im Leerlauf (Heizung aus,
           Fenster zu) über die letzten Messungen wäre <strong>${suggestedOffset > 0 ? "+" : ""}${suggestedOffset} °C</strong>
           ein besserer <code>trv_temp_offset</code> als der aktuelle Wert (${currentOffset > 0 ? "+" : ""}${currentOffset} °C).
           Zum Übernehmen: Zimmer bearbeiten → TRV-Verhalten → Temperatur-Offset.

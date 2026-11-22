@@ -38,6 +38,7 @@ SOURCE_REASON_LABELS: dict[str, str] = {
     "ha_schedule_eco": "HA-Zeitplan inaktiv → Eco",
     "ha_schedule_sleep": "HA-Zeitplan inaktiv → Schlafen",
     "preheat": "Vorheizen vor nächster Zeitplan-Periode",
+    "wakeup": "Warm aufwachen (Wecker)",
     "schedule": "Zeitplan aktiv",
     "heating_curve": "Heizkurve (außerhalb Zeitplan)",
 }

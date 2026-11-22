@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ustawienia podstawowe",
+        "description": "Opcjonalnie: wybierz czujnik temperatury zewnętrznej. Zostaw puste, jeśli go nie masz – IHC automatycznie użyje integracji pogodowej (np. Met.no). Po instalacji otwórz panel „IHC” na pasku bocznym: IHC może automatycznie znaleźć pokoje i termostaty.",
+        "data": {
+          "outdoor_temp_sensor": "Czujnik temperatury zewnętrznej"
+        },
+        "data_description": {
+          "outdoor_temp_sensor": "Czujnik mierzący aktualną temperaturę zewnętrzną. Opcjonalny – bez niego używana jest temperatura z prognozy pogody."
+        }
+      },
+      "temperatures": {
+        "title": "Temperatury predefiniowane",
+        "description": "Globalne temperatury dla trybów nieobecności i urlopu.",
+        "data": {
+          "away_temp": "Temperatura nieobecności (°C)",
+          "vacation_temp": "Temperatura urlopowa (°C)"
+        },
+        "data_description": {
+          "away_temp": "Temperatura docelowa wszystkich pokoi w trybie „Nieobecny”. Typowo: 16–18 °C.",
+          "vacation_temp": "Temperatura docelowa w trybie urlopowym. Tylko ochrona przed mrozem. Typowo: 14–16 °C."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Nie znaleziono encji. Sprawdź identyfikator encji.",
+      "cannot_connect": "Błąd połączenia",
+      "unknown": "Nieznany błąd"
+    },
+    "abort": {
+      "already_configured": "Integracja jest już skonfigurowana"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje IHC",
+        "menu_options": {
+          "global_settings": "Ustawienia globalne",
+          "heating_curve": "Edytuj krzywą grzewczą",
+          "add_room": "Dodaj pokój",
+          "edit_room": "Edytuj pokój",
+          "remove_room": "Usuń pokój"
+        }
+      }
+    }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "IHC: nie znaleziono {role} {entity}",
+      "description": "Pokój **{room}** używa {role} `{entity}`, ale ta encja nie istnieje w Home Assistant (zmieniona nazwa lub usunięte urządzenie?). IHC działa dalej bez niej. Popraw to w panelu IHC w Pokoje → {room} → Ustawienia lub przywróć encję."
+    },
+    "entity_unavailable": {
+      "title": "IHC: {role} {entity} niedostępny",
+      "description": "{role} `{entity}` w pokoju **{room}** jest niedostępny od {minutes} minut (rozładowana bateria, poza zasięgiem, integracja offline?). W tym czasie IHC korzysta z zastępstw (ostatnia znana wartość, temperatura termostatu)."
+    }
+  }
+}

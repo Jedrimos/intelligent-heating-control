@@ -362,6 +362,8 @@ const STYLES = `
   .entity-list { display: flex; flex-direction: column; gap: 5px; }
   .entity-row { display: flex; gap: 5px; align-items: center; }
   .entity-row .form-input { flex: 1; }
+  .entity-row > .ep-wrap { flex: 1; min-width: 0; }
+  .entity-row > .ep-wrap .form-input { width: 100%; box-sizing: border-box; }
 
   /* ── Buttons ────────────────────────────────────────────────────────────── */
   .btn {
@@ -602,4 +604,66 @@ const STYLES = `
     .tab { padding: 6px 8px; font-size: 10px; }
     .overview-hero { grid-template-columns: 1fr; }
   }
+
+  /* ── v2.6: Einfach/Experte, Auto-Erkennung, Ausstattungskarte ─────────── */
+  :host(.ui-simple) .expert-only:not(.in-use) { display: none !important; }
+  :host(:not(.ui-simple)) .simple-hint, :host(:not(.ui-simple)) .simple-only-hint { display: none; }
+  .simple-hint {
+    font-size: 12px; color: var(--secondary-text-color); background: var(--secondary-background-color, rgba(127,127,127,.08));
+    border-radius: 8px; padding: 8px 12px; margin: 0 0 12px;
+  }
+  .ui-mode-toggle {
+    margin-left: auto; margin-right: 8px; border: 1px solid var(--divider-color, rgba(127,127,127,.4));
+    background: transparent; color: var(--app-header-text-color, var(--primary-text-color)); border-radius: 16px;
+    padding: 4px 12px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .ui-mode-toggle.expert { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
+  .modal .form-hint { display: block; }
+  .modal .modal-section + .form-group, .modal .form-group + .form-group { margin-top: 14px; }
+  .modal-lead { font-size: 13px; color: var(--secondary-text-color); margin: 0 0 14px; line-height: 1.45; }
+  .opt { font-weight: 400; font-size: 11px; color: var(--secondary-text-color); margin-left: 4px; }
+  .comfort-pick { display: flex; align-items: center; gap: 12px; }
+  .comfort-pick input[type=range] { flex: 1; accent-color: var(--primary-color); }
+  .comfort-pick span { font-weight: 700; font-size: 16px; min-width: 64px; text-align: right; }
+  .disc-list { display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; margin-bottom: 12px; }
+  .disc-item { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--divider-color); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+  .disc-item input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--primary-color); }
+  .disc-name { font-weight: 700; margin-bottom: 4px; }
+  .disc-line { font-size: 12px; color: var(--primary-text-color); overflow-wrap: anywhere; }
+  .disc-hint { font-size: 11px; color: var(--secondary-text-color); margin-top: 2px; }
+  .cap-card .cap-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--divider-color); }
+  .cap-card .cap-row:first-of-type { border-top: none; }
+  .cap-icon { font-size: 18px; line-height: 1.2; width: 24px; text-align: center; }
+  .cap-title { font-weight: 600; font-size: 13px; }
+  .cap-text { font-size: 12px; color: var(--secondary-text-color); line-height: 1.4; }
+  .cap-ok .cap-title::after { content: " ✓"; color: #43a047; }
+  .cap-auto .cap-title::after { content: " · automatisch"; color: #1e88e5; font-weight: 500; font-size: 11px; }
+  .cap-tip .cap-title { color: var(--secondary-text-color); }
+  .auto-card .auto-row { display: flex; gap: 12px; padding: 7px 0; border-top: 1px solid var(--divider-color); font-size: 13px; }
+  .auto-card .auto-row:first-of-type { border-top: none; }
+  .auto-card .auto-row > span:first-child { flex: 0 0 170px; font-weight: 600; }
+  .auto-card .auto-row > span:last-child { color: var(--secondary-text-color); }
+  @media (max-width: 600px) {
+    .auto-card .auto-row { flex-direction: column; gap: 2px; }
+    .auto-card .auto-row > span:first-child { flex: none; }
+    .ha-topbar .topbar-version { display: none; }
+  }
+  .welcome { text-align: center; padding: 28px 16px; }
+  .welcome h2 { margin: 0 0 8px; }
+  .welcome p { color: var(--secondary-text-color); max-width: 520px; margin: 0 auto 16px; line-height: 1.5; }
+  .welcome .btn-row { justify-content: center; }
+
+  /* ── v2.6: TRV capabilities, feel buttons ─────────────────────────────── */
+  .trv-caps { margin-top: 10px; border: 1px dashed var(--divider-color); border-radius: 8px; padding: 10px 12px; }
+  .trv-caps-title { font-weight: 700; font-size: 12px; margin-bottom: 6px; }
+  .trv-cap { padding: 6px 0; border-top: 1px solid var(--divider-color); }
+  .trv-cap:first-of-type { border-top: none; }
+  .trv-cap-name { font-weight: 600; font-size: 13px; }
+  .trv-cap-model { font-weight: 400; color: var(--secondary-text-color); margin-left: 6px; font-size: 11px; }
+  .trv-cap-list { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--secondary-text-color); margin-top: 2px; }
+  .feel-row { display: flex; gap: 6px; margin-top: 8px; }
+  .feel-btn { flex: 1; border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color);
+              border-radius: 16px; padding: 5px 8px; font-size: 12px; cursor: pointer; }
+  .feel-btn:hover { background: var(--secondary-background-color, rgba(127,127,127,.1)); }
+  .feel-badge { font-size: 11px; color: var(--secondary-text-color); margin-top: 4px; }
 `;

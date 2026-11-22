@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Impostazioni di base",
+        "description": "Facoltativo: scegli un sensore di temperatura esterna. Lascialo vuoto se non ne hai uno – IHC userà automaticamente l'integrazione meteo (es. Met.no). Dopo l'installazione apri il pannello «IHC» nella barra laterale: IHC può trovare automaticamente stanze e termostati.",
+        "data": {
+          "outdoor_temp_sensor": "Sensore temperatura esterna"
+        },
+        "data_description": {
+          "outdoor_temp_sensor": "Sensore che misura la temperatura esterna attuale. Facoltativo – senza di esso viene usata la temperatura delle previsioni meteo."
+        }
+      },
+      "temperatures": {
+        "title": "Temperature predefinite",
+        "description": "Temperature globali per le modalità assente e vacanza.",
+        "data": {
+          "away_temp": "Temperatura di assenza (°C)",
+          "vacation_temp": "Temperatura vacanza (°C)"
+        },
+        "data_description": {
+          "away_temp": "Temperatura obiettivo di tutte le stanze in modalità «Assente». Tipico: 16–18 °C.",
+          "vacation_temp": "Temperatura obiettivo in modalità vacanza. Solo antigelo. Tipico: 14–16 °C."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Entità non trovata. Controlla l'ID dell'entità.",
+      "cannot_connect": "Connessione non riuscita",
+      "unknown": "Errore sconosciuto"
+    },
+    "abort": {
+      "already_configured": "Integrazione già configurata"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni IHC",
+        "menu_options": {
+          "global_settings": "Impostazioni globali",
+          "heating_curve": "Modifica curva di riscaldamento",
+          "add_room": "Aggiungi stanza",
+          "edit_room": "Modifica stanza",
+          "remove_room": "Rimuovi stanza"
+        }
+      }
+    }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "IHC: {role} {entity} non trovato",
+      "description": "La stanza **{room}** usa {role} `{entity}`, ma questa entità non esiste in Home Assistant (dispositivo rinominato o rimosso?). IHC continua a funzionare senza. Correggi nel pannello IHC in Stanze → {room} → Impostazioni, oppure ripristina l'entità."
+    },
+    "entity_unavailable": {
+      "title": "IHC: {role} {entity} non disponibile",
+      "description": "{role} `{entity}` nella stanza **{room}** non è disponibile da {minutes} minuti (batteria scarica, fuori portata, integrazione offline?). Nel frattempo IHC usa alternative (ultimo valore noto, temperatura del termostato)."
+    }
+  }
+}

@@ -55,6 +55,12 @@ from .const import (
     DEFAULT_SOLAR_GLARE_MAX_ELEVATION,
     CONF_SOLAR_GLARE_POSITION,
     DEFAULT_SOLAR_GLARE_POSITION,
+    CONF_SOLAR_NIGHT_INSULATION_ENABLED,
+    DEFAULT_SOLAR_NIGHT_INSULATION_ENABLED,
+    CONF_SOLAR_MORNING_MODE,
+    DEFAULT_SOLAR_MORNING_MODE,
+    CONF_SOLAR_MORNING_LATEST_TIME,
+    DEFAULT_SOLAR_MORNING_LATEST_TIME,
 )
 
 # Literal values instead of importing from homeassistant.const - this module has
@@ -157,6 +163,40 @@ def sun_hits_orientation(
     return delta <= tolerance
 
 
+# v2.6 – in the heating season a room is only shaded once it is really too warm (target +
+# this margin); before that, sun through the window is free heat. Outside the heating
+# season shading starts pre-emptively (comfort - SHADE_TRIGGER_MARGIN), as before.
+SOLAR_OVERHEAT_MARGIN = 1.0
+# Weather conditions under which "the sun shines on the window" is false in practice -
+# used when no lux sensor is configured (same automation for setups without one).
+CLOUDY_CONDITIONS = frozenset({
+    "cloudy", "fog", "rainy", "pouring", "snowy", "snowy-rainy", "hail",
+    "lightning", "lightning-rainy", "exceptional",
+})
+CLOUD_COVERAGE_CLOUDY = 80  # % - weather.cloud_coverage at/above this counts as overcast
+
+
+def is_overcast(condition: Optional[str], cloud_coverage: Optional[float]) -> bool:
+    """Pure check: does the weather report overcast skies? Unknown -> False (fail open)."""
+    if cloud_coverage is not None:
+        try:
+            return float(cloud_coverage) >= CLOUD_COVERAGE_CLOUDY
+        except (TypeError, ValueError):
+            pass
+    return condition in CLOUDY_CONDITIONS
+
+
+def physical_position(logical: int, device_class: Optional[str]) -> Optional[int]:
+    """Map IHC's logical position (100 = no shading / max daylight, 0 = fully closed)
+    to the cover's own scale. Awnings are inverted (open = extended = shading) and are
+    never used for night insulation/privacy (logical 0 -> None = leave untouched)."""
+    if device_class == "awning":
+        if logical <= 0:
+            return None
+        return 100 - logical
+    return logical
+
+
 class SolarCoverManagerMixin:
     """Mixin for passive solar heating/shading via cover entities."""
 
@@ -187,7 +227,7 @@ class SolarCoverManagerMixin:
         cfg = self.get_config()
         if not bool(cfg.get(CONF_SOLAR_WEATHER_PROTECTION_ENABLED, DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED)):
             return False
-        weather_entity = cfg.get(CONF_WEATHER_ENTITY)
+        weather_entity = self._get_weather_entity_id()
         if not weather_entity:
             return False
         state = self.hass.states.get(weather_entity)
@@ -263,24 +303,38 @@ class SolarCoverManagerMixin:
             return None
         return sum(buf) / len(buf)
 
-    def _update_solar_covers(self, room_data: Dict[str, dict], outdoor_temp: Optional[float]) -> None:
-        """Roadmap 2.1 (+ Rollo-Backlog 2026-10-15): move each opted-in room's covers for
-        passive solar heating/shading, evening privacy, and TV/screen glare protection. Runs
-        once per update cycle. Never touches a room with none of the four flags enabled or
-        without covers configured - those rooms are left exactly as the user set them.
+    def _update_solar_covers(
+        self, room_data: Dict[str, dict], outdoor_temp: Optional[float], heating_season: bool = True,
+    ) -> None:
+        """Rollladen-Automatik pro Zimmer, Loxone-Tageszyklus (v2.6).
 
-        Priority order (highest first), matching Loxone's own hierarchy:
-        wind/rain/frost safety override > manual-override (leave untouched) >
-        window-open (leave untouched) > evening privacy close > glare protection >
-        passive heat/cool logic.
+        Logical positions: 100 = no shading (max daylight), 0 = fully closed.
+        Priority (highest first):
+          weather protection > manual override (leave alone) > window open (leave alone) >
+          night (insulation in the heating season / evening privacy) >
+          morning hold (stay closed until the sun reaches the façade, latest at a set time) >
+          glare protection > overheating shade > open for solar gain > daylight reopen
+          (only covers IHC itself moved down - covers it never touched stay as they are).
+        "Sun on the window" = geometry AND not overcast (lux sensor if configured, else the
+        weather entity's condition/cloud coverage).
         """
         cfg = self.get_config()
         min_elevation = float(cfg.get(CONF_SOLAR_MIN_ELEVATION, DEFAULT_SOLAR_MIN_ELEVATION))
         sun_data = self._get_sun_data()
         weather_protection_active = self._is_solar_weather_protection_active()
+        night_insulation = bool(cfg.get(CONF_SOLAR_NIGHT_INSULATION_ENABLED, DEFAULT_SOLAR_NIGHT_INSULATION_ENABLED))
+        morning_mode = cfg.get(CONF_SOLAR_MORNING_MODE, DEFAULT_SOLAR_MORNING_MODE)
+        morning_latest = self._parse_hhmm(cfg.get(CONF_SOLAR_MORNING_LATEST_TIME, DEFAULT_SOLAR_MORNING_LATEST_TIME),
+                                          DEFAULT_SOLAR_MORNING_LATEST_TIME)
+        overcast = self._is_overcast_now()
         from homeassistant.util import dt as dt_util  # local: keep this module HA-free at import time
         now_local = dt_util.now()
-
+        today = now_local.date().isoformat()
+        elevation_now = sun_data[1] if sun_data is not None else None
+        is_night = elevation_now is not None and elevation_now < 0
+        if not hasattr(self, "_cover_last_ihc"):
+            self._cover_last_ihc: Dict[str, int] = {}       # room_id -> last logical position IHC sent
+            self._cover_morning_released: Dict[str, str] = {}  # room_id -> ISO date
         for room in self.get_rooms():
             passive_heat = bool(room.get(CONF_SOLAR_PASSIVE_HEAT, DEFAULT_SOLAR_PASSIVE_HEAT))
             passive_cool = bool(room.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL))
@@ -295,18 +349,17 @@ class SolarCoverManagerMixin:
             rdata = room_data.get(room_id)
             if rdata is None:
                 continue
-
+            if rdata.get("child_lock"):
+                continue  # Kindersicherung: IHC touches nothing in a locked room
             rdata["solar_cover_active"] = False
             rdata["solar_cover_position"] = None
             rdata["solar_cover_overridden"] = False
-
-            target_position: Optional[int] = None
+            rdata["solar_cover_reason"] = None
+            target: Optional[int] = None
+            reason = None
 
             if weather_protection_active:
-                # Hard override: raise the cover out of harm's way regardless of everything
-                # else below - an extended cover is the one at risk, and hardware safety wins
-                # even over a manual override.
-                target_position = 100
+                target, reason = 100, "weather_protection"  # out of harm's way, wins over everything
             elif any(self._is_cover_overridden(c) for c in covers):
                 rdata["solar_cover_overridden"] = True
                 continue  # user moved it by hand recently - leave it alone until it re-arms
@@ -314,73 +367,123 @@ class SolarCoverManagerMixin:
                 continue  # window-open handling always wins, don't fight it
 
             orientation = room.get(CONF_WINDOW_ORIENTATION, "")
-
-            if target_position is None and evening_privacy:
-                mode = cfg.get(CONF_SOLAR_EVENING_PRIVACY_MODE, DEFAULT_SOLAR_EVENING_PRIVACY_MODE)
-                privacy_time = self._parse_hhmm(
-                    cfg.get(CONF_SOLAR_EVENING_PRIVACY_TIME, DEFAULT_SOLAR_EVENING_PRIVACY_TIME)
-                )
-                elevation = sun_data[1] if sun_data is not None else None
-                if is_evening_privacy_window(mode, now_local.time(), privacy_time, elevation):
-                    target_position = int(cfg.get(
-                        CONF_SOLAR_EVENING_PRIVACY_POSITION, DEFAULT_SOLAR_EVENING_PRIVACY_POSITION
-                    ))
-
-            if target_position is None and glare_protection and sun_data is not None and orientation:
-                azimuth, elevation = sun_data
-                max_elev = float(cfg.get(CONF_SOLAR_GLARE_MAX_ELEVATION, DEFAULT_SOLAR_GLARE_MAX_ELEVATION))
-                if sun_in_glare_band(azimuth, elevation, orientation, max_elev):
-                    target_position = int(cfg.get(CONF_SOLAR_GLARE_POSITION, DEFAULT_SOLAR_GLARE_POSITION))
-
-            if target_position is None and (passive_heat or passive_cool) and sun_data is not None and orientation:
-                azimuth, elevation = sun_data
+            azimuth = sun_data[0] if sun_data is not None else None
+            # Geometric sun-on-window with hysteresis, then clouds/lux
+            sun_on_window = False
+            if sun_data is not None and orientation:
                 was_active = self._solar_cover_armed.get(room_id, False)
-                sun_hits = sun_hits_orientation(azimuth, elevation, orientation, min_elevation, was_active=was_active)
-                if sun_hits:
+                sun_on_window = sun_hits_orientation(azimuth, elevation_now, orientation, min_elevation, was_active=was_active)
+                if sun_on_window:
                     lux_entity = room.get(CONF_LUX_SENSOR)
                     if lux_entity:
                         avg_lux = self._update_and_get_lux_average(room_id, lux_entity)
                         lux_on = float(cfg.get(CONF_LUX_ON_THRESHOLD, DEFAULT_LUX_ON_THRESHOLD))
                         lux_off = float(cfg.get(CONF_LUX_OFF_THRESHOLD, DEFAULT_LUX_OFF_THRESHOLD))
-                        sun_hits = lux_hysteresis_active(avg_lux, was_active, lux_on, lux_off)
-                self._solar_cover_armed[room_id] = sun_hits
+                        sun_on_window = lux_hysteresis_active(avg_lux, was_active, lux_on, lux_off)
+                    elif overcast:
+                        sun_on_window = False
+                self._solar_cover_armed[room_id] = sun_on_window
 
-                if sun_hits and passive_heat and rdata.get("demand", 0) > 0:
+            # ── Night: insulation (heating season) and/or privacy ───────────────
+            if target is None:
+                privacy_window = False
+                if evening_privacy:
+                    mode = cfg.get(CONF_SOLAR_EVENING_PRIVACY_MODE, DEFAULT_SOLAR_EVENING_PRIVACY_MODE)
+                    privacy_time = self._parse_hhmm(
+                        cfg.get(CONF_SOLAR_EVENING_PRIVACY_TIME, DEFAULT_SOLAR_EVENING_PRIVACY_TIME)
+                    )
+                    privacy_window = is_evening_privacy_window(mode, now_local.time(), privacy_time, elevation_now)
+                insulate = passive_heat and night_insulation and heating_season and is_night
+                if privacy_window or insulate:
+                    target = int(cfg.get(CONF_SOLAR_EVENING_PRIVACY_POSITION, DEFAULT_SOLAR_EVENING_PRIVACY_POSITION)) \
+                        if privacy_window else 0
+                    if insulate:
+                        target = 0
+                    reason = "night_insulation" if insulate else "evening_privacy"
+                    self._cover_morning_released.pop(room_id, None)
+
+            # ── Morning hold: stay closed until the sun reaches the façade ───────
+            if target is None and not is_night and self._cover_last_ihc.get(room_id, 100) < 100 \
+                    and self._cover_morning_released.get(room_id) != today:
+                released = (
+                    morning_mode == "sunrise"
+                    or not heating_season
+                    or sun_on_window
+                    or not orientation
+                    or now_local.time() >= morning_latest
+                )
+                if released:
+                    self._cover_morning_released[room_id] = today
+                else:
+                    target, reason = self._cover_last_ihc.get(room_id, 0), "morning_hold"
+
+            # ── Glare protection (low sun towards a screen) ──────────────────────
+            if target is None and glare_protection and sun_data is not None and orientation and not overcast:
+                max_elev = float(cfg.get(CONF_SOLAR_GLARE_MAX_ELEVATION, DEFAULT_SOLAR_GLARE_MAX_ELEVATION))
+                if sun_in_glare_band(azimuth, elevation_now, orientation, max_elev):
+                    target, reason = int(cfg.get(CONF_SOLAR_GLARE_POSITION, DEFAULT_SOLAR_GLARE_POSITION)), "glare"
+
+            # ── Sun on the window: shade if too warm, else use the free heat ─────
+            if target is None and sun_on_window and (passive_heat or passive_cool):
+                current_temp = rdata.get("current_temp")
+                room_target = rdata.get("target_temp")
+                comfort_temp = float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP))
+                if heating_season:
+                    ref = room_target if room_target is not None else comfort_temp
+                    too_warm = current_temp is not None and current_temp >= ref + SOLAR_OVERHEAT_MARGIN
+                else:
+                    too_warm = current_temp is not None and current_temp > comfort_temp - SHADE_TRIGGER_MARGIN
+                if too_warm and passive_cool:
+                    target, reason = int(cfg.get(CONF_SOLAR_SHADE_POSITION, DEFAULT_SOLAR_SHADE_POSITION)), "shade"
+                elif passive_heat and heating_season and not too_warm:
                     min_outdoor = float(cfg.get(CONF_SOLAR_HEAT_MIN_OUTDOOR, DEFAULT_SOLAR_HEAT_MIN_OUTDOOR))
-                    if outdoor_temp is not None and outdoor_temp >= min_outdoor:
-                        target_position = 100  # fully open - let the sun help heat the room
+                    if outdoor_temp is None or outdoor_temp >= min_outdoor:
+                        target, reason = 100, "solar_gain"
 
-                if sun_hits and target_position is None and passive_cool:
-                    comfort_temp = float(room.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP))
-                    current_temp = rdata.get("current_temp")
-                    if current_temp is not None and current_temp > comfort_temp - SHADE_TRIGGER_MARGIN:
-                        target_position = int(cfg.get(CONF_SOLAR_SHADE_POSITION, DEFAULT_SOLAR_SHADE_POSITION))
+            # ── Daylight: reopen covers IHC itself closed ────────────────────────
+            if target is None and not is_night and self._cover_last_ihc.get(room_id, 100) < 100:
+                target, reason = 100, "daylight"
 
-            if target_position is None:
+            if target is None:
                 continue
-
             rdata["solar_cover_active"] = True
-            rdata["solar_cover_position"] = target_position
+            rdata["solar_cover_position"] = target
+            rdata["solar_cover_reason"] = reason
+            self._cover_last_ihc[room_id] = target
             for cover in covers:
                 cover_state = self.hass.states.get(cover)
+                device_class = cover_state.attributes.get("device_class") if cover_state else None
+                position = physical_position(target, device_class)
+                if position is None:
+                    continue
                 current_position = cover_state.attributes.get("current_position") if cover_state else None
-                if current_position == target_position:
+                if current_position == position:
                     continue  # already there - avoid redundant service calls
-                self._record_cover_command(cover, target_position)
+                self._record_cover_command(cover, position)
                 self.hass.async_create_task(
                     self.hass.services.async_call(
                         "cover", "set_cover_position",
-                        {"entity_id": cover, "position": target_position},
+                        {"entity_id": cover, "position": position},
                     )
                 )
 
+    def _is_overcast_now(self) -> bool:
+        """Overcast according to the effective weather entity (no lux sensor needed)."""
+        entity_id = self._get_weather_entity_id() if hasattr(self, "_get_weather_entity_id") else None
+        if not entity_id:
+            return False
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return False
+        return is_overcast(state.state, state.attributes.get("cloud_coverage"))
+
     @staticmethod
-    def _parse_hhmm(value: str) -> dt_time:
-        """Parse a "HH:MM" config string into a time object, falling back to the default
-        evening-privacy time on anything malformed."""
+    def _parse_hhmm(value: str, fallback: str = DEFAULT_SOLAR_EVENING_PRIVACY_TIME) -> dt_time:
+        """Parse a "HH:MM" config string into a time object, falling back to `fallback`
+        (default: the evening-privacy time) on anything malformed."""
         try:
-            hour, minute = value.split(":")
+            hour, minute = value.split(":")[:2]
             return dt_time(int(hour), int(minute))
         except (ValueError, AttributeError):
-            h, m = DEFAULT_SOLAR_EVENING_PRIVACY_TIME.split(":")
+            h, m = fallback.split(":")
             return dt_time(int(h), int(m))

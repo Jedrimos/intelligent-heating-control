@@ -105,15 +105,22 @@ class ComfortManagerMixin:
         """Read outdoor humidity from optional sensor."""
         cfg = self.get_config()
         sensor = cfg.get(CONF_OUTDOOR_HUMIDITY_SENSOR)
-        if not sensor:
-            return None
-        state = self.hass.states.get(sensor)
-        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return None
-        try:
-            return float(state.state)
-        except ValueError:
-            return None
+        if sensor:
+            state = self.hass.states.get(sensor)
+            if state is not None and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                try:
+                    return float(state.state)
+                except ValueError:
+                    pass
+        # v2.6 – no (working) outdoor humidity sensor: use the weather entity
+        weather_id = self._get_weather_entity_id()
+        wstate = self.hass.states.get(weather_id) if weather_id else None
+        if wstate is not None and wstate.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            try:
+                return float(wstate.attributes.get("humidity"))
+            except (TypeError, ValueError):
+                return None
+        return None
 
     def _get_room_co2(self, room: dict) -> Optional[float]:
         """Read CO2 level (ppm) from optional per-room sensor."""
@@ -206,7 +213,7 @@ class ComfortManagerMixin:
         # ── Skip if no sensor data at all ───────────────────────────────
         # Ventilation advice only makes sense when there is actual sensor evidence.
         # Without CO2 or humidity data there is nothing to recommend ventilation for.
-        if co2 is None and mold is None:
+        if co2 is None and room_humidity is None:
             return None
 
         if score >= 4:

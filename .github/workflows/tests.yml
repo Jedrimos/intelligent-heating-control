@@ -23,6 +23,19 @@ jobs:
       - name: Run pytest
         run: pytest -v
 
+  ha-scenarios:
+    name: End-to-end scenarios (real Home Assistant core)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install pytest-homeassistant-custom-component
+        run: pip install -r requirements-test-ha.txt
+      - name: Run scenario tests
+        run: pytest -c pytest_ha.ini -q
+
   py-compile:
     name: Byte-compile all integration files
     runs-on: ubuntu-latest

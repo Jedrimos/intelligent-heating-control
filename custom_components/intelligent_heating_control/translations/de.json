@@ -3,12 +3,12 @@
     "step": {
       "user": {
         "title": "Grundeinstellungen",
-        "description": "Konfigurieren Sie den Außentemperatursensor.",
+        "description": "Optional: Außentemperatursensor wählen. Kein Sensor? Einfach leer lassen – IHC nimmt dann automatisch die Temperatur aus deiner Wetter-Integration (z. B. Met.no). Nach der Einrichtung das Panel „IHC“ in der Seitenleiste öffnen: IHC findet deine Zimmer und Thermostate automatisch.",
         "data": {
           "outdoor_temp_sensor": "Außentemperatur-Sensor"
         },
         "data_description": {
-          "outdoor_temp_sensor": "Sensor der die aktuelle Außentemperatur misst. Wird für die Heizkurve benötigt – je kälter draußen, desto höher die Zieltemperatur."
+          "outdoor_temp_sensor": "Sensor für die aktuelle Außentemperatur. Optional – ohne Sensor wird die Temperatur aus der Wettervorhersage verwendet."
         }
       },
       "temperatures": {
@@ -223,6 +223,16 @@
     "abort": {
       "no_rooms": "Keine Zimmer konfiguriert",
       "room_not_found": "Zimmer nicht gefunden"
+    }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "IHC: {role} {entity} nicht gefunden",
+      "description": "Zimmer **{room}** nutzt den {role} `{entity}`, diese Entität gibt es in Home Assistant aber nicht (Gerät umbenannt oder entfernt?). IHC arbeitet ohne ihn weiter. Im IHC-Panel unter Zimmer → {room} → Einstellungen korrigieren oder die Entität wiederherstellen."
+    },
+    "entity_unavailable": {
+      "title": "IHC: {role} {entity} nicht erreichbar",
+      "description": "Der {role} `{entity}` im Zimmer **{room}** ist seit {minutes} Minuten nicht erreichbar (Batterie leer, außer Funkreichweite, Integration offline?). IHC nutzt solange Ersatzwerte (letzter bekannter Wert, Thermostat-Temperatur)."
     }
   }
 }

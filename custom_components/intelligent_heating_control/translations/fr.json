@@ -3,12 +3,12 @@
     "step": {
       "user": {
         "title": "Paramètres de base",
-        "description": "Configurez le capteur de température extérieure.",
+        "description": "Facultatif : choisissez un capteur de température extérieure. Sans capteur, laissez vide – IHC utilise automatiquement votre intégration météo (ex. Met.no). Ensuite, ouvrez le panneau « IHC » dans la barre latérale : IHC trouve vos pièces et thermostats automatiquement.",
         "data": {
           "outdoor_temp_sensor": "Capteur de température extérieure"
         },
         "data_description": {
-          "outdoor_temp_sensor": "Capteur mesurant la température extérieure actuelle. Utilisé pour la courbe de chauffe – plus il fait froid dehors, plus la température cible est élevée."
+          "outdoor_temp_sensor": "Capteur de température extérieure. Facultatif – sinon la température de la prévision météo est utilisée."
         }
       },
       "temperatures": {
@@ -223,6 +223,16 @@
     "abort": {
       "no_rooms": "Aucune pièce configurée",
       "room_not_found": "Pièce introuvable"
+    }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "IHC : {role} {entity} introuvable",
+      "description": "La pièce **{room}** utilise {role} `{entity}`, mais cette entité n'existe pas dans Home Assistant (appareil renommé ou supprimé ?). IHC continue sans elle. Corrigez-la dans le panneau IHC sous Pièces → {room} → Paramètres."
+    },
+    "entity_unavailable": {
+      "title": "IHC : {role} {entity} indisponible",
+      "description": "{role} `{entity}` de la pièce **{room}** est indisponible depuis {minutes} minutes (pile vide, hors de portée ?). IHC utilise des valeurs de repli en attendant."
     }
   }
 }

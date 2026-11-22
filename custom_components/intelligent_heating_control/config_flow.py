@@ -48,6 +48,20 @@ from .const import (
     DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED,
     CONF_WARMUP_STALL_NOTIFY_ENABLED,
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
+    CONF_WINDOW_AUTO_DETECT_ENABLED,
+    DEFAULT_WINDOW_AUTO_DETECT_ENABLED,
+    CONF_PRESENCE_AUTO_PERSONS,
+    DEFAULT_PRESENCE_AUTO_PERSONS,
+    CONF_WINDOW_REMINDER_MINUTES,
+    DEFAULT_WINDOW_REMINDER_MINUTES,
+    CONF_SAVING_OFFSET,
+    DEFAULT_SAVING_OFFSET,
+    CONF_WINDOW_AUTO_DETECT_DROP,
+    DEFAULT_WINDOW_AUTO_DETECT_DROP,
+    CONF_WINDOW_AUTO_DETECT_MINUTES,
+    DEFAULT_WINDOW_AUTO_DETECT_MINUTES,
+    CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES,
+    DEFAULT_WINDOW_AUTO_DETECT_HOLD_MINUTES,
     CONF_DEGREE_DAY_BASE_TEMP,
     DEFAULT_DEGREE_DAY_BASE_TEMP,
     CONF_DEGREE_DAY_THRESHOLD_TEMP,
@@ -95,6 +109,12 @@ from .const import (
     DEFAULT_SOLAR_SHADE_POSITION,
     CONF_SOLAR_HEAT_MIN_OUTDOOR,
     DEFAULT_SOLAR_HEAT_MIN_OUTDOOR,
+    CONF_SOLAR_NIGHT_INSULATION_ENABLED,
+    DEFAULT_SOLAR_NIGHT_INSULATION_ENABLED,
+    CONF_SOLAR_MORNING_MODE,
+    DEFAULT_SOLAR_MORNING_MODE,
+    CONF_SOLAR_MORNING_LATEST_TIME,
+    DEFAULT_SOLAR_MORNING_LATEST_TIME,
     CONF_SOLAR_WEATHER_PROTECTION_ENABLED,
     DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED,
     CONF_SOLAR_WIND_SPEED_THRESHOLD,
@@ -225,6 +245,23 @@ from .const import (
     CONF_ROOM_TEMP_THRESHOLD,
     DEFAULT_ROOM_TEMP_THRESHOLD,
     CONF_ROOM_IGNORE_HEATING_PERIOD,
+    CONF_TRV_EXTERNAL_SENSOR_SYNC,
+    DEFAULT_TRV_EXTERNAL_SENSOR_SYNC,
+    CONF_WAKEUP_ENABLED,
+    DEFAULT_WAKEUP_ENABLED,
+    CONF_WAKEUP_PREHEAT_MINUTES,
+    DEFAULT_WAKEUP_PREHEAT_MINUTES,
+    CONF_WAKEUP_COMFORT_MINUTES,
+    DEFAULT_WAKEUP_COMFORT_MINUTES,
+    CONF_FEEL_DURATION_MINUTES,
+    DEFAULT_FEEL_DURATION_MINUTES,
+    CONF_FEEL_LEARNING_ENABLED,
+    DEFAULT_FEEL_LEARNING_ENABLED,
+    CONF_HEATING_SYSTEM,
+    DEFAULT_HEATING_SYSTEM,
+    CONF_HEATING_EFFICIENCY,
+    CONF_DESIGN_FLOW_TEMP,
+    CONF_ENERGY_METER_ENTITY,
     DEFAULT_ROOM_IGNORE_HEATING_PERIOD,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
@@ -522,6 +559,66 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_WARMUP_STALL_NOTIFY_ENABLED,
                 default=bool(cfg.get(CONF_WARMUP_STALL_NOTIFY_ENABLED, DEFAULT_WARMUP_STALL_NOTIFY_ENABLED))
             ): selector.selector({"boolean": {}}),
+            # --- v2.6: sensorlose Fenstererkennung (Temperatursturz) ---
+            vol.Optional(
+                CONF_WINDOW_AUTO_DETECT_ENABLED,
+                default=bool(cfg.get(CONF_WINDOW_AUTO_DETECT_ENABLED, DEFAULT_WINDOW_AUTO_DETECT_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_WINDOW_AUTO_DETECT_DROP,
+                default=float(cfg.get(CONF_WINDOW_AUTO_DETECT_DROP, DEFAULT_WINDOW_AUTO_DETECT_DROP))
+            ): selector.selector({"number": {"min": 0.3, "max": 3, "step": 0.1, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_WINDOW_AUTO_DETECT_MINUTES,
+                default=int(cfg.get(CONF_WINDOW_AUTO_DETECT_MINUTES, DEFAULT_WINDOW_AUTO_DETECT_MINUTES))
+            ): selector.selector({"number": {"min": 2, "max": 20, "step": 1, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES,
+                default=int(cfg.get(CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES, DEFAULT_WINDOW_AUTO_DETECT_HOLD_MINUTES))
+            ): selector.selector({"number": {"min": 5, "max": 90, "step": 5, "unit_of_measurement": "min"}}),
+            # --- v2.6: Heizkosten sparen / virtuelle Anwesenheit ---
+            vol.Optional(
+                CONF_SAVING_OFFSET,
+                default=float(cfg.get(CONF_SAVING_OFFSET, DEFAULT_SAVING_OFFSET))
+            ): selector.selector({"number": {"min": 0, "max": 3, "step": 0.5, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_WINDOW_REMINDER_MINUTES,
+                default=int(cfg.get(CONF_WINDOW_REMINDER_MINUTES, DEFAULT_WINDOW_REMINDER_MINUTES))
+            ): selector.selector({"number": {"min": 0, "max": 120, "step": 5, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_PRESENCE_AUTO_PERSONS,
+                default=bool(cfg.get(CONF_PRESENCE_AUTO_PERSONS, DEFAULT_PRESENCE_AUTO_PERSONS))
+            ): selector.selector({"boolean": {}}),
+            # --- v2.6: Komfort ---
+            vol.Optional(
+                CONF_WAKEUP_PREHEAT_MINUTES,
+                default=int(cfg.get(CONF_WAKEUP_PREHEAT_MINUTES, DEFAULT_WAKEUP_PREHEAT_MINUTES))
+            ): selector.selector({"number": {"min": 0, "max": 180, "step": 5, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_WAKEUP_COMFORT_MINUTES,
+                default=int(cfg.get(CONF_WAKEUP_COMFORT_MINUTES, DEFAULT_WAKEUP_COMFORT_MINUTES))
+            ): selector.selector({"number": {"min": 0, "max": 240, "step": 5, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_FEEL_DURATION_MINUTES,
+                default=int(cfg.get(CONF_FEEL_DURATION_MINUTES, DEFAULT_FEEL_DURATION_MINUTES))
+            ): selector.selector({"number": {"min": 15, "max": 480, "step": 15, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_FEEL_LEARNING_ENABLED,
+                default=bool(cfg.get(CONF_FEEL_LEARNING_ENABLED, DEFAULT_FEEL_LEARNING_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            # --- v2.6: Verbrauch ---
+            vol.Optional(
+                CONF_HEATING_SYSTEM,
+                default=str(cfg.get(CONF_HEATING_SYSTEM, DEFAULT_HEATING_SYSTEM))
+            ): selector.selector({"select": {"options": ["gas", "oil", "pellets", "heatpump", "district", "electric"], "mode": "dropdown"}}),
+            vol.Optional(
+                CONF_HEATING_EFFICIENCY,
+                default=float(cfg.get(CONF_HEATING_EFFICIENCY, 0) or 0)
+            ): selector.selector({"number": {"min": 0, "max": 7, "step": 0.05, "mode": "box"}}),
+            vol.Optional(
+                CONF_DESIGN_FLOW_TEMP,
+                default=float(cfg.get(CONF_DESIGN_FLOW_TEMP, 0) or 0)
+            ): selector.selector({"number": {"min": 0, "max": 90, "step": 1, "unit_of_measurement": "°C", "mode": "box"}}),
             # --- Heizgradtage (für die kumulative Heizgradtage-Entity) ---
             vol.Optional(
                 CONF_DEGREE_DAY_BASE_TEMP,
@@ -616,7 +713,19 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_SOLAR_HEAT_MIN_OUTDOOR,
                 default=float(cfg.get(CONF_SOLAR_HEAT_MIN_OUTDOOR, DEFAULT_SOLAR_HEAT_MIN_OUTDOOR))
-            ): selector.selector({"number": {"min": -10, "max": 15, "step": 0.5, "unit_of_measurement": "°C"}}),
+            ): selector.selector({"number": {"min": -25, "max": 15, "step": 0.5, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_SOLAR_NIGHT_INSULATION_ENABLED,
+                default=bool(cfg.get(CONF_SOLAR_NIGHT_INSULATION_ENABLED, DEFAULT_SOLAR_NIGHT_INSULATION_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_SOLAR_MORNING_MODE,
+                default=str(cfg.get(CONF_SOLAR_MORNING_MODE, DEFAULT_SOLAR_MORNING_MODE))
+            ): selector.selector({"select": {"options": ["sun", "sunrise"], "mode": "dropdown"}}),
+            vol.Optional(
+                CONF_SOLAR_MORNING_LATEST_TIME,
+                default=str(cfg.get(CONF_SOLAR_MORNING_LATEST_TIME, DEFAULT_SOLAR_MORNING_LATEST_TIME))
+            ): selector.selector({"text": {}}),
             vol.Optional(
                 CONF_SOLAR_WEATHER_PROTECTION_ENABLED,
                 default=bool(cfg.get(CONF_SOLAR_WEATHER_PROTECTION_ENABLED, DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED))
@@ -973,6 +1082,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_PRESENCE_SENSOR_OFF_DELAY: int(user_input.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY)),
                 CONF_ROOM_TEMP_THRESHOLD: float(user_input.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
                 CONF_ROOM_IGNORE_HEATING_PERIOD: bool(user_input.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
+                CONF_TRV_EXTERNAL_SENSOR_SYNC: bool(user_input.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC)),
+                CONF_WAKEUP_ENABLED: bool(user_input.get(CONF_WAKEUP_ENABLED, DEFAULT_WAKEUP_ENABLED)),
                 CONF_COMFORT_TEMP_ENTITY: user_input.get(CONF_COMFORT_TEMP_ENTITY, ""),
                 CONF_ECO_TEMP_ENTITY: user_input.get(CONF_ECO_TEMP_ENTITY, ""),
                 CONF_COMFORT_EXTEND_ENTITY: user_input.get(CONF_COMFORT_EXTEND_ENTITY, ""),
@@ -1146,6 +1257,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 "number": {"min": 0, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             vol.Optional(CONF_ROOM_IGNORE_HEATING_PERIOD, default=DEFAULT_ROOM_IGNORE_HEATING_PERIOD): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_TRV_EXTERNAL_SENSOR_SYNC, default=DEFAULT_TRV_EXTERNAL_SENSOR_SYNC): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_WAKEUP_ENABLED, default=DEFAULT_WAKEUP_ENABLED): selector.selector({"boolean": {}}),
             vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_ECO_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_COMFORT_EXTEND_ENTITY, default=""): selector.selector({"text": {}}),
@@ -1355,6 +1468,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 "number": {"min": 0, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             vol.Optional(CONF_ROOM_IGNORE_HEATING_PERIOD, default=bool(room.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD))): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_TRV_EXTERNAL_SENSOR_SYNC, default=bool(room.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC))): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_WAKEUP_ENABLED, default=bool(room.get(CONF_WAKEUP_ENABLED, DEFAULT_WAKEUP_ENABLED))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=room.get(CONF_COMFORT_TEMP_ENTITY, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_ECO_TEMP_ENTITY, default=room.get(CONF_ECO_TEMP_ENTITY, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_COMFORT_EXTEND_ENTITY, default=room.get(CONF_COMFORT_EXTEND_ENTITY, "")): selector.selector({"text": {}}),

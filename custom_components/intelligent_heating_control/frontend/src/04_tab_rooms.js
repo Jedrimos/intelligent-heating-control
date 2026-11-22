@@ -30,7 +30,7 @@
            title="Klicken für Zeitplan, Verlauf &amp; Details">
         <div class="room-list-left" style="pointer-events:none">
           <div class="room-list-name" style="display:flex;align-items:center;gap:8px">
-            ${room.name} ${schedBadge} ${demandBar}
+            ${this._esc(room.name)} ${schedBadge} ${demandBar}
           </div>
           <div class="room-list-meta">
             ${MODE_ICONS[room.room_mode] || "⚙️"} ${MODE_LABELS[room.room_mode] || room.room_mode}
@@ -50,11 +50,13 @@
           ${list || '<div style="color:var(--secondary-text-color);padding:8px">Noch keine Zimmer.</div>'}
         </div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="add-room-btn">+ Zimmer hinzufügen</button>
+          <button class="btn btn-primary" id="discover-rooms-btn" title="Thermostate und Sensoren aus deinen Home-Assistant-Bereichen übernehmen">🔍 Zimmer automatisch finden</button>
+          <button class="btn btn-secondary" id="add-room-btn">+ Zimmer manuell</button>
         </div>
       </div>`;
 
     content.querySelector("#add-room-btn").addEventListener("click", () => this._showAddRoomModal());
+    content.querySelector("#discover-rooms-btn").addEventListener("click", () => this._showDiscoverRoomsModal());
 
     // Clicking the room row opens the detail view
     content.querySelectorAll("[data-action='open']").forEach(row => {
@@ -72,7 +74,7 @@
     content.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <button class="btn btn-secondary" id="back-to-rooms" style="padding:6px 12px;font-size:12px">← Zurück</button>
-        <span style="font-size:18px;font-weight:700">${room.name}</span>
+        <span style="font-size:18px;font-weight:700">${this._esc(room.name)}</span>
         <span style="font-size:13px;color:var(--secondary-text-color)">
           ${room.current_temp != null ? room.current_temp + " °C" : "—"}
           → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? room.target_temp + " °C" : "—")}
@@ -151,8 +153,10 @@
     ).join("");
 
     container.innerHTML = `
+      ${this._renderRoomCapabilities(room)}
       <div class="card" style="margin-bottom:12px">
-        <div class="card-title">⚙️ Einstellungen – ${room.name}</div>
+        <div class="card-title">⚙️ Einstellungen – ${this._esc(room.name)}</div>
+        <div class="simple-hint">🧩 Einfache Ansicht: nur die wichtigsten Einstellungen. Alles Weitere (Kalibrierung, Rollladen, Kaskade …) über <b>🛠️ Experte</b> oben rechts.</div>
 
         <div class="form-group">
           <label class="form-label">Zimmer-Modus</label>
@@ -166,7 +170,7 @@
             data-ep-domains="sensor" autocomplete="off">
         </div>
 
-        <details class="modal-collapsible" ${room.temp_sensors && room.temp_sensors.length > 0 ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${room.temp_sensors && room.temp_sensors.length > 0 ? "open" : ""}>
           <summary class="modal-section-title">🌡️ Zusätzliche Temperatursensoren <span style="font-weight:400;font-size:10px">(optional, pro Raumteil)</span></summary>
           <div id="rs-temp-sensors-list">
             ${this._renderTempSensorRows(room.temp_sensors || [], "rs-add-ts")}
@@ -177,6 +181,7 @@
         <details class="modal-collapsible" open>
           <summary class="modal-section-title">🔥 Thermostate / TRVs</summary>
           <div class="entity-list" id="rs-valve-list">${valveRows}</div>
+          ${this._renderTrvCapabilities(room)}
         </details>
 
         <details class="modal-collapsible">
@@ -204,7 +209,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible"${(room.window_cascade_rooms && room.window_cascade_rooms.length > 0) ? ' open' : ''}>
+        <details class="modal-collapsible expert-only"${(room.window_cascade_rooms && room.window_cascade_rooms.length > 0) ? ' open' : ''}>
           <summary class="modal-section-title">🌊 Fenster-Kaskade</summary>
           <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
             Wenn dieses Zimmer zu lange gelüftet wird, senkt IHC automatisch die Heizung in anderen Räumen ab.
@@ -218,7 +223,7 @@
               <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
                 <input type="checkbox" class="cascade-room-check" value="${r.room_id}"
                   ${currentCascadeRooms.includes(r.room_id) ? 'checked' : ''}>
-                <span style="font-size:13px">${r.name}</span>
+                <span style="font-size:13px">${this._esc(r.name)}</span>
               </label>`).join('');
             return `
               <div style="margin-bottom:12px">
@@ -244,45 +249,45 @@
           </div>
           ${room.window_cascade_active ? `
           <div style="padding:8px 12px;border-radius:8px;background:color-mix(in srgb,#42a5f5 12%,transparent);font-size:12px;margin-top:8px">
-            🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${room.window_cascade_source || '?'}</strong>
+            🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${this._esc(room.window_cascade_source || "?")}</strong>
             (–${room.window_cascade_offset?.toFixed(1) ?? '?'} °C)
           </div>` : ''}
         </details>
 
         <details class="modal-collapsible" open>
-          <summary class="modal-section-title">🌡️ Temperatur-Presets</summary>
+          <summary class="modal-section-title">🌡️ Temperaturen</summary>
           <div class="settings-grid">
             <div class="settings-item">
-              <label>Komfort Fallback (°C)</label>
+              <label>😊 Wohlfühltemperatur (°C)</label>
               <input type="number" class="form-input" id="rs-comfort"
                 value="${room.comfort_temp ?? 21}" step="0.5" min="15" max="30">
             </div>
             <div class="settings-item">
-              <label>Abwesend-Temperatur (°C)</label>
+              <label>🚶 Wenn niemand da ist (°C)</label>
               <input type="number" class="form-input" id="rs-away-temp-room"
                 value="${room.away_temp_room ?? 16}" step="0.5" min="10" max="22">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Eco Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-eco-offset"
                 value="${room.eco_offset ?? 3}" step="0.5" min="0" max="10">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Eco Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-eco-max"
                 value="${room.eco_max_temp ?? 21}" step="0.5" min="10" max="28">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Schlaf Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-sleep-offset"
                 value="${room.sleep_offset ?? 4}" step="0.5" min="0" max="10">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Schlaf Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-sleep-max"
                 value="${room.sleep_max_temp ?? 19}" step="0.5" min="10" max="25">
             </div>
-            <div class="settings-item" style="grid-column:1/-1">
+            <div class="settings-item expert-only" style="grid-column:1/-1">
               <label>🌙 Schlaf-Temperaturprofil <span style="font-weight:400;font-size:10px">(optional – überschreibt Schlaf-Abzug wenn gesetzt)</span></label>
               <div id="rs-sleep-profile-list">
                 ${(() => {
@@ -299,20 +304,21 @@
               </div>
               <span class="form-hint">Uhrzeit · Temperatur – z.B. 22:00/19°C, 02:00/16°C, 06:00/18°C. Leer lassen für den festen Schlaf-Abzug oben.</span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Abwesend Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-away-offset"
                 value="${room.away_offset ?? 6}" step="0.5" min="0" max="15">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Abwesend Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-away-max"
                 value="${room.away_max_temp ?? 18}" step="0.5" min="5" max="22">
             </div>
           </div>
+          <span class="form-hint simple-only-hint">Sparen, Schlafen und Abwesend werden automatisch aus der Wohlfühltemperatur abgeleitet – im Expertenmodus einzeln einstellbar.</span>
         </details>
 
-        <details class="modal-collapsible">
+        <details class="modal-collapsible expert-only">
           <summary class="modal-section-title">📐 Erweitert & Grenzen</summary>
           <div class="settings-grid">
             <div class="settings-item">
@@ -402,20 +408,33 @@
         </details>
 
         <details class="modal-collapsible" ${room.hkv_sensor || (room.radiator_kw && room.radiator_kw !== 1.0) ? "open" : ""}>
-          <summary class="modal-section-title">⚡ Energieerfassung</summary>
+          <summary class="modal-section-title">⚡ Heizkörper &amp; Verbrauch</summary>
           <div class="settings-grid">
             <div class="settings-item">
-              <label>Heizleistung (kW)</label>
+              <label>Heizkörper-Nennleistung (kW, alle zusammen)</label>
               <input type="number" class="form-input" id="rs-radiator-kw"
-                value="${room.radiator_kw ?? 1.0}" step="0.1" min="0.1" max="5.0">
+                value="${room.radiator_kw ?? 1.0}" step="0.05" min="0.1" max="10.0">
+              <span class="form-hint">Steht auf dem Typenschild/Datenblatt (bei 75/65/20 °C). Unbekannt? Rechner rechts nutzen.</span>
             </div>
             <div class="settings-item">
+              <label>🧮 Aus Größe schätzen</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <select class="form-select" id="rs-rad-type" style="flex:1;min-width:80px" title="Typ: Anzahl Platten/Lamellen (auf der Seite zählen)">
+                  ${[["10","Typ 10"],["11","Typ 11"],["20","Typ 20"],["21","Typ 21"],["22","Typ 22"],["33","Typ 33"]].map(([v,l]) => `<option value="${v}" ${v === "22" ? "selected" : ""}>${l}</option>`).join("")}
+                </select>
+                <input type="number" class="form-input" id="rs-rad-h" placeholder="Höhe mm" value="600" style="max-width:90px">
+                <input type="number" class="form-input" id="rs-rad-l" placeholder="Länge mm" value="1000" style="max-width:90px">
+                <button class="btn btn-secondary" id="rs-rad-calc" type="button">übernehmen</button>
+              </div>
+              <span class="form-hint">Typ 22 = 2 Platten + 2 Lamellenreihen (häufigster Heizkörper). Mehrere Heizkörper: Werte addieren.</span>
+            </div>
+            <div class="settings-item expert-only">
               <label>HKV-Sensor</label>
               <input type="text" class="form-input" id="rs-hkv-sensor"
                 value="${room.hkv_sensor || ''}" placeholder="sensor.hkv"
                 data-ep-domains="sensor" autocomplete="off">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>HKV-Faktor (kWh/Einheit)</label>
               <input type="number" class="form-input" id="rs-hkv-factor"
                 value="${room.hkv_factor ?? 0.083}" step="0.001" min="0.001" max="1.0">
@@ -423,7 +442,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${room.room_presence_entities?.length ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${room.room_presence_entities?.length ? "open" : ""}>
           <summary class="modal-section-title">👤 Anwesenheit</summary>
           <div class="settings-item">
             <input type="text" class="form-input full" id="rs-presence-entities"
@@ -459,7 +478,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${(room.trv_temp_weight > 0 || room.trv_min_send_interval > 0) ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${(room.trv_temp_weight > 0 || room.trv_min_send_interval > 0) ? "open" : ""}>
           <summary class="modal-section-title">🌡️ TRV-Sensor &amp; Kalibrierung</summary>
           <div class="settings-grid">
             <div class="settings-item">
@@ -486,7 +505,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${room.aggressive_mode_enabled ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${room.aggressive_mode_enabled ? "open" : ""}>
           <summary class="modal-section-title">⚡ Aggressiver Modus</summary>
           <div class="settings-grid">
             <div class="settings-item" style="grid-column:1/-1">
@@ -508,7 +527,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${(room.window_open_temp > 0 || room.room_temp_threshold > 0) ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${(room.window_open_temp > 0 || room.room_temp_threshold > 0) ? "open" : ""}>
           <summary class="modal-section-title">🌡️ Temperaturschwellen</summary>
           <div class="settings-grid">
             <div class="settings-item">
@@ -523,10 +542,26 @@
                 value="${room.window_open_temp ?? 0}" step="0.5" min="0" max="22" placeholder="0 = Frostschutz">
               <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
             </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="rs-ignore-heating-period" ${room.ignore_heating_period ? "checked" : ""}>
+                Heizperiode für dieses Zimmer ignorieren
+              </label>
+              <span class="form-hint">Zimmer heizt auch außerhalb der Heizperiode nach Zeitplan (z. B. Bad). Die Sommerautomatik gilt weiterhin.</span>
+            </div>
           </div>
         </details>
 
-        <details class="modal-collapsible" ${room.presence_sensor ? "open" : ""}>
+        <details class="modal-collapsible" ${room.wakeup_enabled ? "open" : ""}>
+          <summary class="modal-section-title">⏰ Warm aufwachen</summary>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px">
+            <input type="checkbox" id="rs-wakeup-enabled" ${room.wakeup_enabled ? "checked" : ""}>
+            Zimmer ist warm, wenn der Handy-Wecker klingelt
+          </label>
+          <span class="form-hint">Nutzt den Wecker aus der Home-Assistant-App (sensor.*_next_alarm) – auch wenn er jeden Tag anders steht. Ideal für Schlafzimmer und Bad. Vor- und Nachlaufzeit unter Einstellungen → Komfort.</span>
+        </details>
+
+        <details class="modal-collapsible expert-only" ${room.presence_sensor ? "open" : ""}>
           <summary class="modal-section-title">👁 PIR-Sensor (Zimmerpräsenz)</summary>
           <div class="settings-grid">
             <div class="settings-item" style="grid-column:1/-1">
@@ -549,7 +584,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${(room.comfort_temp_entity || room.eco_temp_entity) ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${(room.comfort_temp_entity || room.eco_temp_entity) ? "open" : ""}>
           <summary class="modal-section-title">🔗 Dynamische Sollwert-Entitäten</summary>
           <div class="settings-grid">
             <div class="settings-item" style="grid-column:1/-1">
@@ -569,7 +604,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${(room.comfort_extend_entries?.length > 0 || room.comfort_extend_entity) ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${(room.comfort_extend_entries?.length > 0 || room.comfort_extend_entity) ? "open" : ""}>
           <summary class="modal-section-title">⏱️ Komfort-Verlängerung
             ${room.comfort_extend_active ? '<span style="color:#43a047;font-size:11px;margin-left:6px">● aktiv</span>' : ''}
           </summary>
@@ -645,13 +680,15 @@
         </details>
 
         <details class="modal-collapsible" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
-          <summary class="modal-section-title">☀️ Passive Solarheizung (Rolladen)
-            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">☀️ Aktiv (${room.solar_cover_position}%)</span>` : ""}
+          <summary class="modal-section-title">🪟 Rollläden automatisch steuern
+            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">${this._esc(({ night_insulation: "🌙 nachts zu (Wärmedämmung)", evening_privacy: "🌙 Privatsphäre", morning_hold: "🌅 zu, bis die Sonne kommt", glare: "📺 Blendschutz", shade: "😎 Beschattung (zu warm)", solar_gain: "☀️ offen – Sonnenwärme", daylight: "🔆 offen – Tageslicht", weather_protection: "🌬️ Sturm-/Regenschutz" }[room.solar_cover_reason]) || "Aktiv")} · ${room.solar_cover_position}%</span>` : ""}
+            ${room.solar_cover_overridden ? `<span class="badge" style="background:#9e9e9e;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✋ von Hand verstellt – IHC wartet</span>` : ""}
           </summary>
           <div style="font-size:12px;color:var(--secondary-text-color);margin:8px 0 12px">
-            Öffnet die Rolladen bevor die Heizung anspringt wenn die Sonne aufs Fenster scheint (kostenlose
-            Wärme), bzw. beschattet leicht wenn der Raum sich im Sommer aufheizt. Braucht Rolladen-Entitäten
-            und die Fensterausrichtung.
+            Wie bei Loxone: in der Heizsaison nachts zu (spart Wärme), morgens zu bis die Sonne auf die Fassade
+            kommt, dann Sonnenwärme nutzen – beschattet wird erst, wenn das Zimmer wirklich zu warm wird. Im Sommer
+            vorsorglich beschatten. Von Hand verstellte Rollläden lässt IHC eine Weile in Ruhe.
+            Braucht die Rollläden und die Himmelsrichtung des Fensters.
           </div>
           <div class="settings-item" style="grid-column:1/-1;margin-bottom:10px">
             <label>Rolladen-Entitäten (mehrere möglich)</label>
@@ -674,20 +711,20 @@
               <label>Fensterausrichtung</label>
               <select class="form-select" id="rs-window-orientation">
                 <option value="" ${!room.window_orientation ? "selected" : ""}>– keine –</option>
-                ${["N", "NE", "E", "SE", "S", "SW", "W", "NW"].map(o =>
-                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${o}</option>`).join("")}
+                ${[["N", "Nord"], ["NE", "Nordost"], ["E", "Ost"], ["SE", "Südost"], ["S", "Süd"], ["SW", "Südwest"], ["W", "West"], ["NW", "Nordwest"]].map(([o, l]) =>
+                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${l}</option>`).join("")}
               </select>
             </div>
             <div class="settings-item">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
                 <input type="checkbox" id="rs-solar-passive-heat" ${room.solar_passive_heat ? "checked" : ""}>
-                Passive Solarheizung
+                ☀️ Sonnenwärme nutzen + nachts dämmen
               </label>
             </div>
             <div class="settings-item">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
                 <input type="checkbox" id="rs-solar-passive-cool" ${room.solar_passive_cool ? "checked" : ""}>
-                Passive Beschattung
+                😎 Beschatten, wenn zu warm
               </label>
             </div>
             <div class="settings-item">
@@ -723,7 +760,7 @@
             <p style="font-size:13px;color:var(--secondary-text-color);margin:12px 0 8px">
               Diese Aktion entfernt das Zimmer und alle zugehörigen Entitäten dauerhaft.<br>
               Gib zur Bestätigung den Zimmernamen ein:
-              <strong>${room.name}</strong>
+              <strong>${this._esc(room.name)}</strong>
             </p>
             <input type="text" class="form-input" id="rs-delete-confirm-name"
               placeholder="Zimmernamen eingeben…" autocomplete="off"
@@ -779,7 +816,7 @@
       boostBtn.addEventListener("click", () => {
         const dur = parseInt(container.querySelector("#rs-boost-dur")?.value, 10) || 60;
         this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
-        this._toast(`⚡ Boost ${dur} min für ${room.name}`);
+        this._toast(`⚡ Boost ${dur} min für ${this._esc(room.name)}`);
       });
     }
     const boostCancelBtn = container.querySelector("#rs-boost-cancel-btn");
@@ -789,6 +826,18 @@
         this._toast(`✓ Boost beendet`);
       });
     }
+
+    // v2.6 – radiator size → rated output (same table as heat_output.py)
+    container.querySelector("#rs-rad-calc")?.addEventListener("click", () => {
+      const perM = { "10": 640, "11": 900, "20": 1050, "21": 1250, "22": 1650, "33": 2350 }[container.querySelector("#rs-rad-type").value];
+      const h = parseFloat(container.querySelector("#rs-rad-h").value), l = parseFloat(container.querySelector("#rs-rad-l").value);
+      if (!perM || !(h > 0) || !(l > 0)) { this._toast("⚠️ Höhe und Länge in mm eingeben"); return; }
+      const kw = Math.round(perM * (l / 1000) * Math.pow(h / 600, 0.85) / 10) / 100;
+      const input = container.querySelector("#rs-radiator-kw");
+      const add = parseFloat(input.value) > 0 && parseFloat(input.value) !== 1 && confirm("Zu vorhandenem Wert addieren (mehrere Heizkörper)?");
+      input.value = add ? (Math.round((parseFloat(input.value) + kw) * 100) / 100) : kw;
+      this._toast(`≈ ${kw} kW – jetzt speichern`);
+    });
 
     // Save button
     container.querySelector("#rs-save-btn").addEventListener("click", async () => {
@@ -805,6 +854,9 @@
         valve_entities:           valves,
         window_sensor:            windows[0] || "",
         window_sensors:           windows,
+        room_ignore_heating_period: container.querySelector("#rs-ignore-heating-period")?.checked === true,
+        wakeup_enabled:           container.querySelector("#rs-wakeup-enabled")?.checked === true,
+        trv_external_sensor_sync: container.querySelector("#rs-external-sync")?.checked === true,
         comfort_temp:             parseFloat(container.querySelector("#rs-comfort")?.value),
         away_temp_room:           parseFloat(container.querySelector("#rs-away-temp-room")?.value) || 16.0,
         eco_offset:               parseFloat(container.querySelector("#rs-eco-offset")?.value),
@@ -873,7 +925,7 @@
         window_cascade_delay_minutes: parseInt(container.querySelector("#rs-cascade-delay")?.value, 10) || 30,
         window_cascade_offset:    parseFloat(container.querySelector("#rs-cascade-offset")?.value) || 3.0,
       });
-      this._toast(`✓ ${room.name} gespeichert`);
+      this._toast(`✓ ${this._esc(room.name)} gespeichert`);
     });
 
     // Delete confirmation: enable button only when name matches exactly
@@ -887,7 +939,7 @@
         if (deleteNameInput.value.trim() !== room.name) return;
         await this._callService("remove_room", { id: room.room_id });
         this._selectedRoom = null;
-        this._toast(`✓ Zimmer „${room.name}" gelöscht`);
+        this._toast(`✓ Zimmer „${this._esc(room.name)}" gelöscht`);
         this._renderRooms(fullContent);
       });
     }
@@ -1010,7 +1062,15 @@
           <strong>Manuell</strong> = eigene Temperatur eingeben.<br>
           Außerhalb des Zeitplans: <strong>Heizkurven-Temp + Zimmer-Offset</strong>
         </div>
-        <div id="sched-editor">${schedBlocks || '<div style="color:var(--secondary-text-color);padding:8px">Noch keine Gruppen. Unten auf + Gruppe klicken.</div>'}</div>
+        <div class="form-group" style="margin-top:10px">
+          <label class="form-label">⚡ Vorlage übernehmen</label>
+          <select class="form-select" id="sched-template">
+            <option value="">– Vorlage wählen (ersetzt den Plan unten) –</option>
+            ${SCHEDULE_TEMPLATES.map(t => `<option value="${t.id}">${t.label}</option>`).join("")}
+          </select>
+          <span class="form-hint">Danach nach Belieben anpassen und speichern. Außerhalb der Zeiten heizt IHC sparsam (Eco).</span>
+        </div>
+        <div id="sched-editor">${schedBlocks || '<div style="color:var(--secondary-text-color);padding:8px">Noch kein Zeitplan – oben eine Vorlage wählen oder unten auf + Gruppe klicken.</div>'}</div>
         <div class="btn-row">
           <button class="btn btn-secondary" id="add-sched-btn">+ Gruppe hinzufügen</button>
           <button class="btn btn-primary" id="save-sched-btn">💾 Zeitpläne speichern</button>
@@ -1089,6 +1149,14 @@
       });
     });
 
+    container.querySelector("#sched-template").addEventListener("change", e => {
+      const tpl = SCHEDULE_TEMPLATES.find(t => t.id === e.target.value);
+      if (!tpl) return;
+      this._editingSchedules[selId] = JSON.parse(JSON.stringify(tpl.schedules));
+      this._renderRoomScheduleInline(room, container);
+      this._toast(`📋 Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken`);
+    });
+
     container.querySelector("#add-sched-btn").addEventListener("click", () => {
       this._editingSchedules[selId].push({ days: ["mon"], periods: [
         { start: "07:00", end: "09:00", mode: "comfort", temperature: 21.0, offset: 0.0 }
@@ -1105,7 +1173,7 @@
       });
       // Clear buffer so next open re-reads from saved HA state
       delete this._editingSchedules[selId];
-      this._toast(`✓ Zeitpläne für „${room.name}" gespeichert`);
+      this._toast(`✓ Zeitpläne für „${this._esc(room.name)}" gespeichert`);
     });
 
     // ── HA Schedules (schedule.* entities) ────────────────────────────────
@@ -1209,7 +1277,7 @@
         ha_schedules,
         ha_schedule_off_mode,
       });
-      this._toast(`✓ HA Zeitpläne für „${room.name}" gespeichert`);
+      this._toast(`✓ HA Zeitpläne für „${this._esc(room.name)}" gespeichert`);
     });
   }
 
@@ -1316,7 +1384,7 @@
             ? `<span style="font-size:10px;color:${active ? "#66bb6a" : "#9e9e9e"}">${active ? "✓" : "✗"} ${s.condition_entity} = ${s.condition_state || "on"}</span>`
             : `<span style="font-size:10px;color:#66bb6a">Immer aktiv</span>`;
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;opacity:${active ? "1" : "0.55"}">
-            <span style="font-size:11px;font-weight:600">${name}</span>
+            <span style="font-size:11px;font-weight:600">${this._esc(name)}</span>
             ${cond}
           </div>`;
         }).join("")}
@@ -1499,7 +1567,7 @@
     })() : "";
 
     const svg = `
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${room.name}">
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${this._esc(room.name)}">
         <rect x="${padL}" y="${padT}" width="${cW}" height="${cH}" fill="var(--card-background-color,#fafafa)" rx="4" opacity="0.5"/>
         ${[0, 0.33, 0.67, 1].map(f => {
           const y = yOf(minV + f * range).toFixed(1);
@@ -1525,7 +1593,7 @@
 
     container.innerHTML = `
       <div class="card">
-        <div class="card-title">📈 Temperaturverlauf – ${room.name}</div>
+        <div class="card-title">📈 Temperaturverlauf – ${this._esc(room.name)}</div>
         <div style="padding:4px 0 12px;overflow-x:auto">${svg}</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <span style="font-size:11px;display:flex;align-items:center;gap:4px">

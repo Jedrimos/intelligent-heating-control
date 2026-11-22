@@ -3,12 +3,12 @@
     "step": {
       "user": {
         "title": "Basisinstellingen",
-        "description": "Configureer de buitentemperatuursensor.",
+        "description": "Optioneel: kies een buitentemperatuursensor. Geen sensor? Laat leeg – IHC gebruikt dan automatisch je weerintegratie (bijv. Met.no). Open daarna het paneel „IHC“ in de zijbalk: IHC vindt je kamers en thermostaten automatisch.",
         "data": {
           "outdoor_temp_sensor": "Buitentemperatuursensor"
         },
         "data_description": {
-          "outdoor_temp_sensor": "Sensor die de huidige buitentemperatuur meet. Wordt gebruikt voor de stooklijn – hoe kouder buiten, hoe hoger de streeftemperatuur."
+          "outdoor_temp_sensor": "Sensor voor de buitentemperatuur. Optioneel – anders wordt de temperatuur uit de weersverwachting gebruikt."
         }
       },
       "temperatures": {
@@ -223,6 +223,16 @@
     "abort": {
       "no_rooms": "Geen kamers geconfigureerd",
       "room_not_found": "Kamer niet gevonden"
+    }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "IHC: {role} {entity} niet gevonden",
+      "description": "Kamer **{room}** gebruikt {role} `{entity}`, maar deze entiteit bestaat niet in Home Assistant (apparaat hernoemd of verwijderd?). IHC werkt zonder verder. Corrigeer het in het IHC-paneel onder Kamers → {room} → Instellingen."
+    },
+    "entity_unavailable": {
+      "title": "IHC: {role} {entity} niet bereikbaar",
+      "description": "{role} `{entity}` in kamer **{room}** is al {minutes} minuten niet bereikbaar (batterij leeg, buiten bereik?). IHC gebruikt intussen vervangende waarden."
     }
   }
 }

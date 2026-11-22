@@ -136,7 +136,6 @@ class VacationManagerMixin:
         today_yday = dt_util.now().timetuple().tm_yday
         if self._vac_calendar_last_check == today_yday:
             return
-        self._vac_calendar_last_check = today_yday
 
         keyword = cfg.get(CONF_VACATION_CALENDAR_KEYWORD, DEFAULT_VACATION_CALENDAR_KEYWORD).lower()
         today = dt_util.now().date()
@@ -153,8 +152,11 @@ class VacationManagerMixin:
                 return_response=True,
             )
         except Exception as err:  # noqa: BLE001
-            _LOGGER.debug("Vacation calendar check failed: %s", err)
+            # Not marked as checked: right after an HA restart the calendar integration is
+            # often not loaded yet - retry on the next cycle instead of tomorrow.
+            _LOGGER.debug("Vacation calendar check failed (retrying next cycle): %s", err)
             return
+        self._vac_calendar_last_check = today_yday
 
         events = (result or {}).get(cal_entity, {}).get("events", [])
         for event in events:
@@ -179,5 +181,10 @@ class VacationManagerMixin:
                         new_opts[CONF_VACATION_START] = start_str
                         new_opts[CONF_VACATION_END]   = end_str
                         self._suppress_reload = True
-                        self.hass.config_entries.async_update_entry(self._config_entry, options=new_opts)
+                        try:
+                            self.hass.config_entries.async_update_entry(self._config_entry, options=new_opts)
+                        finally:
+                            # Was never reset: every later options-flow change (e.g. a room
+                            # added in HA's own dialog) then silently skipped its reload.
+                            self._suppress_reload = False
                 return  # first match wins

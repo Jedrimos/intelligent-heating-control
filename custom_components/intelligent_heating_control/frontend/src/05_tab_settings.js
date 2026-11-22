@@ -13,7 +13,150 @@
     const activeBadge = (label, cls = "") => `<span class="ihc-card-badge ${cls}">${label}</span>`;
     const hasEnergy = !!(a.solar_entity || a.energy_price_entity);
 
+    // v2.6 – plain-language status of every automatic fallback, so people with few
+    // sensors see what IHC already does for them, and what an extra sensor would add.
+    const src = g.outdoor_temp_source || "";
+    const outdoorTxt = src.startsWith("sensor:")
+      ? `Außensensor <b>${this._esc(this._friendly(src.slice(7)))}</b>`
+      : src.startsWith("weather:")
+        ? `automatisch aus der Wettervorhersage <b>${this._esc(this._friendly(src.slice(8)))}</b> 💡 ein Außenthermometer ist genauer`
+        : `nicht verfügbar – bitte einen Außensensor oder eine Wetter-Integration (z. B. Met.no) einrichten`;
+    const autoCard = `
+      <div class="card auto-card">
+        <div class="card-title">🤖 Was IHC automatisch macht</div>
+        <div class="auto-row"><span>🌡️ Außentemperatur</span><span>${outdoorTxt}</span></div>
+        <div class="auto-row"><span>🌦️ Wettervorhersage</span><span>${g.weather_entity_effective ? `<b>${this._esc(this._friendly(g.weather_entity_effective))}</b> – für Kälteprognose &amp; Frühstart` : "keine Wetter-Entität gefunden"}</span></div>
+        <div class="auto-row"><span>🪟 Fenster ohne Sensor</span><span>${g.window_auto_detect_enabled ? "werden am Temperatursturz erkannt ✓" : "nicht erkannt (unten unter Temperaturen einschaltbar)"}</span></div>
+        <div class="auto-row"><span>🍂 Heizperiode</span><span>${a.heating_period_entity ? "per eigenem Schalter gesteuert" : (a.heating_period_auto_enabled !== false ? "startet/endet automatisch nach Außentemperatur ✓" : "immer aktiv")}</span></div>
+        <div class="auto-row"><span>🚶 Abwesenheit</span><span>${(() => {
+          const eff = a.presence_entities_effective || [];
+          if ((a.presence_entities || []).length) return `über ${eff.length} eingetragene Person(en)/Tracker ✓`;
+          if (eff.length) return `automatisch über ${eff.map(e => this._esc(this._friendly(e))).join(", ")} ✓ (mind. 20 min Verzögerung)`;
+          return "keine Person mit Standort gefunden – 💡 mit der HA-Companion-App senkt IHC automatisch ab, wenn niemand zu Hause ist";
+        })()}</span></div>
+        <div class="auto-row"><span>💧 Außenfeuchte</span><span>${a.outdoor_humidity_sensor ? "eigener Sensor ✓" : (g.weather_entity_effective ? "aus der Wettervorhersage" : "nicht verfügbar")}</span></div>
+      </div>`;
+
+    const saving = parseFloat(a.saving_offset ?? 0) || 0;
+    const savingCard = `
+      <div class="card">
+        <div class="card-title">💶 Heizkosten sparen</div>
+        <div class="settings-item">
+          <label>Spar-Regler: alle Wohlfühltemperaturen absenken um</label>
+          <div class="comfort-pick">
+            <input type="range" id="saving-offset" min="0" max="3" step="0.5" value="${saving}">
+            <span id="saving-offset-val">${saving.toFixed(1)} °C</span>
+          </div>
+          <span class="form-hint"><span id="saving-offset-est">${saving > 0 ? `≈ ${Math.round(saving * 6)} % weniger Heizenergie.` : "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie."}</span> Frostschutz, Abwesend, Urlaub und manuell eingestellte Werte bleiben unverändert.</span>
+        </div>
+        <div class="settings-grid" style="margin-top:8px">
+          <div class="settings-item">
+            <label>🪟 Erinnern, wenn ein Fenster länger offen ist (min)</label>
+            <input type="number" class="form-input" id="window-reminder-minutes" min="0" max="120" step="5" value="${a.window_reminder_minutes ?? 15}">
+            <span class="form-hint">Nur bei unter 15 °C draußen. 0 = aus. Löst auch das Event <code>intelligent_heating_control_window_open_too_long</code> für eigene Automationen aus.</span>
+          </div>
+          <div class="settings-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+              <input type="checkbox" id="presence-auto-persons" ${a.presence_auto_persons !== false ? "checked" : ""}>
+              🚶 Abwesenheit automatisch aus HA-Personen
+            </label>
+            <span class="form-hint">Nur wenn unter „Anwesenheitserkennung“ nichts eingetragen ist.</span>
+          </div>
+        </div>
+        <div class="btn-row"><button class="btn btn-primary" id="save-saving">💾 Speichern</button></div>
+      </div>`;
+
+    // v2.6 – Komfort
+    const persons = Object.keys(this._hass?.states || {}).filter(e => e.startsWith("person.")).sort();
+    const prefs = Array.isArray(a.person_preferences) ? a.person_preferences : [];
+    const prefOffset = p => { const f = prefs.find(x => x.person === p); return f ? Number(f.offset) || 0 : 0; };
+    const alarms = a.wakeup_alarm_entities_effective || [];
+    const comfortCard = `
+      <div class="card">
+        <div class="card-title">🛋️ Komfort</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>⏰ Warm aufwachen – so lange vor dem Wecker heizen (min)</label>
+            <input type="number" class="form-input" id="wakeup-preheat" min="0" max="180" step="5" value="${a.wakeup_preheat_minutes ?? 30}">
+          </div>
+          <div class="settings-item">
+            <label>… und danach warm halten (min)</label>
+            <input type="number" class="form-input" id="wakeup-comfort" min="0" max="240" step="5" value="${a.wakeup_comfort_minutes ?? 60}">
+          </div>
+        </div>
+        <span class="form-hint">${alarms.length
+          ? `Gefundene Wecker: ${alarms.map(e => this._esc(this._friendly(e))).join(", ")}. Pro Zimmer einschalten unter Zimmer → ⚙️ Einstellungen → Warm aufwachen.`
+          : "Kein Handy-Wecker gefunden – in der Home-Assistant-App den Sensor „Nächster Wecker“ aktivieren."}</span>
+        <hr class="divider">
+        <div class="settings-item">
+          <label>🧑‍🤝‍🧑 Wärmeempfinden pro Person (°C)</label>
+          ${persons.length ? persons.map(p => `
+            <div class="entity-row" style="margin-top:4px">
+              <span style="flex:1">${this._esc(this._friendly(p))}</span>
+              <input type="number" class="form-input person-pref" data-person="${this._esc(p)}" min="-3" max="3" step="0.5" value="${prefOffset(p)}" style="max-width:90px">
+            </div>`).join("") : `<span class="form-hint">Keine Personen in Home Assistant angelegt.</span>`}
+          <span class="form-hint">z. B. +1 = mag es 1 °C wärmer. Es gilt der Durchschnitt aller, die gerade zu Hause sind. Frostschutz, Abwesend und manuelle Werte bleiben unverändert.</span>
+        </div>
+        <hr class="divider">
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>🥶/🥵 „Mir ist kalt/warm“ wirkt für (min)</label>
+            <input type="number" class="form-input" id="feel-duration" min="15" max="480" step="15" value="${a.feel_duration_minutes ?? 120}">
+          </div>
+          <div class="settings-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+              <input type="checkbox" id="feel-learning" ${a.feel_learning_enabled !== false ? "checked" : ""}>
+              🧠 Daraus lernen
+            </label>
+            <span class="form-hint">Wer mehrmals zur gleichen Tageszeit friert, bekommt dann dauerhaft etwas mehr Wärme (max. ±1,5 °C).</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="save-comfort">💾 Speichern</button>
+          <button class="btn btn-secondary" id="reset-comfort-learning">🧠 Gelerntes zurücksetzen</button>
+        </div>
+      </div>`;
+
+    const systems = [["gas", "🔥 Gas"], ["oil", "🛢️ Öl"], ["pellets", "🪵 Pellets"], ["heatpump", "♨️ Wärmepumpe"], ["district", "🏙️ Fernwärme"], ["electric", "⚡ Strom direkt"]];
+    const heatingCard = `
+      <div class="card">
+        <div class="card-title">🔥 Meine Heizung</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Heizungsart</label>
+            <select class="form-select" id="heating-system">
+              ${systems.map(([v, l]) => `<option value="${v}" ${(a.heating_system || "gas") === v ? "selected" : ""}>${l}</option>`).join("")}
+            </select>
+            <span class="form-hint">Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).${g.flow_temp_now != null ? ` Vorlauf jetzt geschätzt: ${g.flow_temp_now} °C.` : ""}</span>
+          </div>
+          <div class="settings-item expert-only">
+            <label>Wirkungsgrad bzw. JAZ (0 = automatisch)</label>
+            <input type="number" class="form-input" id="heating-efficiency" min="0" max="7" step="0.05" value="${a.heating_efficiency ?? 0}">
+            <span class="form-hint">Gas ≈ 0,92 · Öl ≈ 0,88 · Wärmepumpe: Jahresarbeitszahl (z. B. 3,5)</span>
+          </div>
+          <div class="settings-item expert-only">
+            <label>Vorlauftemperatur bei −12 °C außen (0 = automatisch)</label>
+            <input type="number" class="form-input" id="design-flow-temp" min="0" max="90" step="1" value="${a.design_flow_temp ?? 0}">
+          </div>
+          <div class="settings-item expert-only">
+            <label>Vorlauf-Sensor (optional)</label>
+            <input type="text" class="form-input" id="flow-temp-sensor" value="${this._esc(a.flow_temp_sensor || "")}" data-ep-domains="sensor" autocomplete="off">
+          </div>
+          <div class="settings-item">
+            <label>Echter Zähler (optional)</label>
+            <input type="text" class="form-input" id="energy-meter-entity" value="${this._esc(a.energy_meter_entity || "")}" placeholder="sensor.gaszaehler" data-ep-domains="sensor" autocomplete="off">
+            <span class="form-hint">Gaszähler (m³ oder kWh), Wärmemengen- oder Wärmepumpen-Stromzähler. IHC gleicht seine Zimmer-Schätzung täglich daran an${a.energy_calibration_factor && a.energy_calibration_factor !== 1 ? ` (aktuell × ${a.energy_calibration_factor})` : ""}. Hinweis: Zählt der Zähler Warmwasser mit, wird das anteilig den Zimmern zugerechnet.</span>
+          </div>
+        </div>
+        <div class="btn-row"><button class="btn btn-primary" id="save-heating">💾 Speichern</button></div>
+      </div>`;
+
     content.innerHTML = `
+      ${autoCard}
+      ${heatingCard}
+      ${comfortCard}
+      ${savingCard}
+      <div class="simple-hint">🧩 Einfache Ansicht: Profi-Funktionen (Energiepreise, Solar, Kalkschutz, Kessel-Relais …) sind ausgeblendet – oben rechts auf <b>🛠️ Experte</b> umschalten.</div>
       <!-- ── System-Hardware ─────────────────────────────── -->
       <details class="ihc-card" open>
         <summary>
@@ -26,9 +169,9 @@
               <input type="text" class="form-input" id="outdoor-sensor"
                 placeholder="sensor.aussensensor"
                 value="${a.outdoor_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
-              <span class="form-hint">Wird für die Heizkurve, Sommerautomatik und Kältewarnung benötigt. Empfohlen: Wetterdienst-Sensor oder externer Temperaturfühler.</span>
+              <span class="form-hint">Für Heizkurve, Sommerautomatik und Heizperiode. <b>Leer lassen geht auch:</b> dann nimmt IHC automatisch die Temperatur aus der Wettervorhersage.</span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Außentemperatur-Glättung (Minuten)</label>
               <input type="number" class="form-input" id="outdoor-smoothing" min="0" max="60" step="5" value="${a.outdoor_temp_smoothing_minutes ?? 30}">
               <span class="form-hint">Gleitender Mittelwert über die letzten N Minuten (0 = aus). Verhindert dass schnelle Sonne/Wolken-Wechsel die Heizkurve und die TRVs oszillieren lassen. Empfohlen: 20–30 Minuten.</span>
@@ -36,17 +179,17 @@
             <div class="settings-item">
               <label>Wettervorhersage-Entität</label>
               <input type="text" class="form-input" id="weather-entity"
-                placeholder="weather.home (leer = aus)"
+                placeholder="leer = automatisch erste Wetter-Entität"
                 value="${a.weather_entity ?? ''}" data-ep-domains="weather" autocomplete="off">
-              <span class="form-hint">Wetter-Entität aus HA (z.B. <code>weather.home</code>). Aktiviert Kältewarnung-Banners und 3-Tage-Vorschau im Dashboard.</span>
+              <span class="form-hint">Wetter-Entität aus HA (z.B. <code>weather.forecast_home</code> von Met.no). Leer = IHC nimmt automatisch die erste vorhandene. Für Kälteprognose, Frühstart und 3-Tage-Vorschau.</span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Kältewarnung ab (°C)</label>
               <input type="number" class="form-input" id="weather-cold-threshold"
                 step="0.5" value="${a.weather_cold_threshold ?? 0}">
               <span class="form-hint">Banner erscheint wenn die vorhergesagte Tiefsttemperatur diesen Wert unterschreitet (0 = deaktiviert).</span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Kälteboost (°C)</label>
               <input type="number" class="form-input" id="weather-cold-boost"
                 step="0.5" min="0" max="5" value="${a.weather_cold_boost ?? 0}">
@@ -84,7 +227,7 @@
               <input type="number" class="form-input" id="frost-temp" min="4" max="15" step="0.5" value="${a.frost_protection_temp ?? 7}">
               <span class="form-hint">Absolute Untergrenze für Abwesend- und Urlaubsmodus. Im Modus „Aus" wird dieser Wert nur genutzt wenn die Option unten aktiviert ist.</span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Verhalten bei Modus „Aus"</label>
               <select class="form-select" id="off-use-frost">
                 <option value="false" ${!a.off_use_frost_protection ? "selected" : ""}>🔴 Thermostate wirklich ausschalten</option>
@@ -108,7 +251,7 @@
               <input type="number" class="form-input" id="summer-threshold" min="10" max="30" step="0.5" value="${a.summer_threshold ?? 18}">
               <span class="form-hint">Ab dieser Außentemperatur wird die Heizung gesperrt (Sommerautomatik muss aktiviert sein).</span>
             </div>
-            <div class="settings-item" style="grid-column:1/-1">
+            <div class="settings-item expert-only" style="grid-column:1/-1">
               <label>Sommermodus-Entity (externer Schalter)
                 ${a.summer_mode_entity ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">Extern gesteuert</span>` : ""}
               </label>
@@ -117,7 +260,7 @@
                 data-ep-domains="input_boolean,binary_sensor" autocomplete="off">
               <span class="form-hint">Optional: Überschreibt die Temperatur-Automatik. ON = Sommer aktiv (Heizung gesperrt), OFF = Heizung freigegeben. Ideal für Automationen oder einen physischen Schalter.</span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Sommerautomatik-Hysterese</label>
               <select class="form-select" id="summer-hysteresis-enabled">
                 <option value="true" ${a.summer_mode_hysteresis_enabled !== false ? "selected" : ""}>Aktiviert (empfohlen)</option>
@@ -130,7 +273,7 @@
                   : ""}
               </span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Hysterese-Band (°C) / Fenstergröße (Tage)</label>
               <div style="display:flex;gap:8px">
                 <input type="number" class="form-input" id="summer-hysteresis-band" min="0.5" max="10" step="0.5" value="${a.summer_mode_hysteresis_band ?? 2}" title="Band unter der Sommer-Schwelle" style="flex:1">
@@ -138,7 +281,7 @@
               </div>
               <span class="form-hint">Band: °C unter der Sommer-Schwelle, ab der wieder deaktiviert wird. Fenstergröße: Tage für das gleitende Mittel.</span>
             </div>
-            <div class="settings-item" style="grid-column:1/-1">
+            <div class="settings-item expert-only" style="grid-column:1/-1">
               <label>Heizperiode-Entity (optional – manuelle Übersteuerung)
                 ${a.heating_period_active === false ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">⏸ Inaktiv</span>` : a.heating_period_active ? `<span class="badge" style="background:#4caf50;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✓ Aktiv</span>` : ""}
                 ${!a.heating_period_entity ? `<span class="badge" style="background:#2196f3;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">🤖 Automatik aktiv</span>` : ""}
@@ -163,7 +306,7 @@
                   : `<br><em>Noch nicht genug Tages-Historie gesammelt – bis dahin bleibt die Heizperiode sicherheitshalber aktiv.</em>`}
               </span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Grenze aktiv / inaktiv (°C Ø-Außentemp.)</label>
               <div style="display:flex;gap:8px">
                 <input type="number" class="form-input" id="hp-auto-low" min="-10" max="20" step="0.5" value="${a.heating_period_auto_low_temp ?? 12}" title="Darunter: aktiv" style="flex:1">
@@ -171,26 +314,41 @@
               </div>
               <span class="form-hint">Links: darunter aktiviert die Automatik die Heizperiode. Rechts: darüber deaktiviert sie sie. Dazwischen bleibt der letzte Zustand (Hysterese, kein Flattern).</span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Fenstergröße gleitendes Mittel (Tage)</label>
               <input type="number" class="form-input" id="hp-auto-days" min="1" max="14" step="1" value="${a.heating_period_auto_days ?? 3}">
               <span class="form-hint">Größer = träger/stabiler, kleiner = reagiert schneller auf einen Wetterumschwung.</span>
             </div>
-            <div class="settings-item" style="grid-column:1/-1">
+            <div class="settings-item expert-only" style="grid-column:1/-1">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
                 <input type="checkbox" id="hp-notify-enabled" ${a.heating_period_notify_enabled !== false ? "checked" : ""}>
                 Benachrichtigen statt still sperren
               </label>
               <span class="form-hint">Sendet eine Persistent-Notification, wenn ein Zimmer eigentlich heizen würde, die Heizperiode das aber gerade verhindert (Sommerautomatik-Blocks lösen bewusst keine Benachrichtigung aus).</span>
             </div>
-            <div class="settings-item" style="grid-column:1/-1">
+            <div class="settings-item expert-only" style="grid-column:1/-1">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
                 <input type="checkbox" id="warmup-stall-notify-enabled" ${a.warmup_stall_notify_enabled !== false ? "checked" : ""}>
                 🩺 Benachrichtigen bei Warmup-Stillstand
               </label>
               <span class="form-hint">Sendet eine Persistent-Notification, wenn ein Zimmer weit länger als seine gelernte Aufheizzeit heizt, ohne tatsächlich wärmer zu werden (Luft im System, Kessel feuert nicht, Tür zu).</span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="window-auto-detect-enabled" ${a.window_auto_detect_enabled === true ? "checked" : ""}>
+                🪟 Sensorlose Fenstererkennung (Temperatursturz)
+              </label>
+              <span class="form-hint">Nur für Zimmer <b>ohne</b> Fenstersensor: fällt die Raumtemperatur plötzlich stark, wird ein offenes Fenster angenommen und das Thermostat pausiert – bis die Temperatur wieder steigt, höchstens aber für die maximale Dauer.</span>
+              <div class="expert-only" style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+                <label style="flex:1;min-width:120px;font-size:12px">Sturz (°C)
+                  <input type="number" class="form-input" id="window-auto-detect-drop" min="0.3" max="3" step="0.1" value="${a.window_auto_detect_drop ?? 0.8}"></label>
+                <label style="flex:1;min-width:120px;font-size:12px">innerhalb (min)
+                  <input type="number" class="form-input" id="window-auto-detect-minutes" min="2" max="20" step="1" value="${a.window_auto_detect_minutes ?? 6}"></label>
+                <label style="flex:1;min-width:120px;font-size:12px">max. Dauer (min)
+                  <input type="number" class="form-input" id="window-auto-detect-hold" min="5" max="90" step="5" value="${a.window_auto_detect_hold_minutes ?? 20}"></label>
+              </div>
+            </div>
+            <div class="settings-item expert-only">
               <label>🔥 Heizgradtage – Basis- / Schwellentemperatur (°C)</label>
               <div style="display:flex;gap:8px">
                 <input type="number" class="form-input" id="dd-base-temp" min="15" max="22" step="0.5" value="${a.degree_day_base_temp ?? 20}" title="Basistemperatur" style="flex:1">
@@ -206,7 +364,7 @@
       </details>
 
       <!-- ── Kälteprognose & Frühstart ────────────────────── -->
-      <details class="ihc-card" ${a.forecast_coldnight_enabled ? "open" : ""}>
+      <details class="ihc-card expert-only" ${a.forecast_coldnight_enabled ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">❄️ Kälteprognose – Frühstart
             ${(() => { const fc = g.weather_forecast; const active = a.forecast_coldnight_enabled && fc && fc.forecast_today_min != null && fc.forecast_today_min <= (a.forecast_coldnight_temp ?? 8); return active ? `<span class="badge" style="background:#29b6f6;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">❄️ Aktiv – ${fc.forecast_today_min}°C</span>` : ""; })()}
@@ -414,7 +572,7 @@
       </details>
 
       <!-- ── Energie & Solar ────────────────────────────── -->
-      <details class="ihc-card" id="energie-details" ${hasEnergy ? "open" : ""}>
+      <details class="ihc-card expert-only" id="energie-details" ${hasEnergy ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">⚡ Energie &amp; Solar
             ${g.solar_boost > 0 ? activeBadge("☀️ Solar-Boost") : ""}
@@ -426,16 +584,16 @@
             <div class="settings-item">
               <label>Laufzeit im Dashboard anzeigen</label>
               <select class="form-select" id="show-runtime-stats">
-                <option value="true"  ${localStorage.getItem("ihc_show_runtime") !== "false" ? "selected" : ""}>Aktiviert</option>
-                <option value="false" ${localStorage.getItem("ihc_show_runtime") === "false"  ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${this._lsGet("ihc_show_runtime") !== "false" ? "selected" : ""}>Aktiviert</option>
+                <option value="false" ${this._lsGet("ihc_show_runtime") === "false"  ? "selected" : ""}>Deaktiviert</option>
               </select>
               <span class="form-hint">Zeigt in jedem Zimmer-Karte wie lange die Heizung heute schon gelaufen ist (in Minuten).</span>
             </div>
             <div class="settings-item">
               <label>Kosten/kWh im Dashboard anzeigen</label>
               <select class="form-select" id="show-cost-stats">
-                <option value="true"  ${localStorage.getItem("ihc_show_costs") !== "false" ? "selected" : ""}>Aktiviert</option>
-                <option value="false" ${localStorage.getItem("ihc_show_costs") === "false"  ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${this._lsGet("ihc_show_costs") !== "false" ? "selected" : ""}>Aktiviert</option>
+                <option value="false" ${this._lsGet("ihc_show_costs") === "false"  ? "selected" : ""}>Deaktiviert</option>
               </select>
               <span class="form-hint">Zeigt geschätzte Kilowattstunden und (wenn Preis konfiguriert) die Kosten des Tages.</span>
             </div>
@@ -470,12 +628,33 @@
             </div>
           </div>
           <hr class="divider">
-          <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Passive Solarheizung (Rolladen)</div>
+          <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Rollladen-Automatik (wie Loxone)</div>
           <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
-            Öffnet die Rolladen sonnenzugewandter Zimmer bevor die Heizung anspringt (kostenlose Wärme) bzw.
-            beschattet leicht im Sommer. Muss pro Zimmer aktiviert werden (Rolladen-Entitäten + Fensterausrichtung
-            im Zimmer-Bearbeiten-Dialog).
+            Pro Zimmer aktivieren (Zimmer → ⚙️ Einstellungen → Rollläden). Tagesablauf in der Heizsaison:
+            nachts zu (Wärmedämmung) → morgens zu, bis die Sonne auf die Fassade kommt → Sonne nutzen,
+            erst bei Überhitzung beschatten → abends wieder zu. Im Sommer wird vorsorglich beschattet.
+            Bewölkung erkennt IHC über den Helligkeitssensor des Zimmers oder – ohne Sensor – über die Wettervorhersage.
           </p>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="solar-night-insulation" ${a.solar_night_insulation_enabled !== false ? "checked" : ""}>
+                🌙 Nachts schließen (Wärmedämmung, nur Heizsaison)
+              </label>
+            </div>
+            <div class="settings-item">
+              <label>Morgens öffnen</label>
+              <select class="form-select" id="solar-morning-mode">
+                <option value="sun" ${(a.solar_morning_mode || "sun") === "sun" ? "selected" : ""}>wenn die Sonne auf die Fassade kommt</option>
+                <option value="sunrise" ${a.solar_morning_mode === "sunrise" ? "selected" : ""}>bei Sonnenaufgang</option>
+              </select>
+            </div>
+            <div class="settings-item">
+              <label>Spätestens öffnen um</label>
+              <input type="time" class="form-input" id="solar-morning-latest" value="${a.solar_morning_latest_time || "09:30"}">
+              <span class="form-hint">Für Fassaden ohne Sonne (z. B. Nordseite) oder trübe Tage.</span>
+            </div>
+          </div>
           <div class="settings-grid">
             <div class="settings-item">
               <label>Min. Sonnenhöhe (°)</label>
@@ -489,8 +668,8 @@
             </div>
             <div class="settings-item">
               <label>Min. Außentemp. für Solarheizung (°C)</label>
-              <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-10" max="15" step="0.5" value="${a.solar_heat_min_outdoor ?? 5}">
-              <span class="form-hint">Unterhalb dieser Außentemperatur lohnt sich das Öffnen der Rolladen nicht.</span>
+              <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-25" max="15" step="0.5" value="${a.solar_heat_min_outdoor ?? -20}">
+              <span class="form-hint">Standard −20 °C: Sonne durchs Fenster lohnt sich auch bei Frost.</span>
             </div>
           </div>
           <div class="settings-item" style="margin-top:10px">
@@ -638,7 +817,7 @@
       </details>
 
       <!-- ── Lüftungsempfehlung ──────────────────────────── -->
-      <details class="ihc-card" ${a.outdoor_humidity_sensor ? "open" : ""}>
+      <details class="ihc-card expert-only" ${a.outdoor_humidity_sensor ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">🌬️ Lüftungsempfehlung
             ${g.outdoor_humidity != null ? activeBadge(`${g.outdoor_humidity.toFixed(0)}% Außenfeuchte`) : ""}
@@ -674,7 +853,7 @@
       </details>
 
       <!-- ── Intelligente Regelung ──────────────────────── -->
-      <details class="ihc-card" ${a.eta_preheat_enabled || a.vacation_calendar ? "open" : ""}>
+      <details class="ihc-card expert-only" ${a.eta_preheat_enabled || a.vacation_calendar ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">🧠 Intelligente Regelung
             ${g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90 ? activeBadge(`ETA ${Math.round(g.eta_preheat_minutes)}min`, "info") : ""}
@@ -772,7 +951,7 @@
       </details>
 
       <!-- ── Kalkschutz & TRV-Wartung ───────────────────── -->
-      <details class="ihc-card" ${a.limescale_protection_enabled ? "open" : ""}>
+      <details class="ihc-card expert-only" ${a.limescale_protection_enabled ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">🔩 Kalkschutz &amp; Stuck-Valve-Erkennung
             ${a.limescale_protection_enabled ? activeBadge("Aktiv") : ""}
@@ -827,7 +1006,7 @@
       </details>
 
       <!-- ── Peak Shaving ───────────────────────────── -->
-      <details class="ihc-card" ${a.peak_shaving_enabled ? "open" : ""}>
+      <details class="ihc-card expert-only" ${a.peak_shaving_enabled ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">⚡ Peak Shaving – Heizungsstaffelung
             ${a.peak_shaving_enabled ? activeBadge("Aktiv") : ""}
@@ -858,7 +1037,7 @@
       </details>
 
       <!-- ── Kessel-Relais-Signal ───────────────────────────── -->
-      <details class="ihc-card" ${a.boiler_switch_entity ? "open" : ""}>
+      <details class="ihc-card expert-only" ${a.boiler_switch_entity ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">🔥 Kessel-/Pumpen-Relais
             ${a.boiler_switch_entity ? activeBadge("Aktiv") : ""}
@@ -894,7 +1073,7 @@
         </div>
       </details>
 
-      <details class="ihc-card">
+      <details class="ihc-card expert-only">
         <summary>💧 Schimmelschutz &amp; Maximaltemperatur</summary>
         <div class="settings-grid">
           <div class="settings-item">
@@ -1022,6 +1201,10 @@
         heating_period_auto_days:      hpDays,
         heating_period_notify_enabled: content.querySelector("#hp-notify-enabled")?.checked === true,
         warmup_stall_notify_enabled: content.querySelector("#warmup-stall-notify-enabled")?.checked === true,
+        window_auto_detect_enabled: content.querySelector("#window-auto-detect-enabled")?.checked === true,
+        window_auto_detect_drop: Math.min(3, Math.max(0.3, parseFloat(content.querySelector("#window-auto-detect-drop")?.value) || 0.8)),
+        window_auto_detect_minutes: Math.min(20, Math.max(2, parseInt(content.querySelector("#window-auto-detect-minutes")?.value, 10) || 6)),
+        window_auto_detect_hold_minutes: Math.min(90, Math.max(5, parseInt(content.querySelector("#window-auto-detect-hold")?.value, 10) || 20)),
         degree_day_base_temp:      ddBase,
         degree_day_threshold_temp: ddThreshold,
       });
@@ -1091,13 +1274,62 @@
       this._toast("✓ Anwesenheitserkennung gespeichert");
     });
 
+    content.querySelector("#save-heating")?.addEventListener("click", () => {
+      this._callService("update_global_settings", {
+        heating_system: content.querySelector("#heating-system")?.value || "gas",
+        heating_efficiency: Math.min(7, Math.max(0, parseFloat(content.querySelector("#heating-efficiency")?.value) || 0)),
+        design_flow_temp: Math.min(90, Math.max(0, parseFloat(content.querySelector("#design-flow-temp")?.value) || 0)),
+        flow_temp_sensor: content.querySelector("#flow-temp-sensor")?.value.trim() || "",
+        energy_meter_entity: content.querySelector("#energy-meter-entity")?.value.trim() || "",
+      });
+      this._toast("✓ Heizung gespeichert");
+    });
+
+    // v2.6 – Komfort
+    content.querySelector("#save-comfort")?.addEventListener("click", () => {
+      const num = (id, def, lo, hi) => { const v = parseInt(content.querySelector(id)?.value, 10); return isNaN(v) ? def : Math.min(hi, Math.max(lo, v)); };
+      const person_preferences = [...content.querySelectorAll(".person-pref")]
+        .map(i => ({ person: i.dataset.person, offset: Math.min(3, Math.max(-3, parseFloat(i.value) || 0)) }))
+        .filter(p => p.offset !== 0);
+      this._callService("update_global_settings", {
+        wakeup_preheat_minutes: num("#wakeup-preheat", 30, 0, 180),
+        wakeup_comfort_minutes: num("#wakeup-comfort", 60, 0, 240),
+        feel_duration_minutes: num("#feel-duration", 120, 15, 480),
+        feel_learning_enabled: content.querySelector("#feel-learning")?.checked === true,
+        person_preferences,
+      });
+      this._toast("✓ Komfort-Einstellungen gespeichert");
+    });
+    content.querySelector("#reset-comfort-learning")?.addEventListener("click", () => {
+      this._callService("reset_comfort_learning", {});
+      this._toast("✓ Gelerntes Wärmeempfinden zurückgesetzt");
+    });
+
+    // v2.6 – Heizkosten sparen
+    const savingRange = content.querySelector("#saving-offset");
+    savingRange?.addEventListener("input", () => {
+      const v = parseFloat(savingRange.value) || 0;
+      content.querySelector("#saving-offset-val").textContent = `${v.toFixed(1)} °C`;
+      content.querySelector("#saving-offset-est").textContent =
+        v > 0 ? `≈ ${Math.round(v * 6)} % weniger Heizenergie.` : "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.";
+    });
+    content.querySelector("#save-saving")?.addEventListener("click", () => {
+      const reminder = parseInt(content.querySelector("#window-reminder-minutes")?.value, 10);
+      this._callService("update_global_settings", {
+        saving_offset: Math.min(3, Math.max(0, parseFloat(savingRange?.value) || 0)),
+        window_reminder_minutes: isNaN(reminder) ? 15 : Math.min(120, Math.max(0, reminder)),
+        presence_auto_persons: content.querySelector("#presence-auto-persons")?.checked === true,
+      });
+      this._toast("✓ Spar-Einstellungen gespeichert");
+    });
+
     // Runtime / costs visibility toggles – stored in localStorage (frontend-only)
     content.querySelector("#show-runtime-stats").addEventListener("change", e => {
-      localStorage.setItem("ihc_show_runtime", e.target.value);
+      this._lsSet("ihc_show_runtime", e.target.value);
       this._toast(e.target.value === "true" ? "✓ Laufzeit-Anzeige aktiviert" : "✓ Laufzeit-Anzeige deaktiviert");
     });
     content.querySelector("#show-cost-stats").addEventListener("change", e => {
-      localStorage.setItem("ihc_show_costs", e.target.value);
+      this._lsSet("ihc_show_costs", e.target.value);
       this._toast(e.target.value === "true" ? "✓ Kostenanzeige aktiviert" : "✓ Kostenanzeige deaktiviert");
     });
 
@@ -1131,6 +1363,9 @@
         solar_min_elevation:     solarMinElevation,
         solar_shade_position:    solarShadePosition,
         solar_heat_min_outdoor:  solarHeatMinOutdoor,
+        solar_night_insulation_enabled: content.querySelector("#solar-night-insulation")?.checked === true,
+        solar_morning_mode:      content.querySelector("#solar-morning-mode")?.value || "sun",
+        solar_morning_latest_time: content.querySelector("#solar-morning-latest")?.value || "09:30",
         solar_weather_protection_enabled: content.querySelector("#solar-weather-protection-enabled")?.checked === true,
         solar_wind_speed_threshold: solarWindSpeedThreshold,
         solar_cover_override_rearm_minutes: solarOverrideRearm,
@@ -1342,7 +1577,7 @@
     const roomList = Object.values(rooms);
 
     const groupsCard = document.createElement("details");
-    groupsCard.className = "settings-section";
+    groupsCard.className = "settings-section expert-only";
     groupsCard.open = groups.length > 0;
     groupsCard.innerHTML = `
       <summary class="settings-section-title">👥 Heizgruppen</summary>
@@ -1433,7 +1668,7 @@
     const roomCheckboxes = roomList.map(r => `
       <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
         <input type="checkbox" data-room-id="${r.room_id}" ${existingRooms.includes(r.room_id) ? "checked" : ""}>
-        <span>${r.name}</span>
+        <span>${this._esc(r.name)}</span>
         <span style="font-size:10px;color:var(--secondary-text-color)">${r.current_temp != null ? r.current_temp + " °C" : ""}</span>
       </label>`).join("");
 

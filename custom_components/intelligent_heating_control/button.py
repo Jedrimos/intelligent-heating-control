@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import CONF_ROOM_ID, CONF_ROOM_NAME, DOMAIN
 from .coordinator import IHCCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,9 +21,11 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: IHCCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([
-        IHCResetAllRoomsButton(coordinator, entry),
-    ])
+    entities = [IHCResetAllRoomsButton(coordinator, entry)]
+    for room in coordinator.get_rooms():
+        for feeling in ("cold", "warm"):
+            entities.append(IHCFeelButton(coordinator, entry, room, feeling))
+    async_add_entities(entities)
 
 
 class IHCResetAllRoomsButton(CoordinatorEntity, ButtonEntity):
@@ -50,3 +52,33 @@ class IHCResetAllRoomsButton(CoordinatorEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         await self.coordinator.async_reset_all_rooms()
+
+
+class IHCFeelButton(CoordinatorEntity, ButtonEntity):
+    """v2.6 – "Mir ist kalt" / "Mir ist warm" per room (±1 °C for 2 h, IHC learns from it).
+    Works from dashboards, NFC tags and voice assistants."""
+
+    _attr_has_entity_name = False
+
+    def __init__(self, coordinator: IHCCoordinator, entry: ConfigEntry, room: dict, feeling: str) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._room_id = room[CONF_ROOM_ID]
+        self._room_name = room.get(CONF_ROOM_NAME, self._room_id)
+        self._feeling = feeling
+        self._attr_unique_id = f"{entry.entry_id}_room_{self._room_id}_feel_{feeling}"
+        self._attr_name = f"IHC {self._room_name} " + ("Mir ist kalt" if feeling == "cold" else "Mir ist warm")
+        self._attr_icon = "mdi:snowflake-thermometer" if feeling == "cold" else "mdi:sun-thermometer"
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, f"{self._entry.entry_id}_{self._room_id}")},
+            "name": f"IHC {self._room_name}",
+            "manufacturer": "IHC",
+            "model": "Zimmer",
+            "via_device": (DOMAIN, self._entry.entry_id),
+        }
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_feel(self._room_id, self._feeling)
