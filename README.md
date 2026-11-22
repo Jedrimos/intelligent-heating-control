@@ -33,7 +33,10 @@ Komforttemperatur, jeweils mit einstellbarer Obergrenze. Zusätzlich lernt IHC p
 | 🌊 **Fenster-Kaskade** | Lüftet ein Zimmer zu lange, senken konfigurierbare Nachbarräume automatisch ab |
 | 🪟 **Rollläden wie Loxone** | Nachts dämmen, morgens öffnen wenn die Sonne kommt, Sonnenwärme nutzen, erst bei Überhitzung beschatten – wolkenabhängig, Markisen-tauglich |
 | 💶 **Heizkosten sparen** | Spar-Regler, Fenster-offen-Erinnerung, Zeitplan-Vorlagen, automatische Abwesenheit über HA-Personen |
-| 🌍 **Deutsch & Englisch** | Oberfläche folgt der HA-Sprache; Probleme erscheinen unter Einstellungen → Reparaturen |
+| 🌍 **10 Sprachen** | Deutsch, Englisch, Französisch, Niederländisch, Spanisch, Italienisch, Polnisch, Tschechisch, Dänisch, Schwedisch – folgt der HA-Sprache; Probleme erscheinen unter Einstellungen → Reparaturen |
+| 🛋️ **Komfort** | „Mir ist kalt/warm“-Knopf, der dazulernt · warm aufwachen mit dem Handy-Wecker · Lieblingstemperatur pro Person · Raumfühler ins Thermostat |
+| 🔎 **Thermostat-Erkennung** | IHC erkennt Modell und Fähigkeiten (Ventilstellung, Fühlereingang, Schrittweite) und stellt sich darauf ein |
+| ⚡ **Ehrlicher Verbrauch** | Physikalisches Modell (EN 442, Vorlauftemperatur, Ventilöffnung, Wirkungsgrad/JAZ), optional mit echtem Zähler kalibriert |
 | 🧩 **Für Einsteiger & Bastler** | Zimmer werden automatisch aus HA-Bereichen erkannt; einfache Ansicht mit dem Nötigsten, Expertenansicht mit allem. Ohne Außensensor → Wettervorhersage, ohne Fensterkontakt → Temperatursturz-Erkennung |
 | 🩺 **Diagnose-Download** | Konfiguration + Live-Entscheidung pro Zimmer als JSON für Bug-Reports (Geräte & Dienste → IHC → ⋮) |
 | 🧠 **Optimum Start** | IHC lernt die Aufheizzeit je Außentemperatur und startet exakt so früh wie nötig |

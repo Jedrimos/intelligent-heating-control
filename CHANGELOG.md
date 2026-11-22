@@ -63,6 +63,32 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
   `intelligent_heating_control_window_open_too_long` für eigene Automationen).
 - **Zeitplan-Vorlagen** (Berufstätig, Homeoffice, Familie, Immer zu Hause, Schlafzimmer, Bad).
 
+### Komfort
+- **„🥶 Mir ist kalt / 🥵 Mir ist warm“** pro Zimmer (Dashboard, Buttons `button.ihc_<zimmer>_mir_ist_kalt/warm`,
+  Service `feel`): sofort ±1 °C für eine einstellbare Zeit (stapelbar bis ±2 °C). IHC lernt daraus
+  vorsichtig pro Tageszeit (ab 3 Rückmeldungen, max. ±1,5 °C, 30 Tage Gedächtnis); zurücksetzbar
+  (Service `reset_comfort_learning`).
+- **Warm aufwachen:** nutzt den Handy-Wecker aus der HA-App (`sensor.*_next_alarm`) – das Zimmer
+  ist warm, wenn der Wecker klingelt, auch wenn er sich jeden Tag ändert.
+- **Lieblingstemperatur pro Person:** ±°C je HA-Person; es gilt der Mittelwert aller, die zuhause sind.
+- **Raumfühler ins Thermostat:** IHC erkennt Thermostate mit Eingang für einen externen Fühler
+  (Sonoff TRVZB, Danfoss Ally, Bosch …) und überträgt die echte Raumtemperatur dorthin.
+
+### Thermostat-Erkennung & Verbrauch
+- **IHC erkennt das Thermostat-Modell** (Geräteregister): Ventilstellung auch als eigener Sensor,
+  Fühlereingang, Kalibrierung, Schrittweite, Aus-/Boost-Unterstützung; kleine Eigenheiten-Tabelle
+  (eQ-3 Funk-Duty-Cycle, Bosch/Danfoss Fühler-Wiederholung, Tuya „auto“-Modus). Sichtbar als
+  „🔎 IHC hat erkannt“ im Zimmer.
+- **Verbrauch physikalisch statt „Heizminuten × Nennleistung“** (vorher 2–10× zu hoch): Heizkörper-
+  Leistung nach EN 442 bei der tatsächlichen Vorlauftemperatur (witterungsgeführt geschätzt oder
+  Vorlauffühler), Ventilöffnung, Wirkungsgrad/JAZ je Heizungsart; optional echter Zähler zur
+  täglichen Kalibrierung. Heizkörper-Rechner (Typ + Größe → kW) im Zimmer.
+
+### Mehr Sprachen
+- Oberfläche jetzt zusätzlich auf **Französisch, Niederländisch, Spanisch, Italienisch, Polnisch,
+  Tschechisch, Dänisch und Schwedisch** (alles aus der einfachen Ansicht; längere Hilfetexte und
+  Expertenbereich auf Englisch). Lovelace-Karten und HA-Einrichtung/Reparaturen ebenfalls übersetzt.
+
 ### Englisch & Reparaturen
 - **Englische Oberfläche** für alle nicht-deutschen HA-Sprachen (Panel und Dashboard-Karten),
   Benachrichtigungen in der HA-Sprache.

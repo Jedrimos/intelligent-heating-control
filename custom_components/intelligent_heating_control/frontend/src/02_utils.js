@@ -61,7 +61,22 @@
     return typeof IHC_I18N_EN !== "undefined" && !this._lang().startsWith("de");
   }
 
+  // 2-letter UI language: "de" (no translation), one of IHC_I18N_LANGS, else "en"
+  _uiLang() {
+    const l = this._lang().slice(0, 2);
+    if (l === "de") return "de";
+    return (typeof IHC_I18N_LANGS !== "undefined" && IHC_I18N_LANGS[l]) ? l : "en";
+  }
+
   _trCore(norm) {
+    const lang = this._uiLang();
+    if (lang !== "en" && lang !== "de") {
+      const dict = IHC_I18N_LANGS[lang];
+      if (Object.prototype.hasOwnProperty.call(dict, norm)) return dict[norm];
+      for (const [re, rep] of (IHC_I18N_LANG_PATTERNS[lang] || [])) {
+        if (re.test(norm)) return norm.replace(re, rep);
+      }
+    }
     if (Object.prototype.hasOwnProperty.call(IHC_I18N_EN, norm)) return IHC_I18N_EN[norm];
     for (const [re, rep] of IHC_I18N_EN_PATTERNS) {
       if (re.test(norm)) {
@@ -86,7 +101,7 @@
         if (core != null) out = pm[1] + core;
       }
     }
-    if (out == null && norm.split(" ").length >= 3) {
+    if (out == null && norm.split(" ").length >= 3 && this._uiLang() === "en") {
       // word fallback only for sentences - short texts are often user room names
       out = norm;
       for (const [de, en] of IHC_I18N_EN_WORDS) {
@@ -218,7 +233,7 @@
           <span>${c.supports_boost ? yes : no} Boost</span>
           ${c.step ? `<span>Schritt ${c.step} °C</span>` : ""}
         </div>
-        ${(c.quirks || []).map(q => `<div class="form-hint">ℹ️ ${this._esc(q)}</div>`).join("")}
+        ${(c.quirks || []).map(q => `<div class="form-hint">💡 ${this._esc(q)}</div>`).join("")}
       </div>`).join("");
     return `
       <div class="trv-caps">

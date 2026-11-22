@@ -1353,6 +1353,20 @@ vom MutationObserver in 09_main.js). Neuer deutscher UI-Text → Zeile in `en.py
 Zimmer-/Bereichsnamen werden nie übersetzt. Backend-Benachrichtigungen: `self._t(de, en)`.
 Python-Regex in `PATTERNS` muss im JS-`u`-Modus gültig sein (z. B. kein `\"`).
 
+**Weitere Sprachen (fr, nl, es, it, pl, cs, da, sv):** `frontend/i18n/languages.py` – `T` (deutscher
+Text → 8-Tupel in `LANGS`-Reihenfolge), `PATTERNS[code]` (dynamische Texte), `CARD` (nur Lovelace-
+Karten). `build.py` erzeugt `IHC_I18N_LANGS`/`IHC_I18N_LANG_PATTERNS` im Panel und schreibt
+`_IHC_CARD_LANGS` zwischen die `<IHC_CARD_LANGS>`-Marker beider Karten. Reihenfolge zur Laufzeit
+(`_uiLang()`/`_trCore()` in 02_utils.js): Sprache → Englisch → Deutsch. Wort-Fallback nur für
+Englisch (sonst Sprachmix). HA-Übersetzungen `translations/{es,it,pl,cs,da,sv}.json` enthalten
+config + Options-Menü + issues, Rest fällt in HA auf Englisch zurück. `tests/test_i18n.py` prüft
+Vollständigkeit der Tupel und gleiche Platzhalter.
+
+**Neue Module seit 2.6.0 (HA-frei, unit-getestet):** `comfort_learning.py` („Mir ist kalt/warm“-
+Lernen), `heat_output.py` (EN-442-Verbrauchsmodell, Heizkörper-Rechner, Zählereinheiten),
+`trv_capabilities.py` (Geschwister-Entitäten eines Thermostats klassifizieren, Fühlereingang,
+Eigenheiten-Tabelle `QUIRKS`).
+
 **Panel im Browser prüfen** (ohne HA): Playwright + Mock-`hass` (siehe Git-Historie von 2.6.0) –
 alle Tabs in einfach/experte und de/en rendern, JS-Fehler sammeln, Screenshots ansehen.
 

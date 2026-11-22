@@ -48,3 +48,46 @@ def test_generated_panel_contains_current_dictionary():
     some_key = sorted(mod.EXACT)[len(mod.EXACT) // 2]
     assert json.dumps(" ".join(some_key.split()), ensure_ascii=False) in panel, \
         "ihc-panel.js is stale - run python3 frontend/build.py"
+
+
+def _load_langs():
+    spec = importlib.util.spec_from_file_location("ihc_langs", FRONTEND / "i18n" / "languages.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_further_languages_complete_and_consistent():
+    mod = _load_langs()
+    assert mod.LANGS == ("fr", "nl", "es", "it", "pl", "cs", "da", "sv")
+    for table in (mod.T, mod.CARD):
+        for key, values in table.items():
+            assert len(values) == len(mod.LANGS), key
+            assert all(isinstance(v, str) for v in values), key
+    for code in mod.LANGS:
+        for pattern, _ in mod.PATTERNS[code]:
+            assert pattern.startswith("^") and pattern.endswith("$"), (code, pattern)
+    # placeholders/emoji-free keys must stay in the en dictionary too, so English is the fallback
+    en = _load()
+    missing = [k for k in mod.T if k not in en.EXACT and len(k) > 3]
+    assert len(missing) < len(mod.T) // 4, missing
+
+
+def test_generated_files_contain_further_languages():
+    panel = (FRONTEND / "ihc-panel.js").read_text(encoding="utf-8")
+    assert "const IHC_I18N_LANGS" in panel and '"Pièces"' in panel and '"Pokoje"' in panel
+    for card in ("ihc-room-card.js", "ihc-dashboard-card.js"):
+        text = (FRONTEND / card).read_text(encoding="utf-8")
+        assert "const _IHC_CARD_LANGS" in text and '"Hier"' in text, card
+
+
+def test_ha_translation_files_share_keys():
+    tdir = FRONTEND.parent / "translations"
+    en = json.loads((tdir / "en.json").read_text(encoding="utf-8"))
+    for code in ("de", "fr", "nl", "es", "it", "pl", "cs", "da", "sv"):
+        data = json.loads((tdir / f"{code}.json").read_text(encoding="utf-8"))
+        assert set(data["issues"]) == set(en["issues"]), code
+        assert set(data["config"]["step"]) == set(en["config"]["step"]), code
+        for issue in data["issues"].values():
+            for ph in ("{role}", "{entity}"):
+                assert ph in issue["title"], (code, issue["title"])
