@@ -337,6 +337,23 @@ class ClimateAdjustmentsMixin:
         low_threshold = float(cfg.get(CONF_BATTERY_SOC_LOW_THRESHOLD, DEFAULT_BATTERY_SOC_LOW_THRESHOLD))
         return battery_soc < low_threshold and self._get_solar_boost() == 0.0
 
+    @staticmethod
+    def _normalize_price_list(raw) -> list:
+        """Price lists come as plain numbers (Nordpool "today") or as dicts (Tibber /
+        Nordpool "raw_today": {"total"|"value"|"price": ...}). Returns floats, or [] if the
+        list isn't usable - a single malformed entry used to abort the whole update cycle."""
+        if not isinstance(raw, list) or not raw:
+            return []
+        out = []
+        for item in raw:
+            if isinstance(item, dict):
+                item = next((item[k] for k in ("total", "value", "price") if item.get(k) is not None), None)
+            try:
+                out.append(float(item))
+            except (TypeError, ValueError):
+                return []
+        return out if len(out) in (24, 23, 25, 96, 92, 100) else []
+
     def _get_price_forecast_offset_raw(self) -> float:
         """The price-forecast offset before the load-management battery clamp above."""
         cfg = self.get_config()
@@ -352,12 +369,15 @@ class ClimateAdjustmentsMixin:
 
         # Hourly forecast path (Tibber / Nordpool)
         forecast_attr = cfg.get(CONF_PRICE_FORECAST_ATTRIBUTE, DEFAULT_PRICE_FORECAST_ATTRIBUTE)
-        today_prices = state.attributes.get(forecast_attr, [])
-        if today_prices and isinstance(today_prices, list):
-            current_hour = dt_util.now().hour
-            if current_hour < len(today_prices):
-                current_price = float(today_prices[current_hour])
-                avg_price = sum(float(p) for p in today_prices) / len(today_prices)
+        today_prices = self._normalize_price_list(state.attributes.get(forecast_attr, []))
+        if today_prices:
+            # 24 hourly or 96 quarter-hourly prices (Nordpool switched to 15-min
+            # resolution in Oct 2025) - pick the slot for the current time of day.
+            now = dt_util.now()
+            slot = int((now.hour * 60 + now.minute) * len(today_prices) / 1440)
+            if slot < len(today_prices):
+                current_price = today_prices[slot]
+                avg_price = sum(today_prices) / len(today_prices)
                 if avg_price > 0:
                     if current_price > avg_price * 1.3:    # ≥30% above avg → reduce demand
                         return -eco_offset

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import time
 from typing import Optional
 
@@ -223,6 +224,16 @@ class TRVControllerMixin:
         weight = float(room.get(CONF_TRV_TEMP_WEIGHT, DEFAULT_TRV_TEMP_WEIGHT))
         offset = float(room.get(CONF_TRV_TEMP_OFFSET, DEFAULT_TRV_TEMP_OFFSET))
 
+        # v2.6 – the TRV's own sensor only reads too warm while the radiator is warm. A
+        # static offset (default -2 °C) made rooms WITHOUT a room thermometer show 2 °C too
+        # little whenever the radiator was cold. The offset now follows a "radiator warmth"
+        # factor: 1 while the TRV heats, decaying with a ~20 min time constant afterwards.
+        # A user-chosen offset (e.g. from the calibration assistant, measured while idle)
+        # stays static as before - only the generic default is made warmth-dependent.
+        warmth = self._update_trv_warmth_factor(room.get(CONF_ROOM_ID, ""), trv_data)
+        if offset == DEFAULT_TRV_TEMP_OFFSET:
+            offset *= warmth
+
         corrected_trv = round(trv_avg + offset, 1) if trv_avg is not None else None
 
         # --- display_temp: room sensor first, TRV only when no room sensor ----
@@ -245,6 +256,29 @@ class TRVControllerMixin:
             demand_temp = corrected_trv
 
         return display_temp, demand_temp, trv_avg
+
+    _TRV_WARMTH_TAU_S = 1200.0  # radiator cool-down time constant for the TRV offset
+
+    def _update_trv_warmth_factor(self, room_id: str, trv_data: dict) -> float:
+        """0..1: how warm the radiator (and with it the TRV's own sensor) currently is."""
+        if not hasattr(self, "_trv_warmth"):
+            self._trv_warmth = {}
+        now = time.monotonic()
+        valve = trv_data.get("trv_avg_valve")
+        heating = bool(trv_data.get("trv_any_heating")) or (valve is not None and valve > 8)
+        prev = self._trv_warmth.get(room_id)
+        if prev is None:
+            factor = 1.0 if heating else 0.0
+        else:
+            last_factor, last_ts = prev
+            target = 1.0 if heating else 0.0
+            alpha = 1.0 - math.exp(-max(0.0, now - last_ts) / self._TRV_WARMTH_TAU_S)
+            # warming up is fast (hot water reaches the valve within minutes)
+            if heating:
+                alpha = max(alpha, 0.5)
+            factor = last_factor + (target - last_factor) * alpha
+        self._trv_warmth[room_id] = (factor, now)
+        return factor
 
     def _update_trv_offset_calibration(
         self,
@@ -393,13 +427,18 @@ class TRVControllerMixin:
                 frost_temp = self._get_frost_protection_temp()
                 self._set_valve_entity(valve_entity, frost_temp)
 
-    def _turn_on_valve_entity(self, valve_entity: str) -> None:
-        """Ensure TRV is in heat mode (turn on if it was set to off)."""
+    def _turn_on_valve_entity(self, valve_entity: str) -> bool:
+        """Ensure TRV is in heat mode (turn on if it was set to off).
+
+        Returns True if a turn-on command was sent - the caller then force-sends the
+        setpoint once, because many TRVs (e.g. several Tuya models) restore their own
+        stored setpoint when switching off -> heat.
+        """
         if not valve_entity:
-            return
+            return False
         state = self.hass.states.get(valve_entity)
         if state is None:
-            return
+            return False
         if valve_entity.split(".")[0] == "climate":
             current_hvac = state.state  # "off", "heat", "auto", etc.
             if current_hvac == "off":
@@ -413,6 +452,8 @@ class TRVControllerMixin:
                             {"entity_id": valve_entity, "hvac_mode": preferred},
                         )
                     )
+                    return True
+        return False
 
     def _set_valve_entities(self, room: dict, target_temp: float, force: bool = False) -> None:
         """Set setpoint on all TRV / climate entities configured for a room."""
@@ -421,13 +462,13 @@ class TRVControllerMixin:
         for entity in room.get(CONF_VALVE_ENTITIES, []):
             if entity:
                 # Ensure TRV is in heat mode before setting temperature
-                self._turn_on_valve_entity(entity)
-                self._set_valve_entity(entity, target_temp, force=force, min_send_interval=min_interval)
+                turned_on = self._turn_on_valve_entity(entity)
+                self._set_valve_entity(entity, target_temp, force=force or turned_on, min_send_interval=min_interval)
         # Legacy: single valve entity
         single = room.get(CONF_VALVE_ENTITY)
         if single and single not in room.get(CONF_VALVE_ENTITIES, []):
-            self._turn_on_valve_entity(single)
-            self._set_valve_entity(single, target_temp, force=force, min_send_interval=min_interval)
+            turned_on = self._turn_on_valve_entity(single)
+            self._set_valve_entity(single, target_temp, force=force or turned_on, min_send_interval=min_interval)
 
     def _turn_off_valve_entities(self, room: dict) -> None:
         """Turn off all TRV entities for a room (window open / room off)."""

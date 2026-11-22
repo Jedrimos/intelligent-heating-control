@@ -489,6 +489,11 @@ class IHCCoordinator(
         self._pre_window_temps: Dict[str, float] = {}              # room_id → target_temp before window opened
         self._window_restore_hold: Dict[str, tuple] = {}           # room_id → (restored temp, base decision at close)
         self._window_auto_state: Dict[str, dict] = {}              # room_id → window_auto_detect state (v2.6)
+        # Persisted fields that used to exist only after async_load_runtime_state() found a
+        # non-empty store - on a fresh install every save crashed with AttributeError, so
+        # modes/boosts/history were never persisted until the first midnight rollover.
+        self._smart_meter_day_start = None
+        self._curve_adaptation_delta: float = 0.0
         self._outdoor_temp_source: Optional[str] = None            # "sensor:<id>" | "weather:<id>" | None (v2.6)
         self._weather_forecast_cache: tuple = (None, [], 0.0)      # (entity_id, daily forecast, monotonic ts)
         # Backlog 2026-11-02 – Decision-Sensor: last-seen (source, target_temp) per room, to
@@ -804,16 +809,24 @@ class IHCCoordinator(
         }
         opts = dict(self._config_entry.options)
         opts[CONF_GROUPS] = self.get_groups() + [new_group]
-        self._suppress_reload = True
-        self.hass.config_entries.async_update_entry(self._config_entry, options=opts)
+        self._update_options_without_reload(opts)
         await self.async_request_refresh()
+
+    def _update_options_without_reload(self, options: dict) -> None:
+        """Persist options without triggering the full reload listener. The flag used to
+        stay True after group changes, so the next real options-flow change (e.g. a room
+        added in HA's own dialog) silently skipped its reload."""
+        self._suppress_reload = True
+        try:
+            self.hass.config_entries.async_update_entry(self._config_entry, options=options)
+        finally:
+            self._suppress_reload = False
 
     async def async_remove_group(self, group_id: str) -> None:
         """Remove a group by ID and persist."""
         opts = dict(self._config_entry.options)
         opts[CONF_GROUPS] = [g for g in self.get_groups() if g.get(CONF_GROUP_ID) != group_id]
-        self._suppress_reload = True
-        self.hass.config_entries.async_update_entry(self._config_entry, options=opts)
+        self._update_options_without_reload(opts)
         await self.async_request_refresh()
 
     async def async_update_group(self, group_id: str, **kwargs) -> None:
@@ -825,8 +838,7 @@ class IHCCoordinator(
                 break
         opts = dict(self._config_entry.options)
         opts[CONF_GROUPS] = groups
-        self._suppress_reload = True
-        self.hass.config_entries.async_update_entry(self._config_entry, options=opts)
+        self._update_options_without_reload(opts)
         await self.async_request_refresh()
 
     async def async_set_group_mode(self, group_id: str, mode: str) -> None:
@@ -2660,12 +2672,14 @@ class IHCCoordinator(
             _ps = self.hass.states.get(price_entity)
             if _ps and _ps.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
                 forecast_attr = cfg.get(CONF_PRICE_FORECAST_ATTRIBUTE, DEFAULT_PRICE_FORECAST_ATTRIBUTE)
-                raw_prices = _ps.attributes.get(forecast_attr, [])
-                if raw_prices and isinstance(raw_prices, list):
-                    try:
-                        price_forecast = [round(float(p), 4) for p in raw_prices[:24]]
-                    except (ValueError, TypeError):
-                        price_forecast = []
+                prices = self._normalize_price_list(_ps.attributes.get(forecast_attr, []))
+                if prices:
+                    # Hourly bars for the chart; 15-min lists are averaged per hour
+                    per_hour = max(1, round(len(prices) / 24))
+                    price_forecast = [
+                        round(sum(prices[i:i + per_hour]) / len(prices[i:i + per_hour]), 4)
+                        for i in range(0, len(prices), per_hour)
+                    ][:25]
 
         return {
             "outdoor_temp": ctx["outdoor_temp"],
