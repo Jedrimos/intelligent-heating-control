@@ -652,4 +652,18 @@ const STYLES = `
   .welcome h2 { margin: 0 0 8px; }
   .welcome p { color: var(--secondary-text-color); max-width: 520px; margin: 0 auto 16px; line-height: 1.5; }
   .welcome .btn-row { justify-content: center; }
+
+  /* ── v2.6: TRV capabilities, feel buttons ─────────────────────────────── */
+  .trv-caps { margin-top: 10px; border: 1px dashed var(--divider-color); border-radius: 8px; padding: 10px 12px; }
+  .trv-caps-title { font-weight: 700; font-size: 12px; margin-bottom: 6px; }
+  .trv-cap { padding: 6px 0; border-top: 1px solid var(--divider-color); }
+  .trv-cap:first-of-type { border-top: none; }
+  .trv-cap-name { font-weight: 600; font-size: 13px; }
+  .trv-cap-model { font-weight: 400; color: var(--secondary-text-color); margin-left: 6px; font-size: 11px; }
+  .trv-cap-list { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--secondary-text-color); margin-top: 2px; }
+  .feel-row { display: flex; gap: 6px; margin-top: 8px; }
+  .feel-btn { flex: 1; border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color);
+              border-radius: 16px; padding: 5px 8px; font-size: 12px; cursor: pointer; }
+  .feel-btn:hover { background: var(--secondary-background-color, rgba(127,127,127,.1)); }
+  .feel-badge { font-size: 11px; color: var(--secondary-text-color); margin-top: 4px; }
 `;

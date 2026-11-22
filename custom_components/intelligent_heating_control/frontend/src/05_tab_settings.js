@@ -66,8 +66,60 @@
         <div class="btn-row"><button class="btn btn-primary" id="save-saving">💾 Speichern</button></div>
       </div>`;
 
+    // v2.6 – Komfort
+    const persons = Object.keys(this._hass?.states || {}).filter(e => e.startsWith("person.")).sort();
+    const prefs = Array.isArray(a.person_preferences) ? a.person_preferences : [];
+    const prefOffset = p => { const f = prefs.find(x => x.person === p); return f ? Number(f.offset) || 0 : 0; };
+    const alarms = a.wakeup_alarm_entities_effective || [];
+    const comfortCard = `
+      <div class="card">
+        <div class="card-title">🛋️ Komfort</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>⏰ Warm aufwachen – so lange vor dem Wecker heizen (min)</label>
+            <input type="number" class="form-input" id="wakeup-preheat" min="0" max="180" step="5" value="${a.wakeup_preheat_minutes ?? 30}">
+          </div>
+          <div class="settings-item">
+            <label>… und danach warm halten (min)</label>
+            <input type="number" class="form-input" id="wakeup-comfort" min="0" max="240" step="5" value="${a.wakeup_comfort_minutes ?? 60}">
+          </div>
+        </div>
+        <span class="form-hint">${alarms.length
+          ? `Gefundene Wecker: ${alarms.map(e => this._esc(this._friendly(e))).join(", ")}. Pro Zimmer einschalten unter Zimmer → ⚙️ Einstellungen → Warm aufwachen.`
+          : "Kein Handy-Wecker gefunden – in der Home-Assistant-App den Sensor „Nächster Wecker“ aktivieren."}</span>
+        <hr class="divider">
+        <div class="settings-item">
+          <label>🧑‍🤝‍🧑 Wärmeempfinden pro Person (°C)</label>
+          ${persons.length ? persons.map(p => `
+            <div class="entity-row" style="margin-top:4px">
+              <span style="flex:1">${this._esc(this._friendly(p))}</span>
+              <input type="number" class="form-input person-pref" data-person="${this._esc(p)}" min="-3" max="3" step="0.5" value="${prefOffset(p)}" style="max-width:90px">
+            </div>`).join("") : `<span class="form-hint">Keine Personen in Home Assistant angelegt.</span>`}
+          <span class="form-hint">z. B. +1 = mag es 1 °C wärmer. Es gilt der Durchschnitt aller, die gerade zu Hause sind. Frostschutz, Abwesend und manuelle Werte bleiben unverändert.</span>
+        </div>
+        <hr class="divider">
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>🥶/🥵 „Mir ist kalt/warm“ wirkt für (min)</label>
+            <input type="number" class="form-input" id="feel-duration" min="15" max="480" step="15" value="${a.feel_duration_minutes ?? 120}">
+          </div>
+          <div class="settings-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+              <input type="checkbox" id="feel-learning" ${a.feel_learning_enabled !== false ? "checked" : ""}>
+              🧠 Daraus lernen
+            </label>
+            <span class="form-hint">Wer mehrmals zur gleichen Tageszeit friert, bekommt dann dauerhaft etwas mehr Wärme (max. ±1,5 °C).</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="save-comfort">💾 Speichern</button>
+          <button class="btn btn-secondary" id="reset-comfort-learning">🧠 Gelerntes zurücksetzen</button>
+        </div>
+      </div>`;
+
     content.innerHTML = `
       ${autoCard}
+      ${comfortCard}
       ${savingCard}
       <div class="simple-hint">🧩 Einfache Ansicht: Profi-Funktionen (Energiepreise, Solar, Kalkschutz, Kessel-Relais …) sind ausgeblendet – oben rechts auf <b>🛠️ Experte</b> umschalten.</div>
       <!-- ── System-Hardware ─────────────────────────────── -->
@@ -1185,6 +1237,26 @@
         eta_preheat_threshold_minutes: parseInt(content.querySelector("#eta-preheat-threshold")?.value ?? "90", 10),
       });
       this._toast("✓ Anwesenheitserkennung gespeichert");
+    });
+
+    // v2.6 – Komfort
+    content.querySelector("#save-comfort")?.addEventListener("click", () => {
+      const num = (id, def, lo, hi) => { const v = parseInt(content.querySelector(id)?.value, 10); return isNaN(v) ? def : Math.min(hi, Math.max(lo, v)); };
+      const person_preferences = [...content.querySelectorAll(".person-pref")]
+        .map(i => ({ person: i.dataset.person, offset: Math.min(3, Math.max(-3, parseFloat(i.value) || 0)) }))
+        .filter(p => p.offset !== 0);
+      this._callService("update_global_settings", {
+        wakeup_preheat_minutes: num("#wakeup-preheat", 30, 0, 180),
+        wakeup_comfort_minutes: num("#wakeup-comfort", 60, 0, 240),
+        feel_duration_minutes: num("#feel-duration", 120, 15, 480),
+        feel_learning_enabled: content.querySelector("#feel-learning")?.checked === true,
+        person_preferences,
+      });
+      this._toast("✓ Komfort-Einstellungen gespeichert");
+    });
+    content.querySelector("#reset-comfort-learning")?.addEventListener("click", () => {
+      this._callService("reset_comfort_learning", {});
+      this._toast("✓ Gelerntes Wärmeempfinden zurückgesetzt");
     });
 
     // v2.6 – Heizkosten sparen

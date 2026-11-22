@@ -200,6 +200,41 @@
     return st?.attributes?.friendly_name || eid;
   }
 
+  // ── Thermostat-Fähigkeiten (v2.6) ───────────────────────────────────────────
+  _renderTrvCapabilities(room) {
+    const caps = room.trv_capabilities || [];
+    if (!caps.length) return "";
+    const anyExternal = caps.some(c => c.external_sensor);
+    const hasSensor = !!room.temp_sensor || (room.temp_sensors || []).length > 0;
+    const yes = "✓", no = "–";
+    const rows = caps.map(c => `
+      <div class="trv-cap">
+        <div class="trv-cap-name">${this._esc(this._friendly(c.entity))}
+          ${c.manufacturer || c.model ? `<span class="trv-cap-model">${this._esc([c.manufacturer, c.model].filter(Boolean).join(" "))}</span>` : ""}</div>
+        <div class="trv-cap-list">
+          <span title="Ventilstellung">${c.valve_source ? yes : no} Ventilstellung</span>
+          <span title="Externer Raumfühler-Eingang">${c.external_sensor ? yes : no} Raumfühler-Eingang</span>
+          <span>${c.supports_off ? yes : no} Aus-Modus</span>
+          <span>${c.supports_boost ? yes : no} Boost</span>
+          ${c.step ? `<span>Schritt ${c.step} °C</span>` : ""}
+        </div>
+        ${(c.quirks || []).map(q => `<div class="form-hint">ℹ️ ${this._esc(q)}</div>`).join("")}
+      </div>`).join("");
+    return `
+      <div class="trv-caps">
+        <div class="trv-caps-title">🔎 IHC hat erkannt</div>
+        ${rows}
+        ${anyExternal ? `
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px">
+            <input type="checkbox" id="rs-external-sync" ${room.external_sensor_sync ? "checked" : ""} ${hasSensor ? "" : "disabled"}>
+            🌡️ Raumfühler ins Thermostat übertragen
+          </label>
+          <span class="form-hint">${hasSensor
+            ? "Das Thermostat regelt dann mit der echten Raumtemperatur statt mit seinem Fühler am heißen Heizkörper – genauer, keine Korrekturwerte nötig."
+            : "Dafür zuerst oben einen Temperatursensor für das Zimmer eintragen."}</span>` : ""}
+      </div>`;
+  }
+
   // ── "Was nutzt dieses Zimmer?" (v2.6) ──────────────────────────────────────
   // Plain-language list of what IHC does automatically for a room and which
   // optional sensor would improve it. Same component for every sensor budget.
@@ -244,6 +279,9 @@
                       : hasCovers ? "💡 Unter „Rollläden automatisch steuern“ einschalten – spart Heizenergie."
                                   : "Optional: Rollläden zuordnen – nachts geschlossen sparen sie Wärme, tagsüber holen sie Sonnenwärme rein.");
         })()}
+        ${room.external_sensor_sync ? row(true, "🌡️", "Raumfühler im Thermostat", "Das Thermostat regelt mit der echten Raumtemperatur.") : ""}
+        ${room.wakeup_enabled ? row(true, "⏰", "Warm aufwachen", "Warm, wenn der Handy-Wecker klingelt.") : ""}
+        ${room.feel_learned_offset ? row(true, "🧠", `Gelernt: ${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C um diese Zeit`, "Aus deinen „Mir ist kalt/warm“-Rückmeldungen gelernt.") : ""}
         ${row(hasPresence ? true : false, "👤", hasPresence ? "Anwesenheit im Zimmer" : "Keine Zimmer-Anwesenheit",
           hasPresence ? "Senkt ab, wenn niemand im Zimmer ist." : "Optional: Bewegungsmelder oder Personen zuordnen, um leere Zimmer abzusenken.")}
       </div>`;
@@ -300,6 +338,17 @@
         thermal_bridge:          state.attributes.thermal_bridge || null,
         trv_suggested_offset:    state.attributes.trv_suggested_offset ?? null,
         manual_temp:             state.attributes.manual_temp ?? null,
+        // v2.6 comfort + TRV capabilities
+        ignore_heating_period:   state.attributes.ignore_heating_period === true,
+        wakeup_enabled:          state.attributes.wakeup_enabled === true,
+        wakeup_active:           state.attributes.wakeup_active === true,
+        person_offset:           state.attributes.person_offset ?? 0,
+        feel_temp_offset:        state.attributes.feel_temp_offset ?? 0,
+        feel_temp_until:         state.attributes.feel_temp_until || null,
+        feel_learned_offset:     state.attributes.feel_learned_offset ?? 0,
+        feel_learned_profile:    state.attributes.feel_learned_profile || [],
+        external_sensor_sync:    state.attributes.external_sensor_sync === true,
+        trv_capabilities:        state.attributes.trv_capabilities || [],
         // Rollladen-Automatik live status (was never mapped -> badge never showed)
         solar_cover_active:     state.attributes.solar_cover_active === true,
         solar_cover_position:   state.attributes.solar_cover_position ?? null,

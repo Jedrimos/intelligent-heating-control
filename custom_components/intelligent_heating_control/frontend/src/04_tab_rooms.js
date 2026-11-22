@@ -181,6 +181,7 @@
         <details class="modal-collapsible" open>
           <summary class="modal-section-title">🔥 Thermostate / TRVs</summary>
           <div class="entity-list" id="rs-valve-list">${valveRows}</div>
+          ${this._renderTrvCapabilities(room)}
         </details>
 
         <details class="modal-collapsible">
@@ -528,7 +529,23 @@
                 value="${room.window_open_temp ?? 0}" step="0.5" min="0" max="22" placeholder="0 = Frostschutz">
               <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
             </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="rs-ignore-heating-period" ${room.ignore_heating_period ? "checked" : ""}>
+                Heizperiode für dieses Zimmer ignorieren
+              </label>
+              <span class="form-hint">Zimmer heizt auch außerhalb der Heizperiode nach Zeitplan (z. B. Bad). Die Sommerautomatik gilt weiterhin.</span>
+            </div>
           </div>
+        </details>
+
+        <details class="modal-collapsible" ${room.wakeup_enabled ? "open" : ""}>
+          <summary class="modal-section-title">⏰ Warm aufwachen</summary>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px">
+            <input type="checkbox" id="rs-wakeup-enabled" ${room.wakeup_enabled ? "checked" : ""}>
+            Zimmer ist warm, wenn der Handy-Wecker klingelt
+          </label>
+          <span class="form-hint">Nutzt den Wecker aus der Home-Assistant-App (sensor.*_next_alarm) – auch wenn er jeden Tag anders steht. Ideal für Schlafzimmer und Bad. Vor- und Nachlaufzeit unter Einstellungen → Komfort.</span>
         </details>
 
         <details class="modal-collapsible expert-only" ${room.presence_sensor ? "open" : ""}>
@@ -812,6 +829,9 @@
         valve_entities:           valves,
         window_sensor:            windows[0] || "",
         window_sensors:           windows,
+        room_ignore_heating_period: container.querySelector("#rs-ignore-heating-period")?.checked === true,
+        wakeup_enabled:           container.querySelector("#rs-wakeup-enabled")?.checked === true,
+        trv_external_sensor_sync: container.querySelector("#rs-external-sync")?.checked === true,
         comfort_temp:             parseFloat(container.querySelector("#rs-comfort")?.value),
         away_temp_room:           parseFloat(container.querySelector("#rs-away-temp-room")?.value) || 16.0,
         eco_offset:               parseFloat(container.querySelector("#rs-eco-offset")?.value),

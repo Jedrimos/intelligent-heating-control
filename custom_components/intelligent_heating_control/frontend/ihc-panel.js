@@ -1449,6 +1449,20 @@ const STYLES = `
   .welcome h2 { margin: 0 0 8px; }
   .welcome p { color: var(--secondary-text-color); max-width: 520px; margin: 0 auto 16px; line-height: 1.5; }
   .welcome .btn-row { justify-content: center; }
+
+  /* ── v2.6: TRV capabilities, feel buttons ─────────────────────────────── */
+  .trv-caps { margin-top: 10px; border: 1px dashed var(--divider-color); border-radius: 8px; padding: 10px 12px; }
+  .trv-caps-title { font-weight: 700; font-size: 12px; margin-bottom: 6px; }
+  .trv-cap { padding: 6px 0; border-top: 1px solid var(--divider-color); }
+  .trv-cap:first-of-type { border-top: none; }
+  .trv-cap-name { font-weight: 600; font-size: 13px; }
+  .trv-cap-model { font-weight: 400; color: var(--secondary-text-color); margin-left: 6px; font-size: 11px; }
+  .trv-cap-list { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--secondary-text-color); margin-top: 2px; }
+  .feel-row { display: flex; gap: 6px; margin-top: 8px; }
+  .feel-btn { flex: 1; border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color);
+              border-radius: 16px; padding: 5px 8px; font-size: 12px; cursor: pointer; }
+  .feel-btn:hover { background: var(--secondary-background-color, rgba(127,127,127,.1)); }
+  .feel-badge { font-size: 11px; color: var(--secondary-text-color); margin-top: 4px; }
 `;
 
 // === 09_main.js (Part A: class open + lifecycle) ===
@@ -1932,6 +1946,41 @@ class IHCPanel extends HTMLElement {
     return st?.attributes?.friendly_name || eid;
   }
 
+  // ── Thermostat-Fähigkeiten (v2.6) ───────────────────────────────────────────
+  _renderTrvCapabilities(room) {
+    const caps = room.trv_capabilities || [];
+    if (!caps.length) return "";
+    const anyExternal = caps.some(c => c.external_sensor);
+    const hasSensor = !!room.temp_sensor || (room.temp_sensors || []).length > 0;
+    const yes = "✓", no = "–";
+    const rows = caps.map(c => `
+      <div class="trv-cap">
+        <div class="trv-cap-name">${this._esc(this._friendly(c.entity))}
+          ${c.manufacturer || c.model ? `<span class="trv-cap-model">${this._esc([c.manufacturer, c.model].filter(Boolean).join(" "))}</span>` : ""}</div>
+        <div class="trv-cap-list">
+          <span title="Ventilstellung">${c.valve_source ? yes : no} Ventilstellung</span>
+          <span title="Externer Raumfühler-Eingang">${c.external_sensor ? yes : no} Raumfühler-Eingang</span>
+          <span>${c.supports_off ? yes : no} Aus-Modus</span>
+          <span>${c.supports_boost ? yes : no} Boost</span>
+          ${c.step ? `<span>Schritt ${c.step} °C</span>` : ""}
+        </div>
+        ${(c.quirks || []).map(q => `<div class="form-hint">ℹ️ ${this._esc(q)}</div>`).join("")}
+      </div>`).join("");
+    return `
+      <div class="trv-caps">
+        <div class="trv-caps-title">🔎 IHC hat erkannt</div>
+        ${rows}
+        ${anyExternal ? `
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px">
+            <input type="checkbox" id="rs-external-sync" ${room.external_sensor_sync ? "checked" : ""} ${hasSensor ? "" : "disabled"}>
+            🌡️ Raumfühler ins Thermostat übertragen
+          </label>
+          <span class="form-hint">${hasSensor
+            ? "Das Thermostat regelt dann mit der echten Raumtemperatur statt mit seinem Fühler am heißen Heizkörper – genauer, keine Korrekturwerte nötig."
+            : "Dafür zuerst oben einen Temperatursensor für das Zimmer eintragen."}</span>` : ""}
+      </div>`;
+  }
+
   // ── "Was nutzt dieses Zimmer?" (v2.6) ──────────────────────────────────────
   // Plain-language list of what IHC does automatically for a room and which
   // optional sensor would improve it. Same component for every sensor budget.
@@ -1976,6 +2025,9 @@ class IHCPanel extends HTMLElement {
                       : hasCovers ? "💡 Unter „Rollläden automatisch steuern“ einschalten – spart Heizenergie."
                                   : "Optional: Rollläden zuordnen – nachts geschlossen sparen sie Wärme, tagsüber holen sie Sonnenwärme rein.");
         })()}
+        ${room.external_sensor_sync ? row(true, "🌡️", "Raumfühler im Thermostat", "Das Thermostat regelt mit der echten Raumtemperatur.") : ""}
+        ${room.wakeup_enabled ? row(true, "⏰", "Warm aufwachen", "Warm, wenn der Handy-Wecker klingelt.") : ""}
+        ${room.feel_learned_offset ? row(true, "🧠", `Gelernt: ${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C um diese Zeit`, "Aus deinen „Mir ist kalt/warm“-Rückmeldungen gelernt.") : ""}
         ${row(hasPresence ? true : false, "👤", hasPresence ? "Anwesenheit im Zimmer" : "Keine Zimmer-Anwesenheit",
           hasPresence ? "Senkt ab, wenn niemand im Zimmer ist." : "Optional: Bewegungsmelder oder Personen zuordnen, um leere Zimmer abzusenken.")}
       </div>`;
@@ -2032,6 +2084,17 @@ class IHCPanel extends HTMLElement {
         thermal_bridge:          state.attributes.thermal_bridge || null,
         trv_suggested_offset:    state.attributes.trv_suggested_offset ?? null,
         manual_temp:             state.attributes.manual_temp ?? null,
+        // v2.6 comfort + TRV capabilities
+        ignore_heating_period:   state.attributes.ignore_heating_period === true,
+        wakeup_enabled:          state.attributes.wakeup_enabled === true,
+        wakeup_active:           state.attributes.wakeup_active === true,
+        person_offset:           state.attributes.person_offset ?? 0,
+        feel_temp_offset:        state.attributes.feel_temp_offset ?? 0,
+        feel_temp_until:         state.attributes.feel_temp_until || null,
+        feel_learned_offset:     state.attributes.feel_learned_offset ?? 0,
+        feel_learned_profile:    state.attributes.feel_learned_profile || [],
+        external_sensor_sync:    state.attributes.external_sensor_sync === true,
+        trv_capabilities:        state.attributes.trv_capabilities || [],
         // Rollladen-Automatik live status (was never mapped -> badge never showed)
         solar_cover_active:     state.attributes.solar_cover_active === true,
         solar_cover_position:   state.attributes.solar_cover_position ?? null,
@@ -2901,6 +2964,16 @@ class IHCPanel extends HTMLElement {
                 ? `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost-cancel" title="Boost beenden" style="background:#ff7043;color:white;border-color:#ff7043">⚡ ${room.boost_remaining}min ✕</button>`
                 : `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost" title="Boost starten">⚡</button>`}
             </div>
+            <div class="feel-row">
+              <button class="feel-btn" data-room-id="${room.room_id}" data-feel="cold" title="+1 °C für 2 Stunden – IHC lernt mit">🥶 Mir ist kalt</button>
+              <button class="feel-btn" data-room-id="${room.room_id}" data-feel="warm" title="−1 °C für 2 Stunden – IHC lernt mit">🥵 Mir ist warm</button>
+            </div>
+            ${(room.feel_temp_offset || room.feel_learned_offset || room.person_offset || room.wakeup_active) ? `<div class="feel-badge">${[
+              room.feel_temp_offset ? `${room.feel_temp_offset > 0 ? "+" : ""}${room.feel_temp_offset} °C auf Wunsch${room.feel_temp_until ? ` bis ${new Date(room.feel_temp_until).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}` : "",
+              room.feel_learned_offset ? `${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C gelernt` : "",
+              room.person_offset ? `${room.person_offset > 0 ? "+" : ""}${room.person_offset} °C für die Anwesenden` : "",
+              room.wakeup_active ? "⏰ warm aufwachen" : "",
+            ].filter(Boolean).join(" · ")}${room.feel_temp_offset ? ` <a href="#" data-feel-reset="${room.room_id}">zurücksetzen</a>` : ""}</div>` : ""}
             ${footerParts.length ? `<div class="room-footer"><span class="room-footer-meta">${footerParts.join(" · ")}</span></div>` : ""}
           </div>
         </div>`;
@@ -3106,6 +3179,24 @@ class IHCPanel extends HTMLElement {
           setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
         });
         this._toast(`✓ Modus: ${MODE_LABELS[m] || m}`);
+      });
+    });
+
+    // v2.6 – "Mir ist kalt / warm"
+    content.querySelectorAll(".feel-btn[data-room-id]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const cold = btn.dataset.feel === "cold";
+        this._callService("feel", { id: btn.dataset.roomId, feeling: btn.dataset.feel }).then(() => {
+          setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
+        });
+        this._toast(cold ? "🥶 +1 °C für 2 Stunden – IHC merkt sich das" : "🥵 −1 °C für 2 Stunden – IHC merkt sich das");
+      });
+    });
+    content.querySelectorAll("[data-feel-reset]").forEach(link => {
+      link.addEventListener("click", e => {
+        e.preventDefault();
+        this._callService("feel", { id: link.dataset.feelReset, feeling: "reset" });
+        this._toast("↩ Zurückgesetzt");
       });
     });
 
@@ -3318,6 +3409,7 @@ class IHCPanel extends HTMLElement {
         <details class="modal-collapsible" open>
           <summary class="modal-section-title">🔥 Thermostate / TRVs</summary>
           <div class="entity-list" id="rs-valve-list">${valveRows}</div>
+          ${this._renderTrvCapabilities(room)}
         </details>
 
         <details class="modal-collapsible">
@@ -3665,7 +3757,23 @@ class IHCPanel extends HTMLElement {
                 value="${room.window_open_temp ?? 0}" step="0.5" min="0" max="22" placeholder="0 = Frostschutz">
               <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
             </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="rs-ignore-heating-period" ${room.ignore_heating_period ? "checked" : ""}>
+                Heizperiode für dieses Zimmer ignorieren
+              </label>
+              <span class="form-hint">Zimmer heizt auch außerhalb der Heizperiode nach Zeitplan (z. B. Bad). Die Sommerautomatik gilt weiterhin.</span>
+            </div>
           </div>
+        </details>
+
+        <details class="modal-collapsible" ${room.wakeup_enabled ? "open" : ""}>
+          <summary class="modal-section-title">⏰ Warm aufwachen</summary>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px">
+            <input type="checkbox" id="rs-wakeup-enabled" ${room.wakeup_enabled ? "checked" : ""}>
+            Zimmer ist warm, wenn der Handy-Wecker klingelt
+          </label>
+          <span class="form-hint">Nutzt den Wecker aus der Home-Assistant-App (sensor.*_next_alarm) – auch wenn er jeden Tag anders steht. Ideal für Schlafzimmer und Bad. Vor- und Nachlaufzeit unter Einstellungen → Komfort.</span>
         </details>
 
         <details class="modal-collapsible expert-only" ${room.presence_sensor ? "open" : ""}>
@@ -3949,6 +4057,9 @@ class IHCPanel extends HTMLElement {
         valve_entities:           valves,
         window_sensor:            windows[0] || "",
         window_sensors:           windows,
+        room_ignore_heating_period: container.querySelector("#rs-ignore-heating-period")?.checked === true,
+        wakeup_enabled:           container.querySelector("#rs-wakeup-enabled")?.checked === true,
+        trv_external_sensor_sync: container.querySelector("#rs-external-sync")?.checked === true,
         comfort_temp:             parseFloat(container.querySelector("#rs-comfort")?.value),
         away_temp_room:           parseFloat(container.querySelector("#rs-away-temp-room")?.value) || 16.0,
         eco_offset:               parseFloat(container.querySelector("#rs-eco-offset")?.value),
@@ -5470,8 +5581,60 @@ class IHCPanel extends HTMLElement {
         <div class="btn-row"><button class="btn btn-primary" id="save-saving">💾 Speichern</button></div>
       </div>`;
 
+    // v2.6 – Komfort
+    const persons = Object.keys(this._hass?.states || {}).filter(e => e.startsWith("person.")).sort();
+    const prefs = Array.isArray(a.person_preferences) ? a.person_preferences : [];
+    const prefOffset = p => { const f = prefs.find(x => x.person === p); return f ? Number(f.offset) || 0 : 0; };
+    const alarms = a.wakeup_alarm_entities_effective || [];
+    const comfortCard = `
+      <div class="card">
+        <div class="card-title">🛋️ Komfort</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>⏰ Warm aufwachen – so lange vor dem Wecker heizen (min)</label>
+            <input type="number" class="form-input" id="wakeup-preheat" min="0" max="180" step="5" value="${a.wakeup_preheat_minutes ?? 30}">
+          </div>
+          <div class="settings-item">
+            <label>… und danach warm halten (min)</label>
+            <input type="number" class="form-input" id="wakeup-comfort" min="0" max="240" step="5" value="${a.wakeup_comfort_minutes ?? 60}">
+          </div>
+        </div>
+        <span class="form-hint">${alarms.length
+          ? `Gefundene Wecker: ${alarms.map(e => this._esc(this._friendly(e))).join(", ")}. Pro Zimmer einschalten unter Zimmer → ⚙️ Einstellungen → Warm aufwachen.`
+          : "Kein Handy-Wecker gefunden – in der Home-Assistant-App den Sensor „Nächster Wecker“ aktivieren."}</span>
+        <hr class="divider">
+        <div class="settings-item">
+          <label>🧑‍🤝‍🧑 Wärmeempfinden pro Person (°C)</label>
+          ${persons.length ? persons.map(p => `
+            <div class="entity-row" style="margin-top:4px">
+              <span style="flex:1">${this._esc(this._friendly(p))}</span>
+              <input type="number" class="form-input person-pref" data-person="${this._esc(p)}" min="-3" max="3" step="0.5" value="${prefOffset(p)}" style="max-width:90px">
+            </div>`).join("") : `<span class="form-hint">Keine Personen in Home Assistant angelegt.</span>`}
+          <span class="form-hint">z. B. +1 = mag es 1 °C wärmer. Es gilt der Durchschnitt aller, die gerade zu Hause sind. Frostschutz, Abwesend und manuelle Werte bleiben unverändert.</span>
+        </div>
+        <hr class="divider">
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>🥶/🥵 „Mir ist kalt/warm“ wirkt für (min)</label>
+            <input type="number" class="form-input" id="feel-duration" min="15" max="480" step="15" value="${a.feel_duration_minutes ?? 120}">
+          </div>
+          <div class="settings-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+              <input type="checkbox" id="feel-learning" ${a.feel_learning_enabled !== false ? "checked" : ""}>
+              🧠 Daraus lernen
+            </label>
+            <span class="form-hint">Wer mehrmals zur gleichen Tageszeit friert, bekommt dann dauerhaft etwas mehr Wärme (max. ±1,5 °C).</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="save-comfort">💾 Speichern</button>
+          <button class="btn btn-secondary" id="reset-comfort-learning">🧠 Gelerntes zurücksetzen</button>
+        </div>
+      </div>`;
+
     content.innerHTML = `
       ${autoCard}
+      ${comfortCard}
       ${savingCard}
       <div class="simple-hint">🧩 Einfache Ansicht: Profi-Funktionen (Energiepreise, Solar, Kalkschutz, Kessel-Relais …) sind ausgeblendet – oben rechts auf <b>🛠️ Experte</b> umschalten.</div>
       <!-- ── System-Hardware ─────────────────────────────── -->
@@ -6589,6 +6752,26 @@ class IHCPanel extends HTMLElement {
         eta_preheat_threshold_minutes: parseInt(content.querySelector("#eta-preheat-threshold")?.value ?? "90", 10),
       });
       this._toast("✓ Anwesenheitserkennung gespeichert");
+    });
+
+    // v2.6 – Komfort
+    content.querySelector("#save-comfort")?.addEventListener("click", () => {
+      const num = (id, def, lo, hi) => { const v = parseInt(content.querySelector(id)?.value, 10); return isNaN(v) ? def : Math.min(hi, Math.max(lo, v)); };
+      const person_preferences = [...content.querySelectorAll(".person-pref")]
+        .map(i => ({ person: i.dataset.person, offset: Math.min(3, Math.max(-3, parseFloat(i.value) || 0)) }))
+        .filter(p => p.offset !== 0);
+      this._callService("update_global_settings", {
+        wakeup_preheat_minutes: num("#wakeup-preheat", 30, 0, 180),
+        wakeup_comfort_minutes: num("#wakeup-comfort", 60, 0, 240),
+        feel_duration_minutes: num("#feel-duration", 120, 15, 480),
+        feel_learning_enabled: content.querySelector("#feel-learning")?.checked === true,
+        person_preferences,
+      });
+      this._toast("✓ Komfort-Einstellungen gespeichert");
+    });
+    content.querySelector("#reset-comfort-learning")?.addEventListener("click", () => {
+      this._callService("reset_comfort_learning", {});
+      this._toast("✓ Gelerntes Wärmeempfinden zurückgesetzt");
     });
 
     // v2.6 – Heizkosten sparen

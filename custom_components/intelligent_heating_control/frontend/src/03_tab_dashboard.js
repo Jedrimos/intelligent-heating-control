@@ -229,6 +229,16 @@
                 ? `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost-cancel" title="Boost beenden" style="background:#ff7043;color:white;border-color:#ff7043">⚡ ${room.boost_remaining}min ✕</button>`
                 : `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost" title="Boost starten">⚡</button>`}
             </div>
+            <div class="feel-row">
+              <button class="feel-btn" data-room-id="${room.room_id}" data-feel="cold" title="+1 °C für 2 Stunden – IHC lernt mit">🥶 Mir ist kalt</button>
+              <button class="feel-btn" data-room-id="${room.room_id}" data-feel="warm" title="−1 °C für 2 Stunden – IHC lernt mit">🥵 Mir ist warm</button>
+            </div>
+            ${(room.feel_temp_offset || room.feel_learned_offset || room.person_offset || room.wakeup_active) ? `<div class="feel-badge">${[
+              room.feel_temp_offset ? `${room.feel_temp_offset > 0 ? "+" : ""}${room.feel_temp_offset} °C auf Wunsch${room.feel_temp_until ? ` bis ${new Date(room.feel_temp_until).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}` : "",
+              room.feel_learned_offset ? `${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C gelernt` : "",
+              room.person_offset ? `${room.person_offset > 0 ? "+" : ""}${room.person_offset} °C für die Anwesenden` : "",
+              room.wakeup_active ? "⏰ warm aufwachen" : "",
+            ].filter(Boolean).join(" · ")}${room.feel_temp_offset ? ` <a href="#" data-feel-reset="${room.room_id}">zurücksetzen</a>` : ""}</div>` : ""}
             ${footerParts.length ? `<div class="room-footer"><span class="room-footer-meta">${footerParts.join(" · ")}</span></div>` : ""}
           </div>
         </div>`;
@@ -434,6 +444,24 @@
           setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
         });
         this._toast(`✓ Modus: ${MODE_LABELS[m] || m}`);
+      });
+    });
+
+    // v2.6 – "Mir ist kalt / warm"
+    content.querySelectorAll(".feel-btn[data-room-id]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const cold = btn.dataset.feel === "cold";
+        this._callService("feel", { id: btn.dataset.roomId, feeling: btn.dataset.feel }).then(() => {
+          setTimeout(() => { if (this._activeTab === "overview" && !this._modalOpen) this._renderTabContent(); }, 1200);
+        });
+        this._toast(cold ? "🥶 +1 °C für 2 Stunden – IHC merkt sich das" : "🥵 −1 °C für 2 Stunden – IHC merkt sich das");
+      });
+    });
+    content.querySelectorAll("[data-feel-reset]").forEach(link => {
+      link.addEventListener("click", e => {
+        e.preventDefault();
+        this._callService("feel", { id: link.dataset.feelReset, feeling: "reset" });
+        this._toast("↩ Zurückgesetzt");
       });
     });
 
