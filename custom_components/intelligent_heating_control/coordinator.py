@@ -27,6 +27,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.const import STATE_ON, STATE_OFF, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.util import dt as dt_util
+from homeassistant.helpers import issue_registry as ir
 
 # Mixin imports – each mixin contains a focused group of methods
 from .presence_manager import PresenceManagerMixin
@@ -50,6 +51,7 @@ from .const import (
     CONF_ROOM_NAME,
     CONF_TEMP_SENSOR,
     CONF_TEMP_SENSORS,
+    CONF_COVER_ENTITIES,
     CONF_VALVE_ENTITY,
     CONF_ROOM_OFFSET,
     CONF_DEADBAND,
@@ -502,6 +504,10 @@ class IHCCoordinator(
         self._outdoor_temp_source: Optional[str] = None            # "sensor:<id>" | "weather:<id>" | None (v2.6)
         self._window_open_since_wall: Dict[str, datetime] = {}     # room_id -> when the window opened (reminder)
         self._window_reminder_sent: set = set()
+        self._repair_issues: set = set()                            # active issue_registry ids (v2.6)
+        self._unavailable_since: Dict[str, datetime] = {}
+        self._repair_check_counter = 0
+        self._logged_once: set = set()
         self._weather_forecast_cache: tuple = (None, [], 0.0)      # (entity_id, daily forecast, monotonic ts)
         # Backlog 2026-11-02 – Decision-Sensor: last-seen (source, target_temp) per room, to
         # fire EVENT_DECISION_CHANGED only when the decision actually changes, not every cycle.
@@ -1298,6 +1304,75 @@ class IHCCoordinator(
             )
         self._heating_period_notified_rooms = should_notify_now
 
+    def _log_problem_once(self, key: str, message: str, *args) -> None:
+        """A failing optional feature used to be logged at DEBUG only (invisible). Log the
+        first occurrence as WARNING with traceback, repeats at DEBUG (no log spam)."""
+        if key not in self._logged_once:
+            self._logged_once.add(key)
+            _LOGGER.warning(message, *args, exc_info=True)
+        else:
+            _LOGGER.debug(message, *args, exc_info=True)
+
+    _REPAIR_UNAVAILABLE_MINUTES = 60
+
+    def _check_repairs(self) -> None:
+        """v2.6 – Repairs (Settings → System → Repairs) for configuration problems instead of
+        silently degraded behaviour: an entity referenced in the IHC config doesn't exist
+        (renamed/removed device), or a thermostat/sensor has been unavailable for an hour.
+        Issues clear themselves once the entity is back. Runs every 5th cycle."""
+        self._repair_check_counter += 1
+        if self._repair_check_counter % 5 != 1:
+            return
+        if self._startup_time is None or (dt_util.utcnow() - self._startup_time).total_seconds() < 300:
+            return  # give integrations time to load after an HA restart
+        now = dt_util.utcnow()
+        wanted: Dict[str, tuple] = {}
+        cfg = self.get_config()
+        refs: list = []  # (entity_id, room_name, role)
+        for room in self.get_rooms():
+            name = room.get(CONF_ROOM_NAME, room.get(CONF_ROOM_ID, ""))
+            valves = list(room.get(CONF_VALVE_ENTITIES) or [])
+            if room.get(CONF_VALVE_ENTITY) and room.get(CONF_VALVE_ENTITY) not in valves:
+                valves.append(room.get(CONF_VALVE_ENTITY))
+            refs += [(e, name, "Thermostat") for e in valves]
+            if room.get(CONF_TEMP_SENSOR):
+                refs.append((room.get(CONF_TEMP_SENSOR), name, "Temperatursensor"))
+            refs += [(t.get("sensor"), name, "Temperatursensor") for t in (room.get(CONF_TEMP_SENSORS) or []) if isinstance(t, dict)]
+            refs += [(e, name, "Fenstersensor") for e in (room.get(CONF_WINDOW_SENSORS) or [])]
+            refs += [(e, name, "Rollladen") for e in (room.get(CONF_COVER_ENTITIES) or [])]
+            for key, role in ((CONF_HUMIDITY_SENSOR, "Feuchtesensor"), (CONF_CO2_SENSOR, "CO₂-Sensor")):
+                if room.get(key):
+                    refs.append((room.get(key), name, role))
+        if cfg.get(CONF_OUTDOOR_TEMP_SENSOR):
+            refs.append((cfg.get(CONF_OUTDOOR_TEMP_SENSOR), "Global", "Außentemperatursensor"))
+        if cfg.get(CONF_WEATHER_ENTITY):
+            refs.append((cfg.get(CONF_WEATHER_ENTITY), "Global", "Wetter-Entität"))
+        for entity_id, room_name, role in refs:
+            if not entity_id:
+                continue
+            state = self.hass.states.get(entity_id)
+            if state is None:
+                self._unavailable_since.pop(entity_id, None)
+                wanted[f"missing_{entity_id}"] = ("missing_entity", {"entity": entity_id, "room": room_name, "role": role})
+                continue
+            if state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN) and role in ("Thermostat", "Temperatursensor", "Außentemperatursensor"):
+                since = self._unavailable_since.setdefault(entity_id, now)
+                minutes = (now - since).total_seconds() / 60
+                if minutes >= self._REPAIR_UNAVAILABLE_MINUTES:
+                    wanted[f"unavailable_{entity_id}"] = ("entity_unavailable", {
+                        "entity": entity_id, "room": room_name, "role": role, "minutes": str(int(minutes)),
+                    })
+            else:
+                self._unavailable_since.pop(entity_id, None)
+        for issue_id, (key, placeholders) in wanted.items():
+            ir.async_create_issue(
+                self.hass, DOMAIN, issue_id, is_fixable=False, severity=ir.IssueSeverity.WARNING,
+                translation_key=key, translation_placeholders=placeholders,
+            )
+        for issue_id in self._repair_issues - set(wanted):
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+        self._repair_issues = set(wanted)
+
     def _check_window_reminders(self, room_data: Dict[str, dict], outdoor_temp: Optional[float]) -> None:
         """v2.6 – "Fenster schließen!" after CONF_WINDOW_REMINDER_MINUTES of airing while it
         is cold outside. Works for real window sensors and the sensorless detection alike.
@@ -1789,7 +1864,7 @@ class IHCCoordinator(
         try:
             await self._async_refresh_weather_forecast()
         except Exception:
-            _LOGGER.debug("IHC: weather forecast refresh failed", exc_info=True)
+            self._log_problem_once("forecast", "IHC: weather forecast refresh failed")
 
         # Persist temperature history once per hour (survives HA restarts)
         now = datetime.now()
@@ -2401,6 +2476,10 @@ class IHCCoordinator(
         self._check_heating_period_notifications(room_data, summer_mode, heating_period_active)
         self._check_warmup_stall_notifications(room_data)
         self._check_window_reminders(room_data, ctx.get("outdoor_temp"))
+        try:
+            self._check_repairs()
+        except Exception:
+            self._log_problem_once("repairs", "IHC: repair check failed")
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
 
@@ -2706,7 +2785,7 @@ class IHCCoordinator(
                 room_data[room_id]["co2_ventilation_eta_minutes"] = co2_eta
             outdoor_humidity_out = outdoor_humidity
         except Exception:
-            _LOGGER.debug("IHC: Ventilation advice calculation failed", exc_info=True)
+            self._log_problem_once("ventilation", "IHC: ventilation advice calculation failed")
             outdoor_humidity_out = None
 
         ctx.update({

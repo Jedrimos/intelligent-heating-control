@@ -127,7 +127,19 @@ class IhcRoomCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    // HA pushes state updates many times per second. Rebuilding the card's DOM on every
+    // push replaced buttons mid-click (taps got lost) - only re-render when this room's
+    // own entities actually changed.
+    const room = this._findRoom();
+    const sig = room ? JSON.stringify(room) : "none";
+    if (sig === this._lastSig) return;
+    this._lastSig = sig;
     this._render();
+  }
+
+  _esc(v) {
+    if (v == null) return "";
+    return String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
   _st(entityId) {
@@ -164,15 +176,17 @@ class IhcRoomCard extends HTMLElement {
           temp_history: da.temp_history || [],
           avg_warmup_minutes: da.avg_warmup_minutes ?? null,
           room_presence_active: da.room_presence_active ?? null,
-          mold: da.mold ?? false,
-          ventilation: da.ventilation ?? null,
-          co2_ppm: da.co2_ppm ?? null,
+          mold: da.mold ?? a.mold ?? null,
+          ventilation: da.ventilation ?? a.ventilation ?? null,
+          co2_ppm: da.co2_ppm ?? a.co2_ppm ?? null,
           next_period: a.next_period || null,
           runtime_today_minutes: runtimeSensor ? (parseFloat(runtimeSensor.state) || 0) : 0,
           comfort_temp: a.comfort_temp ?? 21,
           eco_temp_eff: a.eco_temp_eff ?? null,
           sleep_temp_eff: a.sleep_temp_eff ?? null,
           away_temp_eff: a.away_temp_eff ?? null,
+          reason: a.reason || "",
+          manual_temp: a.manual_temp ?? null,
         };
       }
     }
@@ -235,7 +249,7 @@ class IhcRoomCard extends HTMLElement {
     const room = this._findRoom();
     if (!room) {
       card.className = "";
-      card.innerHTML = `<div class="unavailable">Zimmer "${this._config.room_id}" nicht gefunden</div>`;
+      card.innerHTML = `<div class="unavailable">Zimmer "${this._esc(this._config.room_id)}" nicht gefunden</div>`;
       return;
     }
 
@@ -264,8 +278,8 @@ class IhcRoomCard extends HTMLElement {
       : `<span class="badge badge-ok">✓</span>`;
 
     // Temperature display
-    const curTemp = room.current_temp !== null ? room.current_temp.toFixed(1) : "—";
-    const tgtTemp = room.target_temp !== null ? room.target_temp.toFixed(1) : "—";
+    const curTemp = room.current_temp != null ? Number(room.current_temp).toFixed(1) : "—";
+    const tgtTemp = room.target_temp != null ? Number(room.target_temp).toFixed(1) : "—";
 
     // Demand bar
     const barColor = this._demandColor(room.demand);
@@ -290,12 +304,16 @@ class IhcRoomCard extends HTMLElement {
     let schedHtml = "";
     if (this._config.show_schedule && room.next_period) {
       const np = room.next_period;
-      schedHtml = `<div class="schedule-row">📅 Nächste Schaltzeit: <b>${np.mode || ""}</b> um ${np.time || ""}</div>`;
+      // next_period is {start, end, temperature} - the card used to read np.mode/np.time,
+      // which never exist, so this line was always "Nächste Schaltzeit:  um "
+      schedHtml = np.start
+        ? `<div class="schedule-row">📅 Ab <b>${this._esc(np.start)} Uhr</b>${np.temperature != null ? ` → ${Number(np.temperature).toFixed(1)} °C` : ""}</div>`
+        : "";
     }
 
     card.innerHTML = `
       <div class="room-header">
-        <div class="room-name">🚪 ${room.name}</div>
+        <div class="room-name">🚪 ${this._esc(room.name)}</div>
         <div class="badges">${heatingBadge}${badgeParts.join("")}</div>
       </div>
 
@@ -320,7 +338,7 @@ class IhcRoomCard extends HTMLElement {
       <div class="demand-bg">
         <div class="demand-bar" style="width:${barWidth}%;background:${barColor}"></div>
       </div>
-      <div class="demand-label">Ventil ${this._fmt(room.demand, "%")} · ${room.source || "—"}</div>
+      <div class="demand-label">Wärmebedarf ${this._fmt(Math.round(room.demand), "%")} · ${this._esc(room.reason || room.source || "—")}</div>
 
       <div class="mode-chips">${modeChips}${boostChip}</div>
 
@@ -342,7 +360,8 @@ class IhcRoomCard extends HTMLElement {
     });
     card.querySelectorAll("[data-action='boost-cancel']").forEach(btn => {
       btn.addEventListener("click", () => {
-        this._hass.callService(_IHC_ROOM_DOMAIN, "set_room_mode", { id: btn.dataset.roomId, mode: "auto" });
+        // cancel only the boost - setting "auto" also threw away the room's own mode
+        this._hass.callService(_IHC_ROOM_DOMAIN, "boost_room", { id: btn.dataset.roomId, cancel: true });
       });
     });
   }

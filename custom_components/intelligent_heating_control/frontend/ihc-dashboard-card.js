@@ -185,7 +185,19 @@ class IhcDashboardCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    // Only rebuild when an IHC entity changed - HA pushes updates many times per second
+    // and a rebuild closes an open <select> / swallows taps.
+    const sig = Object.keys(hass.states)
+      .filter(e => e.startsWith("climate.ihc_") || e.startsWith("sensor.ihc_") || e.startsWith("select.ihc_"))
+      .map(e => `${e}@${hass.states[e].last_updated}`).join("|");
+    if (sig === this._lastSig) return;
+    this._lastSig = sig;
     this._render();
+  }
+
+  _esc(v) {
+    if (v == null) return "";
+    return String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
   _st(entityId) {
@@ -300,7 +312,7 @@ class IhcDashboardCard extends HTMLElement {
     }).join("");
     return `
       <div class="db-header">
-        <div class="db-title">🔥 ${this._config.title}</div>
+        <div class="db-title">🔥 ${this._esc(this._config.title)}</div>
         <select class="sys-mode-select" id="sys-mode-sel">
           ${sysModeOptions}
         </select>
@@ -417,7 +429,7 @@ class IhcDashboardCard extends HTMLElement {
       return `
         <div class="room-tile compact-tile ${this._tileClass(room)}">
           <div class="compact-row">
-            <div class="compact-name">${room.name}</div>
+            <div class="compact-name">${this._esc(room.name)}</div>
             <div class="compact-icons">${icons}</div>
             <div class="compact-cur">${cur}</div>
             <div class="compact-tgt">${tgt}</div>
@@ -437,7 +449,7 @@ class IhcDashboardCard extends HTMLElement {
     return `
       <div class="room-tile ${this._tileClass(room)}">
         <div class="tile-top">
-          <div class="tile-name">${room.name}</div>
+          <div class="tile-name">${this._esc(room.name)}</div>
           <div class="tile-icons">${icons}</div>
         </div>
         <div class="tile-temps">
@@ -524,8 +536,9 @@ class IhcDashboardCard extends HTMLElement {
     });
     card.querySelectorAll("[data-action='boost-cancel']").forEach(btn => {
       btn.addEventListener("click", () => {
-        this._hass.callService(_IHC_DB_DOMAIN, "set_room_mode", {
-          id: btn.dataset.roomId, mode: "auto",
+        // cancel only the boost (setting "auto" also discarded the room's own mode)
+        this._hass.callService(_IHC_DB_DOMAIN, "boost_room", {
+          id: btn.dataset.roomId, cancel: true,
         });
       });
     });

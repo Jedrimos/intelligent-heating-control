@@ -224,5 +224,15 @@
       "no_rooms": "Keine Zimmer konfiguriert",
       "room_not_found": "Zimmer nicht gefunden"
     }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "IHC: {role} {entity} nicht gefunden",
+      "description": "Zimmer **{room}** nutzt den {role} `{entity}`, diese Entität gibt es in Home Assistant aber nicht (Gerät umbenannt oder entfernt?). IHC arbeitet ohne ihn weiter. Im IHC-Panel unter Zimmer → {room} → Einstellungen korrigieren oder die Entität wiederherstellen."
+    },
+    "entity_unavailable": {
+      "title": "IHC: {role} {entity} nicht erreichbar",
+      "description": "Der {role} `{entity}` im Zimmer **{room}** ist seit {minutes} Minuten nicht erreichbar (Batterie leer, außer Funkreichweite, Integration offline?). IHC nutzt solange Ersatzwerte (letzter bekannter Wert, Thermostat-Temperatur)."
+    }
   }
 }

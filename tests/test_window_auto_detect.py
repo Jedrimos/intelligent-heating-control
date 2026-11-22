@@ -53,3 +53,28 @@ def test_unavailable_sensor_keeps_verdict():
     assert update_auto_window(s, 120, None, DROP, WIN, HOLD) is True
     s2 = new_state()
     assert update_auto_window(s2, 0, None, DROP, WIN, HOLD) is False
+
+
+def test_threshold_adapts_to_a_jumpy_room():
+    from custom_components.intelligent_heating_control.window_auto_detect import effective_threshold
+    s = new_state()
+    # a bathroom whose readings regularly wobble by ~0.6 °C within the window
+    ts = 0
+    for i in range(200):
+        ts += 60
+        update_auto_window(s, ts, 21.0 if i % 4 else 20.4, DROP, WIN, HOLD)
+    thr = effective_threshold(s, DROP)
+    assert DROP < thr <= DROP * 2.0
+    # a 0.9 °C drop no longer counts as a window there ...
+    assert update_auto_window(s, ts + 60, 21.0, DROP, WIN, HOLD) is False
+    assert update_auto_window(s, ts + 120, 20.1, DROP, WIN, HOLD) is False
+    # ... but a real one (1.8 °C) still does
+    assert update_auto_window(s, ts + 180, 19.2, DROP, WIN, HOLD) is True
+
+
+def test_calm_room_keeps_configured_threshold():
+    from custom_components.intelligent_heating_control.window_auto_detect import effective_threshold
+    s = new_state()
+    for i in range(200):
+        update_auto_window(s, i * 60, 21.0 - (i % 2) * 0.1, DROP, WIN, HOLD)
+    assert effective_threshold(s, DROP) == DROP

@@ -224,5 +224,15 @@
       "no_rooms": "Aucune pièce configurée",
       "room_not_found": "Pièce introuvable"
     }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "IHC : {role} {entity} introuvable",
+      "description": "La pièce **{room}** utilise {role} `{entity}`, mais cette entité n'existe pas dans Home Assistant (appareil renommé ou supprimé ?). IHC continue sans elle. Corrigez-la dans le panneau IHC sous Pièces → {room} → Paramètres."
+    },
+    "entity_unavailable": {
+      "title": "IHC : {role} {entity} indisponible",
+      "description": "{role} `{entity}` de la pièce **{room}** est indisponible depuis {minutes} minutes (pile vide, hors de portée ?). IHC utilise des valeurs de repli en attendant."
+    }
   }
 }

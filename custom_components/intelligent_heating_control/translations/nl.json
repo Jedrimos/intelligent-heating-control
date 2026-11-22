@@ -224,5 +224,15 @@
       "no_rooms": "Geen kamers geconfigureerd",
       "room_not_found": "Kamer niet gevonden"
     }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "IHC: {role} {entity} niet gevonden",
+      "description": "Kamer **{room}** gebruikt {role} `{entity}`, maar deze entiteit bestaat niet in Home Assistant (apparaat hernoemd of verwijderd?). IHC werkt zonder verder. Corrigeer het in het IHC-paneel onder Kamers → {room} → Instellingen."
+    },
+    "entity_unavailable": {
+      "title": "IHC: {role} {entity} niet bereikbaar",
+      "description": "{role} `{entity}` in kamer **{room}** is al {minutes} minuten niet bereikbaar (batterij leeg, buiten bereik?). IHC gebruikt intussen vervangende waarden."
+    }
   }
 }
