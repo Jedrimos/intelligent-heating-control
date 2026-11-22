@@ -27,6 +27,7 @@
         <div class="auto-row"><span>🌡️ Außentemperatur</span><span>${outdoorTxt}</span></div>
         <div class="auto-row"><span>🌦️ Wettervorhersage</span><span>${g.weather_entity_effective ? `<b>${this._esc(this._friendly(g.weather_entity_effective))}</b> – für Kälteprognose &amp; Frühstart` : "keine Wetter-Entität gefunden"}</span></div>
         <div class="auto-row"><span>🪟 Fenster ohne Sensor</span><span>${g.window_auto_detect_enabled ? "werden am Temperatursturz erkannt ✓" : "nicht erkannt (unten unter Temperaturen einschaltbar)"}</span></div>
+        <div class="auto-row"><span>♨️ Restwärme</span><span>${g.afterheat_enabled ? "wird pro Zimmer gelernt – Ventil schließt früher ✓" : "aus (unten unter Temperaturen einschaltbar)"}</span></div>
         <div class="auto-row"><span>🍂 Heizperiode</span><span>${a.heating_period_entity ? "per eigenem Schalter gesteuert" : (a.heating_period_auto_enabled !== false ? "startet/endet automatisch nach Außentemperatur ✓" : "immer aktiv")}</span></div>
         <div class="auto-row"><span>🚶 Abwesenheit</span><span>${(() => {
           const eff = a.presence_entities_effective || [];
@@ -332,6 +333,13 @@
                 🩺 Benachrichtigen bei Warmup-Stillstand
               </label>
               <span class="form-hint">Sendet eine Persistent-Notification, wenn ein Zimmer weit länger als seine gelernte Aufheizzeit heizt, ohne tatsächlich wärmer zu werden (Luft im System, Kessel feuert nicht, Tür zu).</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="afterheat-enabled" ${a.afterheat_enabled !== false ? "checked" : ""}>
+                ♨️ Restwärme nutzen
+              </label>
+              <span class="form-hint">IHC lernt pro Zimmer, wie weit die Temperatur nach dem Schließen des Ventils noch steigt, und schließt es entsprechend früher – nicht mehr zu warm, weniger Verbrauch. Braucht ein Raumthermometer, greift nach 3 gemessenen Heizphasen.</span>
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -1202,6 +1210,7 @@
         heating_period_notify_enabled: content.querySelector("#hp-notify-enabled")?.checked === true,
         warmup_stall_notify_enabled: content.querySelector("#warmup-stall-notify-enabled")?.checked === true,
         window_auto_detect_enabled: content.querySelector("#window-auto-detect-enabled")?.checked === true,
+        afterheat_enabled: content.querySelector("#afterheat-enabled")?.checked === true,
         window_auto_detect_drop: Math.min(3, Math.max(0.3, parseFloat(content.querySelector("#window-auto-detect-drop")?.value) || 0.8)),
         window_auto_detect_minutes: Math.min(20, Math.max(2, parseInt(content.querySelector("#window-auto-detect-minutes")?.value, 10) || 6)),
         window_auto_detect_hold_minutes: Math.min(90, Math.max(5, parseInt(content.querySelector("#window-auto-detect-hold")?.value, 10) || 20)),

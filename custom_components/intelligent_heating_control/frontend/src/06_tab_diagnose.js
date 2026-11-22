@@ -551,6 +551,25 @@
       content.appendChild(stopCard);
     }
 
+    // ── Restwärme nutzen (v2.7) ─────────────────────────────────────────────────
+    {
+      const ahCard = document.createElement("div");
+      ahCard.className = "card";
+      ahCard.style.marginTop = "0";
+      const hasSensor = !!room.temp_sensor || (room.temp_sensors || []).length > 0;
+      const g2 = this._getGlobal();
+      ahCard.innerHTML = `
+        <div class="card-title">♨️ Restwärme nutzen</div>
+        <div style="font-size:13px;color:var(--secondary-text-color)">
+          ${!g2.afterheat_enabled ? "Ausgeschaltet (Einstellungen → Temperaturen)."
+            : !hasSensor ? "Braucht ein Raumthermometer – die Temperatur am Thermostat sitzt direkt am Heizkörper und sagt darüber nichts aus."
+            : room.afterheat_overshoot != null
+              ? `Nach dem Schließen des Ventils wird ${this._esc(room.name)} noch <strong>+${room.afterheat_overshoot} °C</strong> wärmer, Höhepunkt nach etwa <strong>${room.afterheat_minutes} min</strong> (${room.afterheat_samples} Messungen). IHC schließt das Ventil so viel früher.${room.afterheat_coasting ? " <strong>Gerade aktiv.</strong>" : ""}`
+              : `Wird gelernt: ${room.afterheat_samples} von 3 Heizphasen gemessen.`}
+        </div>`;
+      content.appendChild(ahCard);
+    }
+
     // ── Wärmebrücken-Erkennung ─────────────────────────────────────────────────
     if (room.thermal_bridge && room.thermal_bridge.suspected) {
       const bridgeCard = document.createElement("div");

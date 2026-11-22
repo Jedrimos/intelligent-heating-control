@@ -10,6 +10,20 @@ entries show up as mixed German/English for English-speaking users.
 """
 
 EXACT = {
+    "♨️ Restwärme – Heizkörper heizt nach": "♨️ Residual heat – radiator still warming",
+    "♨️ Restwärme nutzen": "♨️ Use residual heat",
+    "Restwärme nutzen": "Use residual heat",
+    "♨️ Restwärme": "♨️ Residual heat",
+    "Restwärme": "Residual heat",
+    "Restwärme nutzen: der Heizkörper heizt noch nach": "Using residual heat: the radiator is still giving off heat",
+    "Ventil früher zu – die Restwärme des Heizkörpers bringt den Raum auf Soll": "Valve closed early – the radiator's residual heat brings the room to its target",
+    "wird pro Zimmer gelernt – Ventil schließt früher ✓": "learned per room – valve closes earlier ✓",
+    "aus (unten unter Temperaturen einschaltbar)": "off (can be enabled below under Temperatures)",
+    "IHC lernt pro Zimmer, wie weit die Temperatur nach dem Schließen des Ventils noch steigt, und schließt es entsprechend früher – nicht mehr zu warm, weniger Verbrauch. Braucht ein Raumthermometer, greift nach 3 gemessenen Heizphasen.": "IHC learns per room how far the temperature keeps rising after the valve closes, and closes it that much earlier – no more overheating, less energy. Needs a room thermometer, starts after 3 measured heating phases.",
+    "Ausgeschaltet (Einstellungen → Temperaturen).": "Switched off (Settings → Temperatures).",
+    "Braucht ein Raumthermometer – die Temperatur am Thermostat sitzt direkt am Heizkörper und sagt darüber nichts aus.": "Needs a room thermometer – the thermostat's sensor sits right at the radiator and can't measure this.",
+    "Der Heizkörper heizt so viel nach – IHC schließt das Ventil entsprechend früher.": "The radiator gives off this much heat afterwards – IHC closes the valve that much earlier.",
+    "Gerade aktiv.": "Active right now.",
     "genauso": "the same",
     "wie das Raumthermometer. Eingestellt ist eine feste Korrektur von": "as the room thermometer. A fixed correction of",
     "🎯 Thermostat-Temperatur korrigieren": "🎯 Correct thermostat temperature",
@@ -520,6 +534,11 @@ EXACT = {
 
 # Dynamic texts (numbers/names inside). Python regex syntax, converted to JS by build.py.
 PATTERNS = [
+    (r"^Restwärme: \+(.+) °C$", r"Residual heat: +$1 °C"),
+    (r"^Wird gelernt: (\d+) von 3 Heizphasen gemessen\.$", r"Learning: $1 of 3 heating phases measured."),
+    (r"^Nach dem Schließen des Ventils wird (.+) noch$", r"After the valve closes, $1 still warms up by"),
+    (r"^wärmer, Höhepunkt nach etwa$", r"– peak after about"),
+    (r"^\((\d+) Messungen\)\. IHC schließt das Ventil so viel früher\.$", r"($1 measurements). IHC closes the valve that much earlier."),
     (r"^wie das Raumthermometer\. Eingestellt ist eine feste Korrektur von (.+) °C\. Vorschlag:$", r"as the room thermometer. A fixed correction of $1 °C is set. Suggestion:"),
     (r"^Bei kaltem Heizkörper misst das Thermostat in (.+) im Mittel$", r"With a cold radiator the thermostat in $1 reads on average"),
     (r"^([\d.]+) °C zu warm$", r"$1 °C too warm"),

@@ -11,7 +11,7 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.6.1`
+- **Version:** `2.7.0`
 - **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
@@ -1365,7 +1365,7 @@ Vollständigkeit der Tupel und gleiche Platzhalter.
 **Neue Module seit 2.6.0 (HA-frei, unit-getestet):** `comfort_learning.py` („Mir ist kalt/warm“-
 Lernen), `heat_output.py` (EN-442-Verbrauchsmodell, Heizkörper-Rechner, Zählereinheiten),
 `trv_capabilities.py` (Geschwister-Entitäten eines Thermostats klassifizieren, Fühlereingang,
-Eigenheiten-Tabelle `QUIRKS`).
+Eigenheiten-Tabelle `QUIRKS`), seit 2.7.0 `afterheat.py` (Restwärme lernen + Ventil früher schließen).
 
 **Panel im Browser prüfen** (ohne HA): Playwright + Mock-`hass` (siehe Git-Historie von 2.6.0) –
 alle Tabs in einfach/experte und de/en rendern, JS-Fehler sammeln, Screenshots ansehen.
@@ -1462,6 +1462,10 @@ gesendet wird, unabhängig von A-C, kann deren Ergebnis komplett verwerfen)
 39. **Sommerautomatik** ODER **Heizperiode inaktiv** (außer `CONF_ROOM_IGNORE_HEATING_PERIOD`)
     – TRV aus
 40. Sonst: normaler Sollwert-Versand (inkl. `_apply_aggressive_mode` + Peak-Shaving-Clamp)
+40a. **Restwärme nutzen** (seit 2.7.0, `afterheat.py` + `coordinator._update_afterheat()`): nur in
+    Zweig 40 – heizt das Zimmer und liegt es weniger als den gelernten Nachlauf unter Soll, wird
+    der gesendete Sollwert auf `coast_setpoint()` gesenkt (Ventil früher zu). Gelernt wird immer
+    (außer bei 35–39), nur mit Raumthermometer + Hardware-Heizsignal (Ventil > 8 % / hvac_action)
 
 ### Wo eine neue Regel einsortiert wird
 

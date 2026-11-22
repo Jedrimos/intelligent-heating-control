@@ -14,6 +14,24 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.7.0] - 2026-11-22
+
+### Neu: ♨️ Restwärme nutzen
+- Ein Heizkörper gibt nach dem Schließen des Ventils noch Wärme ab – der Raum wird oft noch
+  0,3–1 °C wärmer als gewünscht. IHC **lernt das pro Zimmer**: Nach jeder Heizphase (ab 10 min)
+  misst es mit dem Raumthermometer, wie weit die Temperatur danach noch steigt und wann der
+  Höhepunkt erreicht ist (Median der letzten 10 Messungen, ab 3 Messungen aktiv, max. 1,5 °C).
+- Danach **schließt IHC das Ventil entsprechend früher**: Fehlt nur noch so viel bis zum Sollwert,
+  wie der Heizkörper nachheizt, bekommt das Thermostat kurz einen niedrigeren Sollwert. Die
+  Restwärme bringt den Raum auf die Wunschtemperatur statt darüber. Fällt die Temperatur wieder,
+  gilt sofort der normale Sollwert. Weniger Überheizen, weniger Verbrauch.
+- Standard an, braucht ein Raumthermometer und ein Heizsignal des Thermostats (Ventilstellung
+  oder „heizt“). Abschaltbar unter Einstellungen → Temperaturen. Nicht bei offenem Fenster,
+  Boost, Sicherheitsschwelle, Sommer/inaktiver Heizperiode oder ausgeschaltetem Zimmer.
+- Sichtbar: „♨️ Restwärme“ auf der Zimmerkachel und im Zimmer, Lernstand im Analyse-Tab,
+  Zeile in „Was IHC automatisch macht“ und „Was IHC in diesem Zimmer nutzt“. Attribute
+  `afterheat_overshoot/_minutes/_samples/_coasting`, neue Einstellung `afterheat_enabled`.
+
 ## [2.6.1] - 2026-11-22
 
 ### Behoben

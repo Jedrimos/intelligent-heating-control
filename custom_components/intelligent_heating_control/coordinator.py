@@ -21,6 +21,8 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from homeassistant.core import HomeAssistant, callback, Event
+
+from .afterheat import add_sample as afterheat_add_sample, coast_setpoint, coast_step, learned as afterheat_learned, update_tracker as afterheat_update_tracker
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
@@ -257,6 +259,8 @@ from .const import (
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
     CONF_WINDOW_AUTO_DETECT_ENABLED,
     DEFAULT_WINDOW_AUTO_DETECT_ENABLED,
+    CONF_AFTERHEAT_ENABLED,
+    DEFAULT_AFTERHEAT_ENABLED,
     CONF_WINDOW_REMINDER_MINUTES,
     DEFAULT_WINDOW_REMINDER_MINUTES,
     EVENT_WINDOW_OPEN_TOO_LONG,
@@ -447,6 +451,10 @@ class IHCCoordinator(
         # while idle (demand == 0, window closed), used to suggest a
         # trv_temp_offset value instead of making the user guess it.
         self._trv_offset_samples: Dict[str, List[float]] = {}      # room_id → [room_temp - trv_avg, ...]
+        # v2.7 – Restwärme nutzen: learning state, samples [[overshoot, minutes], ...], coast state
+        self._afterheat_state: Dict[str, dict] = {}
+        self._afterheat_samples: Dict[str, list] = {}
+        self._afterheat_coast: Dict[str, dict] = {}
 
         # v1.4 – Vacation calendar last-check (to avoid calling service every minute)
         self._vac_calendar_last_check: Optional[int] = None  # day-of-year
@@ -725,6 +733,7 @@ class IHCCoordinator(
         self._cooling_rate_history = {k: list(v) for k, v in data.get("cooling_rate_history", {}).items()}
         # TRV offset calibration samples (room-sensor-minus-TRV, collected while idle)
         self._trv_offset_samples = {k: list(v) for k, v in data.get("trv_offset_samples", {}).items()}
+        self._afterheat_samples = {k: [list(s) for s in v] for k, v in data.get("afterheat_samples", {}).items()}
         # Restore adaptive curve state
         self._curve_adaptation_delta = float(data.get("curve_adaptation_delta", 0.0))
         # Restore demand heatmap (v1.6)
@@ -812,6 +821,7 @@ class IHCCoordinator(
             "cooling_rate_history": self._cooling_rate_history,
             # TRV offset calibration samples
             "trv_offset_samples": self._trv_offset_samples,
+            "afterheat_samples": self._afterheat_samples,
             # Automatic Heizperioden-Erkennung: rolling daily averages + hysteresis state
             "heating_period_daily_avg": list(self._heating_period_daily_avg),
             "heating_period_day_sum": self._heating_period_day_sum,
@@ -2791,6 +2801,41 @@ class IHCCoordinator(
             "peak_shaving_held_room_ids": peak_shaving_held_room_ids,
         })
 
+    def _update_afterheat(self, room_id: str, rdata: dict, frost_temp: float,
+                          disturbed: bool, enabled: bool) -> Optional[float]:
+        """v2.7 – Restwärme nutzen: learn how far the room keeps warming after the valve
+        closes, and return a lowered setpoint while the room should coast on residual heat
+        (None = send the normal target). Needs a room thermometer and a hardware heating
+        signal (valve position or the TRV's hvac_action), see afterheat.py."""
+        temp = rdata.get("room_sensor_temp")
+        valve = rdata.get("trv_avg_valve")
+        heating = valve > 8 if valve is not None else bool(rdata.get("trv_any_heating"))
+        now = time.time()
+        state = self._afterheat_state.setdefault(room_id, {})
+        coasting = room_id in self._afterheat_coast
+        # while coasting, IHC itself closed the valve: that is exactly the event to measure
+        sample = afterheat_update_tracker(state, temp, now, heating, disturbed)
+        if sample is not None:
+            self._afterheat_samples[room_id] = afterheat_add_sample(self._afterheat_samples.get(room_id, []), sample)
+            self._schedule_save()
+        info = afterheat_learned(self._afterheat_samples.get(room_id, []))
+        coast = None
+        target = rdata.get("target_temp")
+        if enabled and info and not disturbed:
+            coast = coast_step(self._afterheat_coast.get(room_id), temp, target, heating, info["overshoot"], now)
+        if coast:
+            self._afterheat_coast[room_id] = coast
+        else:
+            self._afterheat_coast.pop(room_id, None)
+        if coast and not coasting:
+            _LOGGER.debug("IHC: %s – Restwärme nutzen, Ventil früher zu (%.1f °C vor Soll %.1f °C)",
+                          room_id, target - temp, target)
+        rdata["afterheat_overshoot"] = info["overshoot"] if info else None
+        rdata["afterheat_minutes"] = info["minutes"] if info else None
+        rdata["afterheat_samples"] = len(self._afterheat_samples.get(room_id, []))
+        rdata["afterheat_coasting"] = bool(coast)
+        return coast_setpoint(temp, target, frost_temp) if coast else None
+
     def _update_phase_apply_trv_setpoints(self, room_data: Dict[str, dict], ctx: Dict[str, Any]) -> None:
         """Phase 6: send the computed setpoints to every room's TRVs (or turn
         them off / boost them), then run the periodic limescale-protection
@@ -2845,6 +2890,14 @@ class IHCCoordinator(
             frost_temp = self._get_frost_protection_temp()
             heating_gated = summer_mode or (not heating_period_active and not rdata.get("ignore_heating_period"))
             should_be_off = (room_mode == ROOM_MODE_OFF and not system_override_active) or (system_is_off and not off_use_frost)
+            # v2.7 – Restwärme nutzen (learn always, coast only in the normal branch below)
+            coast_target = self._update_afterheat(
+                room_id, rdata, frost_temp,
+                disturbed=window_open or should_be_off or heating_gated
+                or self.get_boost_remaining_minutes(room_id) > 0
+                or rdata.get("source") == "temp_threshold_override",
+                enabled=bool(cfg.get(CONF_AFTERHEAT_ENABLED, DEFAULT_AFTERHEAT_ENABLED)),
+            )
             if window_open and window_open_temp > 0 and not should_be_off and not heating_gated:
                 # Window open but configured min-temp: hold at that temp (e.g. 15°C) instead of frost.
                 # Only when the room would otherwise heat - this branch used to run first and
@@ -2894,6 +2947,10 @@ class IHCCoordinator(
                     current_temp = rdata.get("current_temp")
                     if current_temp is not None:
                         trv_target = min(trv_target, current_temp + PEAK_SHAVING_HOLD_MARGIN_C)
+                if coast_target is not None:
+                    # Restwärme nutzen: close the valve now, the radiator's residual heat
+                    # brings the room to its target (Kapitel 15, Phase D 40a)
+                    trv_target = min(trv_target, coast_target)
                 self._set_valve_entities(room, trv_target)
 
         # Kalkschutz: periodisch Ventile bewegen um Verkalkungs-Festfressen zu verhindern

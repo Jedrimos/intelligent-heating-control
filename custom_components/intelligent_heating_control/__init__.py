@@ -295,7 +295,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         config={
             "_panel_custom": {
                 "name": "ihc-panel",
-                "js_url": "/ihc_static/ihc-panel.js?v=2.6.1",
+                "js_url": "/ihc_static/ihc-panel.js?v=2.7.0",
                 "embed_iframe": False,
                 "trust_external_script": True,
             }
@@ -600,7 +600,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # Warmup-Stall-Watchdog
             "warmup_stall_notify_enabled",
             # v2.6 – Sensorlose Fenstererkennung
-            "window_auto_detect_enabled", "window_auto_detect_drop",
+            "window_auto_detect_enabled", "window_auto_detect_drop", "afterheat_enabled",
             "window_auto_detect_minutes", "window_auto_detect_hold_minutes",
             # v2.6 – Sparen / virtuelle Anwesenheit
             "saving_offset", "window_reminder_minutes", "presence_auto_persons",

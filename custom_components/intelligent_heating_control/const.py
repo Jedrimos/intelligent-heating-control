@@ -505,6 +505,9 @@ DEFAULT_WARMUP_STALL_NOTIFY_ENABLED: Final = True
 # (siehe window_auto_detect.py). Standard an - ein echter Sensor hat immer Vorrang.
 CONF_WINDOW_AUTO_DETECT_ENABLED: Final = "window_auto_detect_enabled"
 DEFAULT_WINDOW_AUTO_DETECT_ENABLED: Final = True  # nur Zimmer OHNE Fenstersensor
+# v2.7 – Restwärme nutzen: lernt das Nachheizen des Heizkörpers und schließt das Ventil früher
+CONF_AFTERHEAT_ENABLED: Final = "afterheat_enabled"
+DEFAULT_AFTERHEAT_ENABLED: Final = True
 CONF_WINDOW_AUTO_DETECT_DROP: Final = "window_auto_detect_drop"
 DEFAULT_WINDOW_AUTO_DETECT_DROP: Final = 0.8          # °C Temperatursturz ...
 CONF_WINDOW_AUTO_DETECT_MINUTES: Final = "window_auto_detect_minutes"

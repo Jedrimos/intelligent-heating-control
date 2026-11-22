@@ -50,6 +50,8 @@ from .const import (
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
     CONF_WINDOW_AUTO_DETECT_ENABLED,
     DEFAULT_WINDOW_AUTO_DETECT_ENABLED,
+    CONF_AFTERHEAT_ENABLED,
+    DEFAULT_AFTERHEAT_ENABLED,
     CONF_PRESENCE_AUTO_PERSONS,
     DEFAULT_PRESENCE_AUTO_PERSONS,
     CONF_WINDOW_REMINDER_MINUTES,
@@ -558,6 +560,11 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_WARMUP_STALL_NOTIFY_ENABLED,
                 default=bool(cfg.get(CONF_WARMUP_STALL_NOTIFY_ENABLED, DEFAULT_WARMUP_STALL_NOTIFY_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            # --- v2.7: Restwärme nutzen ---
+            vol.Optional(
+                CONF_AFTERHEAT_ENABLED,
+                default=bool(cfg.get(CONF_AFTERHEAT_ENABLED, DEFAULT_AFTERHEAT_ENABLED))
             ): selector.selector({"boolean": {}}),
             # --- v2.6: sensorlose Fenstererkennung (Temperatursturz) ---
             vol.Optional(

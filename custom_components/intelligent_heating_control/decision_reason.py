@@ -85,6 +85,8 @@ def get_no_heat_reason(room: dict, global_suppressed_reason: Optional[str] = Non
         return "Zimmer manuell ausgeschaltet"
     if global_suppressed_reason and not room.get("ignore_heating_period"):
         return global_suppressed_reason
+    if room.get("afterheat_coasting"):
+        return "Restwärme nutzen: der Heizkörper heizt noch nach"
     if room.get("optimum_stop_active"):
         return "Optimum-Stop: Nachlaufwärme reicht voraussichtlich noch aus"
     if room.get("warmup_stall_active"):

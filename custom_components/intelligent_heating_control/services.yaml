@@ -1465,6 +1465,15 @@ update_global_settings:
       required: false
       selector:
         boolean:
+    afterheat_enabled:
+      name: Restwärme nutzen
+      description: >-
+        Standard an. IHC lernt pro Zimmer (mit Raumthermometer), wie weit die Temperatur nach dem
+        Schließen des Ventils durch die Restwärme des Heizkörpers noch steigt, und schließt das
+        Ventil entsprechend früher. Greift erst nach 3 gemessenen Heizphasen.
+      required: false
+      selector:
+        boolean:
     window_auto_detect_enabled:
       name: Sensorlose Fenstererkennung
       description: >-
