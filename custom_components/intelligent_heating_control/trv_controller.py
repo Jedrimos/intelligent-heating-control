@@ -660,7 +660,8 @@ class TRVControllerMixin:
                 next_str = ""
                 if next_period:
                     try:
-                        next_str = f" bis {next_period.get('start', '')} Uhr"
+                        next_str = self._t(f" bis {next_period.get('start', '')} Uhr",
+                                           f" until {next_period.get('start', '')}")
                     except Exception as exc:
                         _LOGGER.debug("IHC: Could not format next period for notification: %s", exc)
                 # Send HA notification
@@ -669,12 +670,16 @@ class TRVControllerMixin:
                         "persistent_notification",
                         "create",
                         {
-                            "title": f"IHC: Manueller Eingriff – {room_name}",
-                            "message": (
+                            "title": self._t(f"IHC: Manueller Eingriff – {room_name}",
+                                             f"IHC: manual change – {room_name}"),
+                            "message": self._t(
                                 f"**{room_name}** wurde manuell am Gerät auf "
                                 f"**{trv_target:.1f} °C** gestellt "
                                 f"und bleibt bis zur nächsten Schaltzeit{next_str} im Modus **Manuell**.\n\n"
-                                "Der Modus wird beim nächsten Zeitplan-Event automatisch zurückgesetzt."
+                                "Der Modus wird beim nächsten Zeitplan-Event automatisch zurückgesetzt.",
+                                f"**{room_name}** was set to **{trv_target:.1f} °C** on the device and stays "
+                                f"in **manual** mode{next_str}.\n\nThe mode is reset automatically at the "
+                                "next schedule change.",
                             ),
                             "notification_id": f"ihc_manual_override_{room_id}",
                         },

@@ -1017,7 +1017,15 @@
           <strong>Manuell</strong> = eigene Temperatur eingeben.<br>
           Außerhalb des Zeitplans: <strong>Heizkurven-Temp + Zimmer-Offset</strong>
         </div>
-        <div id="sched-editor">${schedBlocks || '<div style="color:var(--secondary-text-color);padding:8px">Noch keine Gruppen. Unten auf + Gruppe klicken.</div>'}</div>
+        <div class="form-group" style="margin-top:10px">
+          <label class="form-label">⚡ Vorlage übernehmen</label>
+          <select class="form-select" id="sched-template">
+            <option value="">– Vorlage wählen (ersetzt den Plan unten) –</option>
+            ${SCHEDULE_TEMPLATES.map(t => `<option value="${t.id}">${t.label}</option>`).join("")}
+          </select>
+          <span class="form-hint">Danach nach Belieben anpassen und speichern. Außerhalb der Zeiten heizt IHC sparsam (Eco).</span>
+        </div>
+        <div id="sched-editor">${schedBlocks || '<div style="color:var(--secondary-text-color);padding:8px">Noch kein Zeitplan – oben eine Vorlage wählen oder unten auf + Gruppe klicken.</div>'}</div>
         <div class="btn-row">
           <button class="btn btn-secondary" id="add-sched-btn">+ Gruppe hinzufügen</button>
           <button class="btn btn-primary" id="save-sched-btn">💾 Zeitpläne speichern</button>
@@ -1094,6 +1102,14 @@
         );
         this._renderRoomScheduleInline(room, container);
       });
+    });
+
+    container.querySelector("#sched-template").addEventListener("change", e => {
+      const tpl = SCHEDULE_TEMPLATES.find(t => t.id === e.target.value);
+      if (!tpl) return;
+      this._editingSchedules[selId] = JSON.parse(JSON.stringify(tpl.schedules));
+      this._renderRoomScheduleInline(room, container);
+      this._toast(`📋 Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken`);
     });
 
     container.querySelector("#add-sched-btn").addEventListener("click", () => {

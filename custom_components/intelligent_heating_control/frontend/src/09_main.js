@@ -225,11 +225,18 @@ class IHCPanel extends HTMLElement {
     // configured (rendered with the "open" attribute). Marked once per render, so
     // collapsing it later doesn't make it vanish.
     if (!this._inUseObserver) {
-      const mark = () => shadow.querySelectorAll(".expert-only[open]:not(.in-use)")
-        .forEach(el => el.classList.add("in-use"));
+      const mark = () => {
+        shadow.querySelectorAll(".expert-only[open]:not(.in-use)").forEach(el => el.classList.add("in-use"));
+        // English UI: translate whatever was just rendered (before the next paint)
+        if (this._i18nActive() && !this._i18nPending) {
+          this._i18nPending = true;
+          requestAnimationFrame(() => { this._i18nPending = false; this._translateTree(shadow); });
+        }
+      };
       this._inUseObserver = new MutationObserver(mark);
       this._inUseObserver.observe(shadow, { childList: true, subtree: true });
     }
+    if (this._i18nActive()) requestAnimationFrame(() => this._translateTree(shadow));
     this._updateActiveTab();
     this._renderTabContent();
   }

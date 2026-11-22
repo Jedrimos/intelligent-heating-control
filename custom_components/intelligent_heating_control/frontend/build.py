@@ -48,10 +48,33 @@ def read_file(path):
         return fh.read()
 
 
+def build_i18n_js():
+    """Turn frontend/i18n/en.py into JS constants (IHC_I18N_EN / _PATTERNS / _WORDS)."""
+    import importlib.util, json, re
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "i18n", "en.py")
+    spec = importlib.util.spec_from_file_location("ihc_i18n_en", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    norm = lambda t: re.sub(r"\s+", " ", t).strip()
+    exact = {norm(k): v for k, v in mod.EXACT.items()}
+    out = [
+        "// ── GENERATED from frontend/i18n/en.py by build.py – edit en.py, not this ──",
+        "const IHC_I18N_EN = " + json.dumps(exact, ensure_ascii=False, indent=0, sort_keys=True) + ";",
+        # A broken pattern must never take the whole panel down - compile defensively.
+        "const IHC_I18N_EN_PATTERNS = " + json.dumps([[p, r] for p, r in mod.PATTERNS], ensure_ascii=False)
+        + ".map(([p, r]) => { try { return [new RegExp(p, \"u\"), r]; } catch (e) { console.warn(\"IHC i18n pattern\", p, e); return null; } }).filter(Boolean);",
+        "const IHC_I18N_EN_WORDS = " + json.dumps(sorted(mod.WORDS, key=lambda w: -len(w[0])), ensure_ascii=False) + ";",
+        "",
+    ]
+    return "\n".join(out)
+
+
 def build():
     # 1. Global constants + styles (must come before class definition)
     preamble_files = ["00_constants.js", "01_styles.css.js"]
     parts = []
+    # v2.6 – English UI dictionary generated from frontend/i18n/en.py (single source)
+    parts.append(build_i18n_js())
 
     for fname in preamble_files:
         fpath = os.path.join(SRC_DIR, fname)

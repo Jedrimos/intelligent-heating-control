@@ -48,3 +48,29 @@ const WEATHER_CONDITIONS = {
   "windy":            { label: "Windig",                 icon: "🌬️" },
   "windy-variant":    { label: "Stürmisch",              icon: "💨" },
 };
+
+
+// v2.6 – Zeitplan-Vorlagen: ein Klick statt Wochenplan von Hand. Alle Perioden nutzen den
+// Modus "comfort" (= Wohlfühltemperatur des Zimmers); außerhalb heizt IHC auf Eco.
+const _WD = ["mon", "tue", "wed", "thu", "fri"];
+const _WE = ["sat", "sun"];
+const _ALL = [..._WD, ..._WE];
+const _P = (start, end) => ({ start, end, mode: "comfort", temperature: 21.0, offset: 0.0 });
+const SCHEDULE_TEMPLATES = [
+  { id: "work",    label: "💼 Berufstätig (morgens + abends)",  schedules: [
+    { days: _WD, periods: [_P("06:00", "08:00"), _P("17:00", "22:00")] },
+    { days: _WE, periods: [_P("08:00", "23:00")] } ] },
+  { id: "home",    label: "🏠 Homeoffice / tagsüber zu Hause", schedules: [
+    { days: _WD, periods: [_P("07:00", "22:00")] },
+    { days: _WE, periods: [_P("08:00", "23:00")] } ] },
+  { id: "family",  label: "👨‍👩‍👧 Familie mit Schulkindern",       schedules: [
+    { days: _WD, periods: [_P("06:00", "08:30"), _P("14:30", "21:30")] },
+    { days: _WE, periods: [_P("07:30", "21:30")] } ] },
+  { id: "always",  label: "🧓 Immer zu Hause",                 schedules: [
+    { days: _ALL, periods: [_P("07:00", "22:00")] } ] },
+  { id: "bedroom", label: "🛏️ Schlafzimmer (kurz morgens + abends)", schedules: [
+    { days: _ALL, periods: [_P("06:00", "07:30"), _P("21:00", "22:30")] } ] },
+  { id: "bath",    label: "🛁 Bad (morgens + abends warm)",    schedules: [
+    { days: _WD, periods: [_P("05:45", "08:00"), _P("18:00", "21:30")] },
+    { days: _WE, periods: [_P("07:30", "10:00"), _P("18:00", "21:30")] } ] },
+];

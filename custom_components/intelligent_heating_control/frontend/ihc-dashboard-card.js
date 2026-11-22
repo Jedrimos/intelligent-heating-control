@@ -22,6 +22,43 @@ const _SYS_MODE_LABELS = {
   auto: "Automatisch", heat: "Heizen",
   off: "Aus", away: "Abwesend", vacation: "Urlaub", guest: "Gäste",
 };
+// v2.6 – English for non-German HA languages: phrase replacement on the rendered card.
+const _IHC_DB_EN = [
+  ["Heizkurve (außerhalb Zeitplan)", "Heating curve (outside schedule)"], ["Zeitplan aktiv", "Schedule active"],
+  ["Vorheizen vor nächster Zeitplan-Periode", "Pre-heating for the next schedule period"], ["Manuelle Temperatur", "Manual temperature"],
+  ["Zimmer ausgeschaltet", "Room off"], ["Frostschutz", "Frost protection"], ["Zeitplan", "Schedule"],
+  ["AN", "ON"], ["AUS", "OFF"],
+  ["Keine IHC-Zimmer gefunden. Bitte Zimmer im IHC-Panel anlegen.", "No IHC rooms found. Please add rooms in the IHC panel."],
+  ["Vorheizen zur Urlaubsrückkehr aktiv", "Pre-heating for return from vacation"],
+  ["Energiepreis-Eco aktiv (hoher Strompreis)", "Price eco active (high electricity price)"],
+  ["Abwesenheits-Absenkung aktiv", "Away setback active"], ["Nachtabsenkung aktiv", "Night setback active"],
+  ["aktiv – Heizung pausiert", "active – heating paused"], ["Sommermodus", "Summer mode"], ["Urlaubsmodus", "Vacation mode"],
+  ["Gäste-Modus", "Guest mode"], ["Heizungssteuerung", "Heating control"], ["Außenfeuchte", "Outdoor humidity"],
+  ["Wärmebedarf", "Heat demand"], ["Nächste Schaltzeit", "Next switch"], ["Absenkung", "Setback"],
+  ["Automatisch", "Automatic"], ["Komfort", "Comfort"], ["Schlafen", "Sleep"], ["Abwesend", "Away"],
+  ["Manuell", "Manual"], ["Heizen", "Heat"], ["Urlaub", "Vacation"], ["Gäste", "Guests"], ["Laufzeit", "Runtime"],
+  ["Gestern", "Yesterday"], ["Heute", "Today"], ["heute", "today"], ["Heizung", "Heating"], ["Gesamt", "Total"],
+  ["Außen", "Outside"], ["Zimmer", "Rooms"], ["Schimmel", "Mould"], ["Lüften", "Ventilate"], ["Offen", "Open"],
+  ["Ist", "Current"], ["Soll", "Target"], ["Aus", "Off"], ["aktiv", "active"], ["nicht gefunden", "not found"],
+  ["Uhr", ""], ["Ab ", "From "],
+];
+function _ihcDbTranslate(root, hass) {
+  const lang = String((hass && ((hass.locale && hass.locale.language) || hass.language)) || "de").toLowerCase();
+  if (!root || lang.startsWith("de")) return;
+  const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = tw.nextNode())) {
+    if (n.parentNode && n.parentNode.nodeName === "STYLE") continue;
+    // never touch user-given room names
+    if (n.parentElement && n.parentElement.closest(".room-name,.tile-name,.compact-name")) continue;
+    let t = n.nodeValue;
+    for (const [de, en] of _IHC_DB_EN) {
+      t = t.replace(new RegExp(`(?<![\\p{L}])${de.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"), en);
+    }
+    if (t !== n.nodeValue) n.nodeValue = t;
+  }
+}
+
 const _WEATHER_ICONS = {
   "clear-night":"🌙","cloudy":"☁️","fog":"🌫️","hail":"🌨️","lightning":"⛈️",
   "lightning-rainy":"⛈️","partlycloudy":"⛅","pouring":"🌧️","rainy":"🌦️",
@@ -510,6 +547,7 @@ class IhcDashboardCard extends HTMLElement {
       <div class="rooms-grid ${this._config.compact ? "compact" : ""}">${roomTilesHtml}</div>
       ${this._renderEnergy(g)}
     `;
+    _ihcDbTranslate(card, this._hass);
 
     // System mode select
     const sysSel = card.querySelector("#sys-mode-sel");

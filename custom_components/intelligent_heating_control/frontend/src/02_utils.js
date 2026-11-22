@@ -47,6 +47,90 @@
     try { window.localStorage.setItem(key, value); } catch (e) { /* ignore */ }
   }
 
+  // ── English UI (v2.6) ──────────────────────────────────────────────────────
+  // The panel is written in German. For every other HA language the rendered DOM is
+  // translated in place (text nodes + placeholder/title/aria-label) from the generated
+  // dictionary (frontend/i18n/en.py): exact match → match without leading emoji/symbols →
+  // patterns for texts with numbers/names → word fallback for longer sentences.
+  _lang() {
+    const h = this._hass;
+    return String((h && ((h.locale && h.locale.language) || h.language)) || "de").toLowerCase();
+  }
+
+  _i18nActive() {
+    return typeof IHC_I18N_EN !== "undefined" && !this._lang().startsWith("de");
+  }
+
+  _trCore(norm) {
+    if (Object.prototype.hasOwnProperty.call(IHC_I18N_EN, norm)) return IHC_I18N_EN[norm];
+    for (const [re, rep] of IHC_I18N_EN_PATTERNS) {
+      if (re.test(norm)) {
+        const days = { Mo: "Mon", Di: "Tue", Mi: "Wed", Do: "Thu", Fr: "Fri", Sa: "Sat", So: "Sun" };
+        return norm.replace(re, rep).replace(/^(Mo|Di|Mi|Do|Fr|Sa|So)\b/, d => days[d]);
+      }
+    }
+    return null;
+  }
+
+  _tr(text) {
+    if (!text || !/[A-Za-zÄÖÜäöüß]/.test(text)) return text;
+    const m = text.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    const lead = m[1], trail = m[3];
+    const norm = m[2].replace(/\s+/g, " ");
+    let out = this._trCore(norm);
+    if (out == null) {
+      // strip leading emoji / symbols / punctuation ("🔥 Heizen", "· Zeitplan", "+ Punkt")
+      const pm = norm.match(/^([^\p{L}„"(]+)([\s\S]+)$/u);
+      if (pm) {
+        const core = this._trCore(pm[2]);
+        if (core != null) out = pm[1] + core;
+      }
+    }
+    if (out == null && norm.split(" ").length >= 3) {
+      // word fallback only for sentences - short texts are often user room names
+      out = norm;
+      for (const [de, en] of IHC_I18N_EN_WORDS) {
+        out = out.replace(new RegExp(`(?<![\\p{L}])${de.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"), en);
+      }
+      if (out === norm) out = null;
+    }
+    return out == null ? text : lead + out + trail;
+  }
+
+  _translateTree(root) {
+    if (!root || !this._i18nActive()) return;
+    const skip = new Set(["STYLE", "SCRIPT", "CODE", "TEXTAREA"]);
+    // user-given room/area names are never translated ("Gäste-WC" stays "Gäste-WC")
+    const names = new Set([
+      ...Object.values(this._getRoomData()).map(r => r.name),
+      ...Object.values((this._hass && this._hass.areas) || {}).map(a => a.name),
+    ].filter(Boolean).map(x => String(x).trim()));
+    const isName = t => {
+      const core = t.trim().replace(/^[^\p{L}]+/u, "").replace(/[:\s]+$/, "");
+      return names.has(t.trim()) || names.has(core);
+    };
+    const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = tw.nextNode())) {
+      if (n.parentNode && skip.has(n.parentNode.nodeName)) continue;
+      if (n._ihcTr === n.nodeValue) continue;
+      if (isName(n.nodeValue)) { n._ihcTr = n.nodeValue; continue; }
+      const t = this._tr(n.nodeValue);
+      if (t !== n.nodeValue) n.nodeValue = t;
+      n._ihcTr = n.nodeValue;
+    }
+    root.querySelectorAll("[placeholder],[title],[aria-label]").forEach(el => {
+      for (const a of ["placeholder", "title", "aria-label"]) {
+        const v = el.getAttribute(a);
+        if (v && el[`_ihcTr_${a}`] !== v) {
+          const t = this._tr(v);
+          if (t !== v) el.setAttribute(a, t);
+          el[`_ihcTr_${a}`] = el.getAttribute(a);
+        }
+      }
+    });
+  }
+
   // ── Einfach/Experte (v2.6) ─────────────────────────────────────────────────
   _uiMode() {
     return this._lsGet("ihc_ui_mode") === "expert" ? "expert" : "simple";

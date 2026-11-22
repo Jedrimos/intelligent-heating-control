@@ -1283,12 +1283,16 @@ class IHCCoordinator(
                     "persistent_notification",
                     "create",
                     {
-                        "title": f"IHC: Heizperiode blockiert {room_name}",
-                        "message": (
+                        "title": self._t(f"IHC: Heizperiode blockiert {room_name}",
+                                         f"IHC: heating season blocks {room_name}"),
+                        "message": self._t(
                             f"**{room_name}** würde gerade heizen, aber die Heizperiode ist "
                             "inaktiv. Per Boost trotzdem kurz aufheizen, oder in den "
                             "Zimmer-Einstellungen \"Heizperiode für dieses Zimmer ignorieren\" "
-                            "aktivieren, wenn das öfter vorkommen soll."
+                            "aktivieren, wenn das öfter vorkommen soll.",
+                            f"**{room_name}** would heat right now, but the heating season is inactive. "
+                            "Use boost for a quick warm-up, or enable \"ignore heating season for this "
+                            "room\" in the room settings if this should happen more often.",
                         ),
                         "notification_id": f"ihc_heating_period_blocked_{room_id}",
                     },
@@ -1303,6 +1307,10 @@ class IHCCoordinator(
                 )
             )
         self._heating_period_notified_rooms = should_notify_now
+
+    def _t(self, de: str, en: str) -> str:
+        """Notification text in Home Assistant's language (German, else English)."""
+        return de if str(self.hass.config.language or "de").lower().startswith("de") else en
 
     def _log_problem_once(self, key: str, message: str, *args) -> None:
         """A failing optional feature used to be logged at DEBUG only (invisible). Log the
@@ -1401,11 +1409,14 @@ class IHCCoordinator(
                 })
                 self.hass.async_create_task(self.hass.services.async_call(
                     "persistent_notification", "create", {
-                        "title": f"IHC: Fenster in {name} schließen?",
-                        "message": (
+                        "title": self._t(f"IHC: Fenster in {name} schließen?", f"IHC: close the window in {name}?"),
+                        "message": self._t(
                             f"In **{name}** ist seit {open_min} min ein Fenster offen"
                             + (f" (draußen {outdoor_temp:.0f} °C)" if outdoor_temp is not None else "")
-                            + ". Stoßlüften für 5–10 Minuten reicht – danach heizt IHC das Zimmer wieder."
+                            + ". Stoßlüften für 5–10 Minuten reicht – danach heizt IHC das Zimmer wieder.",
+                            f"A window in **{name}** has been open for {open_min} min"
+                            + (f" ({outdoor_temp:.0f} °C outside)" if outdoor_temp is not None else "")
+                            + ". 5–10 minutes of airing are enough – IHC heats the room again afterwards.",
                         ),
                         "notification_id": f"ihc_window_open_{room_id}",
                     },
@@ -1438,20 +1449,26 @@ class IHCCoordinator(
             rdata = room_data[room_id]
             elapsed = rdata.get("warmup_stall_minutes_elapsed")
             expected = rdata.get("warmup_stall_expected_minutes")
-            expected_str = f"{expected:.0f} min" if expected else "unbekannt (noch keine Lernkurve)"
+            expected_str = f"{expected:.0f} min" if expected else self._t(
+                "unbekannt (noch keine Lernkurve)", "unknown (no learning curve yet)")
             self.hass.async_create_task(
                 self.hass.services.async_call(
                     "persistent_notification",
                     "create",
                     {
-                        "title": f"IHC: {room_name} wird nicht wärmer",
-                        "message": (
+                        "title": self._t(f"IHC: {room_name} wird nicht wärmer", f"IHC: {room_name} is not warming up"),
+                        "message": self._t(
                             f"**{room_name}** heizt seit {elapsed:.0f} min ununterbrochen, "
                             f"ohne spürbar wärmer zu werden (erwartete Aufheizzeit: {expected_str}). "
                             "Mögliche Ursachen: Luft im Heizkörper, Tür zu (Zirkulation), Heizkessel/"
                             "Wärmepumpe liefert keine Wärme, oder die Ventilkalibrierung passt nicht "
                             "mehr. Das Ventil selbst meldet kein Blockieren (sonst würde die "
-                            "Festsitz-Erkennung greifen) - bitte den Heizkörper manuell prüfen."
+                            "Festsitz-Erkennung greifen) - bitte den Heizkörper manuell prüfen.",
+                            f"**{room_name}** has been heating for {elapsed:.0f} min without getting "
+                            f"noticeably warmer (expected warm-up time: {expected_str}). Possible causes: "
+                            "air in the radiator, door closed (circulation), boiler/heat pump not delivering "
+                            "heat, or the valve calibration is off. The valve itself doesn't report being "
+                            "stuck - please check the radiator.",
                         ),
                         "notification_id": f"ihc_warmup_stall_{room_id}",
                     },
