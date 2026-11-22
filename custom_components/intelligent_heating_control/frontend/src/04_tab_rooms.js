@@ -30,7 +30,7 @@
            title="Klicken für Zeitplan, Verlauf &amp; Details">
         <div class="room-list-left" style="pointer-events:none">
           <div class="room-list-name" style="display:flex;align-items:center;gap:8px">
-            ${room.name} ${schedBadge} ${demandBar}
+            ${this._esc(room.name)} ${schedBadge} ${demandBar}
           </div>
           <div class="room-list-meta">
             ${MODE_ICONS[room.room_mode] || "⚙️"} ${MODE_LABELS[room.room_mode] || room.room_mode}
@@ -72,7 +72,7 @@
     content.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <button class="btn btn-secondary" id="back-to-rooms" style="padding:6px 12px;font-size:12px">← Zurück</button>
-        <span style="font-size:18px;font-weight:700">${room.name}</span>
+        <span style="font-size:18px;font-weight:700">${this._esc(room.name)}</span>
         <span style="font-size:13px;color:var(--secondary-text-color)">
           ${room.current_temp != null ? room.current_temp + " °C" : "—"}
           → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? room.target_temp + " °C" : "—")}
@@ -152,7 +152,7 @@
 
     container.innerHTML = `
       <div class="card" style="margin-bottom:12px">
-        <div class="card-title">⚙️ Einstellungen – ${room.name}</div>
+        <div class="card-title">⚙️ Einstellungen – ${this._esc(room.name)}</div>
 
         <div class="form-group">
           <label class="form-label">Zimmer-Modus</label>
@@ -218,7 +218,7 @@
               <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
                 <input type="checkbox" class="cascade-room-check" value="${r.room_id}"
                   ${currentCascadeRooms.includes(r.room_id) ? 'checked' : ''}>
-                <span style="font-size:13px">${r.name}</span>
+                <span style="font-size:13px">${this._esc(r.name)}</span>
               </label>`).join('');
             return `
               <div style="margin-bottom:12px">
@@ -244,7 +244,7 @@
           </div>
           ${room.window_cascade_active ? `
           <div style="padding:8px 12px;border-radius:8px;background:color-mix(in srgb,#42a5f5 12%,transparent);font-size:12px;margin-top:8px">
-            🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${room.window_cascade_source || '?'}</strong>
+            🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${this._esc(room.window_cascade_source || "?")}</strong>
             (–${room.window_cascade_offset?.toFixed(1) ?? '?'} °C)
           </div>` : ''}
         </details>
@@ -723,7 +723,7 @@
             <p style="font-size:13px;color:var(--secondary-text-color);margin:12px 0 8px">
               Diese Aktion entfernt das Zimmer und alle zugehörigen Entitäten dauerhaft.<br>
               Gib zur Bestätigung den Zimmernamen ein:
-              <strong>${room.name}</strong>
+              <strong>${this._esc(room.name)}</strong>
             </p>
             <input type="text" class="form-input" id="rs-delete-confirm-name"
               placeholder="Zimmernamen eingeben…" autocomplete="off"
@@ -779,7 +779,7 @@
       boostBtn.addEventListener("click", () => {
         const dur = parseInt(container.querySelector("#rs-boost-dur")?.value, 10) || 60;
         this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
-        this._toast(`⚡ Boost ${dur} min für ${room.name}`);
+        this._toast(`⚡ Boost ${dur} min für ${this._esc(room.name)}`);
       });
     }
     const boostCancelBtn = container.querySelector("#rs-boost-cancel-btn");
@@ -873,7 +873,7 @@
         window_cascade_delay_minutes: parseInt(container.querySelector("#rs-cascade-delay")?.value, 10) || 30,
         window_cascade_offset:    parseFloat(container.querySelector("#rs-cascade-offset")?.value) || 3.0,
       });
-      this._toast(`✓ ${room.name} gespeichert`);
+      this._toast(`✓ ${this._esc(room.name)} gespeichert`);
     });
 
     // Delete confirmation: enable button only when name matches exactly
@@ -887,7 +887,7 @@
         if (deleteNameInput.value.trim() !== room.name) return;
         await this._callService("remove_room", { id: room.room_id });
         this._selectedRoom = null;
-        this._toast(`✓ Zimmer „${room.name}" gelöscht`);
+        this._toast(`✓ Zimmer „${this._esc(room.name)}" gelöscht`);
         this._renderRooms(fullContent);
       });
     }
@@ -1105,7 +1105,7 @@
       });
       // Clear buffer so next open re-reads from saved HA state
       delete this._editingSchedules[selId];
-      this._toast(`✓ Zeitpläne für „${room.name}" gespeichert`);
+      this._toast(`✓ Zeitpläne für „${this._esc(room.name)}" gespeichert`);
     });
 
     // ── HA Schedules (schedule.* entities) ────────────────────────────────
@@ -1209,7 +1209,7 @@
         ha_schedules,
         ha_schedule_off_mode,
       });
-      this._toast(`✓ HA Zeitpläne für „${room.name}" gespeichert`);
+      this._toast(`✓ HA Zeitpläne für „${this._esc(room.name)}" gespeichert`);
     });
   }
 
@@ -1316,7 +1316,7 @@
             ? `<span style="font-size:10px;color:${active ? "#66bb6a" : "#9e9e9e"}">${active ? "✓" : "✗"} ${s.condition_entity} = ${s.condition_state || "on"}</span>`
             : `<span style="font-size:10px;color:#66bb6a">Immer aktiv</span>`;
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;opacity:${active ? "1" : "0.55"}">
-            <span style="font-size:11px;font-weight:600">${name}</span>
+            <span style="font-size:11px;font-weight:600">${this._esc(name)}</span>
             ${cond}
           </div>`;
         }).join("")}
@@ -1499,7 +1499,7 @@
     })() : "";
 
     const svg = `
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${room.name}">
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${this._esc(room.name)}">
         <rect x="${padL}" y="${padT}" width="${cW}" height="${cH}" fill="var(--card-background-color,#fafafa)" rx="4" opacity="0.5"/>
         ${[0, 0.33, 0.67, 1].map(f => {
           const y = yOf(minV + f * range).toFixed(1);
@@ -1525,7 +1525,7 @@
 
     container.innerHTML = `
       <div class="card">
-        <div class="card-title">📈 Temperaturverlauf – ${room.name}</div>
+        <div class="card-title">📈 Temperaturverlauf – ${this._esc(room.name)}</div>
         <div style="padding:4px 0 12px;overflow-x:auto">${svg}</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <span style="font-size:11px;display:flex;align-items:center;gap:4px">

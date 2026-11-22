@@ -14,6 +14,45 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.6.0] - 2026-11-22
+
+### Neu
+- **Sensorlose Fenstererkennung (Temperatursturz):** Zimmer **ohne** Fenstersensor erkennen ein
+  offenes Fenster jetzt an einem plötzlichen Temperaturabfall (Standard: 0,8 °C in 6 min) und
+  pausieren das Thermostat – bis die Temperatur wieder steigt, höchstens 20 min. Global opt-in
+  unter Einstellungen (Standard aus); ein echter Fenstersensor hat immer Vorrang. Dashboard-Hinweis
+  „🪟 Fenster offen erkannt (Temperatursturz)", Attribut `window_auto_detected`.
+- **Diagnose-Download:** Geräte & Dienste → IHC → ⋮ → „Diagnose herunterladen" liefert
+  Konfiguration + Live-Entscheidung pro Zimmer als JSON (Standort/Personen geschwärzt) – ideal für
+  Bug-Reports.
+
+### Behoben
+- **Lüftungsempfehlung war komplett kaputt:** ein Tippfehler (`mold` statt `room_humidity`) warf bei
+  jedem Zyklus einen stillen Fehler – Lüftungsempfehlung, `co2_ppm` und CO₂-Prognose blieben für
+  alle Zimmer leer, die Lüftungs-Binary-Sensoren waren nie „an".
+- **Kalkschutz schaltete Zimmer auf „Manuell 30 °C":** während der Ventilübung meldete das
+  Thermostat seinen Maximalwert, IHC hielt das für eine Handverstellung – das Zimmer heizte danach
+  bis zum nächsten Zeitplanwechsel auf Maximum. Außerdem: Kindersicherung wird respektiert, im
+  Sommer ausgeschaltete Thermostate werden für die Übung eingeschaltet (vorher öffnete das Ventil
+  gar nicht), kein Hin-und-Her mehr zwischen Übung und normalem Sollwert.
+- **Batterie-Drain im Sommer:** „Thermostat aus" wurde jede Minute erneut an jedes TRV gesendet,
+  auch wenn es schon aus war (ebenso der Frostschutz-Sollwert bei TRVs ohne Aus-Modus).
+- **Fenster-offen-Temperatur heizte ausgeschaltete Zimmer:** mit konfigurierter
+  `window_open_temp` bekam ein Zimmer im Modus Aus, bei System Aus oder Sommerautomatik trotzdem
+  z. B. 15 °C gesendet, sobald ein Fenster offen war.
+- **Fenster-Wiederherstellung „vorheriger Wert" wirkte nur 60 Sekunden:** der wiederhergestellte
+  Sollwert wird jetzt gehalten, bis Zeitplan/Modus wirklich wechseln.
+- **Zeitpläne liefen in der falschen Zeitzone,** wenn Betriebssystem und Home Assistant
+  unterschiedliche Zeitzonen haben (z. B. Docker ohne `TZ`): Zeitplan, Vorheizen, Manuell-Reset und
+  Verlaufs-Zeitstempel nutzen jetzt durchgehend die HA-Zeitzone.
+- **Gefühlte-Temperatur-Anpassung** wurde erst nach der Anforderungsberechnung angewendet –
+  angezeigte Anforderung und gesendeter Sollwert passten nicht zusammen.
+- **Boost per TRV-Preset** konnte fälschlich als manuelle Verstellung erkannt werden.
+- **Panel:** Zimmernamen mit `&`, `<` oder Anführungszeichen zerschossen die Anzeige (jetzt
+  escaped); Panel blieb leer, wenn der Browser `localStorage` blockiert (Privatmodus,
+  eingeschränkte App-Webviews); Übersicht zeigte TRV- statt Raumsensor-Luftfeuchte; „gefühlt"-Chip
+  zeigte immer 🥵, auch wenn es sich kälter anfühlt; Ø-Aufheizzeit wird gerundet.
+
 ## [2.5.0] - 2026-11-11
 
 ### Neu

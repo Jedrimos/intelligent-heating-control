@@ -409,7 +409,7 @@
             const boxes = Object.values(allRooms).map(r => `
               <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
                 <input type="checkbox" class="m-cascade-room-check" value="${r.room_id}">
-                <span style="font-size:13px">${r.name}</span>
+                <span style="font-size:13px">${this._esc(r.name)}</span>
               </label>`).join("");
             return `<div style="margin-bottom:12px">
               <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
@@ -651,7 +651,7 @@
          </div>`;
 
     this._showModal(`
-      <div class="modal-title">✏️ ${room.name} bearbeiten</div>
+      <div class="modal-title">✏️ ${this._esc(room.name)} bearbeiten</div>
 
       <div class="info-box" style="margin-bottom:12px">
         Ist: <strong>${room.current_temp ?? "—"} °C</strong>
@@ -980,7 +980,7 @@
             const boxes = otherRooms.map(r => `
               <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
                 <input type="checkbox" class="m-cascade-room-check" value="${r.room_id}" ${current.includes(r.room_id) ? "checked" : ""}>
-                <span style="font-size:13px">${r.name}</span>
+                <span style="font-size:13px">${this._esc(r.name)}</span>
               </label>`).join("");
             return `<div style="margin-bottom:12px">
               <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
@@ -1350,7 +1350,7 @@
         ha_schedules,
       });
       this._closeModal();
-      this._toast(`✓ ${room.name} gespeichert`);
+      this._toast(`✓ ${this._esc(room.name)} gespeichert`);
     });
 
     // Boost buttons inside modal
@@ -1361,7 +1361,7 @@
         boostBtn.addEventListener("click", () => {
           const dur = parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60;
           this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
-          this._toast(`⚡ Boost ${dur} min für ${room.name}`);
+          this._toast(`⚡ Boost ${dur} min für ${this._esc(room.name)}`);
           this._closeModal();
         });
       }
@@ -1369,7 +1369,7 @@
       if (cancelBtn) {
         cancelBtn.addEventListener("click", () => {
           this._callService("boost_room", { id: room.room_id, cancel: true });
-          this._toast(`✓ Boost für ${room.name} beendet`);
+          this._toast(`✓ Boost für ${this._esc(room.name)} beendet`);
           this._closeModal();
         });
       }

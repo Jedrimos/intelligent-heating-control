@@ -131,7 +131,7 @@
         const offset = parseFloat(r.room_offset ?? 0);
         const eff = (base + offset).toFixed(1);
         return `<span style="font-size:11px;padding:3px 8px;border-radius:8px;background:var(--secondary-background-color);border:1px solid var(--divider-color)">
-          ${r.name}: <strong>${eff} °C</strong>${offset !== 0 ? ` <span style="color:var(--secondary-text-color)">(${offset > 0 ? "+" : ""}${offset})</span>` : ""}
+          ${this._esc(r.name)}: <strong>${eff} °C</strong>${offset !== 0 ? ` <span style="color:var(--secondary-text-color)">(${offset > 0 ? "+" : ""}${offset})</span>` : ""}
         </span>`;
       }).join("");
     };

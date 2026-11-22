@@ -112,9 +112,10 @@
         alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
       }
       if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
+      if (room.window_auto_detected)       alerts.push(`<div class="room-alert alert-info" title="Kein Fenstersensor - erkannt an einem plötzlichen Temperatursturz">🪟 Fenster offen erkannt (Temperatursturz) – Heizung pausiert</div>`);
       // Fenster-Kaskade: zeigt welches Zimmer diese Absenkung verursacht
       if (room.window_cascade_active) {
-        const src = room.window_cascade_source || "anderes Zimmer";
+        const src = this._esc(room.window_cascade_source || "anderes Zimmer");
         const off = room.window_cascade_offset != null ? ` (–${parseFloat(room.window_cascade_offset).toFixed(1)} °C)` : "";
         alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${off}: Fenster offen in <strong>${src}</strong></div>`);
       }
@@ -147,18 +148,25 @@
           ${room.trv_avg_valve != null && room.trv_avg_valve > 0 ? `<span class="trv-chip" style="background:#e3f2fd;color:#1565c0" title="Ventilöffnung Ø">🔧 ${Math.round(room.trv_avg_valve)}%</span>` : ""}
           ${room.humidity != null ? `<span class="trv-chip" style="background:#e1f5fe;color:#0277bd" title="Raum-Luftfeuchtigkeit (Sensor)">💧 ${Math.round(room.humidity)}%</span>` : ""}
           ${room.trv_humidity != null ? `<span class="trv-chip" style="background:#e8f5e9;color:#2e7d32" title="Luftfeuchtigkeit am Thermostat">💧 TRV ${Math.round(room.trv_humidity)}%</span>` : ""}
-          ${room.felt_temperature != null ? `<span class="trv-chip" style="background:#fff8e1;color:#f57f17" title="Gefühlte Temperatur">🥵 gefühlt ${parseFloat(room.felt_temperature).toFixed(1)}°</span>` : ""}
+          ${room.felt_temperature != null ? (() => {
+            // Emoji follows the direction of the deviation - a room that feels colder
+            // than measured used to show the "hot face" emoji too.
+            const felt = parseFloat(room.felt_temperature);
+            const diff = room.current_temp != null ? felt - parseFloat(room.current_temp) : 0;
+            const icon = diff <= -0.5 ? "🥶" : diff >= 0.5 ? "🥵" : "🙂";
+            return `<span class="trv-chip" style="background:#fff8e1;color:#f57f17" title="Gefühlte Temperatur (Luftfeuchte berücksichtigt)">${icon} gefühlt ${felt.toFixed(1)}°</span>`;
+          })() : ""}
           ${room.trv_min_battery != null ? `<span class="trv-chip" style="background:${batBg};color:${batColor}" title="TRV-Batterie (niedrigster Wert)">${batIcon} ${room.trv_min_battery}%</span>` : ""}
           ${room.trv_any_heating ? `<span class="trv-chip" style="background:#fce4ec;color:#c62828" title="TRV heizt aktiv">🔥</span>` : ""}
         </div>` : "";
 
       // Footer info
       const footerParts = [];
-      const showRuntime = localStorage.getItem("ihc_show_runtime") !== "false";
-      const showCosts   = localStorage.getItem("ihc_show_costs") !== "false";
+      const showRuntime = this._lsGet("ihc_show_runtime") !== "false";
+      const showCosts   = this._lsGet("ihc_show_costs") !== "false";
       if (showRuntime && room.runtime_today_minutes > 0) footerParts.push(`⏱ ${room.runtime_today_minutes} min`);
       if (showCosts && room.energy_today_kwh > 0) footerParts.push(this._costStr(room.energy_today_kwh, g.static_energy_price));
-      if (room.avg_warmup_minutes) footerParts.push(`Ø Aufheiz: ${room.avg_warmup_minutes} min`);
+      if (room.avg_warmup_minutes) footerParts.push(`Ø Aufheiz: ${Math.round(room.avg_warmup_minutes)} min`);
       if (room.next_period && !room.schedule_active) {
         const np = room.next_period;
         const npMode = np.mode && np.mode !== "manual" ? np.mode : null;
@@ -176,7 +184,7 @@
           <div class="room-card-inner">
             ${alertsHtml}
             <div class="room-header">
-              <div class="room-name">${room.name}</div>
+              <div class="room-name">${this._esc(room.name)}</div>
               <div class="room-status-chips">${statusBadge}</div>
             </div>
             <div class="room-temp-row">
@@ -289,8 +297,8 @@
           <div class="hero-label">Gesamtanforderung</div>
           <div class="hero-value ${demandCls}">${demandNum}</div>
           ${(() => {
-            const showRuntime = localStorage.getItem("ihc_show_runtime") !== "false";
-            const showCosts   = localStorage.getItem("ihc_show_costs") !== "false";
+            const showRuntime = this._lsGet("ihc_show_runtime") !== "false";
+            const showCosts   = this._lsGet("ihc_show_costs") !== "false";
             if (!showRuntime && !showCosts) return "";
             const parts = [];
             if (showRuntime && g.heating_runtime_today > 0) parts.push(`⏱ ${g.heating_runtime_today} min`);
@@ -350,7 +358,7 @@
           <div class="status-value" style="color:${g.energy_price_eco_active ? "#ef5350" : "#66bb6a"}">${g.energy_price.toFixed(3)}</div>
           <div style="font-size:10px;color:var(--secondary-text-color)">€/kWh</div>
         </div>` : ""}
-        ${g.heating_runtime_yesterday > 0 && localStorage.getItem("ihc_show_energy") !== "false" ? `<div class="status-item" title="Gestriger Verbrauch">
+        ${g.heating_runtime_yesterday > 0 && this._lsGet("ihc_show_energy") !== "false" ? `<div class="status-item" title="Gestriger Verbrauch">
           <div class="status-label">Gestern</div>
           <div class="status-value ${g.energy_today_kwh > g.energy_yesterday_kwh ? "on" : "ok"}" style="font-size:13px">${this._costStr(g.energy_yesterday_kwh, g.static_energy_price)}</div>
         </div>` : ""}

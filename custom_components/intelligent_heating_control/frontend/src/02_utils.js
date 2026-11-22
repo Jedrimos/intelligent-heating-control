@@ -36,6 +36,17 @@
     }[c]));
   }
 
+  // localStorage can throw (privacy mode, restricted webviews in the companion
+  // app, blocked site data). A throw here used to abort the whole tab render
+  // and leave the panel blank - these wrappers fail soft instead.
+  _lsGet(key) {
+    try { return window.localStorage.getItem(key); } catch (e) { return null; }
+  }
+
+  _lsSet(key, value) {
+    try { window.localStorage.setItem(key, value); } catch (e) { /* ignore */ }
+  }
+
   // Some HA versions prepend the device name to the auto-generated object_id
   // (e.g. "sensor.intelligent_heating_control_ihc_gesamtanforderung" instead of
   // "sensor.ihc_gesamtanforderung"), depending on entity registry history.
@@ -67,6 +78,7 @@
         preset: state.attributes.preset_mode || "auto",
         demand: state.attributes.demand || 0,
         window_open: state.attributes.window_open || false,
+        window_auto_detected: state.attributes.window_auto_detected === true,
         room_mode: state.attributes.room_mode || "auto",
         schedule_active: state.attributes.schedule_active || false,
         source: state.attributes.source || "",
@@ -75,7 +87,6 @@
         runtime_today_minutes: 0,
         temp_history: [],
         target_history: [],
-        avg_warmup_minutes: null,
         // Room config (from climate entity extra_state_attributes)
         temp_sensor: state.attributes.temp_sensor || "",
         valve_entities: state.attributes.valve_entities || [],
@@ -334,7 +345,7 @@
   // ── Energy correction factor ────────────────────────────────────────────────
   // Applies the user-set calibration factor (stored in localStorage) to kWh values.
   _kwh(raw) {
-    const factor = parseFloat(localStorage.getItem("ihc_energy_factor") || "1") || 1;
+    const factor = parseFloat(this._lsGet("ihc_energy_factor") || "1") || 1;
     return Math.round(raw * factor * 10) / 10;
   }
 
@@ -343,7 +354,7 @@
   _costStr(rawKwh, staticPrice) {
     const kwh = this._kwh(rawKwh);
     const parts = [`~${kwh} kWh`];
-    const price = staticPrice ?? (parseFloat(localStorage.getItem("ihc_static_price") || "") || null);
+    const price = staticPrice ?? (parseFloat(this._lsGet("ihc_static_price") || "") || null);
     if (price && kwh > 0) parts.push(`≈ ${(kwh * price).toFixed(2)} €`);
     return parts.join(" · ");
   }

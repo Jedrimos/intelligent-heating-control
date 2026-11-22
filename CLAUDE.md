@@ -11,7 +11,7 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.5.0`
+- **Version:** `2.6.0`
 - **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
@@ -1273,6 +1273,24 @@ regeln weiterhin jedes Zimmer einzeln, siehe Kapitel 1/14).
 
 ---
 
+### Release 2.6.0 (2026-11-22): Review + Konkurrenzvergleich
+
+- [x] Sensorlose Fenstererkennung (Temperatursturz) – global opt-in, nur Zimmer ohne Fenstersensor
+  (`CONF_WINDOW_AUTO_DETECT_*`, reine Logik in `window_auto_detect.py`, unit-getestet). Wirkt NICHT
+  auf die Fenster-Kaskade (die liest nur echte Sensoren in Phase 3).
+- [x] `diagnostics.py` (Diagnose-Download, geschwärzt)
+- [x] 8 Backend- + 5 Panel-Bugs, siehe CHANGELOG 2.6.0
+- **Zeitzonen-Regel:** Uhrzeit-/Wochentag-Entscheidungen IMMER mit `dt_util.now()`, nie
+  `datetime.now()` (OS-Zeitzone ≠ HA-Zeitzone in Docker). `ScheduleManager`-Methoden bekommen
+  `now=dt_util.now()` explizit übergeben. Reine Dauer-Messungen (Boost-Ende etc.) dürfen naiv bleiben.
+- **Frontend-Regel:** Zimmernamen und andere Freitexte nur über `this._esc()` ins HTML,
+  `localStorage` nur über `this._lsGet()/_lsSet()`.
+- Offen (Vorschläge aus dem Review): englische Panel-Übersetzung (Voraussetzung für breite
+  HACS-Nutzung), Repairs statt Persistent-Notifications, Sicherheitsmodus bei ausgefallenem
+  Raumsensor (Versatile-Thermostat-Stil), Lernende Fenster-Schwellwerte pro Zimmer.
+
+---
+
 ## 15. Prioritätenkette (zentrale Entscheidungsreihenfolge)
 
 > **Backlog 2026-11-02** (Vergleich mit `sandreialexandru/Smart-Heating-Control`, deren Blueprint
@@ -1324,11 +1342,13 @@ erst ausgewertet:
 23. **Kälteprognose-Boost** (additiv, gleiche Sperrliste wie 20)
 24. **CO₂-Vorheiz-Boost** (+1°C, gleiche Sperrliste wie 20)
 25. **Fenster-Restore** (`CONF_WINDOW_RESTORE_MODE=="previous"`) – stellt beim Schließen den
-    Wert von VOR dem Öffnen wieder her, überschreibt 1-24 komplett für diesen Zyklus
+    Wert von VOR dem Öffnen wieder her und **hält** ihn (`_window_restore_hold`, seit 2.6.0), bis
+    sich die Basis-Entscheidung aus A (Regel + Zieltemp vor Boosts) ändert. Nicht bei System-/
+    Schwellen-/Aus-Regeln
 26. **Fenster-Kaskade** (Nachbarraum lüftet zu lange) – senkt ab, übersprungen bei eigenem
     offenem Fenster oder Zimmermodus Aus
 27. **Gefühlte-Temperatur-Anpassung** (`CONF_FELT_TEMP_ADJUSTMENT_ENABLED`, opt-in, additiv,
-    gleiche Sperrliste wie 20)
+    gleiche Sperrliste wie 20) – seit 2.6.0 VOR der Demand-Berechnung (Phase C), vorher danach
 28. Quantisierung auf 0.5°C-Schritte (`display_target` – das was TRVs tatsächlich bekommen)
 
 ### C) Anforderung/Demand-Gating (ebenfalls `_process_room()`, nach B, plus Phase 5)
@@ -1346,9 +1366,13 @@ gesendet wird, unabhängig von A-C, kann deren Ergebnis komplett verwerfen)
 
 34. **Start-Gnadenfrist** (`startup_grace_active`) – ALLE Zimmer auf Frostschutz, Sensoren werden
     noch initialisiert (höchste Priorität in Phase D)
-35. **Fenster offen** – TRV aus (oder `CONF_WINDOW_OPEN_TEMP` falls konfiguriert)
+35. **Fenster offen** (Sensor ODER seit 2.6.0 sensorlose Temperatursturz-Erkennung,
+    `window_auto_detect.py`) – TRV aus. `CONF_WINDOW_OPEN_TEMP` wird nur gesendet, wenn das Zimmer
+    sonst heizen würde (nicht bei 36/39 – vor 2.6.0 bekam ein ausgeschaltetes Zimmer 15 °C)
 36. Zimmermodus **Aus** (außer `system_override_active`) ODER Systemmodus **Aus** (außer
     `CONF_OFF_USE_FROST_PROTECTION`) – TRV aus
+    (Kalkschutz-Ventilübung: Ventile in `_limescale_in_progress` werden von Phase D und der
+    Override-Erkennung komplett übersprungen, bis die Übung endet)
 37. **Boost aktiv** – übersteuert Sommerautomatik/inaktive Heizperiode bewusst (zeitlich
     begrenzt, läuft automatisch ab)
 38. **Temperaturschwelle** (`temp_threshold_override`) – aus demselben Grund wie Boost

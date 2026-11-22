@@ -782,7 +782,7 @@ class IHCPanel extends HTMLElement {
           <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
         </button>
         <span class="topbar-title">Intelligent Heating Control</span>
-        <span class="topbar-version">v2.5.0</span>
+        <span class="topbar-version">v2.6.0</span>
       `;
       shadow.appendChild(topbar);
       // Toggle HA sidebar – single event only (dispatching multiple events causes double-toggle)
@@ -936,6 +936,17 @@ class IHCPanel extends HTMLElement {
     }[c]));
   }
 
+  // localStorage can throw (privacy mode, restricted webviews in the companion
+  // app, blocked site data). A throw here used to abort the whole tab render
+  // and leave the panel blank - these wrappers fail soft instead.
+  _lsGet(key) {
+    try { return window.localStorage.getItem(key); } catch (e) { return null; }
+  }
+
+  _lsSet(key, value) {
+    try { window.localStorage.setItem(key, value); } catch (e) { /* ignore */ }
+  }
+
   // Some HA versions prepend the device name to the auto-generated object_id
   // (e.g. "sensor.intelligent_heating_control_ihc_gesamtanforderung" instead of
   // "sensor.ihc_gesamtanforderung"), depending on entity registry history.
@@ -967,6 +978,7 @@ class IHCPanel extends HTMLElement {
         preset: state.attributes.preset_mode || "auto",
         demand: state.attributes.demand || 0,
         window_open: state.attributes.window_open || false,
+        window_auto_detected: state.attributes.window_auto_detected === true,
         room_mode: state.attributes.room_mode || "auto",
         schedule_active: state.attributes.schedule_active || false,
         source: state.attributes.source || "",
@@ -975,7 +987,6 @@ class IHCPanel extends HTMLElement {
         runtime_today_minutes: 0,
         temp_history: [],
         target_history: [],
-        avg_warmup_minutes: null,
         // Room config (from climate entity extra_state_attributes)
         temp_sensor: state.attributes.temp_sensor || "",
         valve_entities: state.attributes.valve_entities || [],
@@ -1234,7 +1245,7 @@ class IHCPanel extends HTMLElement {
   // ── Energy correction factor ────────────────────────────────────────────────
   // Applies the user-set calibration factor (stored in localStorage) to kWh values.
   _kwh(raw) {
-    const factor = parseFloat(localStorage.getItem("ihc_energy_factor") || "1") || 1;
+    const factor = parseFloat(this._lsGet("ihc_energy_factor") || "1") || 1;
     return Math.round(raw * factor * 10) / 10;
   }
 
@@ -1243,7 +1254,7 @@ class IHCPanel extends HTMLElement {
   _costStr(rawKwh, staticPrice) {
     const kwh = this._kwh(rawKwh);
     const parts = [`~${kwh} kWh`];
-    const price = staticPrice ?? (parseFloat(localStorage.getItem("ihc_static_price") || "") || null);
+    const price = staticPrice ?? (parseFloat(this._lsGet("ihc_static_price") || "") || null);
     if (price && kwh > 0) parts.push(`≈ ${(kwh * price).toFixed(2)} €`);
     return parts.join(" · ");
   }
@@ -1709,9 +1720,10 @@ class IHCPanel extends HTMLElement {
         alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
       }
       if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
+      if (room.window_auto_detected)       alerts.push(`<div class="room-alert alert-info" title="Kein Fenstersensor - erkannt an einem plötzlichen Temperatursturz">🪟 Fenster offen erkannt (Temperatursturz) – Heizung pausiert</div>`);
       // Fenster-Kaskade: zeigt welches Zimmer diese Absenkung verursacht
       if (room.window_cascade_active) {
-        const src = room.window_cascade_source || "anderes Zimmer";
+        const src = this._esc(room.window_cascade_source || "anderes Zimmer");
         const off = room.window_cascade_offset != null ? ` (–${parseFloat(room.window_cascade_offset).toFixed(1)} °C)` : "";
         alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${off}: Fenster offen in <strong>${src}</strong></div>`);
       }
@@ -1744,18 +1756,25 @@ class IHCPanel extends HTMLElement {
           ${room.trv_avg_valve != null && room.trv_avg_valve > 0 ? `<span class="trv-chip" style="background:#e3f2fd;color:#1565c0" title="Ventilöffnung Ø">🔧 ${Math.round(room.trv_avg_valve)}%</span>` : ""}
           ${room.humidity != null ? `<span class="trv-chip" style="background:#e1f5fe;color:#0277bd" title="Raum-Luftfeuchtigkeit (Sensor)">💧 ${Math.round(room.humidity)}%</span>` : ""}
           ${room.trv_humidity != null ? `<span class="trv-chip" style="background:#e8f5e9;color:#2e7d32" title="Luftfeuchtigkeit am Thermostat">💧 TRV ${Math.round(room.trv_humidity)}%</span>` : ""}
-          ${room.felt_temperature != null ? `<span class="trv-chip" style="background:#fff8e1;color:#f57f17" title="Gefühlte Temperatur">🥵 gefühlt ${parseFloat(room.felt_temperature).toFixed(1)}°</span>` : ""}
+          ${room.felt_temperature != null ? (() => {
+            // Emoji follows the direction of the deviation - a room that feels colder
+            // than measured used to show the "hot face" emoji too.
+            const felt = parseFloat(room.felt_temperature);
+            const diff = room.current_temp != null ? felt - parseFloat(room.current_temp) : 0;
+            const icon = diff <= -0.5 ? "🥶" : diff >= 0.5 ? "🥵" : "🙂";
+            return `<span class="trv-chip" style="background:#fff8e1;color:#f57f17" title="Gefühlte Temperatur (Luftfeuchte berücksichtigt)">${icon} gefühlt ${felt.toFixed(1)}°</span>`;
+          })() : ""}
           ${room.trv_min_battery != null ? `<span class="trv-chip" style="background:${batBg};color:${batColor}" title="TRV-Batterie (niedrigster Wert)">${batIcon} ${room.trv_min_battery}%</span>` : ""}
           ${room.trv_any_heating ? `<span class="trv-chip" style="background:#fce4ec;color:#c62828" title="TRV heizt aktiv">🔥</span>` : ""}
         </div>` : "";
 
       // Footer info
       const footerParts = [];
-      const showRuntime = localStorage.getItem("ihc_show_runtime") !== "false";
-      const showCosts   = localStorage.getItem("ihc_show_costs") !== "false";
+      const showRuntime = this._lsGet("ihc_show_runtime") !== "false";
+      const showCosts   = this._lsGet("ihc_show_costs") !== "false";
       if (showRuntime && room.runtime_today_minutes > 0) footerParts.push(`⏱ ${room.runtime_today_minutes} min`);
       if (showCosts && room.energy_today_kwh > 0) footerParts.push(this._costStr(room.energy_today_kwh, g.static_energy_price));
-      if (room.avg_warmup_minutes) footerParts.push(`Ø Aufheiz: ${room.avg_warmup_minutes} min`);
+      if (room.avg_warmup_minutes) footerParts.push(`Ø Aufheiz: ${Math.round(room.avg_warmup_minutes)} min`);
       if (room.next_period && !room.schedule_active) {
         const np = room.next_period;
         const npMode = np.mode && np.mode !== "manual" ? np.mode : null;
@@ -1773,7 +1792,7 @@ class IHCPanel extends HTMLElement {
           <div class="room-card-inner">
             ${alertsHtml}
             <div class="room-header">
-              <div class="room-name">${room.name}</div>
+              <div class="room-name">${this._esc(room.name)}</div>
               <div class="room-status-chips">${statusBadge}</div>
             </div>
             <div class="room-temp-row">
@@ -1886,8 +1905,8 @@ class IHCPanel extends HTMLElement {
           <div class="hero-label">Gesamtanforderung</div>
           <div class="hero-value ${demandCls}">${demandNum}</div>
           ${(() => {
-            const showRuntime = localStorage.getItem("ihc_show_runtime") !== "false";
-            const showCosts   = localStorage.getItem("ihc_show_costs") !== "false";
+            const showRuntime = this._lsGet("ihc_show_runtime") !== "false";
+            const showCosts   = this._lsGet("ihc_show_costs") !== "false";
             if (!showRuntime && !showCosts) return "";
             const parts = [];
             if (showRuntime && g.heating_runtime_today > 0) parts.push(`⏱ ${g.heating_runtime_today} min`);
@@ -1947,7 +1966,7 @@ class IHCPanel extends HTMLElement {
           <div class="status-value" style="color:${g.energy_price_eco_active ? "#ef5350" : "#66bb6a"}">${g.energy_price.toFixed(3)}</div>
           <div style="font-size:10px;color:var(--secondary-text-color)">€/kWh</div>
         </div>` : ""}
-        ${g.heating_runtime_yesterday > 0 && localStorage.getItem("ihc_show_energy") !== "false" ? `<div class="status-item" title="Gestriger Verbrauch">
+        ${g.heating_runtime_yesterday > 0 && this._lsGet("ihc_show_energy") !== "false" ? `<div class="status-item" title="Gestriger Verbrauch">
           <div class="status-label">Gestern</div>
           <div class="status-value ${g.energy_today_kwh > g.energy_yesterday_kwh ? "on" : "ok"}" style="font-size:13px">${this._costStr(g.energy_yesterday_kwh, g.static_energy_price)}</div>
         </div>` : ""}
@@ -2066,7 +2085,7 @@ class IHCPanel extends HTMLElement {
            title="Klicken für Zeitplan, Verlauf &amp; Details">
         <div class="room-list-left" style="pointer-events:none">
           <div class="room-list-name" style="display:flex;align-items:center;gap:8px">
-            ${room.name} ${schedBadge} ${demandBar}
+            ${this._esc(room.name)} ${schedBadge} ${demandBar}
           </div>
           <div class="room-list-meta">
             ${MODE_ICONS[room.room_mode] || "⚙️"} ${MODE_LABELS[room.room_mode] || room.room_mode}
@@ -2108,7 +2127,7 @@ class IHCPanel extends HTMLElement {
     content.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <button class="btn btn-secondary" id="back-to-rooms" style="padding:6px 12px;font-size:12px">← Zurück</button>
-        <span style="font-size:18px;font-weight:700">${room.name}</span>
+        <span style="font-size:18px;font-weight:700">${this._esc(room.name)}</span>
         <span style="font-size:13px;color:var(--secondary-text-color)">
           ${room.current_temp != null ? room.current_temp + " °C" : "—"}
           → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? room.target_temp + " °C" : "—")}
@@ -2188,7 +2207,7 @@ class IHCPanel extends HTMLElement {
 
     container.innerHTML = `
       <div class="card" style="margin-bottom:12px">
-        <div class="card-title">⚙️ Einstellungen – ${room.name}</div>
+        <div class="card-title">⚙️ Einstellungen – ${this._esc(room.name)}</div>
 
         <div class="form-group">
           <label class="form-label">Zimmer-Modus</label>
@@ -2254,7 +2273,7 @@ class IHCPanel extends HTMLElement {
               <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
                 <input type="checkbox" class="cascade-room-check" value="${r.room_id}"
                   ${currentCascadeRooms.includes(r.room_id) ? 'checked' : ''}>
-                <span style="font-size:13px">${r.name}</span>
+                <span style="font-size:13px">${this._esc(r.name)}</span>
               </label>`).join('');
             return `
               <div style="margin-bottom:12px">
@@ -2280,7 +2299,7 @@ class IHCPanel extends HTMLElement {
           </div>
           ${room.window_cascade_active ? `
           <div style="padding:8px 12px;border-radius:8px;background:color-mix(in srgb,#42a5f5 12%,transparent);font-size:12px;margin-top:8px">
-            🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${room.window_cascade_source || '?'}</strong>
+            🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${this._esc(room.window_cascade_source || "?")}</strong>
             (–${room.window_cascade_offset?.toFixed(1) ?? '?'} °C)
           </div>` : ''}
         </details>
@@ -2759,7 +2778,7 @@ class IHCPanel extends HTMLElement {
             <p style="font-size:13px;color:var(--secondary-text-color);margin:12px 0 8px">
               Diese Aktion entfernt das Zimmer und alle zugehörigen Entitäten dauerhaft.<br>
               Gib zur Bestätigung den Zimmernamen ein:
-              <strong>${room.name}</strong>
+              <strong>${this._esc(room.name)}</strong>
             </p>
             <input type="text" class="form-input" id="rs-delete-confirm-name"
               placeholder="Zimmernamen eingeben…" autocomplete="off"
@@ -2815,7 +2834,7 @@ class IHCPanel extends HTMLElement {
       boostBtn.addEventListener("click", () => {
         const dur = parseInt(container.querySelector("#rs-boost-dur")?.value, 10) || 60;
         this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
-        this._toast(`⚡ Boost ${dur} min für ${room.name}`);
+        this._toast(`⚡ Boost ${dur} min für ${this._esc(room.name)}`);
       });
     }
     const boostCancelBtn = container.querySelector("#rs-boost-cancel-btn");
@@ -2909,7 +2928,7 @@ class IHCPanel extends HTMLElement {
         window_cascade_delay_minutes: parseInt(container.querySelector("#rs-cascade-delay")?.value, 10) || 30,
         window_cascade_offset:    parseFloat(container.querySelector("#rs-cascade-offset")?.value) || 3.0,
       });
-      this._toast(`✓ ${room.name} gespeichert`);
+      this._toast(`✓ ${this._esc(room.name)} gespeichert`);
     });
 
     // Delete confirmation: enable button only when name matches exactly
@@ -2923,7 +2942,7 @@ class IHCPanel extends HTMLElement {
         if (deleteNameInput.value.trim() !== room.name) return;
         await this._callService("remove_room", { id: room.room_id });
         this._selectedRoom = null;
-        this._toast(`✓ Zimmer „${room.name}" gelöscht`);
+        this._toast(`✓ Zimmer „${this._esc(room.name)}" gelöscht`);
         this._renderRooms(fullContent);
       });
     }
@@ -3141,7 +3160,7 @@ class IHCPanel extends HTMLElement {
       });
       // Clear buffer so next open re-reads from saved HA state
       delete this._editingSchedules[selId];
-      this._toast(`✓ Zeitpläne für „${room.name}" gespeichert`);
+      this._toast(`✓ Zeitpläne für „${this._esc(room.name)}" gespeichert`);
     });
 
     // ── HA Schedules (schedule.* entities) ────────────────────────────────
@@ -3245,7 +3264,7 @@ class IHCPanel extends HTMLElement {
         ha_schedules,
         ha_schedule_off_mode,
       });
-      this._toast(`✓ HA Zeitpläne für „${room.name}" gespeichert`);
+      this._toast(`✓ HA Zeitpläne für „${this._esc(room.name)}" gespeichert`);
     });
   }
 
@@ -3352,7 +3371,7 @@ class IHCPanel extends HTMLElement {
             ? `<span style="font-size:10px;color:${active ? "#66bb6a" : "#9e9e9e"}">${active ? "✓" : "✗"} ${s.condition_entity} = ${s.condition_state || "on"}</span>`
             : `<span style="font-size:10px;color:#66bb6a">Immer aktiv</span>`;
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;opacity:${active ? "1" : "0.55"}">
-            <span style="font-size:11px;font-weight:600">${name}</span>
+            <span style="font-size:11px;font-weight:600">${this._esc(name)}</span>
             ${cond}
           </div>`;
         }).join("")}
@@ -3535,7 +3554,7 @@ class IHCPanel extends HTMLElement {
     })() : "";
 
     const svg = `
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${room.name}">
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${this._esc(room.name)}">
         <rect x="${padL}" y="${padT}" width="${cW}" height="${cH}" fill="var(--card-background-color,#fafafa)" rx="4" opacity="0.5"/>
         ${[0, 0.33, 0.67, 1].map(f => {
           const y = yOf(minV + f * range).toFixed(1);
@@ -3561,7 +3580,7 @@ class IHCPanel extends HTMLElement {
 
     container.innerHTML = `
       <div class="card">
-        <div class="card-title">📈 Temperaturverlauf – ${room.name}</div>
+        <div class="card-title">📈 Temperaturverlauf – ${this._esc(room.name)}</div>
         <div style="padding:4px 0 12px;overflow-x:auto">${svg}</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <span style="font-size:11px;display:flex;align-items:center;gap:4px">
@@ -3800,7 +3819,7 @@ class IHCPanel extends HTMLElement {
           <div style="display:flex;flex-wrap:wrap;gap:6px">
             ${preheatingRooms.map(r =>
               `<span style="background:color-mix(in srgb,#ef5350 15%,transparent);padding:3px 10px;border-radius:12px;font-size:12px">
-                ⏱ ${r.name} → ${r.target_temp != null ? r.target_temp + " °C" : "—"}
+                ⏱ ${this._esc(r.name)} → ${r.target_temp != null ? r.target_temp + " °C" : "—"}
               </span>`).join("")}
           </div>` : `
           <div style="font-size:12px;color:var(--secondary-text-color)">
@@ -3822,8 +3841,9 @@ class IHCPanel extends HTMLElement {
       else if (r.room_mode === "away")    effTemp = r.away_temp_eff;
       const effHtml = effTemp != null ? `<span style="font-size:10px;color:var(--secondary-text-color);margin-left:2px">(→${parseFloat(effTemp).toFixed(1)})</span>` : "";
 
-      // Humidity from TRV or mold data
-      const humidity = r.trv_humidity != null ? r.trv_humidity : (r.mold?.humidity ?? null);
+      // Humidity: dedicated room sensor first (matches the dashboard card and the
+      // mold check), TRV reading only as fallback - the TRV sits at the radiator.
+      const humidity = r.humidity != null ? r.humidity : (r.trv_humidity != null ? r.trv_humidity : (r.mold?.humidity ?? null));
       const moldRisk = r.mold && r.mold.risk;
 
       // Status cell: window, boost, anomaly, mold, CO2
@@ -3836,7 +3856,7 @@ class IHCPanel extends HTMLElement {
       if (r.ventilation?.level === "urgent") statusParts.push("🪟❗ Lüften");
 
       return `<tr>
-        <td style="font-weight:500;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${r.name}</td>
+        <td style="font-weight:500;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${this._esc(r.name)}</td>
         <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">
           <div style="font-size:13px">${r.current_temp != null ? r.current_temp + " °C" : "—"}</div>
           ${r.trv_raw_temp != null && hasTrvData ? `<div style="font-size:10px;color:#e65100;margin-top:1px" title="TRV-Rohtemperatur">TRV: ${parseFloat(r.trv_raw_temp).toFixed(1)}°</div>` : ""}
@@ -4121,7 +4141,7 @@ class IHCPanel extends HTMLElement {
     selector.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;padding:12px 0 4px";
     selector.innerHTML = roomList.map(r => {
       const active = r.entity_id === this._analyseRoom;
-      return `<button class="sysmode-pill${active ? " active-auto" : ""}" data-room="${r.entity_id}">${r.name}</button>`;
+      return `<button class="sysmode-pill${active ? " active-auto" : ""}" data-room="${r.entity_id}">${this._esc(r.name)}</button>`;
     }).join("");
     content.appendChild(selector);
     selector.querySelectorAll("[data-room]").forEach(btn =>
@@ -4137,7 +4157,7 @@ class IHCPanel extends HTMLElement {
     hmCard.style.marginTop = "12px";
     if (room.demand_heatmap && room.demand_heatmap.length === 7) {
       hmCard.innerHTML = `
-        <div class="card-title">🔥 Anforderungs-Heatmap – ${room.name}</div>
+        <div class="card-title">🔥 Anforderungs-Heatmap – ${this._esc(room.name)}</div>
         <div class="card-subtitle">
           Gleitender Durchschnitt (EMA) der Heizanforderung nach Wochentag und Uhrzeit.
           Wird über mehrere Wochen gelernt. Blau = niedrige, Rot = hohe Anforderung.
@@ -4148,7 +4168,7 @@ class IHCPanel extends HTMLElement {
         this._renderDemandHeatmapGrid(room.demand_heatmap);
     } else {
       hmCard.innerHTML = `
-        <div class="card-title">🔥 Anforderungs-Heatmap – ${room.name}</div>
+        <div class="card-title">🔥 Anforderungs-Heatmap – ${this._esc(room.name)}</div>
         <div style="color:var(--secondary-text-color);font-size:13px;padding:4px 0 8px">
           IHC sammelt Heatmap-Daten automatisch über mehrere Wochen. Noch keine Daten vorhanden.
         </div>`;
@@ -4175,7 +4195,7 @@ class IHCPanel extends HTMLElement {
     learnCard.innerHTML = `
       <div class="card-title">🧠 Optimum Start – Lernkurve</div>
       <div class="card-subtitle">
-        IHC misst wie lange ${room.name} zum Aufheizen braucht und passt die Vorheizzeit automatisch an.
+        IHC misst wie lange ${this._esc(room.name)} zum Aufheizen braucht und passt die Vorheizzeit automatisch an.
         Je mehr Daten gesammelt werden, desto präziser die Vorhersage.
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:${warmupCurve.length > 0 ? "16px" : "0"}">
@@ -4246,7 +4266,7 @@ class IHCPanel extends HTMLElement {
       bridgeCard.innerHTML = `
         <div class="card-title">🧱 Mögliche Wärmebrücke erkannt</div>
         <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
-          ${room.name} kühlt ca. <strong>${room.thermal_bridge.ratio}×</strong> schneller aus als der
+          ${this._esc(room.name)} kühlt ca. <strong>${room.thermal_bridge.ratio}×</strong> schneller aus als der
           Durchschnitt der übrigen Zimmer – ein Hinweis auf schlechte Dämmung, eine undichte
           Fensterdichtung oder eine ungedämmte Außenwandecke. Basiert auf der gelernten Abkühlrate
           (siehe oben) und ist rein informativ.
@@ -4264,7 +4284,7 @@ class IHCPanel extends HTMLElement {
       offsetCard.innerHTML = `
         <div class="card-title">🎯 TRV-Offset-Vorschlag</div>
         <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
-          Basierend auf ${room.name}s Raumsensor-vs-TRV-Differenz im Leerlauf (Heizung aus,
+          Basierend auf ${this._esc(room.name)}s Raumsensor-vs-TRV-Differenz im Leerlauf (Heizung aus,
           Fenster zu) über die letzten Messungen wäre <strong>${suggestedOffset > 0 ? "+" : ""}${suggestedOffset} °C</strong>
           ein besserer <code>trv_temp_offset</code> als der aktuelle Wert (${currentOffset > 0 ? "+" : ""}${currentOffset} °C).
           Zum Übernehmen: Zimmer bearbeiten → TRV-Verhalten → Temperatur-Offset.
@@ -4468,6 +4488,21 @@ class IHCPanel extends HTMLElement {
                 🩺 Benachrichtigen bei Warmup-Stillstand
               </label>
               <span class="form-hint">Sendet eine Persistent-Notification, wenn ein Zimmer weit länger als seine gelernte Aufheizzeit heizt, ohne tatsächlich wärmer zu werden (Luft im System, Kessel feuert nicht, Tür zu).</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="window-auto-detect-enabled" ${a.window_auto_detect_enabled === true ? "checked" : ""}>
+                🪟 Sensorlose Fenstererkennung (Temperatursturz)
+              </label>
+              <span class="form-hint">Nur für Zimmer <b>ohne</b> Fenstersensor: fällt die Raumtemperatur plötzlich stark, wird ein offenes Fenster angenommen und das Thermostat pausiert – bis die Temperatur wieder steigt, höchstens aber für die maximale Dauer.</span>
+              <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+                <label style="flex:1;min-width:120px;font-size:12px">Sturz (°C)
+                  <input type="number" class="form-input" id="window-auto-detect-drop" min="0.3" max="3" step="0.1" value="${a.window_auto_detect_drop ?? 0.8}"></label>
+                <label style="flex:1;min-width:120px;font-size:12px">innerhalb (min)
+                  <input type="number" class="form-input" id="window-auto-detect-minutes" min="2" max="20" step="1" value="${a.window_auto_detect_minutes ?? 6}"></label>
+                <label style="flex:1;min-width:120px;font-size:12px">max. Dauer (min)
+                  <input type="number" class="form-input" id="window-auto-detect-hold" min="5" max="90" step="5" value="${a.window_auto_detect_hold_minutes ?? 20}"></label>
+              </div>
             </div>
             <div class="settings-item">
               <label>🔥 Heizgradtage – Basis- / Schwellentemperatur (°C)</label>
@@ -4705,16 +4740,16 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Laufzeit im Dashboard anzeigen</label>
               <select class="form-select" id="show-runtime-stats">
-                <option value="true"  ${localStorage.getItem("ihc_show_runtime") !== "false" ? "selected" : ""}>Aktiviert</option>
-                <option value="false" ${localStorage.getItem("ihc_show_runtime") === "false"  ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${this._lsGet("ihc_show_runtime") !== "false" ? "selected" : ""}>Aktiviert</option>
+                <option value="false" ${this._lsGet("ihc_show_runtime") === "false"  ? "selected" : ""}>Deaktiviert</option>
               </select>
               <span class="form-hint">Zeigt in jedem Zimmer-Karte wie lange die Heizung heute schon gelaufen ist (in Minuten).</span>
             </div>
             <div class="settings-item">
               <label>Kosten/kWh im Dashboard anzeigen</label>
               <select class="form-select" id="show-cost-stats">
-                <option value="true"  ${localStorage.getItem("ihc_show_costs") !== "false" ? "selected" : ""}>Aktiviert</option>
-                <option value="false" ${localStorage.getItem("ihc_show_costs") === "false"  ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${this._lsGet("ihc_show_costs") !== "false" ? "selected" : ""}>Aktiviert</option>
+                <option value="false" ${this._lsGet("ihc_show_costs") === "false"  ? "selected" : ""}>Deaktiviert</option>
               </select>
               <span class="form-hint">Zeigt geschätzte Kilowattstunden und (wenn Preis konfiguriert) die Kosten des Tages.</span>
             </div>
@@ -5301,6 +5336,10 @@ class IHCPanel extends HTMLElement {
         heating_period_auto_days:      hpDays,
         heating_period_notify_enabled: content.querySelector("#hp-notify-enabled")?.checked === true,
         warmup_stall_notify_enabled: content.querySelector("#warmup-stall-notify-enabled")?.checked === true,
+        window_auto_detect_enabled: content.querySelector("#window-auto-detect-enabled")?.checked === true,
+        window_auto_detect_drop: Math.min(3, Math.max(0.3, parseFloat(content.querySelector("#window-auto-detect-drop")?.value) || 0.8)),
+        window_auto_detect_minutes: Math.min(20, Math.max(2, parseInt(content.querySelector("#window-auto-detect-minutes")?.value, 10) || 6)),
+        window_auto_detect_hold_minutes: Math.min(90, Math.max(5, parseInt(content.querySelector("#window-auto-detect-hold")?.value, 10) || 20)),
         degree_day_base_temp:      ddBase,
         degree_day_threshold_temp: ddThreshold,
       });
@@ -5372,11 +5411,11 @@ class IHCPanel extends HTMLElement {
 
     // Runtime / costs visibility toggles – stored in localStorage (frontend-only)
     content.querySelector("#show-runtime-stats").addEventListener("change", e => {
-      localStorage.setItem("ihc_show_runtime", e.target.value);
+      this._lsSet("ihc_show_runtime", e.target.value);
       this._toast(e.target.value === "true" ? "✓ Laufzeit-Anzeige aktiviert" : "✓ Laufzeit-Anzeige deaktiviert");
     });
     content.querySelector("#show-cost-stats").addEventListener("change", e => {
-      localStorage.setItem("ihc_show_costs", e.target.value);
+      this._lsSet("ihc_show_costs", e.target.value);
       this._toast(e.target.value === "true" ? "✓ Kostenanzeige aktiviert" : "✓ Kostenanzeige deaktiviert");
     });
 
@@ -5712,7 +5751,7 @@ class IHCPanel extends HTMLElement {
     const roomCheckboxes = roomList.map(r => `
       <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
         <input type="checkbox" data-room-id="${r.room_id}" ${existingRooms.includes(r.room_id) ? "checked" : ""}>
-        <span>${r.name}</span>
+        <span>${this._esc(r.name)}</span>
         <span style="font-size:10px;color:var(--secondary-text-color)">${r.current_temp != null ? r.current_temp + " °C" : ""}</span>
       </label>`).join("");
 
@@ -5890,7 +5929,7 @@ class IHCPanel extends HTMLElement {
         const offset = parseFloat(r.room_offset ?? 0);
         const eff = (base + offset).toFixed(1);
         return `<span style="font-size:11px;padding:3px 8px;border-radius:8px;background:var(--secondary-background-color);border:1px solid var(--divider-color)">
-          ${r.name}: <strong>${eff} °C</strong>${offset !== 0 ? ` <span style="color:var(--secondary-text-color)">(${offset > 0 ? "+" : ""}${offset})</span>` : ""}
+          ${this._esc(r.name)}: <strong>${eff} °C</strong>${offset !== 0 ? ` <span style="color:var(--secondary-text-color)">(${offset > 0 ? "+" : ""}${offset})</span>` : ""}
         </span>`;
       }).join("");
     };
@@ -6376,7 +6415,7 @@ class IHCPanel extends HTMLElement {
             const boxes = Object.values(allRooms).map(r => `
               <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
                 <input type="checkbox" class="m-cascade-room-check" value="${r.room_id}">
-                <span style="font-size:13px">${r.name}</span>
+                <span style="font-size:13px">${this._esc(r.name)}</span>
               </label>`).join("");
             return `<div style="margin-bottom:12px">
               <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
@@ -6618,7 +6657,7 @@ class IHCPanel extends HTMLElement {
          </div>`;
 
     this._showModal(`
-      <div class="modal-title">✏️ ${room.name} bearbeiten</div>
+      <div class="modal-title">✏️ ${this._esc(room.name)} bearbeiten</div>
 
       <div class="info-box" style="margin-bottom:12px">
         Ist: <strong>${room.current_temp ?? "—"} °C</strong>
@@ -6947,7 +6986,7 @@ class IHCPanel extends HTMLElement {
             const boxes = otherRooms.map(r => `
               <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
                 <input type="checkbox" class="m-cascade-room-check" value="${r.room_id}" ${current.includes(r.room_id) ? "checked" : ""}>
-                <span style="font-size:13px">${r.name}</span>
+                <span style="font-size:13px">${this._esc(r.name)}</span>
               </label>`).join("");
             return `<div style="margin-bottom:12px">
               <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
@@ -7317,7 +7356,7 @@ class IHCPanel extends HTMLElement {
         ha_schedules,
       });
       this._closeModal();
-      this._toast(`✓ ${room.name} gespeichert`);
+      this._toast(`✓ ${this._esc(room.name)} gespeichert`);
     });
 
     // Boost buttons inside modal
@@ -7328,7 +7367,7 @@ class IHCPanel extends HTMLElement {
         boostBtn.addEventListener("click", () => {
           const dur = parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60;
           this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
-          this._toast(`⚡ Boost ${dur} min für ${room.name}`);
+          this._toast(`⚡ Boost ${dur} min für ${this._esc(room.name)}`);
           this._closeModal();
         });
       }
@@ -7336,7 +7375,7 @@ class IHCPanel extends HTMLElement {
       if (cancelBtn) {
         cancelBtn.addEventListener("click", () => {
           this._callService("boost_room", { id: room.room_id, cancel: true });
-          this._toast(`✓ Boost für ${room.name} beendet`);
+          this._toast(`✓ Boost für ${this._esc(room.name)} beendet`);
           this._closeModal();
         });
       }

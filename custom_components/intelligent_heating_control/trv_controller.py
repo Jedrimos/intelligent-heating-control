@@ -321,6 +321,8 @@ class TRVControllerMixin:
         """
         if not valve_entity:
             return
+        if valve_entity in self._limescale_in_progress:
+            return  # Kalkschutz exercise owns this valve until it finishes
         state = self.hass.states.get(valve_entity)
         if state is None:
             return
@@ -364,11 +366,18 @@ class TRVControllerMixin:
         state = self.hass.states.get(valve_entity)
         if state is None:
             return
+        if valve_entity in self._limescale_in_progress:
+            return  # Kalkschutz exercise owns this valve until it finishes
         if valve_entity.split(".")[0] == "climate":
             hvac_modes = state.attributes.get("hvac_modes", [])
             # Prefer setting hvac_mode to off (saves battery, no hunting)
             if "off" in hvac_modes:
                 self._last_sent_temps.pop(valve_entity, None)  # force update when turning back on
+                self._trv_cmd_pending.pop(valve_entity, None)
+                if state.state == "off":
+                    # Already off - re-sending set_hvac_mode every 60 s cycle meant one
+                    # radio command per TRV per minute for the whole summer (battery drain).
+                    return
                 self._trv_command_sent_at[valve_entity] = time.monotonic()
                 self.hass.async_create_task(
                     self.hass.services.async_call(
@@ -379,8 +388,10 @@ class TRVControllerMixin:
                 )
             else:
                 # Fallback: set to frost protection temperature
+                # No force: the normal hysteresis skips re-sending an unchanged frost
+                # setpoint every cycle (force=True did that, draining TRV batteries).
                 frost_temp = self._get_frost_protection_temp()
-                self._set_valve_entity(valve_entity, frost_temp, force=True)
+                self._set_valve_entity(valve_entity, frost_temp)
 
     def _turn_on_valve_entity(self, valve_entity: str) -> None:
         """Ensure TRV is in heat mode (turn on if it was set to off)."""
@@ -534,6 +545,10 @@ class TRVControllerMixin:
                     "IHC: %s reconnected – baseline reset, override detection skipped this cycle.",
                     entity_id,
                 )
+                continue
+            if entity_id in self._limescale_in_progress:
+                # Kalkschutz is holding this valve at max_temp on purpose - that is
+                # not a manual change (used to flip the room to MANUAL at 30 °C).
                 continue
             trv_target = state.attributes.get("temperature")
             if trv_target is None:
@@ -748,6 +763,10 @@ class TRVControllerMixin:
         )
 
         for room in self.get_rooms():
+            room_id = room.get(CONF_ROOM_ID, "")
+            # Kindersicherung: IHC must not touch a locked room's TRVs at all
+            if room_id and self.is_room_child_locked(room_id):
+                continue
             entities: list[str] = list(room.get(CONF_VALVE_ENTITIES) or [])
             single = room.get(CONF_VALVE_ENTITY, "")
             if single and single not in entities:
@@ -766,16 +785,12 @@ class TRVControllerMixin:
                         # Exercise done – remove from in-progress (normal control resumes)
                         del self._limescale_in_progress[eid]
                         self._last_sent_temps.pop(eid, None)  # force fresh setpoint next cycle
+                        self._trv_cmd_pending.pop(eid, None)
                         _LOGGER.info("IHC: Kalkschutz abgeschlossen für %s", eid)
                     # Still in progress – keep max_temp (set again to be safe)
-                    else:
-                        max_temp = float(state.attributes.get("max_temp", 30.0))
-                        self.hass.async_create_task(
-                            self.hass.services.async_call(
-                                "climate", "set_temperature",
-                                {"entity_id": eid, "temperature": max_temp},
-                            )
-                        )
+                    # Still in progress: nothing to resend - Phase D skips valves in
+                    # _limescale_in_progress, so the max_temp setpoint stays in place
+                    # (re-sending it every cycle only cost TRV battery).
                     continue
 
                 # Not in progress – check if due
@@ -790,6 +805,9 @@ class TRVControllerMixin:
                     )
                     self._limescale_in_progress[eid] = now_mono
                     self._limescale_last_exercise[eid] = today
+                    # The exercise is most useful in summer, when IHC has the TRV in
+                    # hvac_mode "off" - a setpoint alone would not open the valve then.
+                    self._turn_on_valve_entity(eid)
                     self.hass.async_create_task(
                         self.hass.services.async_call(
                             "climate", "set_temperature",

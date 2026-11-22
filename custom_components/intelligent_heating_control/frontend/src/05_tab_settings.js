@@ -190,6 +190,21 @@
               </label>
               <span class="form-hint">Sendet eine Persistent-Notification, wenn ein Zimmer weit länger als seine gelernte Aufheizzeit heizt, ohne tatsächlich wärmer zu werden (Luft im System, Kessel feuert nicht, Tür zu).</span>
             </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="window-auto-detect-enabled" ${a.window_auto_detect_enabled === true ? "checked" : ""}>
+                🪟 Sensorlose Fenstererkennung (Temperatursturz)
+              </label>
+              <span class="form-hint">Nur für Zimmer <b>ohne</b> Fenstersensor: fällt die Raumtemperatur plötzlich stark, wird ein offenes Fenster angenommen und das Thermostat pausiert – bis die Temperatur wieder steigt, höchstens aber für die maximale Dauer.</span>
+              <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+                <label style="flex:1;min-width:120px;font-size:12px">Sturz (°C)
+                  <input type="number" class="form-input" id="window-auto-detect-drop" min="0.3" max="3" step="0.1" value="${a.window_auto_detect_drop ?? 0.8}"></label>
+                <label style="flex:1;min-width:120px;font-size:12px">innerhalb (min)
+                  <input type="number" class="form-input" id="window-auto-detect-minutes" min="2" max="20" step="1" value="${a.window_auto_detect_minutes ?? 6}"></label>
+                <label style="flex:1;min-width:120px;font-size:12px">max. Dauer (min)
+                  <input type="number" class="form-input" id="window-auto-detect-hold" min="5" max="90" step="5" value="${a.window_auto_detect_hold_minutes ?? 20}"></label>
+              </div>
+            </div>
             <div class="settings-item">
               <label>🔥 Heizgradtage – Basis- / Schwellentemperatur (°C)</label>
               <div style="display:flex;gap:8px">
@@ -426,16 +441,16 @@
             <div class="settings-item">
               <label>Laufzeit im Dashboard anzeigen</label>
               <select class="form-select" id="show-runtime-stats">
-                <option value="true"  ${localStorage.getItem("ihc_show_runtime") !== "false" ? "selected" : ""}>Aktiviert</option>
-                <option value="false" ${localStorage.getItem("ihc_show_runtime") === "false"  ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${this._lsGet("ihc_show_runtime") !== "false" ? "selected" : ""}>Aktiviert</option>
+                <option value="false" ${this._lsGet("ihc_show_runtime") === "false"  ? "selected" : ""}>Deaktiviert</option>
               </select>
               <span class="form-hint">Zeigt in jedem Zimmer-Karte wie lange die Heizung heute schon gelaufen ist (in Minuten).</span>
             </div>
             <div class="settings-item">
               <label>Kosten/kWh im Dashboard anzeigen</label>
               <select class="form-select" id="show-cost-stats">
-                <option value="true"  ${localStorage.getItem("ihc_show_costs") !== "false" ? "selected" : ""}>Aktiviert</option>
-                <option value="false" ${localStorage.getItem("ihc_show_costs") === "false"  ? "selected" : ""}>Deaktiviert</option>
+                <option value="true"  ${this._lsGet("ihc_show_costs") !== "false" ? "selected" : ""}>Aktiviert</option>
+                <option value="false" ${this._lsGet("ihc_show_costs") === "false"  ? "selected" : ""}>Deaktiviert</option>
               </select>
               <span class="form-hint">Zeigt geschätzte Kilowattstunden und (wenn Preis konfiguriert) die Kosten des Tages.</span>
             </div>
@@ -1022,6 +1037,10 @@
         heating_period_auto_days:      hpDays,
         heating_period_notify_enabled: content.querySelector("#hp-notify-enabled")?.checked === true,
         warmup_stall_notify_enabled: content.querySelector("#warmup-stall-notify-enabled")?.checked === true,
+        window_auto_detect_enabled: content.querySelector("#window-auto-detect-enabled")?.checked === true,
+        window_auto_detect_drop: Math.min(3, Math.max(0.3, parseFloat(content.querySelector("#window-auto-detect-drop")?.value) || 0.8)),
+        window_auto_detect_minutes: Math.min(20, Math.max(2, parseInt(content.querySelector("#window-auto-detect-minutes")?.value, 10) || 6)),
+        window_auto_detect_hold_minutes: Math.min(90, Math.max(5, parseInt(content.querySelector("#window-auto-detect-hold")?.value, 10) || 20)),
         degree_day_base_temp:      ddBase,
         degree_day_threshold_temp: ddThreshold,
       });
@@ -1093,11 +1112,11 @@
 
     // Runtime / costs visibility toggles – stored in localStorage (frontend-only)
     content.querySelector("#show-runtime-stats").addEventListener("change", e => {
-      localStorage.setItem("ihc_show_runtime", e.target.value);
+      this._lsSet("ihc_show_runtime", e.target.value);
       this._toast(e.target.value === "true" ? "✓ Laufzeit-Anzeige aktiviert" : "✓ Laufzeit-Anzeige deaktiviert");
     });
     content.querySelector("#show-cost-stats").addEventListener("change", e => {
-      localStorage.setItem("ihc_show_costs", e.target.value);
+      this._lsSet("ihc_show_costs", e.target.value);
       this._toast(e.target.value === "true" ? "✓ Kostenanzeige aktiviert" : "✓ Kostenanzeige deaktiviert");
     });
 
@@ -1433,7 +1452,7 @@
     const roomCheckboxes = roomList.map(r => `
       <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
         <input type="checkbox" data-room-id="${r.room_id}" ${existingRooms.includes(r.room_id) ? "checked" : ""}>
-        <span>${r.name}</span>
+        <span>${this._esc(r.name)}</span>
         <span style="font-size:10px;color:var(--secondary-text-color)">${r.current_temp != null ? r.current_temp + " °C" : ""}</span>
       </label>`).join("");
 

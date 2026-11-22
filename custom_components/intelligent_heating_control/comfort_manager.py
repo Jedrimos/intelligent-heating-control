@@ -206,7 +206,7 @@ class ComfortManagerMixin:
         # ── Skip if no sensor data at all ───────────────────────────────
         # Ventilation advice only makes sense when there is actual sensor evidence.
         # Without CO2 or humidity data there is nothing to recommend ventilation for.
-        if co2 is None and mold is None:
+        if co2 is None and room_humidity is None:
             return None
 
         if score >= 4:

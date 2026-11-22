@@ -253,6 +253,14 @@ from .const import (
     DEFAULT_MANUAL_OVERRIDE_TIMEOUT_MINUTES,
     CONF_WARMUP_STALL_NOTIFY_ENABLED,
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
+    CONF_WINDOW_AUTO_DETECT_ENABLED,
+    DEFAULT_WINDOW_AUTO_DETECT_ENABLED,
+    CONF_WINDOW_AUTO_DETECT_DROP,
+    DEFAULT_WINDOW_AUTO_DETECT_DROP,
+    CONF_WINDOW_AUTO_DETECT_MINUTES,
+    DEFAULT_WINDOW_AUTO_DETECT_MINUTES,
+    CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES,
+    DEFAULT_WINDOW_AUTO_DETECT_HOLD_MINUTES,
     # Backlog 2026-11-02 – Decision-Sensor pro Zimmer + Event
     EVENT_DECISION_CHANGED,
     # v1.5 – Price forecast
@@ -289,6 +297,7 @@ from .const import (
 )
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
+from .window_auto_detect import new_state as window_auto_new_state, update_auto_window
 from .heating_controller import HeatingController
 
 _LOGGER = logging.getLogger(__name__)
@@ -478,6 +487,8 @@ class IHCCoordinator(
         # Window restore mode: track per-room state to detect open→closed transitions
         self._prev_window_open: Dict[str, bool] = {}               # room_id → was window open last cycle
         self._pre_window_temps: Dict[str, float] = {}              # room_id → target_temp before window opened
+        self._window_restore_hold: Dict[str, tuple] = {}           # room_id → (restored temp, base decision at close)
+        self._window_auto_state: Dict[str, dict] = {}              # room_id → window_auto_detect state (v2.6)
         # Backlog 2026-11-02 – Decision-Sensor: last-seen (source, target_temp) per room, to
         # fire EVENT_DECISION_CHANGED only when the decision actually changes, not every cycle.
         # Transient (not persisted) - a restart just re-fires once for the first real change.
@@ -1429,7 +1440,7 @@ class IHCCoordinator(
         history = self._temp_history.setdefault(
             room_id, deque(maxlen=CONF_TEMP_HISTORY_SIZE)
         )
-        now = datetime.now()
+        now = dt_util.now().replace(tzinfo=None)  # HA time zone (chart labels), naive like stored entries
         # Only store one reading per hour (55-minute guard)
         if history:
             last_entry = list(history)[-1]
@@ -1452,7 +1463,7 @@ class IHCCoordinator(
         history = self._target_history.setdefault(
             room_id, deque(maxlen=CONF_TEMP_HISTORY_SIZE)
         )
-        now = datetime.now()
+        now = dt_util.now().replace(tzinfo=None)
         if history:
             last_entry = list(history)[-1]
             try:
@@ -1819,6 +1830,32 @@ class IHCCoordinator(
         self._window_cascade_active = _new_cascade
         ctx["now_cascade"] = _now_cascade
 
+    def _update_window_auto_detect(self, room: dict, room_id: str, temp: Optional[float], cfg: dict) -> bool:
+        """v2.6 – sensorless open-window detection (see window_auto_detect.py).
+
+        Only for rooms with no window sensor at all - a real sensor always wins.
+        """
+        has_sensor = bool(room.get(CONF_WINDOW_SENSOR)) or any(room.get(CONF_WINDOW_SENSORS) or [])
+        if has_sensor or not cfg.get(CONF_WINDOW_AUTO_DETECT_ENABLED, DEFAULT_WINDOW_AUTO_DETECT_ENABLED):
+            self._window_auto_state.pop(room_id, None)
+            return False
+        state = self._window_auto_state.setdefault(room_id, window_auto_new_state())
+        was_active = state.get("active_since") is not None
+        active = update_auto_window(
+            state,
+            time.monotonic(),
+            temp,
+            float(cfg.get(CONF_WINDOW_AUTO_DETECT_DROP, DEFAULT_WINDOW_AUTO_DETECT_DROP)),
+            int(cfg.get(CONF_WINDOW_AUTO_DETECT_MINUTES, DEFAULT_WINDOW_AUTO_DETECT_MINUTES)) * 60,
+            int(cfg.get(CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES, DEFAULT_WINDOW_AUTO_DETECT_HOLD_MINUTES)) * 60,
+        )
+        if active != was_active:
+            _LOGGER.info(
+                "IHC: %s – sensorless window detection %s (temp %s °C)",
+                room.get(CONF_ROOM_NAME, room_id), "OPEN" if active else "closed", temp,
+            )
+        return active
+
     def _process_room(self, room: dict, room_id: str, ctx: Dict[str, Any]) -> dict:
         """Phase 4 (run once per configured room): compute this room's target
         temperature through the full priority chain and boosts, resolve its
@@ -1849,6 +1886,12 @@ class IHCCoordinator(
         )
 
         window_open = self._is_window_open(room, current_temp)
+        # v2.6 – sensorless window detection (temperature drop) for rooms without any
+        # window sensor. Uses the room sensor reading, not the TRV-blended value: the
+        # TRV's own temperature also drops whenever IHC closes the valve.
+        window_auto_detected = self._update_window_auto_detect(room, room_id, calibrated_temp, cfg)
+        if window_auto_detected:
+            window_open = True
         room_mode = self.get_room_mode(room_id)
         deadband = float(room.get(CONF_DEADBAND, DEFAULT_DEADBAND))
 
@@ -1868,7 +1911,7 @@ class IHCCoordinator(
                 if not reset_to_auto:
                     mgr = self._schedule_managers.get(room_id)
                     if mgr:
-                        active = mgr.get_active_period()
+                        active = mgr.get_active_period(now=dt_util.now())
                         current_key = f"{active.get('start')}|{active.get('end')}" if active else "none"
                         stored_key = self._room_manual_period_key.get(room_id)
                         if stored_key is None:
@@ -1897,6 +1940,9 @@ class IHCCoordinator(
         room_presence_active = self._check_room_presence(room)
 
         target_temp, meta = self._calculate_target_temp(room, outdoor_temp)
+        # Base decision before any boost - used to tell whether the schedule/mode moved on
+        # while a "previous" window restore is being held (see below).
+        _base_decision = (meta.get("source"), target_temp)
 
         # Emergency frost protection when system is OFF (and not already frost-protecting):
         # If outdoor temp is below 0°C AND room temp is very cold (<10°C) AND window is closed,
@@ -1972,16 +2018,34 @@ class IHCCoordinator(
         prev_win = self._prev_window_open.get(room_id, False)
         if window_open and not prev_win:
             # Window just opened → snapshot pre-window target so we can restore it later
-            self._pre_window_temps[room_id] = target_temp
+            # (if a previous restore is still being held, that held value is what the TRV had)
+            _prev_hold = self._window_restore_hold.pop(room_id, None)
+            self._pre_window_temps[room_id] = (
+                _prev_hold[0] if _prev_hold is not None and _prev_hold[1] == _base_decision else target_temp
+            )
         elif not window_open and prev_win:
             # Window just closed → restore previous target if mode == "previous"
             restore_mode = room.get(CONF_WINDOW_RESTORE_MODE, DEFAULT_WINDOW_RESTORE_MODE)
             if restore_mode == "previous" and room_id in self._pre_window_temps:
-                target_temp = self._pre_window_temps.pop(room_id)
-                meta["source"] = meta.get("source", "schedule") + "+window_restore"
+                # Hold the restored value until the underlying decision changes (next
+                # schedule period, mode change, ...). It used to be applied for exactly one
+                # 60 s cycle, after which the schedule value silently took over again.
+                self._window_restore_hold[room_id] = (self._pre_window_temps.pop(room_id), _base_decision)
             else:
                 self._pre_window_temps.pop(room_id, None)
+        elif window_open:
+            self._window_restore_hold.pop(room_id, None)
         self._prev_window_open[room_id] = window_open
+        _hold = self._window_restore_hold.get(room_id)
+        if _hold is not None and not window_open:
+            if _hold[1] == _base_decision and _base_decision[0] not in (
+                "system_off", "frost_protection", "system_away", "system_vacation",
+                "guest_mode", "system_heat", "temp_threshold_override", "room_off",
+            ):
+                target_temp = _hold[0]
+                meta["source"] = f"{meta.get('source', 'schedule')}+window_restore"
+            else:
+                self._window_restore_hold.pop(room_id, None)
 
         # Fenster-Kaskade: Zieltemperatur absenken wenn ein anderes Zimmer lange gelüftet wird
         _cascade_info = self._window_cascade_active.get(room_id)
@@ -1993,14 +2057,46 @@ class IHCCoordinator(
             meta["window_cascade_offset"] = _casc_offset
             meta["window_cascade_source"] = _casc_src
 
+        # Raw room humidity sensor reading - independent of CONF_MOLD_PROTECTION_ENABLED,
+        # so disabling mold-risk alerting for a room doesn't also hide its humidity value
+        room_humidity = self._get_room_humidity_reading(room)
+
+        # Felt temperature (apparent temperature based on humidity) - uses the raw sensor
+        # reading (falling back to TRV humidity) directly, independent of mold protection,
+        # so this opt-in feature keeps working even when mold-risk alerting is turned off
+        felt_humidity = room_humidity if room_humidity is not None else trv_data.get("trv_humidity")
+        felt_temperature = None
+        if felt_humidity is not None and current_temp is not None:
+            felt_temperature = self._calculate_felt_temperature(current_temp, felt_humidity)
+
+        # Applied here (before demand is computed) so the reported demand and the
+        # deadband safety gate see the same target that is sent to the TRVs - it used
+        # to run after the demand calculation.
+        # Optional (opt-in, off by default): if the room feels colder than the thermometer
+        # says (dry air), nudge the target up a bit - capped, and skipped for fixed/override
+        # targets (frost/away/vacation/off) where second-guessing the setpoint makes no sense.
+        if (
+            cfg.get(CONF_FELT_TEMP_ADJUSTMENT_ENABLED, DEFAULT_FELT_TEMP_ADJUSTMENT_ENABLED)
+            and felt_temperature is not None
+            and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off")
+        ):
+            felt_deficit = current_temp - felt_temperature
+            if felt_deficit > 0:
+                felt_boost = min(felt_deficit, float(cfg.get(CONF_FELT_TEMP_ADJUSTMENT_MAX, DEFAULT_FELT_TEMP_ADJUSTMENT_MAX)))
+                target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + felt_boost)
+                meta["felt_temp_boost"] = round(felt_boost, 2)
+
         # Manual TRV override detection: if TRV was adjusted by hand, switch room to manual
         # Skip during preheat: the preheat window sends the upcoming period's comfort setpoint
         # BEFORE the schedule officially starts.  The TRV's own internal schedule (if any),
         # small outdoor-temp-driven recalculations, or the confirmation-timeout baseline-reset
         # can all produce a ≥1.0 °C discrepancy during preheat that looks like a manual
         # override but isn't.  The room will auto-reset to AUTO at the schedule transition anyway.
+        # Also skip while a boost is active: the native TRV "boost" preset changes the
+        # TRV's reported setpoint without IHC having sent a temperature, which used to
+        # be misread as a manual adjustment.
         if room_mode not in (ROOM_MODE_OFF,) and not window_open:
-            if meta.get("source") != "preheat":
+            if meta.get("source") != "preheat" and self.get_boost_remaining_minutes(room_id) <= 0:
                 self._detect_manual_trv_override(room, room_id, room_mode)
 
         # Update controller state for this room.
@@ -2100,34 +2196,8 @@ class IHCCoordinator(
         # Stuck-valve detection: are any TRV valves stuck (calcified / jammed)?
         stuck_valves = self._detect_stuck_valves(room, room_id, demand)
 
-        # Raw room humidity sensor reading - independent of CONF_MOLD_PROTECTION_ENABLED,
-        # so disabling mold-risk alerting for a room doesn't also hide its humidity value
-        room_humidity = self._get_room_humidity_reading(room)
-
         # Collect mold data – use TRV humidity as fallback if no room humidity sensor
         mold_data = self._check_mold_risk(room, current_temp, trv_humidity=trv_data.get("trv_humidity"))
-
-        # Felt temperature (apparent temperature based on humidity) - uses the raw sensor
-        # reading (falling back to TRV humidity) directly, independent of mold protection,
-        # so this opt-in feature keeps working even when mold-risk alerting is turned off
-        felt_humidity = room_humidity if room_humidity is not None else trv_data.get("trv_humidity")
-        felt_temperature = None
-        if felt_humidity is not None and current_temp is not None:
-            felt_temperature = self._calculate_felt_temperature(current_temp, felt_humidity)
-
-        # Optional (opt-in, off by default): if the room feels colder than the thermometer
-        # says (dry air), nudge the target up a bit - capped, and skipped for fixed/override
-        # targets (frost/away/vacation/off) where second-guessing the setpoint makes no sense.
-        if (
-            cfg.get(CONF_FELT_TEMP_ADJUSTMENT_ENABLED, DEFAULT_FELT_TEMP_ADJUSTMENT_ENABLED)
-            and felt_temperature is not None
-            and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off")
-        ):
-            felt_deficit = current_temp - felt_temperature
-            if felt_deficit > 0:
-                felt_boost = min(felt_deficit, float(cfg.get(CONF_FELT_TEMP_ADJUSTMENT_MAX, DEFAULT_FELT_TEMP_ADJUSTMENT_MAX)))
-                target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + felt_boost)
-                meta["felt_temp_boost"] = round(felt_boost, 2)
 
         # Quantise displayed target to 0.5 °C steps to stay consistent with the
         # actual setpoint sent to TRVs (avoids "21.1°C SOLL, but TRV gets 21.0°C")
@@ -2143,6 +2213,7 @@ class IHCCoordinator(
             "target_temp": display_target,
             "demand": demand,
             "window_open": window_open,
+            "window_auto_detected": window_auto_detected,
             "room_mode": room_mode,
             "ignore_heating_period": bool(room.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
             # Backlog 2026-11-02 – Kindersicherung: enforced in _update_phase_apply_trv_setpoints
@@ -2396,12 +2467,16 @@ class IHCCoordinator(
             window_open = rdata.get("window_open", False)
             window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))
             frost_temp = self._get_frost_protection_temp()
-            if window_open and window_open_temp > 0:
-                # Window open but configured min-temp: hold at that temp (e.g. 15°C) instead of frost
+            heating_gated = summer_mode or (not heating_period_active and not rdata.get("ignore_heating_period"))
+            should_be_off = (room_mode == ROOM_MODE_OFF and not system_override_active) or (system_is_off and not off_use_frost)
+            if window_open and window_open_temp > 0 and not should_be_off and not heating_gated:
+                # Window open but configured min-temp: hold at that temp (e.g. 15°C) instead of frost.
+                # Only when the room would otherwise heat - this branch used to run first and
+                # sent 15 °C to rooms that were switched off, in summer mode, or with system OFF.
                 actual = max(window_open_temp, frost_temp)
                 rdata["target_temp"] = actual
                 self._set_valve_entities(room, actual)
-            elif window_open or (room_mode == ROOM_MODE_OFF and not system_override_active) or (system_is_off and not off_use_frost):
+            elif window_open or should_be_off:
                 # Turn TRV off (or frost-protect if off mode not supported by the device)
                 if window_open:
                     rdata["target_temp"] = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))

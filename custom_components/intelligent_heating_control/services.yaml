@@ -1424,6 +1424,46 @@ update_global_settings:
       required: false
       selector:
         boolean:
+    window_auto_detect_enabled:
+      name: Sensorlose Fenstererkennung
+      description: >-
+        Erkennt offene Fenster in Zimmern OHNE Fenstersensor an einem plötzlichen
+        Temperatursturz und schaltet deren Thermostate vorübergehend ab.
+      required: false
+      selector:
+        boolean:
+    window_auto_detect_drop:
+      name: Fenstererkennung – Temperatursturz
+      description: Temperaturabfall (°C), ab dem ein offenes Fenster angenommen wird.
+      required: false
+      selector:
+        number:
+          min: 0.3
+          max: 3
+          step: 0.1
+          unit_of_measurement: "°C"
+    window_auto_detect_minutes:
+      name: Fenstererkennung – Zeitfenster
+      description: Innerhalb wie vieler Minuten der Temperatursturz passieren muss.
+      required: false
+      selector:
+        number:
+          min: 2
+          max: 20
+          step: 1
+          unit_of_measurement: min
+    window_auto_detect_hold_minutes:
+      name: Fenstererkennung – maximale Dauer
+      description: >-
+        Spätestens nach dieser Zeit heizt das Zimmer wieder (Schutz gegen Fehlerkennung).
+        Vorher endet die Erkennung, sobald die Temperatur wieder steigt.
+      required: false
+      selector:
+        number:
+          min: 5
+          max: 90
+          step: 5
+          unit_of_measurement: min
     warmup_stall_notify_enabled:
       name: Benachrichtigung bei Warmup-Stillstand
       description: >-

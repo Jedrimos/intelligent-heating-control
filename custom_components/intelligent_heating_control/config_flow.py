@@ -48,6 +48,14 @@ from .const import (
     DEFAULT_HEATING_PERIOD_NOTIFY_ENABLED,
     CONF_WARMUP_STALL_NOTIFY_ENABLED,
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
+    CONF_WINDOW_AUTO_DETECT_ENABLED,
+    DEFAULT_WINDOW_AUTO_DETECT_ENABLED,
+    CONF_WINDOW_AUTO_DETECT_DROP,
+    DEFAULT_WINDOW_AUTO_DETECT_DROP,
+    CONF_WINDOW_AUTO_DETECT_MINUTES,
+    DEFAULT_WINDOW_AUTO_DETECT_MINUTES,
+    CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES,
+    DEFAULT_WINDOW_AUTO_DETECT_HOLD_MINUTES,
     CONF_DEGREE_DAY_BASE_TEMP,
     DEFAULT_DEGREE_DAY_BASE_TEMP,
     CONF_DEGREE_DAY_THRESHOLD_TEMP,
@@ -522,6 +530,23 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_WARMUP_STALL_NOTIFY_ENABLED,
                 default=bool(cfg.get(CONF_WARMUP_STALL_NOTIFY_ENABLED, DEFAULT_WARMUP_STALL_NOTIFY_ENABLED))
             ): selector.selector({"boolean": {}}),
+            # --- v2.6: sensorlose Fenstererkennung (Temperatursturz) ---
+            vol.Optional(
+                CONF_WINDOW_AUTO_DETECT_ENABLED,
+                default=bool(cfg.get(CONF_WINDOW_AUTO_DETECT_ENABLED, DEFAULT_WINDOW_AUTO_DETECT_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_WINDOW_AUTO_DETECT_DROP,
+                default=float(cfg.get(CONF_WINDOW_AUTO_DETECT_DROP, DEFAULT_WINDOW_AUTO_DETECT_DROP))
+            ): selector.selector({"number": {"min": 0.3, "max": 3, "step": 0.1, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_WINDOW_AUTO_DETECT_MINUTES,
+                default=int(cfg.get(CONF_WINDOW_AUTO_DETECT_MINUTES, DEFAULT_WINDOW_AUTO_DETECT_MINUTES))
+            ): selector.selector({"number": {"min": 2, "max": 20, "step": 1, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES,
+                default=int(cfg.get(CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES, DEFAULT_WINDOW_AUTO_DETECT_HOLD_MINUTES))
+            ): selector.selector({"number": {"min": 5, "max": 90, "step": 5, "unit_of_measurement": "min"}}),
             # --- Heizgradtage (für die kumulative Heizgradtage-Entity) ---
             vol.Optional(
                 CONF_DEGREE_DAY_BASE_TEMP,

@@ -490,6 +490,17 @@ DEFAULT_DEGREE_DAY_THRESHOLD_TEMP: Final = 15.0  # °C – nur Tage mit Tagesmit
 CONF_WARMUP_STALL_NOTIFY_ENABLED: Final = "warmup_stall_notify_enabled"
 DEFAULT_WARMUP_STALL_NOTIFY_ENABLED: Final = True
 
+# v2.6 – Sensorlose Fenstererkennung (Temperatursturz), nur für Zimmer ohne Fenstersensor
+# (siehe window_auto_detect.py). Global opt-in, Standard aus.
+CONF_WINDOW_AUTO_DETECT_ENABLED: Final = "window_auto_detect_enabled"
+DEFAULT_WINDOW_AUTO_DETECT_ENABLED: Final = False
+CONF_WINDOW_AUTO_DETECT_DROP: Final = "window_auto_detect_drop"
+DEFAULT_WINDOW_AUTO_DETECT_DROP: Final = 0.8          # °C Temperatursturz ...
+CONF_WINDOW_AUTO_DETECT_MINUTES: Final = "window_auto_detect_minutes"
+DEFAULT_WINDOW_AUTO_DETECT_MINUTES: Final = 6         # ... innerhalb dieser Minuten
+CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES: Final = "window_auto_detect_hold_minutes"
+DEFAULT_WINDOW_AUTO_DETECT_HOLD_MINUTES: Final = 20   # max. Dauer, danach heizt das Zimmer wieder
+
 # Anwesenheits-Verzögerung: Minuten bis Auto-Away nach Abwesenheit aller Personen
 CONF_PRESENCE_AWAY_DELAY_MINUTES: Final = "presence_away_delay_minutes"
 DEFAULT_PRESENCE_AWAY_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompatibel)
