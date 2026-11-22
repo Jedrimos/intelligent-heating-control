@@ -10,6 +10,15 @@ entries show up as mixed German/English for English-speaking users.
 """
 
 EXACT = {
+    "genauso": "the same",
+    "wie das Raumthermometer. Eingestellt ist eine feste Korrektur von": "as the room thermometer. A fixed correction of",
+    "🎯 Thermostat-Temperatur korrigieren": "🎯 Correct thermostat temperature",
+    "(verglichen mit dem Raumthermometer). Die automatische Korrektur gleicht nur die Wärme des laufenden Heizkörpers aus – diese feste Abweichung nicht. Vorschlag:": "(compared with the room thermometer). The automatic correction only compensates for the heat of a running radiator – not this constant deviation. Suggestion:",
+    "(ermittelt aus vielen Messungen bei geschlossenem Fenster)": "(from many measurements with the window closed)",
+    "↺ Automatik (Standard)": "↺ Automatic (default)",
+    "✓ Automatische Thermostat-Korrektur wieder aktiv": "✓ Automatic thermostat correction active again",
+    "−2 = automatisch: gleicht nur die Wärme des laufenden Heizkörpers aus. Jeder andere Wert gilt fest. Vorschlag aus Messungen: Analyse-Tab.": "−2 = automatic: only compensates for the heat of a running radiator. Any other value applies permanently. Suggestion from measurements: Analysis tab.",
+    "(Zimmer → ⚙️ Einstellungen → Rollläden)": "(Room → ⚙️ Settings → Shutters)",
     # ── Navigation / general ───────────────────────────────────────────────
     "Dashboard": "Dashboard", "Zimmer": "Rooms", "Einstellungen": "Settings", "Status": "Status",
     "Analyse": "Analysis", "Heizkurve": "Heating curve", "Übersicht": "Overview",
@@ -511,6 +520,13 @@ EXACT = {
 
 # Dynamic texts (numbers/names inside). Python regex syntax, converted to JS by build.py.
 PATTERNS = [
+    (r"^wie das Raumthermometer\. Eingestellt ist eine feste Korrektur von (.+) °C\. Vorschlag:$", r"as the room thermometer. A fixed correction of $1 °C is set. Suggestion:"),
+    (r"^Bei kaltem Heizkörper misst das Thermostat in (.+) im Mittel$", r"With a cold radiator the thermostat in $1 reads on average"),
+    (r"^([\d.]+) °C zu warm$", r"$1 °C too warm"),
+    (r"^([\d.]+) °C zu kalt$", r"$1 °C too cold"),
+    (r"^\(verglichen mit dem Raumthermometer\)\. Eingestellt ist eine feste Korrektur von (.+) °C\. Vorschlag:$", r"(compared with the room thermometer). A fixed correction of $1 °C is set. Suggestion:"),
+    (r"^✓ (.+) °C übernehmen$", r"✓ Apply $1 °C"),
+    (r"^✓ Thermostat-Korrektur (.+) °C übernommen$", r"✓ Thermostat correction $1 °C applied"),
     (r"^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\.$", r"$1 – IHC sets the target temperature, the thermostat regulates itself."),
     (r"^(\d+) Zimmer$", r"$1 rooms"),
     (r"^(\d+) Zimmer wird geheizt$", r"$1 room heating"),

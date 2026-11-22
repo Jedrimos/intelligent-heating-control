@@ -478,7 +478,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible expert-only" ${(room.trv_temp_weight > 0 || room.trv_min_send_interval > 0) ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${(room.trv_temp_weight > 0 || room.trv_min_send_interval > 0 || (room.trv_temp_offset ?? -2) !== -2) ? "open" : ""}>
           <summary class="modal-section-title">🌡️ TRV-Sensor &amp; Kalibrierung</summary>
           <div class="settings-grid">
             <div class="settings-item">
@@ -490,6 +490,7 @@
               <label>TRV-Temperaturkorrektur (°C)</label>
               <input type="number" class="form-input" id="rs-trv-temp-offset"
                 value="${room.trv_temp_offset ?? -2}" min="-10" max="5" step="0.5">
+              <span class="form-hint">−2 = automatisch: gleicht nur die Wärme des laufenden Heizkörpers aus. Jeder andere Wert gilt fest. Vorschlag aus Messungen: Analyse-Tab.</span>
             </div>
             <div class="settings-item">
               <label>🔋 Min. Sendeintervall (s)</label>
@@ -729,7 +730,7 @@
             </div>
             <div class="settings-item">
               <label>Lux-Sensor (optional)</label>
-              <input type="text" class="form-input" id="rs-lux-sensor" value="${room.lux_sensor || ""}"
+              <input type="text" class="form-input" id="rs-lux-sensor" value="${this._esc(room.lux_sensor || "")}"
                 placeholder="sensor.wohnzimmer_helligkeit" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Verschärft den Sonnenwinkel-Check um eine Helligkeits-Hysterese.</span>
             </div>

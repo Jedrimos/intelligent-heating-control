@@ -14,6 +14,24 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.6.1] - 2026-11-22
+
+### Behoben
+- **Thermostat-Korrektur-Vorschlag (Analyse-Tab) war veraltet:** Er verglich die im Leerlauf
+  gemessene Abweichung mit dem eingestellten −2 °C, obwohl der Standard seit 2.6 nur bei warmem
+  Heizkörper wirkt (im Leerlauf ≈ 0). Dadurch schlug er in fast jedem Zimmer unnötig „0 °C“ vor.
+  Jetzt wird mit dem tatsächlich wirksamen Wert verglichen, die Karte bleibt bei Raumfühler im
+  Thermostat weg, und Messungen kurz nach dem Heizen (Heizkörper noch warm) zählen nicht mehr.
+- Neu: **„Übernehmen“-Knopf** direkt in der Karte (und „Automatik (Standard)“ zum Zurücksetzen),
+  statt eines Verweises auf einen Dialog, den es seit 2.6 nicht mehr gibt.
+- **Sensorlose Fenstererkennung:** Das Häkchen in den Einstellungen erschien leer, wenn der Wert
+  nicht ausdrücklich gesetzt war, obwohl die Funktion standardmäßig an ist – Speichern hätte sie
+  abgeschaltet.
+- Kälteprognose-Hinweis in den Einstellungen berücksichtigt jetzt die mehrtägige Vorschau.
+- Drei Hinweise verwiesen noch auf den entfernten „Zimmer bearbeiten“-Dialog.
+- Neue Tests: Panel-Standardwerte müssen den Backend-Standards entsprechen (Ja/Nein und Zahlen),
+  keine Verweise auf entfernte Dialoge.
+
 ## [2.6.0] - 2026-11-22
 
 ### Für jeden: wenig bis alle Sensoren, Einsteiger bis Bastler
