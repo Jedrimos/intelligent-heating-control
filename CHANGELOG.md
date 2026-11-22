@@ -35,6 +35,40 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
   „TRV-Modus“, „Wohlfühltemperatur“ statt „Komfort Fallback“; Einrichtungsassistent erklärt,
   dass der Außensensor optional ist.
 
+### Rollläden wie bei Loxone
+- **Tagesablauf in der Heizsaison:** nachts zu (Wärmedämmung) → morgens zu, bis die Sonne auf die
+  Fassade kommt (spätestens zu einer einstellbaren Uhrzeit, z. B. für Nordfenster) → Sonnenwärme
+  nutzen, beschattet wird erst bei echter Überhitzung → abends wieder zu. Im Sommer vorsorglich
+  beschatten. Neue Optionen „Nachts schließen“, „Morgens öffnen“ (Sonne/Sonnenaufgang),
+  „Spätestens öffnen um“.
+- Bewölkung über den Helligkeitssensor oder – ohne Sensor – über die Wettervorhersage
+  (Zustand/`cloud_coverage`); bei Wolken keine Sonnenlogik.
+- **Markisen** werden richtig herum gefahren (offen = ausgefahren) und nicht nachts geschlossen.
+- Kindersicherung gilt auch für Rollläden; IHC öffnet nur Rollläden wieder, die es selbst
+  geschlossen hat. Statusanzeige im Zimmer („🌙 nachts zu“, „☀️ offen – Sonnenwärme“, …).
+- Solarwärme nicht mehr erst ab +5 °C außen (Standard jetzt −20 °C) – gerade an kalten
+  Sonnentagen bringt sie am meisten.
+
+### Gleiche Automatik mit wenigen Sensoren
+- Anwesenheit automatisch aus allen HA-Personen mit Standort (Companion-App), mind. 20 min
+  Verzögerung; unbekannte/offline Tracker lösen nie „Abwesend“ aus (auch nicht beim Start).
+- Außenfeuchte aus der Wetter-Entität; ohne Raumthermometer wird die Thermostat-Temperatur nur noch
+  korrigiert, solange der Heizkörper warm ist (vorher pauschal −2 °C → im Leerlauf 2 °C zu wenig).
+- Sensorlose Fenstererkennung lernt pro Zimmer die normale Temperatur-Unruhe (z. B. Bad nach dem
+  Duschen) und hebt die Schwelle dort automatisch an.
+
+### Heizkosten sparen
+- **Spar-Regler** (0–3 °C) für alle Wohlfühl-/Zeitplan-Temperaturen mit Ersparnis-Schätzung.
+- **Fenster-offen-Erinnerung** nach 15 min bei Kälte (Benachrichtigung + Event
+  `intelligent_heating_control_window_open_too_long` für eigene Automationen).
+- **Zeitplan-Vorlagen** (Berufstätig, Homeoffice, Familie, Immer zu Hause, Schlafzimmer, Bad).
+
+### Englisch & Reparaturen
+- **Englische Oberfläche** für alle nicht-deutschen HA-Sprachen (Panel und Dashboard-Karten),
+  Benachrichtigungen in der HA-Sprache.
+- **Einstellungen → Reparaturen:** Einträge für Entitäten, die in IHC konfiguriert sind aber nicht
+  existieren, oder Thermostate/Sensoren, die über eine Stunde nicht erreichbar sind.
+
 ### Neu
 - **Sensorlose Fenstererkennung (Temperatursturz):** Zimmer **ohne** Fenstersensor erkennen ein
   offenes Fenster jetzt an einem plötzlichen Temperaturabfall (Standard: 0,8 °C in 6 min) und
@@ -46,6 +80,23 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
   Bug-Reports.
 
 ### Behoben
+- **Neuinstallationen speicherten nie ihren Zustand:** zwei Attribute existierten nur, wenn schon
+  ein Speicherstand vorhanden war – jedes Speichern brach ab (Zimmermodi, Boost, Verlauf gingen bei
+  jedem Neustart bis zum ersten Mitternachtswechsel verloren).
+- **Datenverlust im Zimmer-Detail:** 15 Felder kamen nie im Panel an. Beim Speichern wurden
+  Rollläden, Himmelsrichtung, Schlaf-Profil und zusätzliche Temperatursensoren gelöscht;
+  Schimmel-, CO₂- und Lüftungshinweise wurden nie angezeigt. Heizgradtage-Einstellungen wurden beim
+  Speichern auf Standard zurückgesetzt. Ein neuer Test verhindert solche Lücken künftig.
+- Nach „Thermostat aus → heizen“ wird der Sollwert einmal sicher gesendet (Tuya & Co. stellen
+  sonst ihren eigenen Wert ein).
+- Strompreise: 15-Minuten-Preise (Nordpool seit 10/2025) und Preislisten als Objekte; ein solcher
+  Eintrag brach vorher den ganzen Regelzyklus ab. Preisdiagramm zeigt stündliche Mittelwerte.
+- Urlaubskalender: neuer Versuch, wenn der Kalender beim Start noch nicht geladen ist; eine
+  Neulade-Sperre wurde nach Kalender- und Heizgruppen-Änderungen nie aufgehoben (Änderungen im
+  HA-Optionsdialog wirkten dann erst nach einem Neustart).
+- Dashboard-Karten: „Nächste Schaltzeit“ war immer leer, Neuaufbau bei jedem HA-Update
+  verschluckte Klicks, Boost-Abbruch setzte den Zimmermodus zurück, Namen nicht escaped.
+- Fehler in optionalen Funktionen werden einmal als Warnung geloggt statt unsichtbar.
 - **Wettervorhersage-Funktionen waren auf aktuellem Home Assistant tot:** HA liefert das
   `forecast`-Attribut seit 2024.3 nicht mehr – Kälteprognose-Frühstart, Mehrtages-Vorschau und
   Prognose-Vorheizen bekamen immer eine leere Liste. IHC fragt die Vorhersage jetzt über

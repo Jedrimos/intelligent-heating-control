@@ -246,13 +246,14 @@ this._modalOpen         // true wenn Add/Edit-Modal offen
   ]
 }]
 
-// HA Schedule-Format (CONF_HA_SCHEDULES)
+// HA Schedule-Format (CONF_HA_SCHEDULES) – Modus-basiert (Preset des Zimmers), KEINE Temperatur
 [{
   entity: "schedule.wohnzimmer_heizung",
-  temperature: 22.0,
+  mode: "comfort",                 // comfort | eco | sleep | away
   condition_entity: "person.max",  // optional
   condition_state: "home"          // optional, default "on"
 }]
+// IHC-Perioden haben ebenfalls `mode` (comfort/eco/sleep/away/manual); `temperature` zählt nur bei mode "manual"
 ```
 
 ### Service-Calls (Frontend → Backend)
@@ -1304,6 +1305,15 @@ regeln weiterhin jedes Zimmer einzeln, siehe Kapitel 1/14).
   `now=dt_util.now()` explizit übergeben. Reine Dauer-Messungen (Boost-Ende etc.) dürfen naiv bleiben.
 - **Frontend-Regel:** Zimmernamen und andere Freitexte nur über `this._esc()` ins HTML,
   `localStorage` nur über `this._lsGet()/_lsSet()`.
+- [x] Rollläden Loxone-Tageszyklus (`solar_cover_manager._update_solar_covers`, Priorität:
+  Wetterschutz > Handbetrieb > Fenster offen > Nacht (Dämmung/Privatsphäre) > Morgen-Halt >
+  Blendschutz > Beschattung bei Überhitzung > Sonnenwärme > Tageslicht). Logische Position
+  100 = keine Beschattung; Markisen über `physical_position()` invertiert. Heizsaison =
+  `heating_period_active and not summer_mode` (aus Phase D übergeben).
+- [x] Virtuelle Sensoren: `_get_presence_entities()` (Personen-Automatik), Wetter-Feuchte,
+  wärmeabhängiger TRV-Offset (`_update_trv_warmth_factor`), adaptive Fenster-Schwelle.
+- [x] Sparen: `CONF_SAVING_OFFSET` (Phase B, nach Preset-Max-Clamp), Fenster-Erinnerung.
+- [x] Reparaturen (`_check_repairs`, issue_registry, Übersetzungen unter "issues" in strings.json).
 - [x] UX-Umbau "für jeden" (siehe Kapitel 10 "UX-Grundsätze"): Willkommensbildschirm,
   Auto-Erkennung + `add_rooms`, Schnellstart-Dialog, Einfach/Experte, Erklärkarten,
   Wetter-Fallback für Außentemperatur, Vorhersage über `weather.get_forecasts` (das
@@ -1311,6 +1321,40 @@ regeln weiterhin jedes Zimmer einzeln, siehe Kapitel 1/14).
 - Offen (Vorschläge aus dem Review): englische Panel-Übersetzung (Voraussetzung für breite
   HACS-Nutzung), Repairs statt Persistent-Notifications, Sicherheitsmodus bei ausgefallenem
   Raumsensor (Versatile-Thermostat-Stil), Lernende Fenster-Schwellwerte pro Zimmer.
+
+---
+
+## 16. Tests, Übersetzung, Qualitätssicherung (seit 2.6.0)
+
+**Drei Test-Ebenen – vor jedem Commit alle laufen lassen:**
+
+```bash
+python3 -m pytest -q                              # reine Logik + Sync-Wächter (ohne HA)
+pip install -r requirements-test-ha.txt           # einmalig (pytest-homeassistant-custom-component)
+python3 -m pytest -c pytest_ha.ini -q             # ~50 Szenarien in einem ECHTEN HA-Core
+```
+
+- `tests_ha/` startet IHC in Home Assistant, simuliert Thermostate/Sensoren/Rollläden/Wetter und
+  prüft die tatsächlich gesendeten Befehle (`Hw`-Rekorder in `tests_ha/conftest.py`). Zeit wird mit
+  `freezer` gesteuert (HA-Zeitzone Europe/Berlin, OS-Zeit UTC → fängt Zeitzonen-Fehler).
+  **Neue Funktion = neues Szenario dort.** Achtung: `hw.register()` muss nach dem Setup laufen
+  (HA registriert sonst seine echten climate.*-Dienste über die Mocks); IHCs eigene Klima-Entität
+  im Test direkt aufrufen (`hass.data["entity_components"]["climate"].get_entity(...)`).
+- `tests/test_frontend_sync.py` (Sync-Wächter) schlägt an, wenn das Panel ein Zimmer-/Global-Feld
+  benutzt, das `_getRoomData()`/`sensor.py` nie liefern, oder Einstellungen sendet, die
+  `update_global_settings` verwirft – genau der Fehlertyp aus Kapitel 9, der in 2.6.0 noch 15×
+  vorhanden war (Datenverlust beim Speichern).
+- `tests/test_i18n.py` kompiliert alle Übersetzungsmuster mit der echten JS-Engine.
+
+**Englische Oberfläche:** Das Panel bleibt deutsch geschrieben. `frontend/i18n/en.py` (EXACT /
+PATTERNS / WORDS) ist die einzige Quelle; `build.py` erzeugt daraus die JS-Konstanten. Zur Laufzeit
+übersetzt `_translateTree()` (02_utils.js) das gerenderte DOM für jede Nicht-de-Sprache (ausgelöst
+vom MutationObserver in 09_main.js). Neuer deutscher UI-Text → Zeile in `en.py` ergänzen.
+Zimmer-/Bereichsnamen werden nie übersetzt. Backend-Benachrichtigungen: `self._t(de, en)`.
+Python-Regex in `PATTERNS` muss im JS-`u`-Modus gültig sein (z. B. kein `\"`).
+
+**Panel im Browser prüfen** (ohne HA): Playwright + Mock-`hass` (siehe Git-Historie von 2.6.0) –
+alle Tabs in einfach/experte und de/en rendern, JS-Fehler sammeln, Screenshots ansehen.
 
 ---
 
@@ -1364,6 +1408,8 @@ erst ausgewertet:
 22. **Schimmelschutz-Boost** (additiv, übersprungen bei frost/away/vacation)
 23. **Kälteprognose-Boost** (additiv, gleiche Sperrliste wie 20)
 24. **CO₂-Vorheiz-Boost** (+1°C, gleiche Sperrliste wie 20)
+24b. Preset-Maximum-Clamp (Eco/Schlaf/Abwesend-Max), danach **Spar-Regler** `CONF_SAVING_OFFSET`
+    (seit 2.6.0, subtraktiv, nicht bei Frost/Aus/Abwesend/Urlaub/Manuell/Schwelle/Boost)
 25. **Fenster-Restore** (`CONF_WINDOW_RESTORE_MODE=="previous"`) – stellt beim Schließen den
     Wert von VOR dem Öffnen wieder her und **hält** ihn (`_window_restore_hold`, seit 2.6.0), bis
     sich die Basis-Entscheidung aus A (Regel + Zieltemp vor Boosts) ändert. Nicht bei System-/

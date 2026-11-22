@@ -31,6 +31,9 @@ Komforttemperatur, jeweils mit einstellbarer Obergrenze. Zusätzlich lernt IHC p
 | 🚪 **Multi-TRV** | Mehrere Thermostate + Fenstersensoren pro Zimmer |
 | 🪟 **Fenstererkennung** | Ereignisgesteuert (keine Abfrageverzögerung), mit Reaktions- und Schließverzögerung – optional auch **ohne Sensor** per Temperatursturz-Erkennung |
 | 🌊 **Fenster-Kaskade** | Lüftet ein Zimmer zu lange, senken konfigurierbare Nachbarräume automatisch ab |
+| 🪟 **Rollläden wie Loxone** | Nachts dämmen, morgens öffnen wenn die Sonne kommt, Sonnenwärme nutzen, erst bei Überhitzung beschatten – wolkenabhängig, Markisen-tauglich |
+| 💶 **Heizkosten sparen** | Spar-Regler, Fenster-offen-Erinnerung, Zeitplan-Vorlagen, automatische Abwesenheit über HA-Personen |
+| 🌍 **Deutsch & Englisch** | Oberfläche folgt der HA-Sprache; Probleme erscheinen unter Einstellungen → Reparaturen |
 | 🧩 **Für Einsteiger & Bastler** | Zimmer werden automatisch aus HA-Bereichen erkannt; einfache Ansicht mit dem Nötigsten, Expertenansicht mit allem. Ohne Außensensor → Wettervorhersage, ohne Fensterkontakt → Temperatursturz-Erkennung |
 | 🩺 **Diagnose-Download** | Konfiguration + Live-Entscheidung pro Zimmer als JSON für Bug-Reports (Geräte & Dienste → IHC → ⋮) |
 | 🧠 **Optimum Start** | IHC lernt die Aufheizzeit je Außentemperatur und startet exakt so früh wie nötig |
