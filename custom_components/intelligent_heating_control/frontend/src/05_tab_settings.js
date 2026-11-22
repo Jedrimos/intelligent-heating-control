@@ -335,7 +335,7 @@
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                <input type="checkbox" id="window-auto-detect-enabled" ${a.window_auto_detect_enabled === true ? "checked" : ""}>
+                <input type="checkbox" id="window-auto-detect-enabled" ${a.window_auto_detect_enabled !== false ? "checked" : ""}>
                 🪟 Sensorlose Fenstererkennung (Temperatursturz)
               </label>
               <span class="form-hint">Nur für Zimmer <b>ohne</b> Fenstersensor: fällt die Raumtemperatur plötzlich stark, wird ein offenes Fenster angenommen und das Thermostat pausiert – bis die Temperatur wieder steigt, höchstens aber für die maximale Dauer.</span>
@@ -367,7 +367,7 @@
       <details class="ihc-card expert-only" ${a.forecast_coldnight_enabled ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">❄️ Kälteprognose – Frühstart
-            ${(() => { const fc = g.weather_forecast; const active = a.forecast_coldnight_enabled && fc && fc.forecast_today_min != null && fc.forecast_today_min <= (a.forecast_coldnight_temp ?? 8); return active ? `<span class="badge" style="background:#29b6f6;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">❄️ Aktiv – ${fc.forecast_today_min}°C</span>` : ""; })()}
+            ${(() => { const fc = g.weather_forecast; const active = g.forecast_coldnight_active || (a.forecast_coldnight_enabled && fc && fc.forecast_today_min != null && fc.forecast_today_min <= (a.forecast_coldnight_temp ?? 8)); const t = g.forecast_coldnight_min_temp ?? fc?.forecast_today_min; return active ? `<span class="badge" style="background:#29b6f6;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">❄️ Aktiv${t != null ? ` – ${t}°C` : ""}</span>` : ""; })()}
           </span>
         </summary>
         <div class="ihc-card-body">
@@ -694,7 +694,7 @@
           <hr class="divider">
           <div class="card-title" style="font-size:13px;margin:8px 0">🌙 Abendliche Privatsphäre-Schließung</div>
           <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
-            Schließt opt-in konfigurierte Zimmer (Zimmer-Bearbeiten-Dialog) fix nach Uhrzeit oder Sonnenuntergang,
+            Schließt opt-in konfigurierte Zimmer (Zimmer → ⚙️ Einstellungen → Rollläden) fix nach Uhrzeit oder Sonnenuntergang,
             unabhängig von der Heiz-/Kühllogik.
           </p>
           <div class="settings-grid">
@@ -717,7 +717,7 @@
           <hr class="divider">
           <div class="card-title" style="font-size:13px;margin:8px 0">💡 Helligkeits-/Lux-Hysterese</div>
           <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
-            Nur relevant für Zimmer mit konfiguriertem Lux-Sensor (Zimmer-Bearbeiten-Dialog) – verschärft den
+            Nur relevant für Zimmer mit konfiguriertem Lux-Sensor (Zimmer → ⚙️ Einstellungen → Rollläden) – verschärft den
             geometrischen Sonnenwinkel-Check, um Flackern bei durchziehenden Wolken zu vermeiden.
           </p>
           <div class="settings-grid">
@@ -733,7 +733,7 @@
           <hr class="divider">
           <div class="card-title" style="font-size:13px;margin:8px 0">📺 Blendschutz-Zone (TV/Bildschirm)</div>
           <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
-            Nur relevant für Zimmer mit aktiviertem Blendschutz (Zimmer-Bearbeiten-Dialog) – fährt bei niedrigem
+            Nur relevant für Zimmer mit aktiviertem Blendschutz (Zimmer → ⚙️ Einstellungen → Rollläden) – fährt bei niedrigem
             Sonnenwinkel stärker runter als die Heiz-/Kühllogik verlangen würde.
           </p>
           <div class="settings-grid">

@@ -74,3 +74,53 @@ def test_global_settings_sent_by_panel_are_accepted():
         sent |= set(re.findall(r"^\s*([a-z_0-9]+)\s*:", body, re.M))
     missing = sorted(sent - allowed)
     assert not missing, f"panel sends global settings the service silently drops: {missing}"
+
+
+# ── Defaults must match the backend (v2.6) ────────────────────────────────────
+# A panel that assumes a different default than the backend shows the wrong state and
+# silently changes the setting on the next save (e.g. sensorless window detection is ON
+# by default, but the checkbox only ticked for an explicit `true`).
+
+def _backend_defaults():
+    const = (COMP / "const.py").read_text(encoding="utf-8")
+    out = {}
+    for m in re.finditer(r'^CONF_(\w+): Final = "(\w+)"', const, re.M):
+        d = re.search(rf'^DEFAULT_{m.group(1)}\s*(?::\s*Final)?\s*=\s*(True|False|-?[0-9.]+)\s*(?:#.*)?$', const, re.M)
+        if d:
+            out[m.group(2)] = d.group(1)
+    return out
+
+
+def _panel_src():
+    return {p.name: p.read_text(encoding="utf-8") for p in sorted(SRC.glob("*.js"))}
+
+
+def test_boolean_defaults_match_backend():
+    defaults = _backend_defaults()
+    bad = []
+    for name, text in _panel_src().items():
+        for key in re.findall(r'\b(?:a|g|room)\.(\w+) === true', text):
+            if defaults.get(key) == "True":
+                bad.append(f"{name}: {key} defaults to True but panel checks === true")
+        for key in re.findall(r'\b(?:a|g|room|state\.attributes)\.(\w+) !== false', text):
+            if defaults.get(key) == "False":
+                bad.append(f"{name}: {key} defaults to False but panel checks !== false")
+    assert not bad, "\n".join(bad)
+
+
+def test_numeric_defaults_match_backend():
+    defaults = _backend_defaults()
+    bad = []
+    for name, text in _panel_src().items():
+        for key, val in re.findall(r'\b(?:a|g|room|ea|state\.attributes)\.(\w+) \?\? (-?[0-9.]+)\b', text):
+            d = defaults.get(key)
+            if d not in (None, "True", "False") and abs(float(d) - float(val)) > 1e-9:
+                bad.append(f"{name}: {key} ?? {val}, backend default {d}")
+    assert not bad, "\n".join(bad)
+
+
+def test_no_references_to_removed_dialogs():
+    # the edit-room modal was removed in 2.6 - hints must point to Zimmer → ⚙️ Einstellungen
+    bad = [f"{n}: {m}" for n, t in _panel_src().items()
+           for m in re.findall(r"Zimmer-Bearbeiten-Dialog|Zimmer bearbeiten →|TRV-Verhalten →", t)]
+    assert not bad, "\n".join(bad)

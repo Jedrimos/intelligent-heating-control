@@ -569,20 +569,45 @@
     }
 
     // ── TRV-Offset-Kalibrierungsassistent ───────────────────────────────────────
+    // The suggestion is measured while IDLE (radiator cold). Since 2.6 the default
+    // offset (-2 °C) is warmth-dependent and already ~0 when idle, so it must be compared
+    // with what is effective while idle - not with the configured -2 (which made every
+    // room show a pointless "0 °C would be better" card). With the room sensor fed into
+    // the thermostat the offset is not used at all.
+    const DEFAULT_OFFSET = -2;
     const suggestedOffset = room.trv_suggested_offset;
-    const currentOffset = room.trv_temp_offset ?? 0;
-    if (suggestedOffset != null && Math.abs(suggestedOffset - currentOffset) >= 0.5) {
+    const currentOffset = room.trv_temp_offset ?? DEFAULT_OFFSET;
+    const isAuto = currentOffset === DEFAULT_OFFSET;
+    const idleEffective = isAuto ? 0 : currentOffset;
+    const fmt = v => `${v > 0 ? "+" : ""}${v}`;
+    if (suggestedOffset != null && !room.external_sensor_sync && Math.abs(suggestedOffset - idleEffective) >= 0.5) {
       const offsetCard = document.createElement("div");
       offsetCard.className = "card";
       offsetCard.style.marginTop = "0";
       offsetCard.innerHTML = `
-        <div class="card-title">🎯 TRV-Offset-Vorschlag</div>
-        <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
-          Basierend auf ${this._esc(room.name)}s Raumsensor-vs-TRV-Differenz im Leerlauf (Heizung aus,
-          Fenster zu) über die letzten Messungen wäre <strong>${suggestedOffset > 0 ? "+" : ""}${suggestedOffset} °C</strong>
-          ein besserer <code>trv_temp_offset</code> als der aktuelle Wert (${currentOffset > 0 ? "+" : ""}${currentOffset} °C).
-          Zum Übernehmen: Zimmer bearbeiten → TRV-Verhalten → Temperatur-Offset.
+        <div class="card-title">🎯 Thermostat-Temperatur korrigieren</div>
+        <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:10px">
+          Bei kaltem Heizkörper misst das Thermostat in ${this._esc(room.name)} im Mittel
+          ${suggestedOffset === 0 ? "<strong>genauso</strong> wie das Raumthermometer." : `<strong>${Math.abs(suggestedOffset)} °C ${suggestedOffset < 0 ? "zu warm" : "zu kalt"}</strong> (verglichen mit dem Raumthermometer).`}
+          ${isAuto
+            ? "Die automatische Korrektur gleicht nur die Wärme des laufenden Heizkörpers aus – diese feste Abweichung nicht."
+            : `Eingestellt ist eine feste Korrektur von ${fmt(currentOffset)} °C.`}
+          Vorschlag: <strong>${fmt(suggestedOffset)} °C</strong>
+          <span style="opacity:.75">(ermittelt aus vielen Messungen bei geschlossenem Fenster)</span>.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" id="apply-trv-offset">✓ ${fmt(suggestedOffset)} °C übernehmen</button>
+          ${isAuto ? "" : `<button class="btn btn-secondary" id="auto-trv-offset">↺ Automatik (Standard)</button>`}
         </div>`;
+      const save = async (value, msg) => {
+        if (!room.room_id) { this._toast("Fehler: room_id fehlt"); return; }
+        await this._callService("update_room", { id: room.room_id, trv_temp_offset: value });
+        this._toast(msg);
+      };
+      offsetCard.querySelector("#apply-trv-offset").addEventListener("click", () =>
+        save(suggestedOffset, `✓ Thermostat-Korrektur ${fmt(suggestedOffset)} °C übernommen`));
+      offsetCard.querySelector("#auto-trv-offset")?.addEventListener("click", () =>
+        save(DEFAULT_OFFSET, "✓ Automatische Thermostat-Korrektur wieder aktiv"));
       content.appendChild(offsetCard);
     }
   }

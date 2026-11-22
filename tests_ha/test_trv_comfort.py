@@ -196,3 +196,20 @@ async def test_wakeup_with_phone_alarm(hass, setup_ihc, freezer):
     await cycle(hass, coord)
     assert coord.data["rooms"]["sz"]["wakeup_active"] is False
     assert coord.data["rooms"]["sz"]["target_temp"] == eco
+
+
+async def test_trv_offset_suggestion_only_from_cold_radiator(hass, setup_ihc, freezer):
+    """The calibration assistant must not learn from a radiator that is still warm after
+    heating (demand 0, but the TRV still reads too warm) - that biased the suggestion."""
+    at(freezer, 12)
+    trv(hass, "climate.trv_wz", current=21.0, target=21.0)
+    temp_sensor(hass, "sensor.t_wz", 21.0)
+    coord, hw = await setup_ihc([room(temp_sensor="sensor.t_wz")])
+    await cycle(hass, coord)
+    coord._trv_offset_samples.clear()
+    coord._trv_warmth["wz"] = (0.8, coord._trv_warmth.get("wz", (0, 0))[1])
+    coord._update_trv_offset_calibration("wz", 21.0, 23.0, 0.0, False)   # warm: ignored
+    assert coord._trv_offset_samples.get("wz", []) == []
+    coord._trv_warmth["wz"] = (0.02, coord._trv_warmth["wz"][1])
+    coord._update_trv_offset_calibration("wz", 21.0, 22.0, 0.0, False)   # cold: recorded
+    assert coord._trv_offset_samples["wz"] == [-1.0]

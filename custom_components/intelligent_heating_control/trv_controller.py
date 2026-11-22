@@ -453,6 +453,11 @@ class TRVControllerMixin:
         """
         if room_temp is None or trv_avg is None or window_open or demand > 0:
             return
+        # v2.6 – demand 0 right after heating still means a warm radiator; only sample
+        # once the warmth factor has decayed, otherwise the "idle" offset is biased
+        warm = self._trv_warmth.get(room_id) if hasattr(self, "_trv_warmth") else None
+        if warm is not None and warm[0] > 0.1:
+            return
         history = self._trv_offset_samples.setdefault(room_id, [])
         history.append(round(room_temp - trv_avg, 2))
         if len(history) > TRV_OFFSET_CALIBRATION_MAX_SAMPLES:
