@@ -31,6 +31,12 @@ from .const import (
     SERVICE_RESET_STATS,
     # Backlog 2026-11-02 – Kindersicherung: globaler Reset-Button/Service
     SERVICE_RESET_ALL_ROOMS,
+    SERVICE_FEEL,
+    SERVICE_RESET_COMFORT_LEARNING,
+    CONF_TRV_EXTERNAL_SENSOR_SYNC,
+    DEFAULT_TRV_EXTERNAL_SENSOR_SYNC,
+    CONF_WAKEUP_ENABLED,
+    DEFAULT_WAKEUP_ENABLED,
     # v1.7 – Heizgruppen
     SERVICE_ADD_GROUP,
     SERVICE_REMOVE_GROUP,
@@ -234,7 +240,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_SET_ROOM_MODE, SERVICE_SET_SYSTEM_MODE, SERVICE_BOOST_ROOM,
         SERVICE_RELOAD, SERVICE_EXPORT_CONFIG, SERVICE_UPDATE_GLOBAL_SETTINGS,
         SERVICE_ACTIVATE_GUEST_MODE, SERVICE_DEACTIVATE_GUEST_MODE, SERVICE_RESET_STATS,
-        SERVICE_RESET_ALL_ROOMS,
+        SERVICE_RESET_ALL_ROOMS, SERVICE_FEEL, SERVICE_RESET_COMFORT_LEARNING,
         # v1.7 – Heizgruppen (must be unregistered here too)
         SERVICE_ADD_GROUP, SERVICE_REMOVE_GROUP, SERVICE_UPDATE_GROUP, SERVICE_SET_GROUP_MODE,
     ]:
@@ -387,6 +393,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_PRESENCE_SENSOR_OFF_DELAY: int(data.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY)),
             CONF_ROOM_TEMP_THRESHOLD: float(data.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
             CONF_ROOM_IGNORE_HEATING_PERIOD: bool(data.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
+            CONF_TRV_EXTERNAL_SENSOR_SYNC: _coerce_bool(data.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC)),
+            CONF_WAKEUP_ENABLED: _coerce_bool(data.get(CONF_WAKEUP_ENABLED, DEFAULT_WAKEUP_ENABLED)),
             CONF_COMFORT_TEMP_ENTITY: data.get(CONF_COMFORT_TEMP_ENTITY, ""),
             CONF_ECO_TEMP_ENTITY: data.get(CONF_ECO_TEMP_ENTITY, ""),
             CONF_COMFORT_EXTEND_ENTITY: data.get(CONF_COMFORT_EXTEND_ENTITY, ""),
@@ -451,6 +459,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             CONF_MOLD_PROTECTION_ENABLED, CONF_AGGRESSIVE_MODE_ENABLED, CONF_ROOM_IGNORE_HEATING_PERIOD,
             CONF_SOLAR_PASSIVE_HEAT, CONF_SOLAR_PASSIVE_COOL,
             CONF_SOLAR_EVENING_PRIVACY_ENABLED, CONF_SOLAR_GLARE_PROTECTION_ENABLED,
+            CONF_TRV_EXTERNAL_SENSOR_SYNC, CONF_WAKEUP_ENABLED,
         }
         # Remaining valid fields that pass through unchanged (str/list) - explicitly
         # listed so arbitrary/unknown keys from the service call can't be injected
@@ -595,6 +604,9 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             "window_auto_detect_minutes", "window_auto_detect_hold_minutes",
             # v2.6 – Sparen / virtuelle Anwesenheit
             "saving_offset", "window_reminder_minutes", "presence_auto_persons",
+            # v2.6 – Komfort
+            "wakeup_alarm_entities", "wakeup_preheat_minutes", "wakeup_comfort_minutes",
+            "person_preferences", "feel_duration_minutes", "feel_learning_enabled",
             # Heizgradtage
             "degree_day_base_temp", "degree_day_threshold_temp",
         }
@@ -635,6 +647,20 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     async def handle_reset_all_rooms(call: ServiceCall) -> None:
         """Backlog 2026-11-02 – globaler Reset: every room back to AUTO mode."""
         await coordinator.async_reset_all_rooms()
+
+    async def handle_feel(call: ServiceCall) -> None:
+        """v2.6 – "Mir ist kalt / warm" for one room (id) or every room (no id)."""
+        feeling = str(call.data.get("feeling", "cold")).lower()
+        if feeling not in ("cold", "warm", "reset"):
+            return
+        room_id = call.data.get(CONF_ROOM_ID)
+        ids = [room_id] if room_id else [r.get(CONF_ROOM_ID) for r in coordinator.get_rooms()]
+        for rid in ids:
+            if rid:
+                await coordinator.async_feel(rid, feeling)
+
+    async def handle_reset_comfort_learning(call: ServiceCall) -> None:
+        await coordinator.async_reset_comfort_learning(call.data.get(CONF_ROOM_ID))
 
     # v1.7 – Heizgruppen
     async def handle_add_group(call: ServiceCall) -> None:
@@ -683,6 +709,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
     hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_GUEST_MODE, handle_activate_guest_mode)
     hass.services.async_register(DOMAIN, SERVICE_DEACTIVATE_GUEST_MODE, handle_deactivate_guest_mode)
     hass.services.async_register(DOMAIN, SERVICE_RESET_ALL_ROOMS, handle_reset_all_rooms)
+    hass.services.async_register(DOMAIN, SERVICE_FEEL, handle_feel)
+    hass.services.async_register(DOMAIN, SERVICE_RESET_COMFORT_LEARNING, handle_reset_comfort_learning)
 
     # v1.7 – Heizgruppen: add/remove/update are config-changing, set_group_mode is day-to-day
     async_register_admin_service(hass, DOMAIN, SERVICE_ADD_GROUP, handle_add_group)

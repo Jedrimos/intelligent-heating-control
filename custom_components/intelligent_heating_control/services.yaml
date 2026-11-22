@@ -497,6 +497,20 @@ add_room:
           min: 0
           max: 25
           step: 0.5
+    trv_external_sensor_sync:
+      name: Raumfühler ins Thermostat
+      description: >-
+        Sendet die Raumtemperatur an Thermostate mit externem Fühler-Eingang (Sonoff TRVZB,
+        Aqara E1, Bosch BTH-RA, Danfoss Ally, Shelly BLU TRV) und schaltet sie auf "extern".
+      required: false
+      selector:
+        boolean:
+    wakeup_enabled:
+      name: Warm aufwachen
+      description: Zimmer ist beim Klingeln des Handy-Weckers (HA-App, next_alarm) schon warm.
+      required: false
+      selector:
+        boolean:
     room_ignore_heating_period:
       name: Heizperiode für dieses Zimmer ignorieren
       description: >-
@@ -925,6 +939,20 @@ update_room:
           min: 0
           max: 25
           step: 0.5
+    trv_external_sensor_sync:
+      name: Raumfühler ins Thermostat
+      description: >-
+        Sendet die Raumtemperatur an Thermostate mit externem Fühler-Eingang (Sonoff TRVZB,
+        Aqara E1, Bosch BTH-RA, Danfoss Ally, Shelly BLU TRV) und schaltet sie auf "extern".
+      required: false
+      selector:
+        boolean:
+    wakeup_enabled:
+      name: Warm aufwachen
+      description: Zimmer ist beim Klingeln des Handy-Weckers (HA-App, next_alarm) schon warm.
+      required: false
+      selector:
+        boolean:
     room_ignore_heating_period:
       name: Heizperiode für dieses Zimmer ignorieren
       description: >-
@@ -1477,6 +1505,40 @@ update_global_settings:
           max: 90
           step: 5
           unit_of_measurement: min
+    wakeup_preheat_minutes:
+      name: Warm aufwachen – Vorlauf (min)
+      description: So lange vor dem Wecker wird geheizt.
+      required: false
+      selector:
+        number: {min: 0, max: 180, step: 5, unit_of_measurement: min}
+    wakeup_comfort_minutes:
+      name: Warm aufwachen – Nachlauf (min)
+      description: So lange nach dem Wecker bleibt es warm.
+      required: false
+      selector:
+        number: {min: 0, max: 240, step: 5, unit_of_measurement: min}
+    wakeup_alarm_entities:
+      name: Wecker-Sensoren
+      description: sensor.*_next_alarm der HA-App. Leer = automatisch alle gefundenen.
+      required: false
+      selector:
+        entity: {domain: sensor, multiple: true}
+    person_preferences:
+      name: Wärmeempfinden pro Person
+      description: 'Liste, z.B. [{"person": "person.anna", "offset": 1.0}] - Durchschnitt der Anwesenden gilt.'
+      required: false
+      selector:
+        object:
+    feel_duration_minutes:
+      name: '"Mir ist kalt/warm" – Dauer (min)'
+      required: false
+      selector:
+        number: {min: 15, max: 480, step: 15, unit_of_measurement: min}
+    feel_learning_enabled:
+      name: Aus "Mir ist kalt/warm" lernen
+      required: false
+      selector:
+        boolean:
     saving_offset:
       name: Spar-Regler (°C)
       description: >-
@@ -2035,6 +2097,36 @@ reset_all_rooms:
   description: >-
     Setzt jedes Zimmer auf den Automatik-Modus zurück (bricht Boost/Manuell/Eco/etc. ab).
     Zimmer mit aktiver Kindersicherung werden dabei übersprungen.
+
+feel:
+  name: Mir ist kalt / warm
+  description: >-
+    Hebt (kalt) oder senkt (warm) die Temperatur eines Zimmers für eine Weile um 1 °C (bis ±2 °C).
+    IHC lernt daraus: wer oft zur gleichen Tageszeit friert, bekommt dauerhaft etwas mehr Wärme.
+  fields:
+    id:
+      name: Zimmer-ID
+      description: Leer = alle Zimmer
+      required: false
+      selector:
+        text:
+    feeling:
+      name: Empfinden
+      required: true
+      selector:
+        select:
+          options: ["cold", "warm", "reset"]
+
+reset_comfort_learning:
+  name: Gelerntes Wärmeempfinden zurücksetzen
+  description: Löscht die aus "Mir ist kalt/warm" gelernten Anpassungen (eines Zimmers oder aller).
+  fields:
+    id:
+      name: Zimmer-ID
+      description: Leer = alle Zimmer
+      required: false
+      selector:
+        text:
 
 # ── v1.7 Heizgruppen ──────────────────────────────────────────────────────────
 

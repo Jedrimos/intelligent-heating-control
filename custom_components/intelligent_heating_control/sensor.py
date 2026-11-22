@@ -390,6 +390,14 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "saving_offset":                   cfg.get(CONF_SAVING_OFFSET, DEFAULT_SAVING_OFFSET),
             "window_reminder_minutes":         cfg.get(CONF_WINDOW_REMINDER_MINUTES, DEFAULT_WINDOW_REMINDER_MINUTES),
             "presence_auto_persons":           cfg.get(CONF_PRESENCE_AUTO_PERSONS, DEFAULT_PRESENCE_AUTO_PERSONS),
+            # v2.6 – Komfort
+            "wakeup_alarm_entities":           cfg.get("wakeup_alarm_entities", []),
+            "wakeup_alarm_entities_effective": self.coordinator._get_wakeup_alarm_entities(),
+            "wakeup_preheat_minutes":          cfg.get("wakeup_preheat_minutes", 30),
+            "wakeup_comfort_minutes":          cfg.get("wakeup_comfort_minutes", 60),
+            "person_preferences":              cfg.get("person_preferences", []),
+            "feel_duration_minutes":           cfg.get("feel_duration_minutes", 120),
+            "feel_learning_enabled":           cfg.get("feel_learning_enabled", True),
             # v2.6 – the presence entities actually used (configured or auto-discovered persons)
             "presence_entities_effective":     self.coordinator._get_presence_entities(),
             # Optimum Start (learn heating rate per outdoor-temp bucket)

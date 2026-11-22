@@ -245,6 +245,18 @@ from .const import (
     CONF_ROOM_TEMP_THRESHOLD,
     DEFAULT_ROOM_TEMP_THRESHOLD,
     CONF_ROOM_IGNORE_HEATING_PERIOD,
+    CONF_TRV_EXTERNAL_SENSOR_SYNC,
+    DEFAULT_TRV_EXTERNAL_SENSOR_SYNC,
+    CONF_WAKEUP_ENABLED,
+    DEFAULT_WAKEUP_ENABLED,
+    CONF_WAKEUP_PREHEAT_MINUTES,
+    DEFAULT_WAKEUP_PREHEAT_MINUTES,
+    CONF_WAKEUP_COMFORT_MINUTES,
+    DEFAULT_WAKEUP_COMFORT_MINUTES,
+    CONF_FEEL_DURATION_MINUTES,
+    DEFAULT_FEEL_DURATION_MINUTES,
+    CONF_FEEL_LEARNING_ENABLED,
+    DEFAULT_FEEL_LEARNING_ENABLED,
     DEFAULT_ROOM_IGNORE_HEATING_PERIOD,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
@@ -571,6 +583,23 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_PRESENCE_AUTO_PERSONS,
                 default=bool(cfg.get(CONF_PRESENCE_AUTO_PERSONS, DEFAULT_PRESENCE_AUTO_PERSONS))
+            ): selector.selector({"boolean": {}}),
+            # --- v2.6: Komfort ---
+            vol.Optional(
+                CONF_WAKEUP_PREHEAT_MINUTES,
+                default=int(cfg.get(CONF_WAKEUP_PREHEAT_MINUTES, DEFAULT_WAKEUP_PREHEAT_MINUTES))
+            ): selector.selector({"number": {"min": 0, "max": 180, "step": 5, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_WAKEUP_COMFORT_MINUTES,
+                default=int(cfg.get(CONF_WAKEUP_COMFORT_MINUTES, DEFAULT_WAKEUP_COMFORT_MINUTES))
+            ): selector.selector({"number": {"min": 0, "max": 240, "step": 5, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_FEEL_DURATION_MINUTES,
+                default=int(cfg.get(CONF_FEEL_DURATION_MINUTES, DEFAULT_FEEL_DURATION_MINUTES))
+            ): selector.selector({"number": {"min": 15, "max": 480, "step": 15, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_FEEL_LEARNING_ENABLED,
+                default=bool(cfg.get(CONF_FEEL_LEARNING_ENABLED, DEFAULT_FEEL_LEARNING_ENABLED))
             ): selector.selector({"boolean": {}}),
             # --- Heizgradtage (für die kumulative Heizgradtage-Entity) ---
             vol.Optional(
@@ -1035,6 +1064,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_PRESENCE_SENSOR_OFF_DELAY: int(user_input.get(CONF_PRESENCE_SENSOR_OFF_DELAY, DEFAULT_PRESENCE_SENSOR_OFF_DELAY)),
                 CONF_ROOM_TEMP_THRESHOLD: float(user_input.get(CONF_ROOM_TEMP_THRESHOLD, DEFAULT_ROOM_TEMP_THRESHOLD)),
                 CONF_ROOM_IGNORE_HEATING_PERIOD: bool(user_input.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
+                CONF_TRV_EXTERNAL_SENSOR_SYNC: bool(user_input.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC)),
+                CONF_WAKEUP_ENABLED: bool(user_input.get(CONF_WAKEUP_ENABLED, DEFAULT_WAKEUP_ENABLED)),
                 CONF_COMFORT_TEMP_ENTITY: user_input.get(CONF_COMFORT_TEMP_ENTITY, ""),
                 CONF_ECO_TEMP_ENTITY: user_input.get(CONF_ECO_TEMP_ENTITY, ""),
                 CONF_COMFORT_EXTEND_ENTITY: user_input.get(CONF_COMFORT_EXTEND_ENTITY, ""),
@@ -1208,6 +1239,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 "number": {"min": 0, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             vol.Optional(CONF_ROOM_IGNORE_HEATING_PERIOD, default=DEFAULT_ROOM_IGNORE_HEATING_PERIOD): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_TRV_EXTERNAL_SENSOR_SYNC, default=DEFAULT_TRV_EXTERNAL_SENSOR_SYNC): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_WAKEUP_ENABLED, default=DEFAULT_WAKEUP_ENABLED): selector.selector({"boolean": {}}),
             vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_ECO_TEMP_ENTITY, default=""): selector.selector({"text": {}}),
             vol.Optional(CONF_COMFORT_EXTEND_ENTITY, default=""): selector.selector({"text": {}}),
@@ -1417,6 +1450,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 "number": {"min": 0, "max": 25, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
             vol.Optional(CONF_ROOM_IGNORE_HEATING_PERIOD, default=bool(room.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD))): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_TRV_EXTERNAL_SENSOR_SYNC, default=bool(room.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC))): selector.selector({"boolean": {}}),
+            vol.Optional(CONF_WAKEUP_ENABLED, default=bool(room.get(CONF_WAKEUP_ENABLED, DEFAULT_WAKEUP_ENABLED))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_COMFORT_TEMP_ENTITY, default=room.get(CONF_COMFORT_TEMP_ENTITY, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_ECO_TEMP_ENTITY, default=room.get(CONF_ECO_TEMP_ENTITY, "")): selector.selector({"text": {}}),
             vol.Optional(CONF_COMFORT_EXTEND_ENTITY, default=room.get(CONF_COMFORT_EXTEND_ENTITY, "")): selector.selector({"text": {}}),

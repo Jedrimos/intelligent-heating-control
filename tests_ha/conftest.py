@@ -48,7 +48,7 @@ class Hw:
             ("climate", "set_preset_mode"), ("cover", "set_cover_position"),
             ("switch", "turn_on"), ("switch", "turn_off"),
             ("persistent_notification", "create"), ("persistent_notification", "dismiss"),
-            ("notify", "notify"),
+            ("notify", "notify"), ("number", "set_value"), ("select", "select_option"),
         ]:
             hass.services.async_register(domain, service, self._record(domain, service))
 
@@ -78,6 +78,10 @@ class Hw:
                     elif service == "set_hvac_mode":
                         state = call.data["hvac_mode"]
                     self.hass.states.async_set(eid, state, attrs)
+            if isinstance(eid, str) and domain in ("number", "select"):
+                st = self.hass.states.get(eid)
+                if st is not None:
+                    self.hass.states.async_set(eid, str(call.data.get("value", call.data.get("option"))), st.attributes)
             if isinstance(eid, str) and domain == "cover":
                 st = self.hass.states.get(eid)
                 if st is not None:

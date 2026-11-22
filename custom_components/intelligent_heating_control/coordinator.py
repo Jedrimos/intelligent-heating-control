@@ -262,6 +262,20 @@ from .const import (
     EVENT_WINDOW_OPEN_TOO_LONG,
     CONF_SAVING_OFFSET,
     DEFAULT_SAVING_OFFSET,
+    CONF_TRV_EXTERNAL_SENSOR_SYNC,
+    DEFAULT_TRV_EXTERNAL_SENSOR_SYNC,
+    CONF_WAKEUP_ENABLED,
+    DEFAULT_WAKEUP_ENABLED,
+    CONF_WAKEUP_ALARM_ENTITIES,
+    CONF_WAKEUP_PREHEAT_MINUTES,
+    DEFAULT_WAKEUP_PREHEAT_MINUTES,
+    CONF_WAKEUP_COMFORT_MINUTES,
+    DEFAULT_WAKEUP_COMFORT_MINUTES,
+    CONF_PERSON_PREFERENCES,
+    CONF_FEEL_DURATION_MINUTES,
+    DEFAULT_FEEL_DURATION_MINUTES,
+    CONF_FEEL_LEARNING_ENABLED,
+    DEFAULT_FEEL_LEARNING_ENABLED,
     CONF_WINDOW_AUTO_DETECT_DROP,
     DEFAULT_WINDOW_AUTO_DETECT_DROP,
     CONF_WINDOW_AUTO_DETECT_MINUTES,
@@ -305,6 +319,7 @@ from .const import (
 from .heating_curve import HeatingCurve
 from .schedule_manager import ScheduleManager
 from .window_auto_detect import new_state as window_auto_new_state, update_auto_window
+from . import comfort_learning
 from .heating_controller import HeatingController
 
 _LOGGER = logging.getLogger(__name__)
@@ -508,6 +523,10 @@ class IHCCoordinator(
         self._unavailable_since: Dict[str, datetime] = {}
         self._repair_check_counter = 0
         self._logged_once: set = set()
+        # v2.6 comfort features
+        self._feel_temp: Dict[str, list] = {}       # room_id -> [offset, until ISO]  ("Mir ist kalt/warm")
+        self._feel_presses: Dict[str, list] = {}    # room_id -> [(iso, hour, +1/-1)]  (learning)
+        self._wakeup_alarms: Dict[str, datetime] = {}  # alarm entity -> last alarm time seen
         self._weather_forecast_cache: tuple = (None, [], 0.0)      # (entity_id, daily forecast, monotonic ts)
         # Backlog 2026-11-02 – Decision-Sensor: last-seen (source, target_temp) per room, to
         # fire EVENT_DECISION_CHANGED only when the decision actually changes, not every cycle.
@@ -626,6 +645,8 @@ class IHCCoordinator(
         self._room_modes = data.get("room_modes", {})
         self._room_manual_temps = data.get("room_manual_temps", {})
         self._room_child_locks = data.get("room_child_locks", {})
+        self._feel_temp = data.get("feel_temp", {}) or {}
+        self._feel_presses = {k: [tuple(p) for p in v] for k, v in (data.get("feel_presses", {}) or {}).items()}
         # Populate manual tracking for rooms that were in MANUAL mode before restart.
         # Without a timestamp, the auto-reset logic would never fire after restart.
         # Setting utcnow() means: any schedule change AFTER restart will trigger auto-reset.
@@ -743,6 +764,8 @@ class IHCCoordinator(
             "room_modes": self._room_modes,
             "room_manual_temps": self._room_manual_temps,
             "room_child_locks": self._room_child_locks,
+            "feel_temp": self._feel_temp,
+            "feel_presses": self._feel_presses,
             "presence_away_active": self._presence_away_active,
             "presence_away_pending_since": self._presence_away_pending_since.isoformat() if self._presence_away_pending_since else None,
             "presence_arrive_pending_since": self._presence_arrive_pending_since.isoformat() if self._presence_arrive_pending_since else None,
@@ -1311,6 +1334,107 @@ class IHCCoordinator(
     def _t(self, de: str, en: str) -> str:
         """Notification text in Home Assistant's language (German, else English)."""
         return de if str(self.hass.config.language or "de").lower().startswith("de") else en
+
+    # ── v2.6 Komfort: "Mir ist kalt/warm", Personen, Wecker ──────────────────────
+    async def async_feel(self, room_id: str, feeling: str) -> None:
+        """"Mir ist kalt" (+1 °C) / "Mir ist warm" (-1 °C) for feel_duration_minutes,
+        stacking up to ±2 °C; "reset" clears it. Every press also feeds the per-hour
+        learning (comfort_learning.py) unless disabled."""
+        cfg = self.get_config()
+        now = dt_util.now()
+        if feeling == "reset":
+            self._feel_temp.pop(room_id, None)
+        else:
+            delta = 1 if feeling == "cold" else -1
+            current = self._get_feel_temp_offset(room_id)
+            new = comfort_learning.add_temporary(current, delta)
+            minutes = int(cfg.get(CONF_FEEL_DURATION_MINUTES, DEFAULT_FEEL_DURATION_MINUTES))
+            self._feel_temp[room_id] = [new, (now + timedelta(minutes=minutes)).isoformat()]
+            if cfg.get(CONF_FEEL_LEARNING_ENABLED, DEFAULT_FEEL_LEARNING_ENABLED):
+                presses = comfort_learning.prune(self._feel_presses.get(room_id, []), now)
+                presses.append((now.isoformat(), now.hour, delta))
+                self._feel_presses[room_id] = presses
+        self._schedule_save()
+        await self.async_request_refresh()
+
+    async def async_reset_comfort_learning(self, room_id: Optional[str] = None) -> None:
+        if room_id:
+            self._feel_presses.pop(room_id, None)
+        else:
+            self._feel_presses.clear()
+        self._schedule_save()
+        await self.async_request_refresh()
+
+    def _get_feel_temp_offset(self, room_id: str) -> float:
+        entry = self._feel_temp.get(room_id)
+        if not entry:
+            return 0.0
+        try:
+            until = datetime.fromisoformat(entry[1])
+        except (TypeError, ValueError, IndexError):
+            self._feel_temp.pop(room_id, None)
+            return 0.0
+        if dt_util.now() >= until:
+            self._feel_temp.pop(room_id, None)
+            return 0.0
+        return float(entry[0])
+
+    def _get_feel_learned_offset(self, room_id: str) -> float:
+        presses = self._feel_presses.get(room_id)
+        if not presses:
+            return 0.0
+        return comfort_learning.learned_offset(presses, dt_util.now().hour)
+
+    def _get_person_offset(self) -> tuple:
+        """Average comfort offset of the persons currently at home (Wärmeempfinden)."""
+        prefs = self.get_config().get(CONF_PERSON_PREFERENCES) or []
+        home = []
+        for p in prefs:
+            if not isinstance(p, dict) or not p.get("person"):
+                continue
+            st = self.hass.states.get(p["person"])
+            if st is not None and st.state == "home":
+                try:
+                    home.append((p["person"], float(p.get("offset", 0) or 0)))
+                except (TypeError, ValueError):
+                    continue
+        if not home:
+            return 0.0, []
+        return round(sum(o for _, o in home) / len(home) * 2) / 2, [e for e, _ in home]
+
+    def _get_wakeup_alarm_entities(self) -> list:
+        configured = [e for e in (self.get_config().get(CONF_WAKEUP_ALARM_ENTITIES) or []) if e]
+        if configured:
+            return configured
+        return sorted(s.entity_id for s in self.hass.states.async_all("sensor")
+                      if s.entity_id.endswith("_next_alarm"))
+
+    def _update_wakeup_alarms(self) -> None:
+        """Remember each phone's alarm time: the next_alarm sensor jumps to the NEXT alarm
+        as soon as it rings, but the room should stay warm for a while after waking up."""
+        now = dt_util.utcnow()
+        for eid in self._get_wakeup_alarm_entities():
+            st = self.hass.states.get(eid)
+            if st is None or st.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                continue
+            alarm = dt_util.parse_datetime(st.state)
+            if alarm is None:
+                continue
+            alarm = dt_util.as_utc(alarm)
+            last = self._wakeup_alarms.get(eid)
+            # keep a recently rung alarm until its comfort window is over
+            if last is None or last < now - timedelta(hours=3) or alarm <= last or last > now:
+                self._wakeup_alarms[eid] = alarm
+
+    def _is_wakeup_active(self) -> tuple:
+        cfg = self.get_config()
+        lead = int(cfg.get(CONF_WAKEUP_PREHEAT_MINUTES, DEFAULT_WAKEUP_PREHEAT_MINUTES))
+        keep = int(cfg.get(CONF_WAKEUP_COMFORT_MINUTES, DEFAULT_WAKEUP_COMFORT_MINUTES))
+        now = dt_util.utcnow()
+        for eid, alarm in self._wakeup_alarms.items():
+            if alarm - timedelta(minutes=lead) <= now <= alarm + timedelta(minutes=keep):
+                return True, eid, alarm
+        return False, None, None
 
     def _log_problem_once(self, key: str, message: str, *args) -> None:
         """A failing optional feature used to be logged at DEBUG only (invisible). Log the
@@ -1899,6 +2023,7 @@ class IHCCoordinator(
         """
         cfg = ctx["cfg"]
 
+        self._update_wakeup_alarms()
         outdoor_temp = self._get_outdoor_temp()
         curve_target = (
             self._heating_curve.get_target_temp(outdoor_temp)
@@ -2146,6 +2271,19 @@ class IHCCoordinator(
         # Store the outdoor-regulated effective preset temps so entities can expose them
         comfort_eff, eco_eff, sleep_eff, away_eff = self._get_room_preset_temps(room, outdoor_temp)
 
+        _FIXED_SOURCES = ("frost_protection", "system_off", "system_away", "system_vacation", "room_off",
+                          "room_away", "manual", "temp_threshold_override", "boost")
+        # v2.6 – warm aufwachen: comfort temperature from shortly before the phone alarm
+        # until a while after it (bedroom/bathroom opt-in)
+        wakeup_active = False
+        if room.get(CONF_WAKEUP_ENABLED, DEFAULT_WAKEUP_ENABLED) and meta.get("source") not in _FIXED_SOURCES \
+                and room_mode != ROOM_MODE_MANUAL:
+            wakeup_active, _alarm_eid, _alarm_at = self._is_wakeup_active()
+            if wakeup_active and comfort_eff is not None and target_temp < comfort_eff:
+                target_temp = comfort_eff
+                meta["source"] = "wakeup"
+                meta["wakeup_alarm"] = _alarm_at.isoformat() if _alarm_at else None
+
         # Apply solar boost (Roadmap 1.3)
         if solar_boost > 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
             target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + solar_boost)
@@ -2212,6 +2350,17 @@ class IHCCoordinator(
             target_temp = max(self._get_frost_protection_temp(),
                               float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)), target_temp - saving)
             meta["saving_offset"] = saving
+
+        # v2.6 – Wärmeempfinden: persons at home (average) + "Mir ist kalt/warm" (temporary
+        # press + learned per-hour offset). Same exclusions as the saving offset.
+        person_offset, persons_home = self._get_person_offset()
+        feel_temp = self._get_feel_temp_offset(room_id)
+        feel_learned = self._get_feel_learned_offset(room_id)
+        comfort_adjust = person_offset + feel_temp + feel_learned
+        if comfort_adjust and meta.get("source") not in _FIXED_SOURCES and room_mode != ROOM_MODE_MANUAL:
+            target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
+                              max(self._get_frost_protection_temp(), target_temp + comfort_adjust))
+            meta["comfort_adjust"] = round(comfort_adjust, 1)
 
         # Window restore mode: snapshot/restore target_temp around window open events
         prev_win = self._prev_window_open.get(room_id, False)
@@ -2414,6 +2563,17 @@ class IHCCoordinator(
             "window_open": window_open,
             "window_auto_detected": window_auto_detected,
             "room_mode": room_mode,
+            # v2.6 comfort / TRV capabilities
+            "wakeup_active": wakeup_active,
+            "person_offset": person_offset,
+            "persons_home_with_preference": persons_home,
+            "feel_temp_offset": feel_temp,
+            "feel_temp_until": (self._feel_temp.get(room_id) or [None, None])[1] if feel_temp else None,
+            "feel_learned_offset": feel_learned,
+            "feel_learned_profile": comfort_learning.learned_profile(self._feel_presses.get(room_id, [])),
+            "room_sensor_temp": calibrated_temp,
+            "external_sensor_sync": bool(room.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC)),
+            "trv_capabilities": self._room_trv_capabilities(room),
             "ignore_heating_period": bool(room.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
             # Backlog 2026-11-02 – Kindersicherung: enforced in _update_phase_apply_trv_setpoints
             "child_lock": self.is_room_child_locked(room_id),
@@ -2667,6 +2827,7 @@ class IHCCoordinator(
             if startup_grace_active:
                 continue  # already handled above
             rdata = room_data[room_id]
+            self._sync_external_sensor(room, rdata.get("room_sensor_temp"))
             room_mode = rdata.get("room_mode", ROOM_MODE_AUTO)
             window_open = rdata.get("window_open", False)
             window_open_temp = float(room.get(CONF_WINDOW_OPEN_TEMP, DEFAULT_WINDOW_OPEN_TEMP))

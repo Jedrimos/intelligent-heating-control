@@ -527,6 +527,30 @@ EVENT_WINDOW_OPEN_TOO_LONG: Final = "intelligent_heating_control_window_open_too
 CONF_SAVING_OFFSET: Final = "saving_offset"
 DEFAULT_SAVING_OFFSET: Final = 0.0
 
+# ── v2.6 Komfort-Funktionen ──────────────────────────────────────────────────
+# Raumfühler ins Thermostat (pro Zimmer, opt-in): Raumtemperatur an TRVs mit externem
+# Fühler-Eingang senden (Sonoff TRVZB, Aqara E1, Bosch BTH-RA, Danfoss Ally, Shelly BLU TRV)
+CONF_TRV_EXTERNAL_SENSOR_SYNC: Final = "trv_external_sensor_sync"
+DEFAULT_TRV_EXTERNAL_SENSOR_SYNC: Final = False
+EXTERNAL_SYNC_RESEND_S: Final = 1500        # Wert spätestens alle 25 min erneut senden
+# Warm aufwachen (pro Zimmer opt-in, Wecker aus der HA-Companion-App: sensor.*_next_alarm)
+CONF_WAKEUP_ENABLED: Final = "wakeup_enabled"
+DEFAULT_WAKEUP_ENABLED: Final = False
+CONF_WAKEUP_ALARM_ENTITIES: Final = "wakeup_alarm_entities"   # leer = automatisch alle *_next_alarm
+CONF_WAKEUP_PREHEAT_MINUTES: Final = "wakeup_preheat_minutes"
+DEFAULT_WAKEUP_PREHEAT_MINUTES: Final = 30
+CONF_WAKEUP_COMFORT_MINUTES: Final = "wakeup_comfort_minutes"
+DEFAULT_WAKEUP_COMFORT_MINUTES: Final = 60
+# Wärmeempfinden pro Person: [{"person": "person.anna", "offset": 1.0}]
+CONF_PERSON_PREFERENCES: Final = "person_preferences"
+# "Mir ist kalt / warm"
+CONF_FEEL_DURATION_MINUTES: Final = "feel_duration_minutes"
+DEFAULT_FEEL_DURATION_MINUTES: Final = 120
+CONF_FEEL_LEARNING_ENABLED: Final = "feel_learning_enabled"
+DEFAULT_FEEL_LEARNING_ENABLED: Final = True
+SERVICE_FEEL: Final = "feel"
+SERVICE_RESET_COMFORT_LEARNING: Final = "reset_comfort_learning"
+
 # Anwesenheits-Verzögerung: Minuten bis Auto-Away nach Abwesenheit aller Personen
 CONF_PRESENCE_AWAY_DELAY_MINUTES: Final = "presence_away_delay_minutes"
 DEFAULT_PRESENCE_AWAY_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompatibel)

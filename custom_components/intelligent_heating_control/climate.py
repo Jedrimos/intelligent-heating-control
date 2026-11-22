@@ -385,6 +385,17 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             # Backlog 2026-11-02 – Kindersicherung: see switch.ihc_<room>_kindersicherung
             "child_lock": d.get("child_lock", False),
             "window_auto_detected": d.get("window_auto_detected", False),
+            # v2.6 comfort + TRV capabilities
+            "wakeup_enabled": room_cfg.get("wakeup_enabled", False),
+            "wakeup_active": d.get("wakeup_active", False),
+            "person_offset": d.get("person_offset", 0.0),
+            "persons_home_with_preference": d.get("persons_home_with_preference", []),
+            "feel_temp_offset": d.get("feel_temp_offset", 0.0),
+            "feel_temp_until": d.get("feel_temp_until"),
+            "feel_learned_offset": d.get("feel_learned_offset", 0.0),
+            "feel_learned_profile": d.get("feel_learned_profile", []),
+            "external_sensor_sync": d.get("external_sensor_sync", False),
+            "trv_capabilities": d.get("trv_capabilities", []),
             "room_id": self._room_id,
             "boost_remaining": d.get("boost_remaining", 0),
             "night_setback": d.get("night_setback", 0.0),
