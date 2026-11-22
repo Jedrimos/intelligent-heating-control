@@ -551,6 +551,14 @@ DEFAULT_FEEL_LEARNING_ENABLED: Final = True
 SERVICE_FEEL: Final = "feel"
 SERVICE_RESET_COMFORT_LEARNING: Final = "reset_comfort_learning"
 
+# ── v2.6 Verbrauch physikalisch (heat_output.py) ─────────────────────────────
+CONF_HEATING_SYSTEM: Final = "heating_system"        # gas|oil|pellets|heatpump|district|electric
+DEFAULT_HEATING_SYSTEM: Final = "gas"
+CONF_HEATING_EFFICIENCY: Final = "heating_efficiency"  # 0 = automatisch nach Heizungsart (Wirkungsgrad bzw. JAZ)
+CONF_DESIGN_FLOW_TEMP: Final = "design_flow_temp"      # 0 = automatisch nach Heizungsart (°C bei -12 °C außen)
+CONF_FLOW_TEMP_SENSOR: Final = "flow_temp_sensor"      # optional: echter Vorlauf-Sensor
+CONF_ENERGY_METER_ENTITY: Final = "energy_meter_entity"  # optional: Gas-/Wärme-/WP-Stromzähler (kWh oder m³)
+
 # Anwesenheits-Verzögerung: Minuten bis Auto-Away nach Abwesenheit aller Personen
 CONF_PRESENCE_AWAY_DELAY_MINUTES: Final = "presence_away_delay_minutes"
 DEFAULT_PRESENCE_AWAY_DELAY_MINUTES: Final = 0  # 0 = sofort (rückwärtskompatibel)

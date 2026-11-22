@@ -398,6 +398,15 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "person_preferences":              cfg.get("person_preferences", []),
             "feel_duration_minutes":           cfg.get("feel_duration_minutes", 120),
             "feel_learning_enabled":           cfg.get("feel_learning_enabled", True),
+            # v2.6 – Verbrauch (config + live)
+            "heating_system":                  cfg.get("heating_system", "gas"),
+            "heating_efficiency":              cfg.get("heating_efficiency", 0),
+            "design_flow_temp":                cfg.get("design_flow_temp", 0),
+            "flow_temp_sensor":                cfg.get("flow_temp_sensor", ""),
+            "energy_meter_entity":             cfg.get("energy_meter_entity", ""),
+            "flow_temp_now":                   (self.coordinator.data or {}).get("flow_temp_now"),
+            "energy_calibration_factor":       (self.coordinator.data or {}).get("energy_calibration_factor", 1.0),
+            "meter_today_kwh":                 (self.coordinator.data or {}).get("meter_today_kwh"),
             # v2.6 – the presence entities actually used (configured or auto-discovered persons)
             "presence_entities_effective":     self.coordinator._get_presence_entities(),
             # Optimum Start (learn heating rate per outdoor-temp bucket)

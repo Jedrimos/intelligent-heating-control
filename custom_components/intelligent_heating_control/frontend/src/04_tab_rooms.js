@@ -407,21 +407,34 @@
           </div>
         </details>
 
-        <details class="modal-collapsible expert-only" ${room.hkv_sensor || (room.radiator_kw && room.radiator_kw !== 1.0) ? "open" : ""}>
-          <summary class="modal-section-title">⚡ Energieerfassung</summary>
+        <details class="modal-collapsible" ${room.hkv_sensor || (room.radiator_kw && room.radiator_kw !== 1.0) ? "open" : ""}>
+          <summary class="modal-section-title">⚡ Heizkörper &amp; Verbrauch</summary>
           <div class="settings-grid">
             <div class="settings-item">
-              <label>Heizleistung (kW)</label>
+              <label>Heizkörper-Nennleistung (kW, alle zusammen)</label>
               <input type="number" class="form-input" id="rs-radiator-kw"
-                value="${room.radiator_kw ?? 1.0}" step="0.1" min="0.1" max="5.0">
+                value="${room.radiator_kw ?? 1.0}" step="0.05" min="0.1" max="10.0">
+              <span class="form-hint">Steht auf dem Typenschild/Datenblatt (bei 75/65/20 °C). Unbekannt? Rechner rechts nutzen.</span>
             </div>
             <div class="settings-item">
+              <label>🧮 Aus Größe schätzen</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <select class="form-select" id="rs-rad-type" style="flex:1;min-width:80px" title="Typ: Anzahl Platten/Lamellen (auf der Seite zählen)">
+                  ${[["10","Typ 10"],["11","Typ 11"],["20","Typ 20"],["21","Typ 21"],["22","Typ 22"],["33","Typ 33"]].map(([v,l]) => `<option value="${v}" ${v === "22" ? "selected" : ""}>${l}</option>`).join("")}
+                </select>
+                <input type="number" class="form-input" id="rs-rad-h" placeholder="Höhe mm" value="600" style="max-width:90px">
+                <input type="number" class="form-input" id="rs-rad-l" placeholder="Länge mm" value="1000" style="max-width:90px">
+                <button class="btn btn-secondary" id="rs-rad-calc" type="button">übernehmen</button>
+              </div>
+              <span class="form-hint">Typ 22 = 2 Platten + 2 Lamellenreihen (häufigster Heizkörper). Mehrere Heizkörper: Werte addieren.</span>
+            </div>
+            <div class="settings-item expert-only">
               <label>HKV-Sensor</label>
               <input type="text" class="form-input" id="rs-hkv-sensor"
                 value="${room.hkv_sensor || ''}" placeholder="sensor.hkv"
                 data-ep-domains="sensor" autocomplete="off">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>HKV-Faktor (kWh/Einheit)</label>
               <input type="number" class="form-input" id="rs-hkv-factor"
                 value="${room.hkv_factor ?? 0.083}" step="0.001" min="0.001" max="1.0">
@@ -813,6 +826,18 @@
         this._toast(`✓ Boost beendet`);
       });
     }
+
+    // v2.6 – radiator size → rated output (same table as heat_output.py)
+    container.querySelector("#rs-rad-calc")?.addEventListener("click", () => {
+      const perM = { "10": 640, "11": 900, "20": 1050, "21": 1250, "22": 1650, "33": 2350 }[container.querySelector("#rs-rad-type").value];
+      const h = parseFloat(container.querySelector("#rs-rad-h").value), l = parseFloat(container.querySelector("#rs-rad-l").value);
+      if (!perM || !(h > 0) || !(l > 0)) { this._toast("⚠️ Höhe und Länge in mm eingeben"); return; }
+      const kw = Math.round(perM * (l / 1000) * Math.pow(h / 600, 0.85) / 10) / 100;
+      const input = container.querySelector("#rs-radiator-kw");
+      const add = parseFloat(input.value) > 0 && parseFloat(input.value) !== 1 && confirm("Zu vorhandenem Wert addieren (mehrere Heizkörper)?");
+      input.value = add ? (Math.round((parseFloat(input.value) + kw) * 100) / 100) : kw;
+      this._toast(`≈ ${kw} kW – jetzt speichern`);
+    });
 
     // Save button
     container.querySelector("#rs-save-btn").addEventListener("click", async () => {

@@ -257,6 +257,11 @@ from .const import (
     DEFAULT_FEEL_DURATION_MINUTES,
     CONF_FEEL_LEARNING_ENABLED,
     DEFAULT_FEEL_LEARNING_ENABLED,
+    CONF_HEATING_SYSTEM,
+    DEFAULT_HEATING_SYSTEM,
+    CONF_HEATING_EFFICIENCY,
+    CONF_DESIGN_FLOW_TEMP,
+    CONF_ENERGY_METER_ENTITY,
     DEFAULT_ROOM_IGNORE_HEATING_PERIOD,
     CONF_COMFORT_TEMP_ENTITY,
     CONF_ECO_TEMP_ENTITY,
@@ -601,6 +606,19 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_FEEL_LEARNING_ENABLED,
                 default=bool(cfg.get(CONF_FEEL_LEARNING_ENABLED, DEFAULT_FEEL_LEARNING_ENABLED))
             ): selector.selector({"boolean": {}}),
+            # --- v2.6: Verbrauch ---
+            vol.Optional(
+                CONF_HEATING_SYSTEM,
+                default=str(cfg.get(CONF_HEATING_SYSTEM, DEFAULT_HEATING_SYSTEM))
+            ): selector.selector({"select": {"options": ["gas", "oil", "pellets", "heatpump", "district", "electric"], "mode": "dropdown"}}),
+            vol.Optional(
+                CONF_HEATING_EFFICIENCY,
+                default=float(cfg.get(CONF_HEATING_EFFICIENCY, 0) or 0)
+            ): selector.selector({"number": {"min": 0, "max": 7, "step": 0.05, "mode": "box"}}),
+            vol.Optional(
+                CONF_DESIGN_FLOW_TEMP,
+                default=float(cfg.get(CONF_DESIGN_FLOW_TEMP, 0) or 0)
+            ): selector.selector({"number": {"min": 0, "max": 90, "step": 1, "unit_of_measurement": "°C", "mode": "box"}}),
             # --- Heizgradtage (für die kumulative Heizgradtage-Entity) ---
             vol.Optional(
                 CONF_DEGREE_DAY_BASE_TEMP,

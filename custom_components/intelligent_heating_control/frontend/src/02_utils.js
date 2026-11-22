@@ -537,6 +537,7 @@
       window_auto_detect_enabled: a.window_auto_detect_enabled !== false,
       battery_soc:               ea.battery_soc != null ? parseFloat(ea.battery_soc) : null,
       outdoor_temp_source:       a.outdoor_temp_source || null,
+      flow_temp_now:             a.flow_temp_now ?? null,
       weather_entity_effective:  a.weather_entity_effective || null,
       presence_entities:         a.presence_entities || [],
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),

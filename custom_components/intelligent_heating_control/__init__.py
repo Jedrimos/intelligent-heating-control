@@ -607,6 +607,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # v2.6 – Komfort
             "wakeup_alarm_entities", "wakeup_preheat_minutes", "wakeup_comfort_minutes",
             "person_preferences", "feel_duration_minutes", "feel_learning_enabled",
+            # v2.6 – Verbrauch
+            "heating_system", "heating_efficiency", "design_flow_temp", "flow_temp_sensor", "energy_meter_entity",
             # Heizgradtage
             "degree_day_base_temp", "degree_day_threshold_temp",
         }

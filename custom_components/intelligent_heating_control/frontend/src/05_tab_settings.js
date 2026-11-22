@@ -117,8 +117,43 @@
         </div>
       </div>`;
 
+    const systems = [["gas", "🔥 Gas"], ["oil", "🛢️ Öl"], ["pellets", "🪵 Pellets"], ["heatpump", "♨️ Wärmepumpe"], ["district", "🏙️ Fernwärme"], ["electric", "⚡ Strom direkt"]];
+    const heatingCard = `
+      <div class="card">
+        <div class="card-title">🔥 Meine Heizung</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Heizungsart</label>
+            <select class="form-select" id="heating-system">
+              ${systems.map(([v, l]) => `<option value="${v}" ${(a.heating_system || "gas") === v ? "selected" : ""}>${l}</option>`).join("")}
+            </select>
+            <span class="form-hint">Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).${g.flow_temp_now != null ? ` Vorlauf jetzt geschätzt: ${g.flow_temp_now} °C.` : ""}</span>
+          </div>
+          <div class="settings-item expert-only">
+            <label>Wirkungsgrad bzw. JAZ (0 = automatisch)</label>
+            <input type="number" class="form-input" id="heating-efficiency" min="0" max="7" step="0.05" value="${a.heating_efficiency ?? 0}">
+            <span class="form-hint">Gas ≈ 0,92 · Öl ≈ 0,88 · Wärmepumpe: Jahresarbeitszahl (z. B. 3,5)</span>
+          </div>
+          <div class="settings-item expert-only">
+            <label>Vorlauftemperatur bei −12 °C außen (0 = automatisch)</label>
+            <input type="number" class="form-input" id="design-flow-temp" min="0" max="90" step="1" value="${a.design_flow_temp ?? 0}">
+          </div>
+          <div class="settings-item expert-only">
+            <label>Vorlauf-Sensor (optional)</label>
+            <input type="text" class="form-input" id="flow-temp-sensor" value="${this._esc(a.flow_temp_sensor || "")}" data-ep-domains="sensor" autocomplete="off">
+          </div>
+          <div class="settings-item">
+            <label>Echter Zähler (optional)</label>
+            <input type="text" class="form-input" id="energy-meter-entity" value="${this._esc(a.energy_meter_entity || "")}" placeholder="sensor.gaszaehler" data-ep-domains="sensor" autocomplete="off">
+            <span class="form-hint">Gaszähler (m³ oder kWh), Wärmemengen- oder Wärmepumpen-Stromzähler. IHC gleicht seine Zimmer-Schätzung täglich daran an${a.energy_calibration_factor && a.energy_calibration_factor !== 1 ? ` (aktuell × ${a.energy_calibration_factor})` : ""}. Hinweis: Zählt der Zähler Warmwasser mit, wird das anteilig den Zimmern zugerechnet.</span>
+          </div>
+        </div>
+        <div class="btn-row"><button class="btn btn-primary" id="save-heating">💾 Speichern</button></div>
+      </div>`;
+
     content.innerHTML = `
       ${autoCard}
+      ${heatingCard}
       ${comfortCard}
       ${savingCard}
       <div class="simple-hint">🧩 Einfache Ansicht: Profi-Funktionen (Energiepreise, Solar, Kalkschutz, Kessel-Relais …) sind ausgeblendet – oben rechts auf <b>🛠️ Experte</b> umschalten.</div>
@@ -1237,6 +1272,17 @@
         eta_preheat_threshold_minutes: parseInt(content.querySelector("#eta-preheat-threshold")?.value ?? "90", 10),
       });
       this._toast("✓ Anwesenheitserkennung gespeichert");
+    });
+
+    content.querySelector("#save-heating")?.addEventListener("click", () => {
+      this._callService("update_global_settings", {
+        heating_system: content.querySelector("#heating-system")?.value || "gas",
+        heating_efficiency: Math.min(7, Math.max(0, parseFloat(content.querySelector("#heating-efficiency")?.value) || 0)),
+        design_flow_temp: Math.min(90, Math.max(0, parseFloat(content.querySelector("#design-flow-temp")?.value) || 0)),
+        flow_temp_sensor: content.querySelector("#flow-temp-sensor")?.value.trim() || "",
+        energy_meter_entity: content.querySelector("#energy-meter-entity")?.value.trim() || "",
+      });
+      this._toast("✓ Heizung gespeichert");
     });
 
     // v2.6 – Komfort

@@ -1539,6 +1539,36 @@ update_global_settings:
       required: false
       selector:
         boolean:
+    heating_system:
+      name: Heizungsart
+      description: Für die Umrechnung Wärme → bezahlte Energie (Wirkungsgrad/JAZ) und die Vorlauftemperatur.
+      required: false
+      selector:
+        select:
+          options: ["gas", "oil", "pellets", "heatpump", "district", "electric"]
+    heating_efficiency:
+      name: Wirkungsgrad bzw. JAZ
+      description: 0 = automatisch nach Heizungsart (Gas 0,92, Öl 0,88, Wärmepumpe 3,5 …).
+      required: false
+      selector:
+        number: {min: 0, max: 7, step: 0.05}
+    design_flow_temp:
+      name: Vorlauftemperatur bei -12 °C außen
+      description: 0 = automatisch nach Heizungsart. Wird witterungsgeführt mit der Außentemperatur abgesenkt.
+      required: false
+      selector:
+        number: {min: 0, max: 90, step: 1, unit_of_measurement: "°C"}
+    flow_temp_sensor:
+      name: Vorlauf-Sensor
+      required: false
+      selector:
+        entity: {domain: sensor}
+    energy_meter_entity:
+      name: Echter Zähler
+      description: Gas- (m³/kWh), Wärmemengen- oder Wärmepumpen-Stromzähler zur täglichen Kalibrierung.
+      required: false
+      selector:
+        entity: {domain: sensor}
     saving_offset:
       name: Spar-Regler (°C)
       description: >-

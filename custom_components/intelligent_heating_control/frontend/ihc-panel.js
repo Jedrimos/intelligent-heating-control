@@ -2283,6 +2283,7 @@ class IHCPanel extends HTMLElement {
       window_auto_detect_enabled: a.window_auto_detect_enabled !== false,
       battery_soc:               ea.battery_soc != null ? parseFloat(ea.battery_soc) : null,
       outdoor_temp_source:       a.outdoor_temp_source || null,
+      flow_temp_now:             a.flow_temp_now ?? null,
       weather_entity_effective:  a.weather_entity_effective || null,
       presence_entities:         a.presence_entities || [],
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
@@ -3635,21 +3636,34 @@ class IHCPanel extends HTMLElement {
           </div>
         </details>
 
-        <details class="modal-collapsible expert-only" ${room.hkv_sensor || (room.radiator_kw && room.radiator_kw !== 1.0) ? "open" : ""}>
-          <summary class="modal-section-title">⚡ Energieerfassung</summary>
+        <details class="modal-collapsible" ${room.hkv_sensor || (room.radiator_kw && room.radiator_kw !== 1.0) ? "open" : ""}>
+          <summary class="modal-section-title">⚡ Heizkörper &amp; Verbrauch</summary>
           <div class="settings-grid">
             <div class="settings-item">
-              <label>Heizleistung (kW)</label>
+              <label>Heizkörper-Nennleistung (kW, alle zusammen)</label>
               <input type="number" class="form-input" id="rs-radiator-kw"
-                value="${room.radiator_kw ?? 1.0}" step="0.1" min="0.1" max="5.0">
+                value="${room.radiator_kw ?? 1.0}" step="0.05" min="0.1" max="10.0">
+              <span class="form-hint">Steht auf dem Typenschild/Datenblatt (bei 75/65/20 °C). Unbekannt? Rechner rechts nutzen.</span>
             </div>
             <div class="settings-item">
+              <label>🧮 Aus Größe schätzen</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <select class="form-select" id="rs-rad-type" style="flex:1;min-width:80px" title="Typ: Anzahl Platten/Lamellen (auf der Seite zählen)">
+                  ${[["10","Typ 10"],["11","Typ 11"],["20","Typ 20"],["21","Typ 21"],["22","Typ 22"],["33","Typ 33"]].map(([v,l]) => `<option value="${v}" ${v === "22" ? "selected" : ""}>${l}</option>`).join("")}
+                </select>
+                <input type="number" class="form-input" id="rs-rad-h" placeholder="Höhe mm" value="600" style="max-width:90px">
+                <input type="number" class="form-input" id="rs-rad-l" placeholder="Länge mm" value="1000" style="max-width:90px">
+                <button class="btn btn-secondary" id="rs-rad-calc" type="button">übernehmen</button>
+              </div>
+              <span class="form-hint">Typ 22 = 2 Platten + 2 Lamellenreihen (häufigster Heizkörper). Mehrere Heizkörper: Werte addieren.</span>
+            </div>
+            <div class="settings-item expert-only">
               <label>HKV-Sensor</label>
               <input type="text" class="form-input" id="rs-hkv-sensor"
                 value="${room.hkv_sensor || ''}" placeholder="sensor.hkv"
                 data-ep-domains="sensor" autocomplete="off">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>HKV-Faktor (kWh/Einheit)</label>
               <input type="number" class="form-input" id="rs-hkv-factor"
                 value="${room.hkv_factor ?? 0.083}" step="0.001" min="0.001" max="1.0">
@@ -4041,6 +4055,18 @@ class IHCPanel extends HTMLElement {
         this._toast(`✓ Boost beendet`);
       });
     }
+
+    // v2.6 – radiator size → rated output (same table as heat_output.py)
+    container.querySelector("#rs-rad-calc")?.addEventListener("click", () => {
+      const perM = { "10": 640, "11": 900, "20": 1050, "21": 1250, "22": 1650, "33": 2350 }[container.querySelector("#rs-rad-type").value];
+      const h = parseFloat(container.querySelector("#rs-rad-h").value), l = parseFloat(container.querySelector("#rs-rad-l").value);
+      if (!perM || !(h > 0) || !(l > 0)) { this._toast("⚠️ Höhe und Länge in mm eingeben"); return; }
+      const kw = Math.round(perM * (l / 1000) * Math.pow(h / 600, 0.85) / 10) / 100;
+      const input = container.querySelector("#rs-radiator-kw");
+      const add = parseFloat(input.value) > 0 && parseFloat(input.value) !== 1 && confirm("Zu vorhandenem Wert addieren (mehrere Heizkörper)?");
+      input.value = add ? (Math.round((parseFloat(input.value) + kw) * 100) / 100) : kw;
+      this._toast(`≈ ${kw} kW – jetzt speichern`);
+    });
 
     // Save button
     container.querySelector("#rs-save-btn").addEventListener("click", async () => {
@@ -5632,8 +5658,43 @@ class IHCPanel extends HTMLElement {
         </div>
       </div>`;
 
+    const systems = [["gas", "🔥 Gas"], ["oil", "🛢️ Öl"], ["pellets", "🪵 Pellets"], ["heatpump", "♨️ Wärmepumpe"], ["district", "🏙️ Fernwärme"], ["electric", "⚡ Strom direkt"]];
+    const heatingCard = `
+      <div class="card">
+        <div class="card-title">🔥 Meine Heizung</div>
+        <div class="settings-grid">
+          <div class="settings-item">
+            <label>Heizungsart</label>
+            <select class="form-select" id="heating-system">
+              ${systems.map(([v, l]) => `<option value="${v}" ${(a.heating_system || "gas") === v ? "selected" : ""}>${l}</option>`).join("")}
+            </select>
+            <span class="form-hint">Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).${g.flow_temp_now != null ? ` Vorlauf jetzt geschätzt: ${g.flow_temp_now} °C.` : ""}</span>
+          </div>
+          <div class="settings-item expert-only">
+            <label>Wirkungsgrad bzw. JAZ (0 = automatisch)</label>
+            <input type="number" class="form-input" id="heating-efficiency" min="0" max="7" step="0.05" value="${a.heating_efficiency ?? 0}">
+            <span class="form-hint">Gas ≈ 0,92 · Öl ≈ 0,88 · Wärmepumpe: Jahresarbeitszahl (z. B. 3,5)</span>
+          </div>
+          <div class="settings-item expert-only">
+            <label>Vorlauftemperatur bei −12 °C außen (0 = automatisch)</label>
+            <input type="number" class="form-input" id="design-flow-temp" min="0" max="90" step="1" value="${a.design_flow_temp ?? 0}">
+          </div>
+          <div class="settings-item expert-only">
+            <label>Vorlauf-Sensor (optional)</label>
+            <input type="text" class="form-input" id="flow-temp-sensor" value="${this._esc(a.flow_temp_sensor || "")}" data-ep-domains="sensor" autocomplete="off">
+          </div>
+          <div class="settings-item">
+            <label>Echter Zähler (optional)</label>
+            <input type="text" class="form-input" id="energy-meter-entity" value="${this._esc(a.energy_meter_entity || "")}" placeholder="sensor.gaszaehler" data-ep-domains="sensor" autocomplete="off">
+            <span class="form-hint">Gaszähler (m³ oder kWh), Wärmemengen- oder Wärmepumpen-Stromzähler. IHC gleicht seine Zimmer-Schätzung täglich daran an${a.energy_calibration_factor && a.energy_calibration_factor !== 1 ? ` (aktuell × ${a.energy_calibration_factor})` : ""}. Hinweis: Zählt der Zähler Warmwasser mit, wird das anteilig den Zimmern zugerechnet.</span>
+          </div>
+        </div>
+        <div class="btn-row"><button class="btn btn-primary" id="save-heating">💾 Speichern</button></div>
+      </div>`;
+
     content.innerHTML = `
       ${autoCard}
+      ${heatingCard}
       ${comfortCard}
       ${savingCard}
       <div class="simple-hint">🧩 Einfache Ansicht: Profi-Funktionen (Energiepreise, Solar, Kalkschutz, Kessel-Relais …) sind ausgeblendet – oben rechts auf <b>🛠️ Experte</b> umschalten.</div>
@@ -6752,6 +6813,17 @@ class IHCPanel extends HTMLElement {
         eta_preheat_threshold_minutes: parseInt(content.querySelector("#eta-preheat-threshold")?.value ?? "90", 10),
       });
       this._toast("✓ Anwesenheitserkennung gespeichert");
+    });
+
+    content.querySelector("#save-heating")?.addEventListener("click", () => {
+      this._callService("update_global_settings", {
+        heating_system: content.querySelector("#heating-system")?.value || "gas",
+        heating_efficiency: Math.min(7, Math.max(0, parseFloat(content.querySelector("#heating-efficiency")?.value) || 0)),
+        design_flow_temp: Math.min(90, Math.max(0, parseFloat(content.querySelector("#design-flow-temp")?.value) || 0)),
+        flow_temp_sensor: content.querySelector("#flow-temp-sensor")?.value.trim() || "",
+        energy_meter_entity: content.querySelector("#energy-meter-entity")?.value.trim() || "",
+      });
+      this._toast("✓ Heizung gespeichert");
     });
 
     // v2.6 – Komfort

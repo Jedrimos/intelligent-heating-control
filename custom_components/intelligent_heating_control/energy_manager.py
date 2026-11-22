@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -21,7 +22,15 @@ from .const import (
     DEFAULT_BOILER_MIN_ON_SECONDS,
     CONF_BOILER_MIN_OFF_SECONDS,
     DEFAULT_BOILER_MIN_OFF_SECONDS,
+    CONF_HEATING_SYSTEM,
+    DEFAULT_HEATING_SYSTEM,
+    CONF_HEATING_EFFICIENCY,
+    CONF_DESIGN_FLOW_TEMP,
+    CONF_FLOW_TEMP_SENSOR,
+    CONF_ENERGY_METER_ENTITY,
+    CONF_ROOM_ID,
 )
+from . import heat_output
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,9 +38,95 @@ _LOGGER = logging.getLogger(__name__)
 class EnergyManagerMixin:
     """Mixin for heating runtime tracking and energy estimation."""
 
+    # ── v2.6 physical heat / energy model ──────────────────────────────────────
+    def _heating_params(self) -> dict:
+        cfg = self.get_config()
+        system = cfg.get(CONF_HEATING_SYSTEM, DEFAULT_HEATING_SYSTEM)
+        base = heat_output.HEATING_SYSTEMS.get(system, heat_output.HEATING_SYSTEMS["gas"])
+        eff = float(cfg.get(CONF_HEATING_EFFICIENCY, 0) or 0) or base["efficiency"]
+        design = float(cfg.get(CONF_DESIGN_FLOW_TEMP, 0) or 0) or base["flow"]
+        return {"system": system, "efficiency": eff, "design_flow": design, "spread": base["spread"]}
+
+    def _current_flow_return(self, outdoor_temp: Optional[float]) -> tuple:
+        """Flow/return temperature now: real flow sensor if configured, else the design
+        flow temperature weather-compensated by the outdoor temperature."""
+        p = self._heating_params()
+        flow = None
+        sensor = self.get_config().get(CONF_FLOW_TEMP_SENSOR)
+        if sensor:
+            st = self.hass.states.get(sensor)
+            if st is not None and st.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+                try:
+                    flow = float(st.state)
+                except ValueError:
+                    flow = None
+        if flow is None:
+            flow = heat_output.weather_compensated_flow(p["design_flow"], outdoor_temp)
+        share = max(0.3, (flow - 20.0) / max(1.0, p["design_flow"] - 20.0))
+        return flow, flow - p["spread"] * min(1.0, share)
+
+    def _update_room_heat_energy(self, room_data: dict, outdoor_temp: Optional[float]) -> None:
+        """Integrate each room's estimated heat output (kW) over time → heat kWh today."""
+        now = time.monotonic()
+        last = getattr(self, "_energy_last_ts", None)
+        self._energy_last_ts = now
+        dt_h = 0.0 if last is None else min(300.0, max(0.0, now - last)) / 3600.0
+        flow, ret = self._current_flow_return(outdoor_temp)
+        self._flow_temp_now = round(flow, 1)
+        rooms = {r.get(CONF_ROOM_ID, ""): r for r in self.get_rooms()}
+        for room_id, rdata in room_data.items():
+            room = rooms.get(room_id)
+            if room is None:
+                continue
+            power = heat_output.room_heat_power_kw(
+                self._get_room_radiator_kw(room), rdata.get("trv_avg_valve"),
+                self._trv_room_is_heating(rdata), float(rdata.get("demand", 0) or 0),
+                flow, ret, rdata.get("current_temp"),
+            )
+            rdata["instant_power_w"] = round(power * 1000.0, 1)
+            if dt_h > 0:
+                self._room_heat_kwh_today[room_id] = self._room_heat_kwh_today.get(room_id, 0.0) + power * dt_h
+
+    def _meter_reading_kwh(self) -> Optional[float]:
+        entity = self.get_config().get(CONF_ENERGY_METER_ENTITY)
+        st = self.hass.states.get(entity) if entity else None
+        if st is None or st.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            return None
+        try:
+            return heat_output.meter_to_kwh(float(st.state), st.attributes.get("unit_of_measurement"))
+        except ValueError:
+            return None
+
+    def _meter_today_kwh(self) -> Optional[float]:
+        reading = self._meter_reading_kwh()
+        if reading is None:
+            return None
+        if self._smart_meter_day_start is None or reading < self._smart_meter_day_start:
+            self._smart_meter_day_start = reading
+        return round(reading - self._smart_meter_day_start, 3)
+
+    def _roll_energy_day(self) -> None:
+        """At midnight: freeze today's per-room final energy as "yesterday" and, if a real
+        meter is configured, learn a calibration factor (measured / estimated)."""
+        estimated = 0.0
+        self._room_final_kwh_yesterday = {}
+        for room in self.get_rooms():
+            rid = room.get(CONF_ROOM_ID, "")
+            if not rid:
+                continue
+            value = self._calculate_room_energy_today(room, rid)
+            self._room_final_kwh_yesterday[rid] = value
+            estimated += value / max(0.01, self._energy_calibration_factor)
+        measured = self._meter_today_kwh()
+        if measured is not None and estimated > 0.5 and measured > 0:
+            ratio = max(0.2, min(5.0, measured / estimated))
+            self._energy_calibration_factor = round(0.5 * self._energy_calibration_factor + 0.5 * ratio, 3)
+        self._room_heat_kwh_today = {}
+
     def _reset_runtime_if_new_day(self) -> None:
         today = dt_util.now().day
         if today != self._runtime_day:
+            self._roll_energy_day()
             # Save today's runtime as yesterday before reset
             self._heating_runtime_yesterday = self._heating_runtime_today
             self._heating_runtime_today = 0.0
@@ -183,16 +278,8 @@ class EnergyManagerMixin:
         return radiator_kw
 
     def _calculate_room_instant_power_w(self, room: dict, rdata: dict) -> float:
-        """Estimate the room's current heat output in Watts: rated radiator power ×
-        how open the TRV valve currently is (falls back to calculated demand % when
-        no valve-position signal is available). Same signal priority as the energy
-        estimate, just instantaneous instead of integrated over runtime.
-        """
-        fraction = rdata.get("trv_avg_valve")
-        if fraction is None:
-            fraction = rdata.get("demand", 0.0)
-        fraction = max(0.0, min(100.0, fraction or 0.0)) / 100.0
-        return round(self._get_room_radiator_kw(room) * 1000.0 * fraction, 1)
+        """Current heat output in W (computed in _update_room_heat_energy, v2.6 model)."""
+        return float(rdata.get("instant_power_w", 0.0) or 0.0)
 
     def _calculate_room_energy_today(self, room: dict, room_id: str) -> float:
         """
@@ -232,10 +319,11 @@ class EnergyManagerMixin:
                 except (ValueError, TypeError):
                     pass  # fall through to runtime estimate
 
-        # --- Option 2: runtime × radiator power ---
-        radiator_kw = self._get_room_radiator_kw(room)
-        room_runtime_min = self.get_room_runtime_today_minutes(room_id)
-        return round(room_runtime_min / 60.0 * radiator_kw, 3)
+        # --- Option 2 (v2.6): integrated heat output → final energy (gas/oil/electricity),
+        # calibrated against a real meter if one is configured
+        heat_kwh = self._room_heat_kwh_today.get(room_id, 0.0)
+        final = heat_output.final_energy(heat_kwh, self._heating_params()["efficiency"])
+        return round(final * self._energy_calibration_factor, 3)
 
     def _calculate_room_energy_yesterday(self, room: dict, room_id: str) -> float:
         """
@@ -245,9 +333,8 @@ class EnergyManagerMixin:
         (that needs a live delta since midnight, not available for a past day)
         - it always uses runtime × radiator_kw.
         """
-        radiator_kw = self._get_room_radiator_kw(room)
-        room_runtime_min = self.get_room_runtime_yesterday_minutes(room_id)
-        return round(room_runtime_min / 60.0 * radiator_kw, 3)
+        # v2.6: the value frozen at midnight (same method as "today", incl. HKV/meter)
+        return round(self._room_final_kwh_yesterday.get(room_id, 0.0), 3)
 
     def calculate_efficiency_score(self, outdoor_temp: Optional[float]) -> Optional[int]:
         """

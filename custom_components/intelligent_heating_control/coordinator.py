@@ -515,6 +515,10 @@ class IHCCoordinator(
         # non-empty store - on a fresh install every save crashed with AttributeError, so
         # modes/boosts/history were never persisted until the first midnight rollover.
         self._smart_meter_day_start = None
+        self._room_heat_kwh_today: Dict[str, float] = {}       # v2.6 integrated heat (kWh)
+        self._room_final_kwh_yesterday: Dict[str, float] = {}  # v2.6 frozen at midnight
+        self._energy_calibration_factor: float = 1.0           # v2.6 meter calibration
+        self._flow_temp_now: Optional[float] = None
         self._curve_adaptation_delta: float = 0.0
         self._outdoor_temp_source: Optional[str] = None            # "sensor:<id>" | "weather:<id>" | None (v2.6)
         self._window_open_since_wall: Dict[str, datetime] = {}     # room_id -> when the window opened (reminder)
@@ -646,6 +650,9 @@ class IHCCoordinator(
         self._room_manual_temps = data.get("room_manual_temps", {})
         self._room_child_locks = data.get("room_child_locks", {})
         self._feel_temp = data.get("feel_temp", {}) or {}
+        self._room_heat_kwh_today = data.get("room_heat_kwh_today", {}) or {}
+        self._room_final_kwh_yesterday = data.get("room_final_kwh_yesterday", {}) or {}
+        self._energy_calibration_factor = float(data.get("energy_calibration_factor", 1.0) or 1.0)
         self._feel_presses = {k: [tuple(p) for p in v] for k, v in (data.get("feel_presses", {}) or {}).items()}
         # Populate manual tracking for rooms that were in MANUAL mode before restart.
         # Without a timestamp, the auto-reset logic would never fire after restart.
@@ -765,6 +772,9 @@ class IHCCoordinator(
             "room_manual_temps": self._room_manual_temps,
             "room_child_locks": self._room_child_locks,
             "feel_temp": self._feel_temp,
+            "room_heat_kwh_today": self._room_heat_kwh_today,
+            "room_final_kwh_yesterday": self._room_final_kwh_yesterday,
+            "energy_calibration_factor": self._energy_calibration_factor,
             "feel_presses": self._feel_presses,
             "presence_away_active": self._presence_away_active,
             "presence_away_pending_since": self._presence_away_pending_since.isoformat() if self._presence_away_pending_since else None,
@@ -2720,6 +2730,7 @@ class IHCCoordinator(
 
         # Track energy / runtime
         self._update_runtime_tracking(room_data)
+        self._update_room_heat_energy(room_data, ctx.get("outdoor_temp"))
 
         # Add per-room runtime to room_data
         for room_id in room_data:
@@ -3008,6 +3019,12 @@ class IHCCoordinator(
             "outdoor_temp": ctx["outdoor_temp"],
             # v2.6 – where the outdoor temp comes from, so the UI can explain it
             "outdoor_temp_source": self._outdoor_temp_source,
+            # v2.6 energy model transparency
+            "heating_system": self._heating_params()["system"],
+            "heating_efficiency": self._heating_params()["efficiency"],
+            "flow_temp_now": self._flow_temp_now,
+            "energy_calibration_factor": self._energy_calibration_factor,
+            "meter_today_kwh": self._meter_today_kwh(),
             "weather_entity_effective": self._get_weather_entity_id(),
             "curve_target": ctx["curve_target"],
             "total_demand": ctx["total_demand"],
