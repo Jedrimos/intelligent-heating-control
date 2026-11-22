@@ -566,6 +566,19 @@ add_room:
           max: 5
           step: 0.1
 
+add_rooms:
+  name: Mehrere Zimmer hinzufügen
+  description: >-
+    Legt mehrere Zimmer auf einmal an (wird von der automatischen Zimmererkennung im Panel
+    genutzt). Jedes Element akzeptiert dieselben Felder wie add_room.
+  fields:
+    rooms:
+      name: Zimmer
+      description: 'Liste von Zimmern, z.B. [{"name": "Bad", "valve_entities": ["climate.bad"]}]'
+      required: true
+      selector:
+        object:
+
 remove_room:
   name: Zimmer entfernen
   description: Entfernt ein Zimmer aus der Heizungssteuerung.
@@ -1427,7 +1440,7 @@ update_global_settings:
     window_auto_detect_enabled:
       name: Sensorlose Fenstererkennung
       description: >-
-        Erkennt offene Fenster in Zimmern OHNE Fenstersensor an einem plötzlichen
+        Standard an. Erkennt offene Fenster in Zimmern OHNE Fenstersensor an einem plötzlichen
         Temperatursturz und schaltet deren Thermostate vorübergehend ab.
       required: false
       selector:

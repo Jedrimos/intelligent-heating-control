@@ -1,1385 +1,177 @@
 /**
  * 08_modals.js
  * IHC Frontend – Modals
- * Contains: _showAddRoomModal, _showEditRoomModal, _showConfirmModal,
+ * Contains: _showAddRoomModal (Schnellstart), _showDiscoverRoomsModal, _showConfirmModal,
  *           _showModal, _closeModal, _cleanupEntityPickers,
  *           _bindEntityListAdders, _makeHaSchedRow, _bindHaSchedAdder, _collectHaScheduleRows
  */
 
-  _showAddRoomModal() {
+  // ── Zimmer hinzufügen – Schnellstart (v2.6) ────────────────────────────────
+  // Deliberately minimal: name, thermostat(s), optional sensors, comfort temp.
+  // Every other setting has a sensible default and lives in the room's
+  // ⚙️ Einstellungen tab afterwards - the old 130-field dialog scared beginners off.
+  // Optional "Bereich übernehmen" pre-fills everything from a Home Assistant area.
+  _showAddRoomModal(prefill = null) {
+    const found = this._discoverRooms().filter(r => !r.exists);
+    const p = prefill || {};
+    const entityRow = (listId, domain, value, placeholder, first) => `
+      <div class="entity-row">
+        <input type="text" class="form-input" placeholder="${placeholder}" value="${this._esc(value || "")}"
+          data-ep-domains="${domain}" autocomplete="off">
+        ${first
+          ? `<button class="btn btn-secondary btn-icon add-entity" data-list="${listId}" data-ep-domains="${domain}" title="Weiteres hinzufügen">+</button>`
+          : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
+      </div>`;
+    const rows = (listId, domain, values, placeholder) => {
+      const v = values && values.length ? values : [""];
+      return v.map((val, i) => entityRow(listId, domain, val, placeholder, i === 0)).join("");
+    };
     this._showModal(`
       <div class="modal-title">+ Zimmer hinzufügen</div>
+      <p class="modal-lead">Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.</p>
+
+      ${found.length ? `
+      <div class="form-group">
+        <label class="form-label">🏠 Aus Home-Assistant-Bereich übernehmen</label>
+        <select class="form-select" id="m-area">
+          <option value="">– manuell eingeben –</option>
+          ${found.map(r => `<option value="${this._esc(r.area_id)}" ${p.area_id === r.area_id ? "selected" : ""}>${this._esc(r.name)} (${r.valves.length} Thermostat${r.valves.length > 1 ? "e" : ""}${r.temp_sensor ? ", Thermometer" : ""}${r.windows.length ? ", Fenster" : ""})</option>`).join("")}
+        </select>
+        <span class="form-hint">Füllt die Felder unten mit den Geräten aus diesem Bereich.</span>
+      </div>` : ""}
 
       <div class="form-group">
         <label class="form-label">Zimmername *</label>
-        <input type="text" class="form-input full" id="m-name" placeholder="z.B. Wohnzimmer">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Temperatursensor</label>
-        <input type="text" class="form-input full" id="m-sensor"
-          placeholder="sensor.wohnzimmer_temp" data-ep-domains="sensor" autocomplete="off">
-        <span class="form-hint">Entity-ID des Temperatursensors</span>
+        <input type="text" class="form-input full" id="m-name" placeholder="z.B. Wohnzimmer" value="${this._esc(p.name || "")}">
       </div>
 
       <div class="modal-section">
-        <div class="modal-section-title">Zusätzliche Temperatursensoren <span style="font-weight:400;font-size:10px">(optional, pro Raumteil)</span></div>
-        <div id="m-temp-sensors-list">
-          ${this._renderTempSensorRows([], "m-add-ts")}
-        </div>
-        <span class="form-hint">Werden mit dem Temperatursensor oben zu einem gewichteten Mittelwert kombiniert. Mit Belegungs-Entity zählt der Sensor im gerade genutzten Bereich stärker.</span>
+        <div class="modal-section-title">🔥 Thermostat(e) *</div>
+        <div class="entity-list" id="valve-list">${rows("valve-list", "climate", p.valves, "climate.wohnzimmer")}</div>
+        <span class="form-hint">Heizkörperthermostate (TRVs) dieses Zimmers. Mehrere möglich.</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">🌡️ Raumthermometer <span class="opt">optional</span></label>
+        <input type="text" class="form-input full" id="m-sensor" value="${this._esc(p.temp_sensor || "")}"
+          placeholder="sensor.wohnzimmer_temperatur" data-ep-domains="sensor" autocomplete="off">
+        <span class="form-hint">Ohne Thermometer nimmt IHC die Temperatur vom Thermostat.</span>
       </div>
 
       <div class="modal-section">
-        <div class="modal-section-title">Thermostate / TRVs (mehrere möglich)</div>
-        <div class="entity-list" id="valve-list">
-          <div class="entity-row">
-            <input type="text" class="form-input" placeholder="climate.wohnzimmer (optional)"
-              data-ep-domains="climate" autocomplete="off">
-            <button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-ep-domains="climate">+</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-section">
-        <div class="modal-section-title">Fenstersensoren (mehrere möglich)</div>
-        <div class="entity-list" id="window-list">
-          <div class="entity-row">
-            <input type="text" class="form-input" placeholder="binary_sensor.fenster_wz (optional)"
-              data-ep-domains="binary_sensor" autocomplete="off">
-            <button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-ep-domains="binary_sensor">+</button>
-          </div>
-        </div>
+        <div class="modal-section-title">🪟 Fensterkontakte <span class="opt">optional</span></div>
+        <div class="entity-list" id="window-list">${rows("window-list", "binary_sensor", p.windows, "binary_sensor.fenster_wohnzimmer")}</div>
+        <span class="form-hint">Ohne Kontakt erkennt IHC offene Fenster automatisch an einem Temperatursturz.</span>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Luftfeuchtigkeitssensor (optional)</label>
-        <input type="text" class="form-input full" id="m-humidity-sensor"
-          placeholder="sensor.wohnzimmer_humidity" data-ep-domains="sensor" autocomplete="off">
-        <span class="form-hint">Für Schimmelschutz-Erkennung</span>
+        <label class="form-label">😊 Wohlfühltemperatur</label>
+        <div class="comfort-pick">
+          <input type="range" id="m-comfort-range" min="16" max="26" step="0.5" value="${p.comfort_temp ?? 21}">
+          <span id="m-comfort-val">${(p.comfort_temp ?? 21).toFixed(1)} °C</span>
+        </div>
+        <span class="form-hint">Sparen, Schlafen und Abwesend werden automatisch daraus abgeleitet (−3 / −4 / −6 °C).</span>
       </div>
-
-      <div class="form-group">
-        <label class="form-label">Schimmelschutz</label>
-        <select class="form-select" id="m-mold-protection">
-          <option value="true">Aktiviert</option>
-          <option value="false">Deaktiviert</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Schimmelschutz-Schwelle (%)</label>
-        <input type="number" class="form-input full" id="m-mold-humidity-threshold" value="70" step="1" min="50" max="95">
-        <span class="form-hint">Luftfeuchtigkeit ab der Schimmelschutz-Warnung ausgelöst wird</span>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">CO₂-Sensor (optional)</label>
-        <input type="text" class="form-input full" id="m-co2-sensor"
-          placeholder="sensor.co2_wohnzimmer" data-ep-domains="sensor" autocomplete="off">
-        <span class="form-hint">ppm → Lüftungsempfehlung</span>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">CO₂ Gut-Schwelle (ppm)</label>
-        <input type="number" class="form-input full" id="m-co2-threshold-good" value="800" step="50" min="400" max="1000">
-        <span class="form-hint">Unter diesem Wert = gute Luft (Standard: 800 ppm)</span>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">CO₂ Lüften-Schwelle (ppm)</label>
-        <input type="number" class="form-input full" id="m-co2-threshold-bad" value="1200" step="50" min="800" max="2000">
-        <span class="form-hint">Über diesem Wert = Lüftungsempfehlung (Standard: 1200 ppm)</span>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Anwesenheits-Entitäten (optional)</label>
-        <input type="text" class="form-input full" id="m-presence-entities"
-          placeholder="person.max, device_tracker.handy"
-          data-ep-domains="person,device_tracker,input_boolean,binary_sensor" autocomplete="off">
-        <span class="form-hint">Zimmer wechselt auf Abwesend-Temp wenn niemand da · leer = immer anwesend</span>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Bewegungsmelder (PIR)</label>
-        <input class="form-input" type="text" id="m-presence-sensor"
-          value="" placeholder="binary_sensor.bewegung_wohnzimmer" data-ep-domains="binary_sensor" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label class="form-label">PIR Einschalt-Verzögerung (s)</label>
-        <input class="form-input" type="number" id="m-presence-sensor-on-delay"
-          min="0" max="3600" step="30" value="300">
-      </div>
-      <div class="form-group">
-        <label class="form-label">PIR Ausschalt-Verzögerung (s)</label>
-        <input class="form-input" type="number" id="m-presence-sensor-off-delay"
-          min="0" max="3600" step="30" value="300">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">🎚️ Sensor-Kalibrierung (°C)</label>
-        <input type="number" class="form-input full" id="m-temp-calibration" value="0" step="0.1" min="-5" max="5">
-        <span class="form-hint">Offset für den Raumtemperatursensor. Positiv = Sensor misst zu kalt, negativ = zu warm. 0 = deaktiviert.</span>
-      </div>
-
-      <details class="modal-collapsible">
-        <summary class="modal-section-title">⚡ Aggressiver Modus (für träge TRVs)</summary>
-        <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0 10px">
-          Wenn der Raum weit unter dem Sollwert liegt, wird der TRV-Sollwert temporär überhöht um
-          schneller aufzuheizen. Der TRV schließt selbst wenn er die Zieltemperatur erreicht.
-          <strong>Standard: deaktiviert.</strong>
-        </div>
-        <div class="settings-grid">
-          <div class="settings-item" style="grid-column:1/-1">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-              <input type="checkbox" id="m-aggressive-mode">
-              Aggressiver Modus aktivieren
-            </label>
-            <span class="form-hint">Nur sinnvoll bei TRVs mit eigener Regelung (z.B. Zigbee2MQTT TRVs)</span>
-          </div>
-          <div class="settings-item">
-            <label>Aktivierungsbereich (°C unter Soll)</label>
-            <input type="number" class="form-input" id="m-aggressive-range" value="2" step="0.5" min="0.5" max="5">
-            <span class="form-hint">Modus aktiviert wenn Raumtemp um diesen Wert unter Soll liegt</span>
-          </div>
-          <div class="settings-item">
-            <label>Überhöhung (°C über Soll)</label>
-            <input type="number" class="form-input" id="m-aggressive-offset" value="3" step="0.5" min="0.5" max="8">
-            <span class="form-hint">TRV bekommt Soll + Überhöhung als Setpoint</span>
-          </div>
-        </div>
-      </details>
-
-      <div class="modal-section">
-        <div class="modal-section-title">Energieerfassung</div>
-        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
-          Im TRV-Modus wird der Verbrauch pro Zimmer geschätzt. Mit einem Heizkostenverteiler-Sensor
-          (Wireless M-Bus) ist die Abrechnung direkt aus dem Gerät möglich.
-        </div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Heizleistung Zimmer (kW)</label>
-            <input type="number" class="form-input" id="m-radiator-kw" value="1.0" step="0.1" min="0.1" max="5.0">
-            <span class="form-hint">Nennleistung der Heizkörper im Zimmer</span>
-          </div>
-          <div class="settings-item">
-            <label>HKV-Sensor (optional)</label>
-            <input type="text" class="form-input" id="m-hkv-sensor"
-              placeholder="sensor.hkv_wohnzimmer" data-ep-domains="sensor" autocomplete="off">
-            <span class="form-hint">Wireless M-Bus / Ista / Techem Einheitenzähler</span>
-          </div>
-          <div class="settings-item">
-            <label>HKV-Faktor (kWh/Einheit)</label>
-            <input type="number" class="form-input" id="m-hkv-factor" value="0.083" step="0.001" min="0.001" max="1.0">
-            <span class="form-hint">Aus Ihrer Jahresabrechnung: Gesamtkostenkennzahl</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-section">
-        <div class="modal-section-title">Temperatur-Presets</div>
-        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
-          Komfort wird von der Außentemperatur berechnet (Heizkurve).
-          Eco und Schlaf = Komfort minus Abzug, mit optionalem Maximum.
-        </div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Komfort Fallback (°C)</label>
-            <input type="number" class="form-input" id="m-comfort" value="21" step="0.5" min="15" max="30">
-            <span class="form-hint">Nur wenn kein Außensensor vorhanden</span>
-          </div>
-          <div class="settings-item">
-            <label>Abwesend-Temperatur (°C)</label>
-            <input type="number" class="form-input" id="m-away-temp-room" value="16" step="0.5" min="10" max="22">
-            <span class="form-hint">Feste Temperatur wenn Zimmer-Modus auf "Abwesend" steht</span>
-          </div>
-        </div>
-        <div class="settings-grid" style="margin-top:8px">
-          <div class="settings-item">
-            <label>Eco Abzug (°C)</label>
-            <input type="number" class="form-input" id="m-eco-offset" value="3" step="0.5" min="0" max="10">
-            <span class="form-hint">Eco = Komfort − Abzug</span>
-          </div>
-          <div class="settings-item">
-            <label>Eco Maximum (°C)</label>
-            <input type="number" class="form-input" id="m-eco-max" value="21" step="0.5" min="10" max="28">
-            <span class="form-hint">Eco nie höher als dieser Wert</span>
-          </div>
-          <div class="settings-item">
-            <label>Schlaf Abzug (°C)</label>
-            <input type="number" class="form-input" id="m-sleep-offset" value="4" step="0.5" min="0" max="10">
-            <span class="form-hint">Schlaf = Komfort − Abzug</span>
-          </div>
-          <div class="settings-item">
-            <label>Schlaf Maximum (°C)</label>
-            <input type="number" class="form-input" id="m-sleep-max" value="19" step="0.5" min="10" max="25">
-            <span class="form-hint">Schlaf nie höher als dieser Wert</span>
-          </div>
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>🌙 Schlaf-Temperaturprofil <span style="font-weight:400;font-size:10px">(optional – überschreibt Schlaf-Abzug wenn gesetzt)</span></label>
-            <div id="m-sleep-profile-list">
-              <div class="entity-row sp-row">
-                <input type="time" class="form-input" style="max-width:110px" data-sp-field="time" value="22:00">
-                <input type="number" class="form-input" style="max-width:90px" data-sp-field="temp" placeholder="°C" step="0.5" min="5" max="30">
-                <button class="btn btn-secondary btn-icon" id="m-add-sp-point">+</button>
-              </div>
-            </div>
-            <span class="form-hint">Uhrzeit · Temperatur – z.B. 22:00/19°C, 02:00/16°C, 06:00/18°C. Leer lassen für den festen Schlaf-Abzug oben.</span>
-          </div>
-          <div class="settings-item">
-            <label>Abwesend Abzug (°C)</label>
-            <input type="number" class="form-input" id="m-away-offset" value="6" step="0.5" min="0" max="15">
-            <span class="form-hint">Abwesend = Komfort − Abzug</span>
-          </div>
-          <div class="settings-item">
-            <label>Abwesend Maximum (°C)</label>
-            <input type="number" class="form-input" id="m-away-max" value="18" step="0.5" min="5" max="22">
-            <span class="form-hint">Abwesend nie höher als dieser Wert</span>
-          </div>
-        </div>
-      </div>
-
-      <details class="modal-collapsible">
-        <summary class="modal-section-title">🚀 Boost &amp; TRV-Sensor</summary>
-        <div class="settings-grid" style="margin-top:8px">
-          <div class="settings-item">
-            <label>Standard-Boost-Dauer (min)</label>
-            <input type="number" class="form-input" id="m-boost-dur" value="60" step="5" min="5" max="480">
-            <span class="form-hint">Nutzt HA nativen Boost-Modus auf dem TRV wenn keine Boost-Temperatur gesetzt ist</span>
-          </div>
-          <div class="settings-item">
-            <label>Boost-Zieltemperatur (°C)</label>
-            <input type="number" class="form-input" id="m-boost-temp" value="0" step="0.5" min="0" max="30" placeholder="0 = Komfort-Temperatur">
-            <span class="form-hint">Feste Zieltemperatur während des Boosts. 0 = deaktiviert, nutzt stattdessen die Komfort-Temperatur.</span>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--secondary-text-color);margin:8px 0">
-          TRV-Sensor-Integration: TRV-Temperatur als Korrekturquelle nutzen (0 = deaktiviert)
-        </div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>TRV-Temp Gewichtung (0–0.5)</label>
-            <input type="number" class="form-input" id="m-trv-temp-weight" value="0" step="0.05" min="0" max="0.5">
-            <span class="form-hint">0 = deaktiviert · 0.3 = 30% TRV-Temp einfließen lassen</span>
-          </div>
-          <div class="settings-item">
-            <label>TRV-Temp Offset (°C)</label>
-            <input type="number" class="form-input" id="m-trv-temp-offset" value="-2" step="0.5" min="-10" max="5">
-            <span class="form-hint">Korrektur für Nähe zum Heizkörper (meist negativ)</span>
-          </div>
-          <div class="settings-item">
-            <label>Min. Sendeintervall (s)</label>
-            <input type="number" class="form-input" id="m-trv-min-send-interval" value="0" step="60" min="0" max="1800">
-            <span class="form-hint">0 = nur Temperatur-Hysterese · z.B. 300 = max alle 5 min</span>
-          </div>
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>🎯 Per-TRV-Kalibrierung (JSON-Dict)</label>
-            <textarea class="form-input" id="m-trv-calibrations" rows="3"
-              placeholder='{"climate.trv_schrank": -2.0, "climate.trv_fenster": 0.5}'
-              style="font-family:monospace;font-size:11px"></textarea>
-            <span class="form-hint">
-              Optionale Temperatur-Offsets pro TRV-Entität (in °C). Negativ = TRV misst zu warm (z.B. nahe am Heizkörper).
-              Format: <code>{"climate.trv_name": -2.0}</code>. Leer = deaktiviert.
-            </span>
-          </div>
-        </div>
-      </details>
-
-      <div class="modal-section">
-        <div class="modal-section-title">Erweitert</div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Zimmer-Offset (°C)</label>
-            <input type="number" class="form-input" id="m-offset" value="0" step="0.5" min="-5" max="5">
-          </div>
-          <div class="settings-item">
-            <label>Totband (°C)</label>
-            <input type="number" class="form-input" id="m-deadband" value="0.5" step="0.1" min="0.1" max="2">
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-section">
-        <div class="modal-section-title">🌡️ Temperaturgrenzen &amp; Zeiten</div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Absolute Mindesttemperatur (°C)</label>
-            <input type="number" class="form-input" id="m-absolute-min-temp" value="15" step="0.5" min="5" max="25">
-            <span class="form-hint">Soll-Temperatur fällt nie unter diesen Wert (auch bei Eco/Away/Schlaf)</span>
-          </div>
-          <div class="settings-item">
-            <label>Mindesttemperatur-Schwelle (°C)</label>
-            <input type="number" class="form-input" id="m-room-temp-threshold" value="0" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
-            <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
-          </div>
-          <div class="settings-item" style="grid-column:1/-1">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-              <input type="checkbox" id="m-ignore-heating-period">
-              Heizperiode für dieses Zimmer ignorieren
-            </label>
-            <span class="form-hint">Zimmer heizt immer nach Zeitplan/Modus, auch wenn die Heizperiode gerade inaktiv ist (z.B. Bad)</span>
-          </div>
-          <div class="settings-item">
-            <label>HA Klimaregler – Min.-Temperatur (°C)</label>
-            <input type="number" class="form-input" id="m-min-temp" value="5" step="0.5" min="4" max="15">
-            <span class="form-hint">Untergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
-          </div>
-          <div class="settings-item">
-            <label>HA Klimaregler – Max.-Temperatur (°C)</label>
-            <input type="number" class="form-input" id="m-max-temp" value="30" step="0.5" min="20" max="35">
-            <span class="form-hint">Obergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
-          </div>
-          <div class="settings-item">
-            <label>Zimmergröße (m²)</label>
-            <input type="number" class="form-input" id="m-room-qm" value="0" step="1" min="0" max="200">
-            <span class="form-hint">0 = nicht gesetzt · wird für Vorheizzeit, Gewichtung &amp; Energieberechnung genutzt</span>
-          </div>
-          <div class="settings-item">
-            <label>Vorheizzeit pro Zimmer (min)</label>
-            <input type="number" class="form-input" id="m-room-preheat" value="-1" step="1" min="-1" max="120">
-            <span class="form-hint">-1 = globale Einstellung / automatisch aus qm</span>
-          </div>
-          <div class="settings-item">
-            <label>Fenster-Reaktionszeit (s)</label>
-            <input type="number" class="form-input" id="m-window-reaction-time" value="30" step="5" min="0" max="300">
-            <span class="form-hint">Sekunden bis IHC auf offenes Fenster reagiert</span>
-          </div>
-          <div class="settings-item">
-            <label>Wiederaufnahme nach Fenster-zu (s)</label>
-            <input type="number" class="form-input" id="m-window-close-delay" value="0" step="5" min="0" max="600">
-            <span class="form-hint">Sekunden nach Schließen bis normale Heizung wieder beginnt</span>
-          </div>
-          <div class="settings-item">
-            <label>Fenster-Mindesttemperatur (°C)</label>
-            <input type="number" class="form-input" id="m-window-open-temp" min="0" max="22" step="0.5" value="0" placeholder="0 = Frostschutz">
-            <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
-          </div>
-          <div class="settings-item">
-            <label>Nach Fenster schließen</label>
-            <select class="form-select" id="m-window-restore-mode">
-              <option value="schedule">Zeitplan neu berechnen</option>
-              <option value="previous">Letzten Sollwert wiederherstellen</option>
-            </select>
-            <span class="form-hint">Was passiert mit dem Sollwert wenn das Fenster wieder geschlossen wird</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-section">
-        <div class="modal-section-title">🔗 Dynamische Sollwert-Entitäten <span style="font-weight:400;font-size:10px">(optional)</span></div>
-        <div class="settings-grid">
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>Komfort-Sollwert Entity</label>
-            <input type="text" class="form-input full" id="m-comfort-temp-entity"
-              placeholder="input_number.komfort_soll"
-              data-ep-domains="input_number,sensor" autocomplete="off">
-            <span class="form-hint">Überschreibt die Heizkurve als Komfort-Sollwert (optional)</span>
-          </div>
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>Eco-Sollwert Entity</label>
-            <input type="text" class="form-input full" id="m-eco-temp-entity"
-              placeholder="input_number.eco_soll"
-              data-ep-domains="input_number,sensor" autocomplete="off">
-            <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
-          </div>
-        </div>
-        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span></div>
-        <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:8px">
-          Heizung bleibt im Komfortmodus solange eine der Bedingungen zutrifft (z.B. TV läuft → kein Eco um 22 Uhr).
-        </div>
-        <div id="m-comfort-extend-list">
-          <div class="entity-row ce-row">
-            <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity"
-              data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
-            <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="on" data-ce-field="state">
-            <button class="btn btn-secondary btn-icon" id="m-add-ce-entry">+</button>
-          </div>
-        </div>
-        <span class="form-hint">Entity · Zustand – z.B. <code>media_player.tv</code> / <code>playing</code> oder <code>person.max</code> / <code>home</code></span>
-      </div>
-
-      <details class="modal-collapsible">
-        <summary>🌊 Fenster-Kaskade <span style="font-size:10px;font-weight:400;margin-left:4px">(optional)</span></summary>
-        <div class="modal-collapsible-body">
-          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
-            Wenn dieses Zimmer zu lange gelüftet wird, senkt IHC die Heizung in anderen Räumen automatisch ab.
-          </div>
-          ${(() => {
-            const allRooms = this._getRoomData();
-            const boxes = Object.values(allRooms).map(r => `
-              <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
-                <input type="checkbox" class="m-cascade-room-check" value="${r.room_id}">
-                <span style="font-size:13px">${this._esc(r.name)}</span>
-              </label>`).join("");
-            return `<div style="margin-bottom:12px">
-              <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
-              <div style="padding:8px 12px;border-radius:8px;background:var(--secondary-background-color);max-height:160px;overflow-y:auto">
-                ${Object.keys(allRooms).length > 0 ? boxes : '<span style="font-size:12px;color:var(--secondary-text-color)">Noch keine anderen Räume vorhanden – später im Zimmer-Detail konfigurierbar</span>'}
-              </div></div>`;
-          })()}
-          <div class="settings-grid">
-            <div class="settings-item">
-              <label>Verzögerung (min)</label>
-              <input type="number" class="form-input" id="m-cascade-delay" value="30" step="5" min="5" max="120">
-            </div>
-            <div class="settings-item">
-              <label>Absenkung (°C)</label>
-              <input type="number" class="form-input" id="m-cascade-offset" value="3.0" step="0.5" min="0.5" max="10">
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible">
-        <summary>☀️ Passive Solarheizung (Rolladen) <span style="font-size:10px;font-weight:400;margin-left:4px">(optional)</span></summary>
-        <div class="modal-collapsible-body">
-          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
-            Öffnet die Rolladen bevor die Heizung anspringt wenn die Sonne aufs Fenster scheint (kostenlose
-            Wärme), bzw. beschattet leicht wenn der Raum sich im Sommer aufheizt. Braucht Rolladen-Entitäten
-            und die Fensterausrichtung.
-          </div>
-          <div class="modal-section">
-            <div class="modal-section-title">Rolladen-Entitäten (mehrere möglich)</div>
-            <div class="entity-list" id="cover-list">
-              <div class="entity-row">
-                <input type="text" class="form-input" placeholder="cover.wohnzimmer (optional)"
-                  data-ep-domains="cover" autocomplete="off">
-                <button class="btn btn-secondary btn-icon add-entity" data-list="cover-list" data-ep-domains="cover">+</button>
-              </div>
-            </div>
-          </div>
-          <div class="settings-grid">
-            <div class="settings-item">
-              <label>Fensterausrichtung</label>
-              <select class="form-select" id="m-window-orientation">
-                <option value="">– keine –</option>
-                <option value="N">N</option><option value="NE">NO</option><option value="E">O</option><option value="SE">SO</option>
-                <option value="S">S</option><option value="SW">SW</option><option value="W">W</option><option value="NW">NW</option>
-              </select>
-            </div>
-            <div class="settings-item">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
-                <input type="checkbox" id="m-solar-passive-heat">
-                Passive Solarheizung
-              </label>
-            </div>
-            <div class="settings-item">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
-                <input type="checkbox" id="m-solar-passive-cool">
-                Passive Beschattung
-              </label>
-            </div>
-            <div class="settings-item">
-              <label>Lux-Sensor (optional)</label>
-              <input type="text" class="form-input" id="m-lux-sensor" placeholder="sensor.wohnzimmer_helligkeit"
-                data-ep-domains="sensor" autocomplete="off">
-              <span class="form-hint">Verschärft den Sonnenwinkel-Check um eine Helligkeits-Hysterese.</span>
-            </div>
-            <div class="settings-item">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
-                <input type="checkbox" id="m-solar-evening-privacy">
-                🌙 Abendliche Privatsphäre-Schließung
-              </label>
-            </div>
-            <div class="settings-item">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
-                <input type="checkbox" id="m-solar-glare-protection">
-                📺 Blendschutz-Zone (TV/Bildschirm)
-              </label>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <div class="modal-section">
-        <div class="modal-section-title">📅 HA Zeitpläne <span style="font-weight:400;font-size:10px">(optional)</span></div>
-        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
-          Verbindet bestehende HA <code>schedule.*</code>-Entitäten mit diesem Zimmer.
-          Wenn ein Zeitplan aktiv ist, wird die gewählte Temperatur (Komfort/Eco/Schlaf) verwendet.
-          Wenn kein Zeitplan aktiv ist, wird die unten gewählte Temperatur verwendet. Bedingung optional.
-        </div>
-        <div class="settings-item" style="margin-bottom:10px">
-          <label>Wenn kein Zeitplan aktiv</label>
-          <select class="form-select" id="m-sched-off-mode">
-            <option value="eco" selected>Eco-Temperatur</option>
-            <option value="sleep">Schlaf-Temperatur</option>
-            <option value="away">Abwesend-Temperatur</option>
-          </select>
-        </div>
-        <!-- schedule/condition rows use data-ep-domains via _createHaScheduleRow -->
-        <div id="m-ha-sched-list"></div>
-        <button class="btn btn-secondary" id="m-add-ha-sched" style="font-size:12px;margin-top:6px">+ Zeitplan hinzufügen</button>
-      </div>
+      <input type="hidden" id="m-humidity-sensor" value="${this._esc(p.humidity_sensor || "")}">
 
       <div class="btn-row">
-        <button class="btn btn-primary" id="modal-confirm">Zimmer hinzufügen</button>
+        <button class="btn btn-primary" id="modal-confirm">Zimmer anlegen</button>
         <button class="btn btn-secondary modal-close-btn">Abbrechen</button>
       </div>
     `, async () => {
       const modal = this.shadowRoot.querySelector("#modal-root .modal");
-      if (!modal) { this._toast("❌ Modal nicht gefunden"); return; }
+      if (!modal) return;
       const name = modal.querySelector("#m-name")?.value.trim() || "";
-      if (!name) { this._toast("❌ Bitte Zimmername eingeben"); return; }
-
+      if (!name) { this._toast("❌ Bitte einen Zimmernamen eingeben"); return; }
       const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
+      if (!valves.length) { this._toast("❌ Bitte mindestens ein Thermostat auswählen"); return; }
       const windows = [...modal.querySelectorAll("#window-list input")].map(i => i.value.trim()).filter(Boolean);
-      const covers  = [...modal.querySelectorAll("#cover-list input")].map(i => i.value.trim()).filter(Boolean);
-      const ha_schedules = this._collectHaScheduleRows(modal);
-
       await this._callService("add_room", {
         name,
-        temp_sensor:            modal.querySelector("#m-sensor")?.value.trim() || "",
-        temp_sensors:           this._collectTempSensorRows(modal, "m-temp-sensors-list"),
-        valve_entity:           valves[0] || "",
-        valve_entities:         valves,
-        window_sensor:          windows[0] || "",
-        window_sensors:         windows,
-        room_offset:            parseFloat(modal.querySelector("#m-offset")?.value) || 0,
-        comfort_temp:           parseFloat(modal.querySelector("#m-comfort")?.value) || 21.0,
-        away_temp_room:         parseFloat(modal.querySelector("#m-away-temp-room")?.value) || 16.0,
-        eco_offset:             parseFloat(modal.querySelector("#m-eco-offset")?.value) || 3.0,
-        eco_max_temp:           parseFloat(modal.querySelector("#m-eco-max")?.value) || 21.0,
-        sleep_offset:           parseFloat(modal.querySelector("#m-sleep-offset")?.value) || 4.0,
-        sleep_max_temp:         parseFloat(modal.querySelector("#m-sleep-max")?.value) || 19.0,
-        sleep_temp_profile:     [...modal.querySelectorAll("#m-sleep-profile-list .sp-row")]
-          .map(r => ({ time: r.querySelector('[data-sp-field="time"]')?.value || "", temp: parseFloat(r.querySelector('[data-sp-field="temp"]')?.value) }))
-          .filter(p => p.time && !isNaN(p.temp)),
-        away_offset:            parseFloat(modal.querySelector("#m-away-offset")?.value) || 6.0,
-        away_max_temp:          parseFloat(modal.querySelector("#m-away-max")?.value) || 18.0,
-        ha_schedule_off_mode:   modal.querySelector("#m-sched-off-mode")?.value || "eco",
-        deadband:               parseFloat(modal.querySelector("#m-deadband")?.value) || 0.5,
-        absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15.0,
-        min_temp:               parseFloat(modal.querySelector("#m-min-temp")?.value) || 5.0,
-        max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
-        room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
-        room_ignore_heating_period: modal.querySelector("#m-ignore-heating-period")?.checked === true,
-        cover_entities:         covers,
-        window_orientation:     modal.querySelector("#m-window-orientation")?.value || "",
-        solar_passive_heat:     modal.querySelector("#m-solar-passive-heat")?.checked === true,
-        solar_passive_cool:     modal.querySelector("#m-solar-passive-cool")?.checked === true,
-        lux_sensor:             modal.querySelector("#m-lux-sensor")?.value.trim() || "",
-        solar_evening_privacy_enabled: modal.querySelector("#m-solar-evening-privacy")?.checked === true,
-        solar_glare_protection_enabled: modal.querySelector("#m-solar-glare-protection")?.checked === true,
-        room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
-        room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
-        window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
-        window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
-        window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
-        window_restore_mode:    modal.querySelector("#m-window-restore-mode")?.value || "schedule",
-        humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
-        mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
-        mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
-        co2_sensor:               modal.querySelector("#m-co2-sensor")?.value.trim() || "",
-        co2_threshold_good:       parseInt(modal.querySelector("#m-co2-threshold-good")?.value, 10) || 800,
-        co2_threshold_bad:        parseInt(modal.querySelector("#m-co2-threshold-bad")?.value, 10) || 1200,
-        room_presence_entities: (modal.querySelector("#m-presence-entities")?.value || "")
-                                  .split(",").map(s => s.trim()).filter(Boolean),
-        presence_sensor:        modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
-        presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
-        presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
-        aggressive_mode_enabled: modal.querySelector("#m-aggressive-mode")?.checked === true,
-        aggressive_mode_range:   parseFloat(modal.querySelector("#m-aggressive-range")?.value ?? "2") || 2.0,
-        aggressive_mode_offset:  parseFloat(modal.querySelector("#m-aggressive-offset")?.value ?? "3") || 3.0,
-        window_cascade_rooms:     [...modal.querySelectorAll(".m-cascade-room-check:checked")].map(cb => cb.value),
-        window_cascade_delay_minutes: parseInt(modal.querySelector("#m-cascade-delay")?.value, 10) || 30,
-        window_cascade_offset:    parseFloat(modal.querySelector("#m-cascade-offset")?.value) || 3.0,
-        radiator_kw:            parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
-        hkv_sensor:             modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
-        hkv_factor:             parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
-        boost_default_duration: parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
-        boost_temp:             parseFloat(modal.querySelector("#m-boost-temp")?.value) || 0,
-        trv_temp_weight:        parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
-        trv_temp_offset:        parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
-        trv_min_send_interval:  parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
-        trv_calibrations:       (() => { try { const v = modal.querySelector("#m-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
-        temp_calibration:       parseFloat(modal.querySelector("#m-temp-calibration")?.value ?? "0") || 0,
-        comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
-        eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
-        comfort_extend_entity: "",
-        comfort_extend_state:  "on",
-        comfort_extend_entries: [...modal.querySelectorAll("#m-comfort-extend-list .ce-row")]
-          .map(r => ({ entity: r.querySelector('[data-ce-field="entity"]')?.value.trim() || "", state: r.querySelector('[data-ce-field="state"]')?.value.trim() || "on" }))
-          .filter(e => e.entity),
-        ha_schedules,
+        temp_sensor:     modal.querySelector("#m-sensor")?.value.trim() || "",
+        valve_entity:    valves[0],
+        valve_entities:  valves,
+        window_sensor:   windows[0] || "",
+        window_sensors:  windows,
+        humidity_sensor: modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
+        comfort_temp:    parseFloat(modal.querySelector("#m-comfort-range")?.value) || 21.0,
       });
       this._closeModal();
-      this._toast("✓ Zimmer hinzugefügt – HA lädt Entitäten neu");
+      this._toast(`✓ „${this._esc(name)}“ angelegt – HA lädt die Entitäten neu`);
+    });
+    const modal = this.shadowRoot.querySelector("#modal-root .modal");
+    const range = modal.querySelector("#m-comfort-range");
+    range.addEventListener("input", () => {
+      modal.querySelector("#m-comfort-val").textContent = `${parseFloat(range.value).toFixed(1)} °C`;
+    });
+    modal.querySelector("#m-area")?.addEventListener("change", e => {
+      const r = found.find(x => x.area_id === e.target.value);
+      const name = modal.querySelector("#m-name")?.value || "";
+      const comfort = parseFloat(range.value) || 21;
+      this._closeModal();
+      this._showAddRoomModal(r
+        ? { area_id: r.area_id, name: r.name, valves: r.valves, temp_sensor: r.temp_sensor, windows: r.windows, humidity_sensor: r.humidity_sensor, comfort_temp: comfort }
+        : { name, comfort_temp: comfort });
     });
     this._bindEntityListAdders();
-    this._bindHaSchedAdder([], "m-ha-sched-list", "m-add-ha-sched");
-    this._bindComfortExtendAdder("m-comfort-extend-list", "m-add-ce-entry");
-    this._bindSleepProfileAdder("m-sleep-profile-list", "m-add-sp-point");
-    this._bindTempSensorsAdder("m-temp-sensors-list", "m-add-ts");
-    // Pickers are attached by _showModal already; schedule rows attached separately
   }
 
-  _showEditRoomModal(entityId) {
-    const rooms = this._getRoomData();
-    const room  = rooms[entityId];
-    if (!room) return;
-
-    // Pre-fill existing valve entities
-    const valveRows = room.valve_entities.length > 0
-      ? room.valve_entities.map((e, i) => `
-          <div class="entity-row">
-            <input type="text" class="form-input" value="${e}"
-              data-ep-domains="climate" autocomplete="off" placeholder="climate.entity">
-            ${i === 0
-              ? `<button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-ep-domains="climate">+</button>`
-              : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
-          </div>`).join("")
-      : `<div class="entity-row">
-           <input type="text" class="form-input" placeholder="climate.entity (optional)"
-             data-ep-domains="climate" autocomplete="off">
-           <button class="btn btn-secondary btn-icon add-entity" data-list="valve-list" data-ep-domains="climate">+</button>
-         </div>`;
-
-    // Pre-fill existing window sensors
-    const windowRows = room.window_sensors.length > 0
-      ? room.window_sensors.map((e, i) => `
-          <div class="entity-row">
-            <input type="text" class="form-input" value="${e}"
-              data-ep-domains="binary_sensor" autocomplete="off" placeholder="binary_sensor.fenster">
-            ${i === 0
-              ? `<button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-ep-domains="binary_sensor">+</button>`
-              : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
-          </div>`).join("")
-      : `<div class="entity-row">
-           <input type="text" class="form-input" placeholder="binary_sensor.fenster (optional)"
-             data-ep-domains="binary_sensor" autocomplete="off">
-           <button class="btn btn-secondary btn-icon add-entity" data-list="window-list" data-ep-domains="binary_sensor">+</button>
-         </div>`;
-
-    this._showModal(`
-      <div class="modal-title">✏️ ${this._esc(room.name)} bearbeiten</div>
-
-      <div class="info-box" style="margin-bottom:12px">
-        Ist: <strong>${room.current_temp ?? "—"} °C</strong>
-        &nbsp;→&nbsp; Soll: <strong>${room.target_temp ?? "—"} °C</strong>
-        &nbsp;· Anforderung: <strong>${room.demand} %</strong>
+  // ── Zimmer automatisch finden (v2.6) ────────────────────────────────────────
+  _showDiscoverRoomsModal() {
+    const all = this._discoverRooms();
+    const found = all.filter(r => !r.exists);
+    const line = (icon, items) => items.length
+      ? `<div class="disc-line">${icon} ${items.map(e => this._esc(this._friendly(e))).join(", ")}</div>` : "";
+    const body = found.length ? `
+      <p class="modal-lead">IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.</p>
+      <div class="disc-list">
+        ${found.map((r, i) => `
+          <label class="disc-item">
+            <input type="checkbox" class="disc-check" data-idx="${i}" checked>
+            <div class="disc-body">
+              <div class="disc-name">${this._esc(r.name)}</div>
+              ${line("🔥", r.valves)}
+              ${line("🌡️", r.temp_sensor ? [r.temp_sensor] : [])}
+              ${line("🪟", r.windows)}
+              ${line("💧", r.humidity_sensor ? [r.humidity_sensor] : [])}
+              ${!r.temp_sensor ? `<div class="disc-hint">Kein eigenes Thermometer – Temperatur kommt vom Thermostat.</div>` : ""}
+              ${!r.windows.length ? `<div class="disc-hint">Kein Fensterkontakt – automatische Fenstererkennung übernimmt.</div>` : ""}
+            </div>
+          </label>`).join("")}
       </div>
-
-      <div class="form-group">
-        <label class="form-label">Betriebsmodus</label>
-        <select class="form-select full" id="m-mode">
-          ${Object.entries(MODE_LABELS).map(([k, v]) =>
-            `<option value="${k}" ${room.room_mode === k ? "selected" : ""}>${MODE_ICONS[k]} ${v}</option>`
-          ).join("")}
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Temperatursensor</label>
-        <input type="text" class="form-input full" id="m-sensor"
-          value="${room.temp_sensor}" placeholder="sensor.wohnzimmer_temp"
-          data-ep-domains="sensor" autocomplete="off">
-      </div>
-
-      <div class="modal-section">
-        <div class="modal-section-title">Zusätzliche Temperatursensoren <span style="font-weight:400;font-size:10px">(optional, pro Raumteil)</span></div>
-        <div id="m-temp-sensors-list">
-          ${this._renderTempSensorRows(room.temp_sensors || [], "m-add-ts")}
-        </div>
-        <span class="form-hint">Werden mit dem Temperatursensor oben zu einem gewichteten Mittelwert kombiniert. Mit Belegungs-Entity zählt der Sensor im gerade genutzten Bereich stärker.</span>
-      </div>
-
-      <div class="modal-section">
-        <div class="modal-section-title">Thermostate / TRVs (mehrere möglich)</div>
-        <div class="entity-list" id="valve-list">${valveRows}</div>
-      </div>
-
-      <div class="modal-section">
-        <div class="modal-section-title">Fenstersensoren (mehrere möglich)</div>
-        <div class="entity-list" id="window-list">${windowRows}</div>
-      </div>
-
-      <div class="modal-section">
-        <div class="modal-section-title">Temperatur-Presets</div>
-        <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:10px">
-          Alle Temperaturen werden von der Heizkurve (Außentemperatur) geführt.<br>
-          ${room.comfort_temp_eff != null ? `<strong>Aktuell → Komfort: ${room.comfort_temp_eff.toFixed(1)}°C · Eco: ${room.eco_temp_eff != null ? room.eco_temp_eff.toFixed(1) : '—'}°C · Schlaf: ${room.sleep_temp_eff != null ? room.sleep_temp_eff.toFixed(1) : '—'}°C · Abwesend: ${room.away_temp_eff != null ? room.away_temp_eff.toFixed(1) : '—'}°C</strong>` : ''}
-        </div>
-        <div class="settings-grid">
-          <div class="settings-item">
-            <label>Komfort Fallback (°C)</label>
-            <input type="number" class="form-input" id="m-comfort" value="${room.comfort_temp}" step="0.5" min="15" max="30">
-            <span class="form-hint">Nur wenn kein Außensensor vorhanden</span>
-          </div>
-          <div class="settings-item">
-            <label>Abwesend-Temperatur (°C)</label>
-            <input type="number" class="form-input" id="m-away-temp-room" value="${room.away_temp_room ?? 16}" step="0.5" min="10" max="22">
-            <span class="form-hint">Feste Temperatur wenn Zimmer-Modus auf "Abwesend" steht</span>
-          </div>
-        </div>
-        <div class="settings-grid" style="margin-top:8px">
-          <div class="settings-item">
-            <label>Eco Abzug (°C)</label>
-            <input type="number" class="form-input" id="m-eco-offset" value="${room.eco_offset}" step="0.5" min="0" max="10">
-            <span class="form-hint">Eco = Komfort − Abzug</span>
-          </div>
-          <div class="settings-item">
-            <label>Eco Maximum (°C)</label>
-            <input type="number" class="form-input" id="m-eco-max" value="${room.eco_max_temp}" step="0.5" min="10" max="28">
-            <span class="form-hint">Eco nie höher als dieser Wert</span>
-          </div>
-          <div class="settings-item">
-            <label>Schlaf Abzug (°C)</label>
-            <input type="number" class="form-input" id="m-sleep-offset" value="${room.sleep_offset}" step="0.5" min="0" max="10">
-            <span class="form-hint">Schlaf = Komfort − Abzug</span>
-          </div>
-          <div class="settings-item">
-            <label>Schlaf Maximum (°C)</label>
-            <input type="number" class="form-input" id="m-sleep-max" value="${room.sleep_max_temp}" step="0.5" min="10" max="25">
-            <span class="form-hint">Schlaf nie höher als dieser Wert</span>
-          </div>
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>🌙 Schlaf-Temperaturprofil <span style="font-weight:400;font-size:10px">(optional – überschreibt Schlaf-Abzug wenn gesetzt)</span></label>
-            <div id="m-sleep-profile-list">
-              ${(() => {
-                const points = (room.sleep_temp_profile && room.sleep_temp_profile.length > 0) ? room.sleep_temp_profile : [{ time: "22:00", temp: "" }];
-                return points.map((p, i) => `
-                  <div class="entity-row sp-row">
-                    <input type="time" class="form-input" style="max-width:110px" data-sp-field="time" value="${p.time || ''}">
-                    <input type="number" class="form-input" style="max-width:90px" data-sp-field="temp" placeholder="°C" step="0.5" min="5" max="30" value="${p.temp ?? ''}">
-                    ${i === 0
-                      ? `<button class="btn btn-secondary btn-icon" id="m-add-sp-point">+</button>`
-                      : `<button class="btn btn-danger btn-icon remove-sp-point">✕</button>`}
-                  </div>`).join("");
-              })()}
-            </div>
-            <span class="form-hint">Uhrzeit · Temperatur – z.B. 22:00/19°C, 02:00/16°C, 06:00/18°C. Leer lassen für den festen Schlaf-Abzug oben.</span>
-          </div>
-          <div class="settings-item">
-            <label>Abwesend Abzug (°C)</label>
-            <input type="number" class="form-input" id="m-away-offset" value="${room.away_offset}" step="0.5" min="0" max="15">
-            <span class="form-hint">Abwesend = Komfort − Abzug</span>
-          </div>
-          <div class="settings-item">
-            <label>Abwesend Maximum (°C)</label>
-            <input type="number" class="form-input" id="m-away-max" value="${room.away_max_temp}" step="0.5" min="5" max="22">
-            <span class="form-hint">Abwesend nie höher als dieser Wert</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-section">
-        <div class="modal-section-title">🔗 Dynamische Sollwert-Entitäten <span style="font-weight:400;font-size:10px">(optional)</span></div>
-        <div class="settings-grid">
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>Komfort-Sollwert Entity</label>
-            <input type="text" class="form-input full" id="m-comfort-temp-entity"
-              value="${room.comfort_temp_entity || ''}"
-              placeholder="input_number.komfort_soll"
-              data-ep-domains="input_number,sensor" autocomplete="off">
-            <span class="form-hint">Überschreibt die Heizkurve als Komfort-Sollwert (optional)</span>
-          </div>
-          <div class="settings-item" style="grid-column:1/-1">
-            <label>Eco-Sollwert Entity</label>
-            <input type="text" class="form-input full" id="m-eco-temp-entity"
-              value="${room.eco_temp_entity || ''}"
-              placeholder="input_number.eco_soll"
-              data-ep-domains="input_number,sensor" autocomplete="off">
-            <span class="form-hint">Überschreibt den berechneten Eco-Sollwert (optional)</span>
-          </div>
-        </div>
-        <div class="modal-section-title">⏱️ Komfort-Verlängerung <span style="font-weight:400;font-size:10px">(optional)</span>
-          ${room.comfort_extend_active ? '<span style="color:#43a047;font-size:11px;margin-left:4px">● aktiv</span>' : ''}
-        </div>
-        <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:8px">
-          Heizung bleibt im Komfortmodus solange eine der Bedingungen zutrifft (z.B. TV läuft → kein Eco um 22 Uhr).
-        </div>
-        <div id="m-comfort-extend-list">
-          ${(() => {
-            const entries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
-              ? room.comfort_extend_entries
-              : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
-            if (entries.length === 0) {
-              return `<div class="entity-row ce-row">
-                <input type="text" class="form-input" placeholder="entity_id" value="" autocomplete="off" data-ce-field="entity"
-                  data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
-                <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="on" data-ce-field="state">
-                <button class="btn btn-secondary btn-icon" id="m-add-ce-entry">+</button>
-              </div>`;
-            }
-            return entries.map((e, i) => `
-              <div class="entity-row ce-row">
-                <input type="text" class="form-input" placeholder="entity_id" value="${e.entity || ''}" autocomplete="off" data-ce-field="entity"
-                  data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
-                <input type="text" class="form-input" style="max-width:90px" placeholder="on" value="${e.state || 'on'}" data-ce-field="state">
-                ${i === 0
-                  ? `<button class="btn btn-secondary btn-icon" id="m-add-ce-entry">+</button>`
-                  : `<button class="btn btn-danger btn-icon remove-ce-entry">✕</button>`}
-              </div>`).join("");
-          })()}
-        </div>
-        <span class="form-hint">Entity · Zustand – z.B. <code>media_player.tv</code> / <code>playing</code> oder <code>person.max</code> / <code>home</code></span>
-      </div>
-
-      <details class="modal-collapsible">
-        <summary>Erweitert</summary>
-        <div class="modal-collapsible-body">
-          <div class="settings-grid">
-            <div class="settings-item">
-              <label>Zimmer-Offset (°C)</label>
-              <input type="number" class="form-input" id="m-offset" value="${room.room_offset}" step="0.5" min="-5" max="5">
-            </div>
-            <div class="settings-item">
-              <label>Totband (°C)</label>
-              <input type="number" class="form-input" id="m-deadband" value="${room.deadband}" step="0.1" min="0.1" max="2">
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible" ${(room.room_qm > 0 || room.absolute_min_temp !== 15 || room.room_temp_threshold > 0 || room.min_temp !== 5 || room.max_temp !== 30) ? "open" : ""}>
-        <summary>🌡️ Temperaturgrenzen &amp; Zeiten</summary>
-        <div class="modal-collapsible-body">
-          <div class="settings-grid">
-            <div class="settings-item">
-              <label>Absolute Mindesttemperatur (°C)</label>
-              <input type="number" class="form-input" id="m-absolute-min-temp"
-                value="${room.absolute_min_temp ?? 15}" step="0.5" min="5" max="25">
-              <span class="form-hint">Setpoint fällt nie unter diesen Wert (auch bei Eco/Away/Schlaf)</span>
-            </div>
-            <div class="settings-item">
-              <label>Mindesttemperatur-Schwelle (°C)</label>
-              <input type="number" class="form-input" id="m-room-temp-threshold"
-                value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
-              <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
-            </div>
-            <div class="settings-item" style="grid-column:1/-1">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                <input type="checkbox" id="m-ignore-heating-period" ${room.ignore_heating_period ? "checked" : ""}>
-                Heizperiode für dieses Zimmer ignorieren
-              </label>
-              <span class="form-hint">Zimmer heizt immer nach Zeitplan/Modus, auch wenn die Heizperiode gerade inaktiv ist (z.B. Bad)</span>
-            </div>
-            <div class="settings-item">
-              <label>HA Klimaregler – Min.-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="m-min-temp"
-                value="${room.min_temp ?? 5}" step="0.5" min="4" max="15">
-              <span class="form-hint">Untergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
-            </div>
-            <div class="settings-item">
-              <label>HA Klimaregler – Max.-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="m-max-temp"
-                value="${room.max_temp ?? 30}" step="0.5" min="20" max="35">
-              <span class="form-hint">Obergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
-            </div>
-            <div class="settings-item">
-              <label>Zimmergröße (m²)</label>
-              <input type="number" class="form-input" id="m-room-qm"
-                value="${room.room_qm ?? 0}" step="1" min="0" max="200">
-              <span class="form-hint">0 = nicht gesetzt · beeinflusst Vorheizzeit, Gewichtung, Energieberechnung</span>
-            </div>
-            <div class="settings-item">
-              <label>Vorheizzeit pro Zimmer (min)</label>
-              <input type="number" class="form-input" id="m-room-preheat"
-                value="${room.room_preheat_minutes ?? -1}" step="1" min="-1" max="120">
-              <span class="form-hint">-1 = globale Einstellung / auto aus qm · 0 = deaktiviert</span>
-            </div>
-            <div class="settings-item">
-              <label>Fenster-Reaktionszeit (s)</label>
-              <input type="number" class="form-input" id="m-window-reaction-time"
-                value="${room.window_reaction_time ?? 30}" step="5" min="0" max="300">
-              <span class="form-hint">Sekunden bis IHC auf offenes Fenster reagiert</span>
-            </div>
-            <div class="settings-item">
-              <label>Wiederaufnahme nach Fenster-zu (s)</label>
-              <input type="number" class="form-input" id="m-window-close-delay"
-                value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
-              <span class="form-hint">Sekunden nach Schließen bis normale Heizung wieder beginnt</span>
-            </div>
-            <div class="settings-item">
-              <label>Fenster-Mindesttemperatur (°C)</label>
-              <input type="number" class="form-input" id="m-window-open-temp"
-                min="0" max="22" step="0.5" value="${room.window_open_temp ?? 0}" placeholder="0 = Frostschutz">
-              <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
-            </div>
-            <div class="settings-item">
-              <label>Nach Fenster schließen</label>
-              <select class="form-select" id="m-window-restore-mode">
-                <option value="schedule" ${(room.window_restore_mode || 'schedule') === 'schedule' ? 'selected' : ''}>Zeitplan neu berechnen</option>
-                <option value="previous" ${room.window_restore_mode === 'previous' ? 'selected' : ''}>Letzten Sollwert wiederherstellen</option>
-              </select>
-              <span class="form-hint">Was passiert mit dem Sollwert wenn das Fenster wieder geschlossen wird</span>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible" ${(room.room_presence_entities?.length || room.presence_sensor) ? "open" : ""}>
-        <summary>👤 Zimmer-Anwesenheit</summary>
-        <div class="modal-collapsible-body">
-          <div class="settings-item">
-            <label>Anwesenheits-Entitäten</label>
-            <input type="text" class="form-input" id="m-presence-entities"
-              value="${(room.room_presence_entities || []).join(', ')}"
-              placeholder="person.max, device_tracker.handy (leer = immer anwesend)"
-              data-ep-domains="person,device_tracker,input_boolean,binary_sensor" autocomplete="off">
-            <span class="form-hint">Zimmer wechselt auf Abwesend-Temperatur wenn niemand da</span>
-          </div>
-          <div class="settings-item">
-            <label>Bewegungsmelder (PIR)</label>
-            <input class="form-input" type="text" id="m-presence-sensor"
-              value="${room.presence_sensor ?? ''}" placeholder="binary_sensor.bewegung_wohnzimmer" data-ep-domains="binary_sensor" autocomplete="off">
-          </div>
-          <div class="settings-item">
-            <label>PIR Einschalt-Verzögerung (s)</label>
-            <input class="form-input" type="number" id="m-presence-sensor-on-delay"
-              min="0" max="3600" step="30" value="${room.presence_sensor_on_delay ?? 300}">
-          </div>
-          <div class="settings-item">
-            <label>PIR Ausschalt-Verzögerung (s)</label>
-            <input class="form-input" type="number" id="m-presence-sensor-off-delay"
-              min="0" max="3600" step="30" value="${room.presence_sensor_off_delay ?? 300}">
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible" ${room.aggressive_mode_enabled ? "open" : ""}>
-        <summary>⚡ Aggressiver Modus (für träge TRVs)</summary>
-        <div class="modal-collapsible-body">
-          <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
-            Überhöht den TRV-Sollwert temporär wenn der Raum weit unter dem Zielwert liegt.
-            Der TRV schließt selbst sobald er seine Eigentemperatur erreicht.
-          </p>
-          <div class="settings-grid">
-            <div class="settings-item" style="grid-column:1/-1">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                <input type="checkbox" id="m-aggressive-mode" ${room.aggressive_mode_enabled ? "checked" : ""}>
-                Aggressiver Modus aktivieren
-              </label>
-            </div>
-            <div class="settings-item">
-              <label>Aktivierungsbereich (°C unter Soll)</label>
-              <input type="number" class="form-input" id="m-aggressive-range"
-                value="${room.aggressive_mode_range ?? 2}" step="0.5" min="0.5" max="5">
-              <span class="form-hint">Aktiv wenn Raumtemp um diesen Wert unter Soll liegt</span>
-            </div>
-            <div class="settings-item">
-              <label>Überhöhung (°C über Soll)</label>
-              <input type="number" class="form-input" id="m-aggressive-offset"
-                value="${room.aggressive_mode_offset ?? 3}" step="0.5" min="0.5" max="8">
-              <span class="form-hint">TRV bekommt Soll + Überhöhung als Setpoint</span>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible" ${(room.window_cascade_rooms && room.window_cascade_rooms.length > 0) ? "open" : ""}>
-        <summary>🌊 Fenster-Kaskade</summary>
-        <div class="modal-collapsible-body">
-          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
-            Wenn dieses Zimmer zu lange gelüftet wird, senkt IHC die Heizung in anderen Räumen automatisch ab.
-          </div>
-          ${(() => {
-            const allRooms = this._getRoomData();
-            const otherRooms = Object.values(allRooms).filter(r => r.room_id !== room.room_id);
-            const current = room.window_cascade_rooms || [];
-            const boxes = otherRooms.map(r => `
-              <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
-                <input type="checkbox" class="m-cascade-room-check" value="${r.room_id}" ${current.includes(r.room_id) ? "checked" : ""}>
-                <span style="font-size:13px">${this._esc(r.name)}</span>
-              </label>`).join("");
-            return `<div style="margin-bottom:12px">
-              <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Betroffene Räume (werden abgesenkt):</label>
-              <div style="padding:8px 12px;border-radius:8px;background:var(--secondary-background-color);max-height:160px;overflow-y:auto">
-                ${otherRooms.length > 0 ? boxes : '<span style="font-size:12px;color:var(--secondary-text-color)">Keine anderen Räume vorhanden</span>'}
-              </div></div>`;
-          })()}
-          <div class="settings-grid">
-            <div class="settings-item">
-              <label>Verzögerung (min)</label>
-              <input type="number" class="form-input" id="m-cascade-delay"
-                value="${room.window_cascade_delay_minutes ?? 30}" step="5" min="5" max="120">
-              <span class="form-hint">Fenster muss mindestens so lange offen sein</span>
-            </div>
-            <div class="settings-item">
-              <label>Absenkung (°C)</label>
-              <input type="number" class="form-input" id="m-cascade-offset"
-                value="${(room.window_cascade_offset_cfg ?? 3.0).toFixed(1)}" step="0.5" min="0.5" max="10">
-              <span class="form-hint">Zieltemperatur in Nachbarräumen wird um diesen Wert reduziert</span>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
-        <summary>☀️ Passive Solarheizung (Rolladen)
-          ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">☀️ Aktiv (${room.solar_cover_position}%)</span>` : ""}
-        </summary>
-        <div class="modal-collapsible-body">
-          <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
-            Öffnet die Rolladen bevor die Heizung anspringt wenn die Sonne aufs Fenster scheint (kostenlose
-            Wärme), bzw. beschattet leicht wenn der Raum sich im Sommer aufheizt. Braucht Rolladen-Entitäten
-            und die Fensterausrichtung.
-          </div>
-          <div class="modal-section">
-            <div class="modal-section-title">Rolladen-Entitäten (mehrere möglich)</div>
-            <div class="entity-list" id="cover-list">
-              ${(() => {
-                const covers = (room.cover_entities && room.cover_entities.length > 0) ? room.cover_entities : [""];
-                return covers.map((c, i) => `
-                  <div class="entity-row">
-                    <input type="text" class="form-input" value="${c}" placeholder="cover.wohnzimmer (optional)"
-                      data-ep-domains="cover" autocomplete="off">
-                    ${i === 0
-                      ? `<button class="btn btn-secondary btn-icon add-entity" data-list="cover-list" data-ep-domains="cover">+</button>`
-                      : `<button class="btn btn-danger btn-icon remove-entity">✕</button>`}
-                  </div>`).join("");
-              })()}
-            </div>
-          </div>
-          <div class="settings-grid">
-            <div class="settings-item">
-              <label>Fensterausrichtung</label>
-              <select class="form-select" id="m-window-orientation">
-                <option value="" ${!room.window_orientation ? "selected" : ""}>– keine –</option>
-                ${["N", "NE", "E", "SE", "S", "SW", "W", "NW"].map(o =>
-                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${o}</option>`).join("")}
-              </select>
-            </div>
-            <div class="settings-item">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
-                <input type="checkbox" id="m-solar-passive-heat" ${room.solar_passive_heat ? "checked" : ""}>
-                Passive Solarheizung
-              </label>
-            </div>
-            <div class="settings-item">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
-                <input type="checkbox" id="m-solar-passive-cool" ${room.solar_passive_cool ? "checked" : ""}>
-                Passive Beschattung
-              </label>
-            </div>
-            <div class="settings-item">
-              <label>Lux-Sensor (optional)</label>
-              <input type="text" class="form-input" id="m-lux-sensor" value="${room.lux_sensor || ""}"
-                placeholder="sensor.wohnzimmer_helligkeit" data-ep-domains="sensor" autocomplete="off">
-              <span class="form-hint">Verschärft den Sonnenwinkel-Check um eine Helligkeits-Hysterese.</span>
-            </div>
-            <div class="settings-item">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
-                <input type="checkbox" id="m-solar-evening-privacy" ${room.solar_evening_privacy_enabled ? "checked" : ""}>
-                🌙 Abendliche Privatsphäre-Schließung
-              </label>
-            </div>
-            <div class="settings-item">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
-                <input type="checkbox" id="m-solar-glare-protection" ${room.solar_glare_protection_enabled ? "checked" : ""}>
-                📺 Blendschutz-Zone (TV/Bildschirm)
-              </label>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible" ${room.humidity_sensor || room.co2_sensor ? "open" : ""}>
-        <summary>🌬️ Lüftung &amp; Schimmelschutz</summary>
-        <div class="modal-collapsible-body">
-          <div class="settings-grid">
-            <div class="settings-item">
-              <label>Feuchtigkeitssensor</label>
-              <input type="text" class="form-input" id="m-humidity-sensor"
-                value="${room.humidity_sensor || ''}" placeholder="sensor.feuchte (optional)"
-                data-ep-domains="sensor" autocomplete="off">
-              <span class="form-hint">Schimmelrisiko-Erkennung &amp; Lüftungsempfehlung</span>
-            </div>
-            <div class="settings-item">
-              <label>Schimmelschutz</label>
-              <select class="form-select" id="m-mold-protection">
-                <option value="true" ${room.mold_protection_enabled !== false ? "selected" : ""}>Aktiviert</option>
-                <option value="false" ${room.mold_protection_enabled === false ? "selected" : ""}>Deaktiviert</option>
-              </select>
-            </div>
-            <div class="settings-item">
-              <label>Schimmelschutz-Schwelle (%)</label>
-              <input type="number" class="form-input" id="m-mold-humidity-threshold"
-                value="${room.mold_humidity_threshold ?? 70}" step="1" min="50" max="95">
-              <span class="form-hint">Luftfeuchtigkeit ab der Schimmelschutz ausgelöst wird</span>
-            </div>
-            <div class="settings-item">
-              <label>CO₂-Sensor <em style="font-weight:400">(optional)</em></label>
-              <input type="text" class="form-input" id="m-co2-sensor"
-                value="${room.co2_sensor || ''}" placeholder="sensor.co2_wohnzimmer (optional)"
-                data-ep-domains="sensor" autocomplete="off">
-              <span class="form-hint">ppm → Lüftungsempfehlung</span>
-            </div>
-            <div class="settings-item">
-              <label>CO₂ Gut-Schwelle (ppm)</label>
-              <input type="number" class="form-input" id="m-co2-threshold-good"
-                value="${room.co2_threshold_good ?? 800}" step="50" min="400" max="1000">
-              <span class="form-hint">Unter diesem Wert = gute Luft (Standard: 800 ppm)</span>
-            </div>
-            <div class="settings-item">
-              <label>CO₂ Lüften-Schwelle (ppm)</label>
-              <input type="number" class="form-input" id="m-co2-threshold-bad"
-                value="${room.co2_threshold_bad ?? 1200}" step="50" min="800" max="2000">
-              <span class="form-hint">Über diesem Wert = Lüftungsempfehlung (Standard: 1200 ppm)</span>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible" ${room.hkv_sensor || room.radiator_kw !== 1.0 ? "open" : ""}>
-        <summary>⚡ Energieerfassung</summary>
-        <div class="modal-collapsible-body">
-          <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
-            TRV-Modus: Verbrauch = Laufzeit × Heizleistung. Mit HKV-Sensor wird der Zähler direkt gelesen.
-          </p>
-          <div class="settings-grid">
-            <div class="settings-item">
-              <label>Heizleistung Zimmer (kW)</label>
-              <input type="number" class="form-input" id="m-radiator-kw"
-                value="${room.radiator_kw ?? 1.0}" step="0.1" min="0.1" max="5.0">
-              <span class="form-hint">Nennleistung aller Heizkörper im Zimmer</span>
-            </div>
-            <div class="settings-item">
-              <label>HKV-Sensor (optional)</label>
-              <input type="text" class="form-input" id="m-hkv-sensor"
-                value="${room.hkv_sensor || ''}" placeholder="sensor.hkv_wohnzimmer"
-                data-ep-domains="sensor" autocomplete="off">
-              <span class="form-hint">Ista / Techem / Wireless M-Bus Einheitenzähler</span>
-            </div>
-            <div class="settings-item">
-              <label>HKV-Faktor (kWh/Einheit)</label>
-              <input type="number" class="form-input" id="m-hkv-factor"
-                value="${room.hkv_factor ?? 0.083}" step="0.001" min="0.001" max="1.0">
-              <span class="form-hint">Aus der Jahresabrechnung: Gesamtenergie ÷ Gesamteinheiten</span>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible" ${room.temp_calibration != null && room.temp_calibration !== 0 ? "open" : ""}>
-        <summary>🎚️ Sensor-Kalibrierung</summary>
-        <div class="modal-collapsible-body">
-          <div class="settings-grid">
-            <div class="settings-item" style="grid-column:1/-1">
-              <label>Raumtemperatursensor-Offset (°C)</label>
-              <input type="number" class="form-input" id="m-temp-calibration"
-                value="${room.temp_calibration ?? 0}" step="0.1" min="-5" max="5">
-              <span class="form-hint">Positiv = Sensor misst zu kalt (IHC addiert den Wert). Negativ = Sensor misst zu warm. 0 = deaktiviert.</span>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible" ${room.ha_schedules?.length ? "open" : ""}>
-        <summary>📅 HA Zeitpläne <span style="font-weight:400;font-size:10px;margin-left:6px">(optional)</span></summary>
-        <div class="modal-collapsible-body">
-          <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
-            Verbindet HA <code>schedule.*</code>-Entitäten — wenn aktiv, wird die gewählte Temperatur (Komfort/Eco/Schlaf) verwendet.
-          </p>
-          <div class="settings-item" style="margin-bottom:10px">
-            <label>Wenn kein Zeitplan aktiv</label>
-            <select class="form-select" id="m-sched-off-mode">
-              <option value="eco"   ${(room.ha_schedule_off_mode || 'eco') === 'eco'   ? 'selected' : ''}>Eco-Temperatur</option>
-              <option value="sleep" ${(room.ha_schedule_off_mode || 'eco') === 'sleep' ? 'selected' : ''}>Schlaf-Temperatur</option>
-              <option value="away"  ${(room.ha_schedule_off_mode || 'eco') === 'away'  ? 'selected' : ''}>Abwesend-Temperatur</option>
-            </select>
-          </div>
-          <div id="m-ha-sched-list"></div>
-          <button class="btn btn-secondary" id="m-add-ha-sched" style="font-size:12px;margin-top:6px">+ Zeitplan hinzufügen</button>
-        </div>
-      </details>
-
-      <details class="modal-collapsible">
-        <summary>⚡ Boost</summary>
-        <div class="modal-collapsible-body">
-          <p style="font-size:0.85em;color:var(--secondary-text-color);margin:0 0 8px">
-            Aktiviert den nativen HA-Boost-Modus auf den TRVs, oder eine feste Zieltemperatur wenn unten gesetzt.
-          </p>
-          <div class="settings-grid" style="margin-bottom:10px">
-            <div class="settings-item">
-              <label>Boost-Dauer (min)</label>
-              <input type="number" class="form-input" id="m-boost-dur"
-                value="${room.boost_default_duration ?? 60}" min="5" max="480" step="5">
-            </div>
-            <div class="settings-item">
-              <label>Boost-Zieltemperatur (°C)</label>
-              <input type="number" class="form-input" id="m-boost-temp"
-                value="${room.boost_temp ?? 0}" min="0" max="30" step="0.5" placeholder="0 = Komfort-Temperatur">
-              <span class="form-hint">0 = deaktiviert, nutzt stattdessen die Komfort-Temperatur.</span>
-            </div>
-          </div>
-          <div class="form-row" style="gap:8px">
-            <button class="btn btn-secondary" id="m-boost-btn">⚡ Boost starten</button>
-            ${room.boost_remaining > 0 ? `<button class="btn btn-danger" id="m-boost-cancel-btn">✕ Boost beenden (${room.boost_remaining} min übrig)</button>` : ""}
-          </div>
-        </div>
-      </details>
-
-      <details class="modal-collapsible" ${(room.trv_temp_weight > 0 || room.trv_min_send_interval > 0) ? "open" : ""}>
-        <summary>🌡️ TRV-Sensordaten &amp; Batterieschutz (optional)</summary>
-        <div class="modal-collapsible-body">
-          <p style="font-size:11px;color:var(--secondary-text-color);margin:0 0 10px">
-            Thermostatventile (TRVs) haben eigene Sensoren. Alle Optionen sind optional und standardmäßig deaktiviert.
-          </p>
-          <div class="settings-grid">
-            <div class="settings-item">
-              <label>TRV-Temperaturanteil (0 = aus, 0.3 = 30 %)</label>
-              <input type="number" class="form-input" id="m-trv-temp-weight"
-                value="${room.trv_temp_weight ?? 0}" min="0" max="0.5" step="0.05"
-                placeholder="0 = deaktiviert">
-              <span class="form-hint">Wie stark die TRV-Eigentemperatur in den Messwert einfließt. 0 = gar nicht, 0.3 = 30 % TRV + 70 % Raumsensor. Als Fallback wenn kein Raumsensor vorhanden.</span>
-            </div>
-            <div class="settings-item">
-              <label>TRV-Temperaturkorrektur (°C)</label>
-              <input type="number" class="form-input" id="m-trv-temp-offset"
-                value="${room.trv_temp_offset ?? -2}" min="-10" max="5" step="0.5"
-                placeholder="-2.0">
-              <span class="form-hint">TRV sitzt am Heizkörper → misst wärmer. Typischer Wert: −2 bis −5 °C. Wird vor dem Mischen abgezogen.</span>
-            </div>
-            <div class="settings-item" style="grid-column:1/-1">
-              <label>🔋 Batterieschutz: Mindestabstand zwischen Funkbefehlen (Sekunden)</label>
-              <input type="number" class="form-input" id="m-trv-min-send-interval"
-                value="${room.trv_min_send_interval ?? 0}" min="0" max="1800" step="60"
-                placeholder="0 = deaktiviert">
-              <span class="form-hint">
-                IHC sendet normalerweise bei jeder Temperaturänderung ≥ 0,3 °C einen neuen Sollwert.
-                Bei Funk-TRVs (Zigbee, Z-Wave) verbraucht jeder Funk-Befehl Batterie.
-                Mit diesem Wert begrenzt du die Sendehäufigkeit: z.B. <strong>300 = maximal alle 5 Minuten</strong>.
-                Große Änderungen (Modus-Wechsel, &gt;1 °C) werden trotzdem sofort gesendet.
-                Empfehlung: 300–600 s. 0 = deaktiviert (immer senden wenn Schwelle überschritten).
-              </span>
-            </div>
-            <div class="settings-item" style="grid-column:1/-1">
-              <label>🎯 Per-TRV-Kalibrierung (JSON-Dict)</label>
-              <textarea class="form-input" id="m-trv-calibrations" rows="3"
-                placeholder='{"climate.trv_schrank": -2.0, "climate.trv_fenster": 0.5}'
-                style="font-family:monospace;font-size:11px">${room.trv_calibrations ? JSON.stringify(room.trv_calibrations, null, 0) : ""}</textarea>
-              <span class="form-hint">
-                Optionale Temperatur-Offsets pro TRV-Entität (in °C). Negativ = TRV misst zu warm (z.B. nahe am Heizkörper).
-                Format: <code>{"climate.trv_name": -2.0}</code>. Leer = deaktiviert.
-              </span>
-            </div>
-          </div>
-        </div>
-      </details>
-
       <div class="btn-row">
-        <button class="btn btn-primary" id="modal-confirm">💾 Speichern</button>
+        <button class="btn btn-primary" id="modal-confirm">Ausgewählte Zimmer anlegen</button>
         <button class="btn btn-secondary modal-close-btn">Abbrechen</button>
-      </div>
-    `, async () => {
-      const modal  = this.shadowRoot.querySelector("#modal-root .modal");
-      if (!modal) { this._toast("❌ Modal nicht gefunden"); return; }
-      const roomId = room.room_id;
-      if (!roomId) { this._toast("❌ room_id fehlt – bitte HA neu starten"); return; }
-      const mode    = modal.querySelector("#m-mode").value;
-      const valves  = [...modal.querySelectorAll("#valve-list input")].map(i => i.value.trim()).filter(Boolean);
-      const windows = [...modal.querySelectorAll("#window-list input")].map(i => i.value.trim()).filter(Boolean);
-      const covers  = [...modal.querySelectorAll("#cover-list input")].map(i => i.value.trim()).filter(Boolean);
-      const ha_schedules = this._collectHaScheduleRows(modal);
-      await this._callService("set_room_mode", { id: roomId, mode });
-      await this._callService("update_room", {
-        id: roomId,
-        temp_sensor:    modal.querySelector("#m-sensor").value.trim(),
-        temp_sensors:   this._collectTempSensorRows(modal, "m-temp-sensors-list"),
-        valve_entity:   valves[0] || "",
-        valve_entities: valves,
-        window_sensor:  windows[0] || "",
-        window_sensors: windows,
-        comfort_temp:          parseFloat(modal.querySelector("#m-comfort").value),
-        away_temp_room:        parseFloat(modal.querySelector("#m-away-temp-room")?.value) || 16.0,
-        eco_offset:            parseFloat(modal.querySelector("#m-eco-offset").value),
-        eco_max_temp:          parseFloat(modal.querySelector("#m-eco-max").value),
-        sleep_offset:          parseFloat(modal.querySelector("#m-sleep-offset").value),
-        sleep_max_temp:        parseFloat(modal.querySelector("#m-sleep-max").value),
-        sleep_temp_profile:    [...modal.querySelectorAll("#m-sleep-profile-list .sp-row")]
-          .map(r => ({ time: r.querySelector('[data-sp-field="time"]')?.value || "", temp: parseFloat(r.querySelector('[data-sp-field="temp"]')?.value) }))
-          .filter(p => p.time && !isNaN(p.temp)),
-        away_offset:           parseFloat(modal.querySelector("#m-away-offset").value),
-        away_max_temp:         parseFloat(modal.querySelector("#m-away-max").value),
-        ha_schedule_off_mode:  modal.querySelector("#m-sched-off-mode")?.value || "eco",
-        room_offset:    parseFloat(modal.querySelector("#m-offset").value),
-        deadband:       parseFloat(modal.querySelector("#m-deadband").value),
-        absolute_min_temp:      parseFloat(modal.querySelector("#m-absolute-min-temp")?.value) || 15,
-        min_temp:               parseFloat(modal.querySelector("#m-min-temp")?.value) || 5.0,
-        max_temp:               parseFloat(modal.querySelector("#m-max-temp")?.value) || 30.0,
-        room_temp_threshold:    parseFloat(modal.querySelector("#m-room-temp-threshold")?.value ?? "0") || 0,
-        room_ignore_heating_period: modal.querySelector("#m-ignore-heating-period")?.checked === true,
-        cover_entities:         covers,
-        window_orientation:     modal.querySelector("#m-window-orientation")?.value || "",
-        solar_passive_heat:     modal.querySelector("#m-solar-passive-heat")?.checked === true,
-        solar_passive_cool:     modal.querySelector("#m-solar-passive-cool")?.checked === true,
-        lux_sensor:             modal.querySelector("#m-lux-sensor")?.value.trim() || "",
-        solar_evening_privacy_enabled: modal.querySelector("#m-solar-evening-privacy")?.checked === true,
-        solar_glare_protection_enabled: modal.querySelector("#m-solar-glare-protection")?.checked === true,
-        room_qm:                parseFloat(modal.querySelector("#m-room-qm")?.value) || 0,
-        room_preheat_minutes:   parseInt(modal.querySelector("#m-room-preheat")?.value ?? "-1", 10),
-        window_reaction_time:   parseInt(modal.querySelector("#m-window-reaction-time")?.value, 10) || 30,
-        window_close_delay:     parseInt(modal.querySelector("#m-window-close-delay")?.value, 10) || 0,
-        window_open_temp:       parseFloat(modal.querySelector("#m-window-open-temp")?.value ?? "0") || 0,
-        window_restore_mode:    modal.querySelector("#m-window-restore-mode")?.value || "schedule",
-        humidity_sensor:          modal.querySelector("#m-humidity-sensor")?.value.trim() || "",
-        mold_protection_enabled:  modal.querySelector("#m-mold-protection")?.value === "true",
-        mold_humidity_threshold:  parseFloat(modal.querySelector("#m-mold-humidity-threshold")?.value) || 70,
-        co2_sensor:               modal.querySelector("#m-co2-sensor")?.value.trim() || "",
-        co2_threshold_good:       parseInt(modal.querySelector("#m-co2-threshold-good")?.value, 10) || 800,
-        co2_threshold_bad:        parseInt(modal.querySelector("#m-co2-threshold-bad")?.value, 10) || 1200,
-        radiator_kw:              parseFloat(modal.querySelector("#m-radiator-kw")?.value) || 1.0,
-        hkv_sensor:               modal.querySelector("#m-hkv-sensor")?.value.trim() || "",
-        hkv_factor:               parseFloat(modal.querySelector("#m-hkv-factor")?.value) || 0.083,
-        room_presence_entities:   (modal.querySelector("#m-presence-entities")?.value || "")
-                                    .split(",").map(s => s.trim()).filter(Boolean),
-        presence_sensor:          modal.querySelector("#m-presence-sensor")?.value?.trim() || "",
-        presence_sensor_on_delay: parseInt(modal.querySelector("#m-presence-sensor-on-delay")?.value ?? "300", 10),
-        presence_sensor_off_delay: parseInt(modal.querySelector("#m-presence-sensor-off-delay")?.value ?? "300", 10),
-        aggressive_mode_enabled:  modal.querySelector("#m-aggressive-mode")?.checked === true,
-        aggressive_mode_range:    parseFloat(modal.querySelector("#m-aggressive-range")?.value ?? "2") || 2.0,
-        aggressive_mode_offset:   parseFloat(modal.querySelector("#m-aggressive-offset")?.value ?? "3") || 3.0,
-        window_cascade_rooms:     [...modal.querySelectorAll(".m-cascade-room-check:checked")].map(cb => cb.value),
-        window_cascade_delay_minutes: parseInt(modal.querySelector("#m-cascade-delay")?.value, 10) || 30,
-        window_cascade_offset:    parseFloat(modal.querySelector("#m-cascade-offset")?.value) || 3.0,
-        boost_default_duration:   parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60,
-        boost_temp:               parseFloat(modal.querySelector("#m-boost-temp")?.value) || 0,
-        trv_temp_weight:          parseFloat(modal.querySelector("#m-trv-temp-weight")?.value) || 0,
-        trv_temp_offset:          parseFloat(modal.querySelector("#m-trv-temp-offset")?.value ?? "-2"),
-        trv_min_send_interval:    parseInt(modal.querySelector("#m-trv-min-send-interval")?.value, 10) || 0,
-        trv_calibrations:         (() => { try { const v = modal.querySelector("#m-trv-calibrations")?.value.trim(); return v ? JSON.parse(v) : {}; } catch { return {}; } })(),
-        temp_calibration:         parseFloat(modal.querySelector("#m-temp-calibration")?.value ?? "0") || 0,
-        comfort_temp_entity:      modal.querySelector("#m-comfort-temp-entity")?.value.trim() || "",
-        eco_temp_entity:          modal.querySelector("#m-eco-temp-entity")?.value.trim() || "",
-        comfort_extend_entity: "",
-        comfort_extend_state:  "on",
-        comfort_extend_entries: [...modal.querySelectorAll("#m-comfort-extend-list .ce-row")]
-          .map(r => ({ entity: r.querySelector('[data-ce-field="entity"]')?.value.trim() || "", state: r.querySelector('[data-ce-field="state"]')?.value.trim() || "on" }))
-          .filter(e => e.entity),
-        ha_schedules,
+      </div>` : `
+      <p class="modal-lead">${all.length
+        ? "Alle gefundenen Thermostate sind bereits einem IHC-Zimmer zugeordnet. 🎉"
+        : "Keine Thermostate mit Bereich gefunden. Weise deine Thermostate in Home Assistant einem Bereich zu (Einstellungen → Geräte → Gerät → Bereich) oder lege das Zimmer manuell an."}</p>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="disc-manual">+ Zimmer manuell anlegen</button>
+        <button class="btn btn-secondary modal-close-btn">Schließen</button>
+      </div>`;
+    this._showModal(`<div class="modal-title">🔍 Zimmer automatisch finden</div>${body}`, async () => {
+      const modal = this.shadowRoot.querySelector("#modal-root .modal");
+      const picked = [...modal.querySelectorAll(".disc-check:checked")].map(cb => found[parseInt(cb.dataset.idx, 10)]);
+      if (!picked.length) { this._toast("Nichts ausgewählt"); return; }
+      await this._callService("add_rooms", {
+        rooms: picked.map(r => ({
+          name: r.name,
+          valve_entity: r.valves[0],
+          valve_entities: r.valves,
+          temp_sensor: r.temp_sensor,
+          window_sensor: r.windows[0] || "",
+          window_sensors: r.windows,
+          humidity_sensor: r.humidity_sensor,
+        })),
       });
       this._closeModal();
-      this._toast(`✓ ${this._esc(room.name)} gespeichert`);
+      this._toast(`✓ ${picked.length} Zimmer angelegt – HA lädt die Entitäten neu`);
     });
-
-    // Boost buttons inside modal
-    setTimeout(() => {
-      const modal = this.shadowRoot.querySelector("#modal-root .modal");
-      const boostBtn = modal?.querySelector("#m-boost-btn");
-      if (boostBtn) {
-        boostBtn.addEventListener("click", () => {
-          const dur = parseInt(modal.querySelector("#m-boost-dur")?.value, 10) || 60;
-          this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
-          this._toast(`⚡ Boost ${dur} min für ${this._esc(room.name)}`);
-          this._closeModal();
-        });
-      }
-      const cancelBtn = modal?.querySelector("#m-boost-cancel-btn");
-      if (cancelBtn) {
-        cancelBtn.addEventListener("click", () => {
-          this._callService("boost_room", { id: room.room_id, cancel: true });
-          this._toast(`✓ Boost für ${this._esc(room.name)} beendet`);
-          this._closeModal();
-        });
-      }
-    }, 50);
-
-    this._bindEntityListAdders();
-    this._bindHaSchedAdder(room.ha_schedules || [], "m-ha-sched-list", "m-add-ha-sched");
-    this._bindComfortExtendAdder("m-comfort-extend-list", "m-add-ce-entry");
-    this._bindSleepProfileAdder("m-sleep-profile-list", "m-add-sp-point");
-    this._bindTempSensorsAdder("m-temp-sensors-list", "m-add-ts");
+    this.shadowRoot.querySelector("#disc-manual")?.addEventListener("click", () => {
+      this._closeModal();
+      this._showAddRoomModal();
+    });
   }
 
   _showConfirmModal(title, body, onConfirm) {

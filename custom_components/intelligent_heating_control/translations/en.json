@@ -3,12 +3,12 @@
     "step": {
       "user": {
         "title": "Basic Settings",
-        "description": "Configure the outdoor temperature sensor.",
+        "description": "Optional: pick an outdoor temperature sensor. Leave it empty if you don't have one – IHC then automatically uses your weather integration (e.g. Met.no). After setup, open the 'IHC' panel in the sidebar: IHC can find your rooms and thermostats automatically.",
         "data": {
           "outdoor_temp_sensor": "Outdoor Temperature Sensor"
         },
         "data_description": {
-          "outdoor_temp_sensor": "Sensor measuring the current outdoor temperature. Used for the heating curve – the colder outside, the higher the target temperature."
+          "outdoor_temp_sensor": "Sensor measuring the current outdoor temperature. Optional – without it the temperature from your weather forecast is used."
         }
       },
       "temperatures": {

@@ -256,6 +256,8 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "guest_remaining_minutes":     d.get("guest_remaining_minutes"),
             "weather_forecast":            d.get("weather_forecast"),
             "outdoor_humidity":            d.get("outdoor_humidity"),
+            "outdoor_temp_source":         d.get("outdoor_temp_source"),
+            "weather_entity_effective":    d.get("weather_entity_effective"),
             # v1.8 – Holiday calendar + Peak Shaving
             "holiday_active":              d.get("holiday_active", False),
             "holiday_schedule_mode":       d.get("holiday_schedule_mode", "weekend"),

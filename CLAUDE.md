@@ -156,9 +156,12 @@ custom_components/intelligent_heating_control/frontend/
     ├── 06_tab_diagnose.js   # Diagnose-Tab: _renderDiagnose()
     │                        # → System-Status, Sensor-Werte, Energie-Statistiken
     ├── 07_tab_curve.js      # Heizkurve-Tab: _renderCurve(), _drawCurve()
-    ├── 08_modals.js         # Modale Dialoge: _showAddRoomModal(), _showEditRoomModal(),
+    ├── 08_modals.js         # Modale Dialoge: _showAddRoomModal() (Schnellstart, bewusst minimal),
+    │                        # _showDiscoverRoomsModal() (Auto-Erkennung aus HA-Bereichen),
     │                        # _showConfirmModal(), _showModal()
-    │                        # → Zimmer hinzufügen/bearbeiten
+    │                        # → Bearbeiten passiert NUR im Zimmer-Detail (04_tab_rooms.js,
+    │                        #   Sub-Tab ⚙️ Einstellungen). _showEditRoomModal gibt es seit 2.6.0
+    │                        #   nicht mehr (war toter Code, nie aufgerufen)
     └── 09_main.js           # IHCPanel Klasse: constructor, lifecycle (set hass, connectedCallback),
                              # _renderTabContent() Switch-Case
                              # → Tab-Navigation, Panel-Mounting, Klasse-Definition
@@ -534,27 +537,32 @@ Alle gefundenen Stellen müssen **im gleichen Commit** bereinigt werden:
 
 ### Wenn eine neue Zimmer-Konstante hinzugefügt wird (KRITISCH: 5+2 Stellen!)
 
-Zimmer-Felder existieren in **sieben** Stellen – alle müssen synchron sein:
+Zimmer-Felder existieren an diesen Stellen – alle müssen synchron sein:
 
 ```
-const.py → coordinator.py → climate.py → __init__.py (handle_add_room)
+const.py → coordinator.py → climate.py → __init__.py (_build_room_config, genutzt von add_room + add_rooms)
                                         → config_flow.py (Add-Schema + Edit-Schema)
-                                        → ihc-panel.js (_showAddRoomModal HTML + saveHandler)
-                                        → ihc-panel.js (_showEditRoomModal HTML + saveHandler)
+                                        → src/04_tab_rooms.js (Zimmer-Detail ⚙️ Einstellungen: HTML + save-handler)
 ```
+
+> **Seit 2.6.0:** Der Add-Room-Dialog (`_showAddRoomModal`) ist ein **bewusst minimaler Schnellstart**
+> (Name, Thermostate, Thermometer, Fenster, Wohlfühltemperatur) – neue Felder kommen dort NICHT
+> hinein, alles hat Backend-Defaults. Neue Felder gehören ins Zimmer-Detail. Ist ein Feld nur für
+> Bastler interessant: dessen `<details>`/`settings-item` bekommt die Klasse `expert-only`
+> (siehe "Einfach/Experte" unten).
 
 Checkliste:
 - [ ] `const.py` – `CONF_*` + `DEFAULT_*` Definition
 - [ ] `coordinator.py` – Import + Verwendung in Logik
 - [ ] `climate.py` – Import + in `extra_state_attributes` mit korrektem Fallback
-- [ ] `__init__.py` – in `handle_add_room()` aus `call.data.get(...)` mit Typ-Konvertierung
+- [ ] `__init__.py` – in `_build_room_config()` aus `data.get(...)` mit Typ-Konvertierung
 - [ ] `config_flow.py` Add-Room schema – Feld mit `vol.Optional()` + `selector.selector()`
 - [ ] `config_flow.py` Add-Room save-handler – Feld in `new_room` dict mit Typ-Konvertierung
 - [ ] `config_flow.py` Edit-Room schema – Feld mit `vol.Optional(default=room.get(...))` + selector
-- [ ] `ihc-panel.js` `_showAddRoomModal()` – HTML-Eingabefeld mit id `m-*`
-- [ ] `ihc-panel.js` `_showAddRoomModal()` save-handler – Feld im `_callService()` Aufruf
-- [ ] `ihc-panel.js` `_showEditRoomModal()` – HTML-Eingabefeld mit Vorbelegung aus `room.*`
-- [ ] `ihc-panel.js` `_showEditRoomModal()` save-handler – Feld im `_callService()` Aufruf
+- [ ] `src/04_tab_rooms.js` Zimmer-Detail – Eingabefeld mit Vorbelegung aus `room.*` + save-handler
+- [ ] `src/02_utils.js` `_getRoomData()` – Attribut ins room-Objekt mappen
+- [ ] Einsteigerrelevant? Sonst `expert-only`. Ändert es, was IHC automatisch tut? Dann
+      `_renderRoomCapabilities()` (02_utils.js) anpassen
 
 > **Hinweis:** Edit-Room in config_flow braucht keinen eigenen save-handler – `{**room, **user_input}` merged automatisch. Aber das Schema muss das Feld enthalten, sonst wird es nie geändert.
 
@@ -582,13 +590,24 @@ Beide Stellen sind immer gemeinsam zu ändern:
 - [ ] JS: `case "xyz": this._renderXyz(content); break;` in `_renderTabContent()` entfernen
 - [ ] JS: Auto-Refresh-Timer prüfen (suche nach `this._activeTab === "xyz"`)
 
-### Wenn ein Feld zu einem Modal hinzugefügt wird
+### UX-Grundsätze (seit 2.6.0) – "für jeden: wenig bis alle Sensoren, Laie bis Bastler"
 
-Add-Room und Edit-Room Modal müssen **immer synchron** bleiben:
-- [ ] Feld im `_showAddRoomModal()` HTML ergänzt
-- [ ] Feld im `_showAddRoomModal()` save-handler ergänzt (mit `?.value` für sichere Abfrage)
-- [ ] Feld im `_showEditRoomModal()` HTML ergänzt (mit Vorbelegung aus `room.xyz`)
-- [ ] Feld im `_showEditRoomModal()` save-handler ergänzt
+- **Alles Optionale braucht einen automatischen Fallback** und einen Satz, der ihn erklärt:
+  kein Raumthermometer → TRV-Temperatur; kein Fensterkontakt → Temperatursturz-Erkennung
+  (Standard an); kein Außensensor → Wetter-Entität (automatisch erste `weather.*`); keine
+  Wetter-Entität konfiguriert → erste vorhandene. Neue Features folgen demselben Muster.
+- **Einfach/Experte:** Umschalter oben rechts (`_uiMode()`, localStorage `ihc_ui_mode`, Standard
+  "einfach"). CSS `:host(.ui-simple) .expert-only:not(.in-use)` blendet aus; ein `expert-only`-
+  Bereich, der mit `open`-Attribut gerendert wird (= schon konfiguriert), bleibt sichtbar
+  (MutationObserver in 09_main.js setzt `.in-use`). Tabs "Analyse"/"Heizkurve" sind expert-only.
+- **Sprache:** Laien-Begriffe in der Oberfläche ("Wohlfühltemperatur", "Heizt gerade",
+  "Fensterkontakt"), Fachbegriffe (TRV, Hysterese, Deadband) nur im Expertenbereich.
+- **Erklärende Karten:** "🤖 Was IHC automatisch macht" (Einstellungen) und "🧭 Was IHC in diesem
+  Zimmer nutzt" (Zimmer-Detail) – beide zeigen ✓ / automatisch / 💡 Tipp.
+- **Auto-Erkennung:** `_discoverRooms()` (02_utils.js) gruppiert climate/Temperatur/Feuchte/Fenster
+  nach HA-Bereich (Entity-Bereich, sonst Geräte-Bereich), überspringt Diagnose-/versteckte
+  Entitäten und den eingebauten Sensor des Thermostats. Angelegt wird über `add_rooms`
+  (EIN Options-Update = ein Reload).
 
 ### Typen zwischen Frontend und Backend
 
@@ -1275,7 +1294,7 @@ regeln weiterhin jedes Zimmer einzeln, siehe Kapitel 1/14).
 
 ### Release 2.6.0 (2026-11-22): Review + Konkurrenzvergleich
 
-- [x] Sensorlose Fenstererkennung (Temperatursturz) – global opt-in, nur Zimmer ohne Fenstersensor
+- [x] Sensorlose Fenstererkennung (Temperatursturz) – global, Standard an, nur Zimmer ohne Fenstersensor
   (`CONF_WINDOW_AUTO_DETECT_*`, reine Logik in `window_auto_detect.py`, unit-getestet). Wirkt NICHT
   auf die Fenster-Kaskade (die liest nur echte Sensoren in Phase 3).
 - [x] `diagnostics.py` (Diagnose-Download, geschwärzt)
@@ -1285,6 +1304,10 @@ regeln weiterhin jedes Zimmer einzeln, siehe Kapitel 1/14).
   `now=dt_util.now()` explizit übergeben. Reine Dauer-Messungen (Boost-Ende etc.) dürfen naiv bleiben.
 - **Frontend-Regel:** Zimmernamen und andere Freitexte nur über `this._esc()` ins HTML,
   `localStorage` nur über `this._lsGet()/_lsSet()`.
+- [x] UX-Umbau "für jeden" (siehe Kapitel 10 "UX-Grundsätze"): Willkommensbildschirm,
+  Auto-Erkennung + `add_rooms`, Schnellstart-Dialog, Einfach/Experte, Erklärkarten,
+  Wetter-Fallback für Außentemperatur, Vorhersage über `weather.get_forecasts` (das
+  `forecast`-Attribut gibt es seit HA 2024.3 nicht mehr – vorher waren alle Prognose-Features tot)
 - Offen (Vorschläge aus dem Review): englische Panel-Übersetzung (Voraussetzung für breite
   HACS-Nutzung), Repairs statt Persistent-Notifications, Sicherheitsmodus bei ausgefallenem
   Raumsensor (Versatile-Thermostat-Stil), Lernende Fenster-Schwellwerte pro Zimmer.

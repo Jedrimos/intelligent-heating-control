@@ -50,11 +50,13 @@
           ${list || '<div style="color:var(--secondary-text-color);padding:8px">Noch keine Zimmer.</div>'}
         </div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="add-room-btn">+ Zimmer hinzufügen</button>
+          <button class="btn btn-primary" id="discover-rooms-btn" title="Thermostate und Sensoren aus deinen Home-Assistant-Bereichen übernehmen">🔍 Zimmer automatisch finden</button>
+          <button class="btn btn-secondary" id="add-room-btn">+ Zimmer manuell</button>
         </div>
       </div>`;
 
     content.querySelector("#add-room-btn").addEventListener("click", () => this._showAddRoomModal());
+    content.querySelector("#discover-rooms-btn").addEventListener("click", () => this._showDiscoverRoomsModal());
 
     // Clicking the room row opens the detail view
     content.querySelectorAll("[data-action='open']").forEach(row => {
@@ -151,8 +153,10 @@
     ).join("");
 
     container.innerHTML = `
+      ${this._renderRoomCapabilities(room)}
       <div class="card" style="margin-bottom:12px">
         <div class="card-title">⚙️ Einstellungen – ${this._esc(room.name)}</div>
+        <div class="simple-hint">🧩 Einfache Ansicht: nur die wichtigsten Einstellungen. Alles Weitere (Kalibrierung, Rollladen, Kaskade …) über <b>🛠️ Experte</b> oben rechts.</div>
 
         <div class="form-group">
           <label class="form-label">Zimmer-Modus</label>
@@ -166,7 +170,7 @@
             data-ep-domains="sensor" autocomplete="off">
         </div>
 
-        <details class="modal-collapsible" ${room.temp_sensors && room.temp_sensors.length > 0 ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${room.temp_sensors && room.temp_sensors.length > 0 ? "open" : ""}>
           <summary class="modal-section-title">🌡️ Zusätzliche Temperatursensoren <span style="font-weight:400;font-size:10px">(optional, pro Raumteil)</span></summary>
           <div id="rs-temp-sensors-list">
             ${this._renderTempSensorRows(room.temp_sensors || [], "rs-add-ts")}
@@ -204,7 +208,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible"${(room.window_cascade_rooms && room.window_cascade_rooms.length > 0) ? ' open' : ''}>
+        <details class="modal-collapsible expert-only"${(room.window_cascade_rooms && room.window_cascade_rooms.length > 0) ? ' open' : ''}>
           <summary class="modal-section-title">🌊 Fenster-Kaskade</summary>
           <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
             Wenn dieses Zimmer zu lange gelüftet wird, senkt IHC automatisch die Heizung in anderen Räumen ab.
@@ -250,39 +254,39 @@
         </details>
 
         <details class="modal-collapsible" open>
-          <summary class="modal-section-title">🌡️ Temperatur-Presets</summary>
+          <summary class="modal-section-title">🌡️ Temperaturen</summary>
           <div class="settings-grid">
             <div class="settings-item">
-              <label>Komfort Fallback (°C)</label>
+              <label>😊 Wohlfühltemperatur (°C)</label>
               <input type="number" class="form-input" id="rs-comfort"
                 value="${room.comfort_temp ?? 21}" step="0.5" min="15" max="30">
             </div>
             <div class="settings-item">
-              <label>Abwesend-Temperatur (°C)</label>
+              <label>🚶 Wenn niemand da ist (°C)</label>
               <input type="number" class="form-input" id="rs-away-temp-room"
                 value="${room.away_temp_room ?? 16}" step="0.5" min="10" max="22">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Eco Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-eco-offset"
                 value="${room.eco_offset ?? 3}" step="0.5" min="0" max="10">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Eco Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-eco-max"
                 value="${room.eco_max_temp ?? 21}" step="0.5" min="10" max="28">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Schlaf Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-sleep-offset"
                 value="${room.sleep_offset ?? 4}" step="0.5" min="0" max="10">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Schlaf Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-sleep-max"
                 value="${room.sleep_max_temp ?? 19}" step="0.5" min="10" max="25">
             </div>
-            <div class="settings-item" style="grid-column:1/-1">
+            <div class="settings-item expert-only" style="grid-column:1/-1">
               <label>🌙 Schlaf-Temperaturprofil <span style="font-weight:400;font-size:10px">(optional – überschreibt Schlaf-Abzug wenn gesetzt)</span></label>
               <div id="rs-sleep-profile-list">
                 ${(() => {
@@ -299,20 +303,21 @@
               </div>
               <span class="form-hint">Uhrzeit · Temperatur – z.B. 22:00/19°C, 02:00/16°C, 06:00/18°C. Leer lassen für den festen Schlaf-Abzug oben.</span>
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Abwesend Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-away-offset"
                 value="${room.away_offset ?? 6}" step="0.5" min="0" max="15">
             </div>
-            <div class="settings-item">
+            <div class="settings-item expert-only">
               <label>Abwesend Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-away-max"
                 value="${room.away_max_temp ?? 18}" step="0.5" min="5" max="22">
             </div>
           </div>
+          <span class="form-hint simple-only-hint">Sparen, Schlafen und Abwesend werden automatisch aus der Wohlfühltemperatur abgeleitet – im Expertenmodus einzeln einstellbar.</span>
         </details>
 
-        <details class="modal-collapsible">
+        <details class="modal-collapsible expert-only">
           <summary class="modal-section-title">📐 Erweitert & Grenzen</summary>
           <div class="settings-grid">
             <div class="settings-item">
@@ -401,7 +406,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${room.hkv_sensor || (room.radiator_kw && room.radiator_kw !== 1.0) ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${room.hkv_sensor || (room.radiator_kw && room.radiator_kw !== 1.0) ? "open" : ""}>
           <summary class="modal-section-title">⚡ Energieerfassung</summary>
           <div class="settings-grid">
             <div class="settings-item">
@@ -423,7 +428,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${room.room_presence_entities?.length ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${room.room_presence_entities?.length ? "open" : ""}>
           <summary class="modal-section-title">👤 Anwesenheit</summary>
           <div class="settings-item">
             <input type="text" class="form-input full" id="rs-presence-entities"
@@ -459,7 +464,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${(room.trv_temp_weight > 0 || room.trv_min_send_interval > 0) ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${(room.trv_temp_weight > 0 || room.trv_min_send_interval > 0) ? "open" : ""}>
           <summary class="modal-section-title">🌡️ TRV-Sensor &amp; Kalibrierung</summary>
           <div class="settings-grid">
             <div class="settings-item">
@@ -486,7 +491,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${room.aggressive_mode_enabled ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${room.aggressive_mode_enabled ? "open" : ""}>
           <summary class="modal-section-title">⚡ Aggressiver Modus</summary>
           <div class="settings-grid">
             <div class="settings-item" style="grid-column:1/-1">
@@ -508,7 +513,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${(room.window_open_temp > 0 || room.room_temp_threshold > 0) ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${(room.window_open_temp > 0 || room.room_temp_threshold > 0) ? "open" : ""}>
           <summary class="modal-section-title">🌡️ Temperaturschwellen</summary>
           <div class="settings-grid">
             <div class="settings-item">
@@ -526,7 +531,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${room.presence_sensor ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${room.presence_sensor ? "open" : ""}>
           <summary class="modal-section-title">👁 PIR-Sensor (Zimmerpräsenz)</summary>
           <div class="settings-grid">
             <div class="settings-item" style="grid-column:1/-1">
@@ -549,7 +554,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${(room.comfort_temp_entity || room.eco_temp_entity) ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${(room.comfort_temp_entity || room.eco_temp_entity) ? "open" : ""}>
           <summary class="modal-section-title">🔗 Dynamische Sollwert-Entitäten</summary>
           <div class="settings-grid">
             <div class="settings-item" style="grid-column:1/-1">
@@ -569,7 +574,7 @@
           </div>
         </details>
 
-        <details class="modal-collapsible" ${(room.comfort_extend_entries?.length > 0 || room.comfort_extend_entity) ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${(room.comfort_extend_entries?.length > 0 || room.comfort_extend_entity) ? "open" : ""}>
           <summary class="modal-section-title">⏱️ Komfort-Verlängerung
             ${room.comfort_extend_active ? '<span style="color:#43a047;font-size:11px;margin-left:6px">● aktiv</span>' : ''}
           </summary>
@@ -644,7 +649,7 @@
           <span class="form-hint">Optional. Beispiel: media_player.wohnzimmer / playing · binary_sensor.jemand_zuhause / on</span>
         </details>
 
-        <details class="modal-collapsible" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
+        <details class="modal-collapsible expert-only" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
           <summary class="modal-section-title">☀️ Passive Solarheizung (Rolladen)
             ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">☀️ Aktiv (${room.solar_cover_position}%)</span>` : ""}
           </summary>

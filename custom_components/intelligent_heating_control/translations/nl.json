@@ -3,12 +3,12 @@
     "step": {
       "user": {
         "title": "Basisinstellingen",
-        "description": "Configureer de buitentemperatuursensor.",
+        "description": "Optioneel: kies een buitentemperatuursensor. Geen sensor? Laat leeg – IHC gebruikt dan automatisch je weerintegratie (bijv. Met.no). Open daarna het paneel „IHC“ in de zijbalk: IHC vindt je kamers en thermostaten automatisch.",
         "data": {
           "outdoor_temp_sensor": "Buitentemperatuursensor"
         },
         "data_description": {
-          "outdoor_temp_sensor": "Sensor die de huidige buitentemperatuur meet. Wordt gebruikt voor de stooklijn – hoe kouder buiten, hoe hoger de streeftemperatuur."
+          "outdoor_temp_sensor": "Sensor voor de buitentemperatuur. Optioneel – anders wordt de temperatuur uit de weersverwachting gebruikt."
         }
       },
       "temperatures": {

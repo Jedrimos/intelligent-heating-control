@@ -16,17 +16,40 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ## [2.6.0] - 2026-11-22
 
+### Für jeden: wenig bis alle Sensoren, Einsteiger bis Bastler
+- **Willkommensbildschirm + automatische Zimmererkennung:** IHC liest deine Home-Assistant-Bereiche
+  und schlägt pro Bereich ein fertiges Zimmer vor (Thermostate, Raumthermometer, Fensterkontakte,
+  Feuchtesensor) – Haken setzen, anlegen, fertig. Neuer Service `add_rooms`.
+- **Schnellstart beim Zimmer anlegen:** statt über 130 Feldern nur noch Name, Thermostat(e),
+  optionales Thermometer/Fensterkontakt und Wohlfühltemperatur (Regler). Optional „aus
+  HA-Bereich übernehmen“. Alles Weitere im Zimmer unter ⚙️ Einstellungen.
+- **Einfach-/Experten-Ansicht** (Schalter oben rechts, Standard: einfach): Profi-Funktionen
+  (Kalibrierung, Rollladen, Energiepreise, Kessel-Relais, Kalkschutz, Analyse- und Heizkurven-Tab …)
+  werden ausgeblendet, solange sie nicht genutzt werden.
+- **Erklärkarten:** „🤖 Was IHC automatisch macht“ (Einstellungen) und „🧭 Was IHC in diesem Zimmer
+  nutzt“ (Zimmer) – mit Tipps, welcher Sensor was verbessern würde.
+- **Ohne Außensensor:** Außentemperatur kommt automatisch aus der Wetter-Entität (eine frische
+  HA-Installation hat Met.no). Ohne konfigurierte Wetter-Entität nimmt IHC die erste vorhandene.
+- **Sensorlose Fenstererkennung ist jetzt standardmäßig an** (nur für Zimmer ohne Fensterkontakt).
+- Verständlichere Begriffe: „Heizung – Heizt gerade / Alle Zimmer sind warm genug“ statt
+  „TRV-Modus“, „Wohlfühltemperatur“ statt „Komfort Fallback“; Einrichtungsassistent erklärt,
+  dass der Außensensor optional ist.
+
 ### Neu
 - **Sensorlose Fenstererkennung (Temperatursturz):** Zimmer **ohne** Fenstersensor erkennen ein
   offenes Fenster jetzt an einem plötzlichen Temperaturabfall (Standard: 0,8 °C in 6 min) und
-  pausieren das Thermostat – bis die Temperatur wieder steigt, höchstens 20 min. Global opt-in
-  unter Einstellungen (Standard aus); ein echter Fenstersensor hat immer Vorrang. Dashboard-Hinweis
+  pausieren das Thermostat – bis die Temperatur wieder steigt, höchstens 20 min. Abschaltbar unter
+  Einstellungen; ein echter Fenstersensor hat immer Vorrang. Dashboard-Hinweis
   „🪟 Fenster offen erkannt (Temperatursturz)", Attribut `window_auto_detected`.
 - **Diagnose-Download:** Geräte & Dienste → IHC → ⋮ → „Diagnose herunterladen" liefert
   Konfiguration + Live-Entscheidung pro Zimmer als JSON (Standort/Personen geschwärzt) – ideal für
   Bug-Reports.
 
 ### Behoben
+- **Wettervorhersage-Funktionen waren auf aktuellem Home Assistant tot:** HA liefert das
+  `forecast`-Attribut seit 2024.3 nicht mehr – Kälteprognose-Frühstart, Mehrtages-Vorschau und
+  Prognose-Vorheizen bekamen immer eine leere Liste. IHC fragt die Vorhersage jetzt über
+  `weather.get_forecasts` ab (alle 30 min, täglich oder zweimal täglich).
 - **Lüftungsempfehlung war komplett kaputt:** ein Tippfehler (`mold` statt `room_humidity`) warf bei
   jedem Zyklus einen stillen Fehler – Lüftungsempfehlung, `co2_ppm` und CO₂-Prognose blieben für
   alle Zimmer leer, die Lüftungs-Binary-Sensoren waren nie „an".
@@ -48,6 +71,7 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 - **Gefühlte-Temperatur-Anpassung** wurde erst nach der Anforderungsberechnung angewendet –
   angezeigte Anforderung und gesendeter Sollwert passten nicht zusammen.
 - **Boost per TRV-Preset** konnte fälschlich als manuelle Verstellung erkannt werden.
+- Ungenutzter „Zimmer bearbeiten“-Dialog (~770 Zeilen toter Code) entfernt.
 - **Panel:** Zimmernamen mit `&`, `<` oder Anführungszeichen zerschossen die Anzeige (jetzt
   escaped); Panel blieb leer, wenn der Browser `localStorage` blockiert (Privatmodus,
   eingeschränkte App-Webviews); Übersicht zeigte TRV- statt Raumsensor-Luftfeuchte; „gefühlt"-Chip

@@ -193,6 +193,7 @@ SIGNAL_UPDATE_ENTITY: Final = f"{DOMAIN}_update_{{entry_id}}"
 
 # Service names
 SERVICE_ADD_ROOM: Final = "add_room"
+SERVICE_ADD_ROOMS: Final = "add_rooms"  # v2.6 – mehrere Zimmer auf einmal (Auto-Erkennung)
 SERVICE_REMOVE_ROOM: Final = "remove_room"
 SERVICE_UPDATE_ROOM: Final = "update_room"
 SERVICE_UPDATE_GLOBAL_SETTINGS: Final = "update_global_settings"
@@ -491,9 +492,9 @@ CONF_WARMUP_STALL_NOTIFY_ENABLED: Final = "warmup_stall_notify_enabled"
 DEFAULT_WARMUP_STALL_NOTIFY_ENABLED: Final = True
 
 # v2.6 – Sensorlose Fenstererkennung (Temperatursturz), nur für Zimmer ohne Fenstersensor
-# (siehe window_auto_detect.py). Global opt-in, Standard aus.
+# (siehe window_auto_detect.py). Standard an - ein echter Sensor hat immer Vorrang.
 CONF_WINDOW_AUTO_DETECT_ENABLED: Final = "window_auto_detect_enabled"
-DEFAULT_WINDOW_AUTO_DETECT_ENABLED: Final = False
+DEFAULT_WINDOW_AUTO_DETECT_ENABLED: Final = True  # nur Zimmer OHNE Fenstersensor
 CONF_WINDOW_AUTO_DETECT_DROP: Final = "window_auto_detect_drop"
 DEFAULT_WINDOW_AUTO_DETECT_DROP: Final = 0.8          # °C Temperatursturz ...
 CONF_WINDOW_AUTO_DETECT_MINUTES: Final = "window_auto_detect_minutes"

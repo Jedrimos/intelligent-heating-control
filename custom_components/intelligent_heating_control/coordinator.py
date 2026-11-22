@@ -489,6 +489,8 @@ class IHCCoordinator(
         self._pre_window_temps: Dict[str, float] = {}              # room_id → target_temp before window opened
         self._window_restore_hold: Dict[str, tuple] = {}           # room_id → (restored temp, base decision at close)
         self._window_auto_state: Dict[str, dict] = {}              # room_id → window_auto_detect state (v2.6)
+        self._outdoor_temp_source: Optional[str] = None            # "sensor:<id>" | "weather:<id>" | None (v2.6)
+        self._weather_forecast_cache: tuple = (None, [], 0.0)      # (entity_id, daily forecast, monotonic ts)
         # Backlog 2026-11-02 – Decision-Sensor: last-seen (source, target_temp) per room, to
         # fire EVENT_DECISION_CHANGED only when the decision actually changes, not every cycle.
         # Transient (not persisted) - a restart just re-fires once for the first real change.
@@ -1501,11 +1503,34 @@ class IHCCoordinator(
     # Temperature calculation logic
     # ------------------------------------------------------------------
 
+    def _get_weather_outdoor_temp(self) -> Optional[float]:
+        """v2.6 – outdoor temperature from the effective weather entity (fallback for
+        setups without an outdoor sensor, or while it is unavailable)."""
+        entity_id = self._get_weather_entity_id()
+        if not entity_id:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+        try:
+            temp = float(state.attributes.get("temperature"))
+        except (TypeError, ValueError):
+            return None
+        # Weather entities report in the HA unit system; IHC works in °C throughout
+        unit = state.attributes.get("temperature_unit")
+        if unit in ("°F", "℉"):
+            temp = (temp - 32) * 5 / 9
+        self._outdoor_temp_source = f"weather:{entity_id}"
+        return round(temp, 1)
+
     def _get_outdoor_temp(self) -> Optional[float]:
         cfg = self.get_config()
         sensor = cfg.get(CONF_OUTDOOR_TEMP_SENSOR)
+        self._outdoor_temp_source = None
         if not sensor:
-            return None
+            # No outdoor sensor: use the weather entity so heating curve, Sommerautomatik
+            # and Heizperioden-Automatik still work out of the box (v2.6).
+            return self._get_weather_outdoor_temp()
         state = self.hass.states.get(sensor)
         if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             # Outdoor sensor unavailable – reuse last known value (same 30-min window)
@@ -1513,14 +1538,16 @@ class IHCCoordinator(
             if cached is not None:
                 cached_value, cached_at = cached
                 if (dt_util.utcnow() - cached_at).total_seconds() < self._SENSOR_FALLBACK_SECONDS:
+                    self._outdoor_temp_source = f"sensor:{sensor}"
                     return cached_value
-            return None
+            return self._get_weather_outdoor_temp()
         try:
             raw = float(state.state)
             # Cache the fresh reading under a namespaced key
             self._last_known_sensor_temps[f"__outdoor__{sensor}"] = (raw, dt_util.utcnow())
         except ValueError:
-            return None
+            return self._get_weather_outdoor_temp()
+        self._outdoor_temp_source = f"sensor:{sensor}"
 
         smoothing = int(cfg.get(CONF_OUTDOOR_TEMP_SMOOTHING_MINUTES, DEFAULT_OUTDOOR_TEMP_SMOOTHING_MINUTES))
         if smoothing <= 1:
@@ -1695,6 +1722,12 @@ class IHCCoordinator(
 
         # Rückkehr-Vorheizung: pre-heat before returning from vacation (Roadmap 2.0)
         self._update_vacation_return_preheat()
+
+        # v2.6 – weather forecast via weather.get_forecasts (cached 30 min)
+        try:
+            await self._async_refresh_weather_forecast()
+        except Exception:
+            _LOGGER.debug("IHC: weather forecast refresh failed", exc_info=True)
 
         # Persist temperature history once per hour (survives HA restarts)
         now = datetime.now()
@@ -2636,6 +2669,9 @@ class IHCCoordinator(
 
         return {
             "outdoor_temp": ctx["outdoor_temp"],
+            # v2.6 – where the outdoor temp comes from, so the UI can explain it
+            "outdoor_temp_source": self._outdoor_temp_source,
+            "weather_entity_effective": self._get_weather_entity_id(),
             "curve_target": ctx["curve_target"],
             "total_demand": ctx["total_demand"],
             "rooms_demanding": ctx["rooms_demanding"],
@@ -2821,6 +2857,19 @@ class IHCCoordinator(
         self._rebuild_from_config()
         await self.async_request_refresh()
         return room_config[CONF_ROOM_ID]
+
+    async def async_add_rooms(self, room_configs: list) -> None:
+        """v2.6 – add several rooms with a single options update (one reload)."""
+        new_options = dict(self._config_entry.options)
+        rooms = list(new_options.get(CONF_ROOMS, []))
+        for room_config in room_configs:
+            if not room_config.get(CONF_ROOM_ID):
+                room_config[CONF_ROOM_ID] = str(uuid.uuid4())[:8]
+            rooms.append(room_config)
+        new_options[CONF_ROOMS] = rooms
+        self.hass.config_entries.async_update_entry(self._config_entry, options=new_options)
+        self._rebuild_from_config()
+        await self.async_request_refresh()
 
     async def async_remove_room(self, room_id: str) -> None:
         """Remove a room by ID and clean up all associated entities from the registry."""

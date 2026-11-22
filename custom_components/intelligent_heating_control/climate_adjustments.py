@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -178,13 +179,76 @@ class ClimateAdjustmentsMixin:
         except ValueError:
             return None
 
+    def _get_weather_entity_id(self) -> Optional[str]:
+        """v2.6 – effective weather entity: the configured one, otherwise the first
+        available weather.* entity in Home Assistant (a fresh HA install ships one via
+        Met.no). Lets people without any sensors still get outdoor temperature and
+        forecasts with zero configuration.
+        """
+        configured = self.get_config().get(CONF_WEATHER_ENTITY)
+        if configured:
+            return configured
+        candidates = sorted(
+            s.entity_id for s in self.hass.states.async_all("weather")
+            if s.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN)
+        )
+        return candidates[0] if candidates else None
+
+    async def _async_refresh_weather_forecast(self) -> None:
+        """v2.6 – fetch the daily forecast via the weather.get_forecasts service.
+
+        Home Assistant removed the `forecast` state attribute in 2024.3, so every
+        forecast-based feature (Kälteprognose, Mehrtages-Vorschau, ...) silently got an
+        empty list on current versions. Cached for 30 minutes.
+        """
+        entity_id = self._get_weather_entity_id()
+        if not entity_id:
+            self._weather_forecast_cache = (None, [], 0.0)
+            return
+        cached_entity, _, fetched_at = getattr(self, "_weather_forecast_cache", (None, [], 0.0))
+        now = time.monotonic()
+        if cached_entity == entity_id and now - fetched_at < 1800:
+            return
+        forecast: list = []
+        for fc_type in ("daily", "twice_daily"):
+            try:
+                resp = await self.hass.services.async_call(
+                    "weather", "get_forecasts",
+                    {"entity_id": entity_id, "type": fc_type},
+                    blocking=True, return_response=True,
+                )
+                forecast = ((resp or {}).get(entity_id) or {}).get("forecast") or []
+            except Exception:  # entity doesn't support this forecast type
+                _LOGGER.debug("IHC: %s forecast type %s unavailable", entity_id, fc_type, exc_info=True)
+                forecast = []
+            if forecast:
+                if fc_type == "twice_daily":
+                    forecast = self._merge_twice_daily_forecast(forecast)
+                break
+        self._weather_forecast_cache = (entity_id, forecast, now)
+
+    @staticmethod
+    def _merge_twice_daily_forecast(forecast: list) -> list:
+        """Collapse day/night entries into one entry per date (min = lowest, max = highest)."""
+        by_date: dict = {}
+        for fc in forecast:
+            date = str(fc.get("datetime", ""))[:10]
+            temps = [t for t in (fc.get("temperature"), fc.get("templow")) if t is not None]
+            if not date or not temps:
+                continue
+            d = by_date.setdefault(date, {"datetime": fc.get("datetime"), "temperature": max(temps),
+                                          "templow": min(temps), "condition": fc.get("condition")})
+            d["temperature"] = max(d["temperature"], *temps)
+            d["templow"] = min(d["templow"], *temps)
+        return list(by_date.values())
+
     def _get_weather_forecast(self) -> Optional[dict]:
         """
-        Read forecast from a weather.* entity (HA native forecast attribute).
+        Read forecast from the effective weather.* entity (see _get_weather_entity_id).
         Returns dict with today's min/max forecast temp and condition, or None.
         """
         cfg = self.get_config()
-        weather_entity = cfg.get(CONF_WEATHER_ENTITY)
+        weather_entity = self._get_weather_entity_id()
         if not weather_entity:
             return None
         state = self.hass.states.get(weather_entity)
@@ -193,7 +257,9 @@ class ClimateAdjustmentsMixin:
         attrs = state.attributes
         # Current conditions
         current_temp = attrs.get("temperature")
-        forecast_list = attrs.get("forecast", [])
+        cached_entity, cached_forecast, _ = getattr(self, "_weather_forecast_cache", (None, [], 0.0))
+        # Service-based forecast (HA ≥ 2024.3); legacy attribute only as fallback
+        forecast_list = cached_forecast if cached_entity == weather_entity and cached_forecast else attrs.get("forecast", [])
         cold_threshold = float(cfg.get(CONF_WEATHER_COLD_THRESHOLD, DEFAULT_WEATHER_COLD_THRESHOLD))
         result = {
             "condition": state.state,

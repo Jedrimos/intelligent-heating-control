@@ -122,9 +122,30 @@ class IHCPanel extends HTMLElement {
           <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
         </button>
         <span class="topbar-title">Intelligent Heating Control</span>
+        <button class="ui-mode-toggle" id="ihc-ui-mode" title="Zwischen einfacher Ansicht und allen Einstellungen umschalten"></button>
         <span class="topbar-version">v2.6.0</span>
       `;
       shadow.appendChild(topbar);
+      // Einfach/Experte (v2.6): beginners only see what they need, tinkerers get everything
+      const modeBtn = topbar.querySelector("#ihc-ui-mode");
+      const paintModeBtn = () => {
+        const simple = this._uiMode() === "simple";
+        modeBtn.textContent = simple ? "🧩 Einfach" : "🛠️ Experte";
+        modeBtn.classList.toggle("expert", !simple);
+      };
+      paintModeBtn();
+      modeBtn.addEventListener("click", () => {
+        this._setUiMode(this._uiMode() === "simple" ? "expert" : "simple");
+        paintModeBtn();
+        if (this._uiMode() === "simple" && ["analyse", "curve"].includes(this._activeTab)) {
+          this._activeTab = "overview";
+          this._updateActiveTab();
+        }
+        this._renderTabContent();
+        this._toast(this._uiMode() === "simple"
+          ? "🧩 Einfache Ansicht – nur das Wichtigste"
+          : "🛠️ Expertenansicht – alle Einstellungen sichtbar");
+      });
       // Toggle HA sidebar – single event only (dispatching multiple events causes double-toggle)
       topbar.querySelector("#ihc-menu-btn").addEventListener("click", () => {
         // Primary: modern HA 2023+ event (home-assistant-main listens on window)
@@ -157,10 +178,10 @@ class IHCPanel extends HTMLElement {
       <div class="tabs">
         <div class="tab" data-tab="overview">🏠 Dashboard</div>
         <div class="tab" data-tab="rooms">🚪 Zimmer</div>
-        <div class="tab" data-tab="diagnose">📊 Übersicht</div>
-        <div class="tab" data-tab="analyse">🔥 Analyse</div>
         <div class="tab" data-tab="settings">⚙️ Einstellungen</div>
-        <div class="tab" data-tab="curve">📈 Heizkurve</div>
+        <div class="tab" data-tab="diagnose">📊 Status</div>
+        <div class="tab expert-only" data-tab="analyse">🔥 Analyse</div>
+        <div class="tab expert-only" data-tab="curve">📈 Heizkurve</div>
       </div>
       <div id="tab-content"></div>
     `;
@@ -199,6 +220,16 @@ class IHCPanel extends HTMLElement {
     }
 
     this._initialized = true;
+    this.classList.toggle("ui-simple", this._uiMode() === "simple");
+    // Simple mode hides .expert-only sections - but never one the user has already
+    // configured (rendered with the "open" attribute). Marked once per render, so
+    // collapsing it later doesn't make it vanish.
+    if (!this._inUseObserver) {
+      const mark = () => shadow.querySelectorAll(".expert-only[open]:not(.in-use)")
+        .forEach(el => el.classList.add("in-use"));
+      this._inUseObserver = new MutationObserver(mark);
+      this._inUseObserver.observe(shadow, { childList: true, subtree: true });
+    }
     this._updateActiveTab();
     this._renderTabContent();
   }

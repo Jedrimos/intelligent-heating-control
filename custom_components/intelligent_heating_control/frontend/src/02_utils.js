@@ -47,6 +47,115 @@
     try { window.localStorage.setItem(key, value); } catch (e) { /* ignore */ }
   }
 
+  // ── Einfach/Experte (v2.6) ─────────────────────────────────────────────────
+  _uiMode() {
+    return this._lsGet("ihc_ui_mode") === "expert" ? "expert" : "simple";
+  }
+
+  _setUiMode(mode) {
+    this._lsSet("ihc_ui_mode", mode);
+    this.classList.toggle("ui-simple", mode === "simple");
+  }
+
+  // ── Automatic room discovery from HA areas (v2.6) ──────────────────────────
+  // Groups thermostats, temperature/humidity sensors and window contacts by their
+  // HA area (entity area, else device area). Every area with at least one
+  // thermostat that IHC doesn't manage yet becomes a ready-to-create room.
+  _discoverRooms() {
+    const h = this._hass;
+    if (!h || !h.areas || !h.entities) return [];
+    const rooms = Object.values(this._getRoomData());
+    const used = new Set();
+    rooms.forEach(r => [
+      ...(r.valve_entities || []), ...(r.window_sensors || []), r.temp_sensor, r.humidity_sensor,
+    ].forEach(e => e && used.add(e)));
+    const existingNames = new Set(rooms.map(r => (r.name || "").toLowerCase()));
+    const deviceOf = eid => h.entities[eid]?.device_id || null;
+    const areaOf = eid => {
+      const ent = h.entities[eid];
+      if (!ent) return null;
+      return ent.area_id || (ent.device_id && h.devices?.[ent.device_id]?.area_id) || null;
+    };
+    const byArea = {};
+    for (const [eid, st] of Object.entries(h.states)) {
+      const ent = h.entities[eid];
+      if (!ent || ent.hidden || ent.entity_category) continue;
+      if (ent.platform === "intelligent_heating_control" || used.has(eid)) continue;
+      const area = areaOf(eid);
+      if (!area) continue;
+      const domain = eid.split(".")[0];
+      const dc = st.attributes?.device_class;
+      const a = byArea[area] || (byArea[area] = { valves: [], temps: [], windows: [], humidity: [] });
+      if (domain === "climate") a.valves.push(eid);
+      else if (domain === "sensor" && dc === "temperature") a.temps.push(eid);
+      else if (domain === "sensor" && dc === "humidity") a.humidity.push(eid);
+      else if (domain === "binary_sensor" && (dc === "window" || dc === "opening")) a.windows.push(eid);
+    }
+    return Object.entries(byArea)
+      .filter(([, a]) => a.valves.length > 0)
+      .map(([areaId, a]) => {
+        // A thermostat's own built-in temperature/humidity entity is not a room sensor -
+        // IHC reads that from the TRV anyway. Prefer a separate device.
+        const valveDevices = new Set(a.valves.map(deviceOf).filter(Boolean));
+        const pick = list => list.find(e => !valveDevices.has(deviceOf(e))) || "";
+        const name = h.areas[areaId]?.name || areaId;
+        return {
+          area_id: areaId, name,
+          valves: a.valves.sort(),
+          temp_sensor: pick(a.temps),
+          humidity_sensor: pick(a.humidity),
+          windows: a.windows.sort(),
+          exists: existingNames.has(name.toLowerCase()),
+        };
+      })
+      .sort((x, y) => x.name.localeCompare(y.name));
+  }
+
+  _friendly(eid) {
+    const st = this._hass?.states?.[eid];
+    return st?.attributes?.friendly_name || eid;
+  }
+
+  // ── "Was nutzt dieses Zimmer?" (v2.6) ──────────────────────────────────────
+  // Plain-language list of what IHC does automatically for a room and which
+  // optional sensor would improve it. Same component for every sensor budget.
+  _renderRoomCapabilities(room) {
+    const g = this._getGlobal();
+    const hasTrv = (room.valve_entities || []).length > 0;
+    const hasTemp = !!room.temp_sensor || (room.temp_sensors || []).length > 0;
+    const hasWindow = (room.window_sensors || []).length > 0;
+    const autoWindow = g.window_auto_detect_enabled !== false;
+    const hasHumidity = !!room.humidity_sensor || room.trv_humidity != null;
+    const hasPresence = (room.room_presence_entities || []).length > 0 || !!room.presence_sensor;
+    const hasSchedule = (room.schedules || []).length > 0 || (room.ha_schedules || []).length > 0;
+    const row = (ok, icon, title, text) => `
+      <div class="cap-row ${ok === true ? "cap-ok" : ok === "auto" ? "cap-auto" : "cap-tip"}">
+        <span class="cap-icon">${icon}</span>
+        <div><div class="cap-title">${title}</div><div class="cap-text">${text}</div></div>
+      </div>`;
+    return `
+      <div class="card cap-card">
+        <div class="card-title">🧭 Was IHC in diesem Zimmer nutzt</div>
+        ${row(hasTrv, "🔥", hasTrv ? "Thermostat verbunden" : "Kein Thermostat",
+          hasTrv ? `${(room.valve_entities || []).map(e => this._esc(this._friendly(e))).join(", ")} – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst.`
+                 : "Ohne Thermostat kann IHC hier nichts steuern. Unter „Thermostate / TRVs“ hinzufügen.")}
+        ${row(hasTemp ? true : "auto", "🌡️", hasTemp ? "Eigener Temperatursensor" : "Temperatur vom Thermostat",
+          hasTemp ? "Misst die echte Raumtemperatur – am genauesten."
+                  : "💡 Tipp: Ein Raumthermometer (ab ~10 €) misst genauer als das Thermostat direkt am Heizkörper.")}
+        ${row(hasWindow ? true : (autoWindow ? "auto" : false), "🪟",
+          hasWindow ? "Fenstersensor" : (autoWindow ? "Fenster: automatische Erkennung" : "Keine Fenstererkennung"),
+          hasWindow ? "Heizung pausiert sofort, wenn das Fenster offen ist."
+                    : (autoWindow ? "IHC erkennt offene Fenster an einem plötzlichen Temperatursturz. 💡 Ein Fensterkontakt reagiert schneller."
+                                  : "💡 In den Einstellungen die sensorlose Fenstererkennung einschalten oder einen Fensterkontakt hinzufügen."))}
+        ${row(hasSchedule ? true : "auto", "📅", hasSchedule ? "Zeitplan aktiv" : "Kein Zeitplan",
+          hasSchedule ? "Heizt nach deinem Wochenplan." : "Heizt nach Heizkurve/Wohlfühltemperatur. 💡 Unter „📅 Zeitplan“ Heizzeiten festlegen und Energie sparen.")}
+        ${row(hasHumidity ? true : false, "💧", hasHumidity ? "Luftfeuchte bekannt" : "Keine Luftfeuchte",
+          hasHumidity ? "Schimmelschutz und Lüftungsempfehlung sind aktiv." : "💡 Ein Feuchtesensor aktiviert Schimmelschutz und Lüftungsempfehlung.")}
+        ${row(hasPresence ? true : false, "👤", hasPresence ? "Anwesenheit im Zimmer" : "Keine Zimmer-Anwesenheit",
+          hasPresence ? "Senkt ab, wenn niemand im Zimmer ist." : "Optional: Bewegungsmelder oder Personen zuordnen, um leere Zimmer abzusenken.")}
+      </div>`;
+  }
+
   // Some HA versions prepend the device name to the auto-generated object_id
   // (e.g. "sensor.intelligent_heating_control_ihc_gesamtanforderung" instead of
   // "sensor.ihc_gesamtanforderung"), depending on entity registry history.
@@ -258,6 +367,11 @@
     const ea   = egy ? (egy.attributes || {}) : {};
     return {
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
+      // v2.6 – automatic fallbacks, shown in plain language in the UI
+      window_auto_detect_enabled: a.window_auto_detect_enabled !== false,
+      outdoor_temp_source:       a.outdoor_temp_source || null,
+      weather_entity_effective:  a.weather_entity_effective || null,
+      presence_entities:         a.presence_entities || [],
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
       system_mode:               (sel && SYSTEM_MODE_LABEL_TO_KEY[sel.state]) || a.system_mode || "—",
       curve_target:              ct  ? (isNaN(parseFloat(ct.state)) ? null : parseFloat(ct.state)) : null,

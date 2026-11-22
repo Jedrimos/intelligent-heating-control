@@ -187,7 +187,7 @@ class SolarCoverManagerMixin:
         cfg = self.get_config()
         if not bool(cfg.get(CONF_SOLAR_WEATHER_PROTECTION_ENABLED, DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED)):
             return False
-        weather_entity = cfg.get(CONF_WEATHER_ENTITY)
+        weather_entity = self._get_weather_entity_id()
         if not weather_entity:
             return False
         state = self.hass.states.get(weather_entity)
