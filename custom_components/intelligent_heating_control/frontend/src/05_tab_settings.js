@@ -63,6 +63,13 @@
             </label>
             <span class="form-hint">Nur wenn unter „Anwesenheitserkennung“ nichts eingetragen ist.</span>
           </div>
+          <div class="settings-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+              <input type="checkbox" id="monthly-report" ${a.monthly_report_enabled !== false ? "checked" : ""}>
+              📬 Monatsbericht
+            </label>
+            <span class="form-hint">Am Monatsanfang eine Benachrichtigung: Verbrauch, Vergleich zum Vormonat, was IHC gespart hat und Hinweise.</span>
+          </div>
         </div>
         <div class="btn-row"><button class="btn btn-primary" id="save-saving">💾 Speichern</button></div>
       </div>`;
@@ -691,7 +698,17 @@
             <div class="settings-item">
               <label>Wind-Schwelle (km/h)</label>
               <input type="number" class="form-input" id="solar-wind-speed-threshold" min="10" max="120" step="5" value="${a.solar_wind_speed_threshold ?? 40}">
-              <span class="form-hint">Ab dieser Windgeschwindigkeit werden Rolladen angehoben. Muss zur Einheit des Wetter-Entity passen.</span>
+              <span class="form-hint">Stufe 2 (Sturm): ab dieser Windgeschwindigkeit oder Böe fahren die Rolladen in Schutzstellung. Muss zur Einheit des Wetter-Entity passen.</span>
+            </div>
+            <div class="settings-item">
+              <label>Warn-Schwelle (km/h)</label>
+              <input type="number" class="form-input" id="solar-wind-warn-threshold" min="0" max="120" step="5" value="${a.solar_wind_warn_threshold ?? 25}">
+              <span class="form-hint">Stufe 1 (Wind): ab hier bewegt IHC die Rolladen nicht mehr. 0 = aus.</span>
+            </div>
+            <div class="settings-item">
+              <label>Wartezeit nach dem Sturm (min)</label>
+              <input type="number" class="form-input" id="solar-weather-resume" min="0" max="120" step="5" value="${a.solar_weather_resume_minutes ?? 15}">
+              <span class="form-hint">So lange muss es ruhig bleiben, bevor die Rolladen wieder normal gesteuert werden – kein Hin und Her bei Böen.</span>
             </div>
             <div class="settings-item">
               <label>Rollo-Übersteuerung – Re-Arm-Zeit (min)</label>
@@ -1328,6 +1345,7 @@
         saving_offset: Math.min(3, Math.max(0, parseFloat(savingRange?.value) || 0)),
         window_reminder_minutes: isNaN(reminder) ? 15 : Math.min(120, Math.max(0, reminder)),
         presence_auto_persons: content.querySelector("#presence-auto-persons")?.checked === true,
+        monthly_report_enabled: content.querySelector("#monthly-report")?.checked === true,
       });
       this._toast("✓ Spar-Einstellungen gespeichert");
     });
@@ -1377,6 +1395,8 @@
         solar_morning_latest_time: content.querySelector("#solar-morning-latest")?.value || "09:30",
         solar_weather_protection_enabled: content.querySelector("#solar-weather-protection-enabled")?.checked === true,
         solar_wind_speed_threshold: solarWindSpeedThreshold,
+        solar_wind_warn_threshold: Math.min(120, Math.max(0, parseFloat(content.querySelector("#solar-wind-warn-threshold")?.value) || 0)),
+        solar_weather_resume_minutes: Math.min(120, Math.max(0, parseInt(content.querySelector("#solar-weather-resume")?.value, 10) || 0)),
         solar_cover_override_rearm_minutes: solarOverrideRearm,
         solar_evening_privacy_mode:     content.querySelector("#solar-privacy-mode")?.value || "sunset",
         solar_evening_privacy_time:     content.querySelector("#solar-privacy-time")?.value || "21:00",

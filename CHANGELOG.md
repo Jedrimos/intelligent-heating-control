@@ -32,6 +32,35 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
   Zeile in „Was IHC automatisch macht“ und „Was IHC in diesem Zimmer nutzt“. Attribute
   `afterheat_overshoot/_minutes/_samples/_coasting`, neue Einstellung `afterheat_enabled`.
 
+### Neu: ⚠️ Sicherheitsmodus bei ausgefallenem Raumthermometer
+- Ein Sensor mit leerer Batterie bleibt in HA oft „verfügbar“ und zeigt stundenlang denselben
+  Wert. IHC erkennt das jetzt (seit 4 h keine Meldung) und verwirft den eingefrorenen Wert: Das
+  Zimmer regelt mit dem Fühler des Thermostats weiter, ein Thermostat mit übertragenem Raumfühler
+  (Sonoff, Aqara …) wird auf seinen eigenen Fühler zurückgeschaltet. Hinweis auf der Kachel und
+  unter Reparaturen; meldet der Sensor wieder, läuft alles normal weiter.
+
+### Neu: 🔧 Hydraulischer Abgleich & Vorlauftemperatur
+- IHC vergleicht, wie weit die Ventile der Zimmer beim Heizen öffnen und wie schnell sie warm
+  werden. Zimmer, die mit voll offenem Ventil kalt bleiben („zu wenig Heizwasser“) oder kaum
+  öffnen („mehr als nötig“), bekommen einen konkreten Hinweis zur Voreinstellung am Ventil.
+- Werden alle Zimmer mit halb offenen Ventilen warm, empfiehlt IHC, die Heizkurve am Kessel /
+  an der Wärmepumpe um 3–5 K zu senken (umgekehrt anheben). Nur Hinweise, IHC verstellt nichts.
+
+### Neu: 💶 Spar-Bilanz & 📬 Monatsbericht
+- Status-Tab: was IHC diesen Monat gespart hat (kWh und €), aufgeteilt nach Zeitplan & Nacht,
+  Abwesenheit, Urlaub, Fenster-Pausen, Spar-Regler und Restwärme – verglichen mit einem
+  Thermostat, das immer die Wohlfühltemperatur hält.
+- Am Monatsanfang eine Benachrichtigung mit Verbrauch, Vergleich zum Vormonat, Spar-Bilanz und
+  Hinweisen (Hydraulik, Vorlauf, ausgefallene Sensoren) plus Event
+  `intelligent_heating_control_monthly_report`. Abschaltbar.
+
+### Verbessert
+- **Sturmschutz für Rollläden zweistufig:** ab der Warn-Schwelle (Standard 25 km/h) bewegt IHC
+  die Rollläden nicht mehr, ab der Sturm-Schwelle fahren sie in Schutzstellung. Danach erst wieder
+  normal, wenn es eine Wartezeit lang (Standard 15 min) ruhig war. Böen werden berücksichtigt.
+- **„Heizperiode blockiert“ und „Zimmer wird nicht wärmer“** erscheinen jetzt unter Einstellungen →
+  System → Reparaturen (in der HA-Sprache) statt als Pop-up und verschwinden von selbst.
+
 ## [2.6.1] - 2026-11-22
 
 ### Behoben

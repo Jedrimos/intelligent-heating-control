@@ -1365,7 +1365,14 @@ Vollständigkeit der Tupel und gleiche Platzhalter.
 **Neue Module seit 2.6.0 (HA-frei, unit-getestet):** `comfort_learning.py` („Mir ist kalt/warm“-
 Lernen), `heat_output.py` (EN-442-Verbrauchsmodell, Heizkörper-Rechner, Zählereinheiten),
 `trv_capabilities.py` (Geschwister-Entitäten eines Thermostats klassifizieren, Fühlereingang,
-Eigenheiten-Tabelle `QUIRKS`), seit 2.7.0 `afterheat.py` (Restwärme lernen + Ventil früher schließen).
+Eigenheiten-Tabelle `QUIRKS`), seit 2.7.0 `afterheat.py` (Restwärme lernen + Ventil früher schließen), `hydraulics.py`
+(Abgleich-Hinweise + Vorlauf-Empfehlung aus Ventilstatistik), `savings.py` (Spar-Bilanz +
+Monatsbericht-Text); `solar_cover_manager.weather_protection_step()` (Sturmschutz zweistufig).
+**Sicherheitsmodus (2.7.0):** `_get_sensor_temp()` verwirft Raumthermometer ohne Meldung seit
+`SENSOR_STALE_HOURS` (4 h, `last_reported`), `rdata["sensor_failed"]`, Repair `sensor_stale`,
+`_sync_external_sensor()` schaltet dann auf `sensor_select_internal` zurück.
+**Repairs statt Pop-ups (2.7.0):** Heizperioden- und Warmup-Stall-Hinweise sind Issues
+(`heating_period_blocked_<id>`, `warmup_stall_<id>`), Texte in `translations/*.json` → `issues`.
 
 **Panel im Browser prüfen** (ohne HA): Playwright + Mock-`hass` (siehe Git-Historie von 2.6.0) –
 alle Tabs in einfach/experte und de/en rendern, JS-Fehler sammeln, Screenshots ansehen.

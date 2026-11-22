@@ -52,6 +52,8 @@ from .const import (
     DEFAULT_WINDOW_AUTO_DETECT_ENABLED,
     CONF_AFTERHEAT_ENABLED,
     DEFAULT_AFTERHEAT_ENABLED,
+    CONF_MONTHLY_REPORT_ENABLED,
+    DEFAULT_MONTHLY_REPORT_ENABLED,
     CONF_PRESENCE_AUTO_PERSONS,
     DEFAULT_PRESENCE_AUTO_PERSONS,
     CONF_WINDOW_REMINDER_MINUTES,
@@ -120,6 +122,10 @@ from .const import (
     CONF_SOLAR_WEATHER_PROTECTION_ENABLED,
     DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED,
     CONF_SOLAR_WIND_SPEED_THRESHOLD,
+    CONF_SOLAR_WIND_WARN_THRESHOLD,
+    DEFAULT_SOLAR_WIND_WARN_THRESHOLD,
+    CONF_SOLAR_WEATHER_RESUME_MINUTES,
+    DEFAULT_SOLAR_WEATHER_RESUME_MINUTES,
     DEFAULT_SOLAR_WIND_SPEED_THRESHOLD,
     CONF_SOLAR_EVENING_PRIVACY_ENABLED,
     DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED,
@@ -561,6 +567,10 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_WARMUP_STALL_NOTIFY_ENABLED,
                 default=bool(cfg.get(CONF_WARMUP_STALL_NOTIFY_ENABLED, DEFAULT_WARMUP_STALL_NOTIFY_ENABLED))
             ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_MONTHLY_REPORT_ENABLED,
+                default=bool(cfg.get(CONF_MONTHLY_REPORT_ENABLED, DEFAULT_MONTHLY_REPORT_ENABLED))
+            ): selector.selector({"boolean": {}}),
             # --- v2.7: Restwärme nutzen ---
             vol.Optional(
                 CONF_AFTERHEAT_ENABLED,
@@ -741,6 +751,14 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_SOLAR_WIND_SPEED_THRESHOLD,
                 default=float(cfg.get(CONF_SOLAR_WIND_SPEED_THRESHOLD, DEFAULT_SOLAR_WIND_SPEED_THRESHOLD))
             ): selector.selector({"number": {"min": 10, "max": 120, "step": 5, "unit_of_measurement": "km/h"}}),
+            vol.Optional(
+                CONF_SOLAR_WIND_WARN_THRESHOLD,
+                default=float(cfg.get(CONF_SOLAR_WIND_WARN_THRESHOLD, DEFAULT_SOLAR_WIND_WARN_THRESHOLD))
+            ): selector.selector({"number": {"min": 0, "max": 120, "step": 5, "unit_of_measurement": "km/h"}}),
+            vol.Optional(
+                CONF_SOLAR_WEATHER_RESUME_MINUTES,
+                default=int(cfg.get(CONF_SOLAR_WEATHER_RESUME_MINUTES, DEFAULT_SOLAR_WEATHER_RESUME_MINUTES))
+            ): selector.selector({"number": {"min": 0, "max": 120, "step": 5, "unit_of_measurement": "min"}}),
             # --- Rollo-Backlog 2026-10-15 ---
             vol.Optional(
                 CONF_SOLAR_EVENING_PRIVACY_MODE,

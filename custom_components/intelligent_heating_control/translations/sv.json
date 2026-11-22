@@ -55,6 +55,18 @@
     "entity_unavailable": {
       "title": "IHC: {role} {entity} otillgänglig",
       "description": "{role} `{entity}` i rummet **{room}** har varit otillgänglig i {minutes} minuter (tomt batteri, utom räckvidd, integration offline?). Under tiden använder IHC reservvärden (senast kända värde, termostatens temperatur)."
+    },
+    "sensor_stale": {
+      "title": "IHC: temperatursensor {entity} tyst i {hours} h",
+      "description": "Temperatursensorn `{entity}` i **{room}** är tillgänglig men har inte rapporterat något nytt värde på {hours} timmar (tomt batteri? radiolänk?). IHC använder inte längre det frysta värdet och kör i säkert läge med termostatens egen sensor."
+    },
+    "heating_period_blocked": {
+      "title": "IHC: eldningssäsongen blockerar {room}",
+      "description": "**{room}** skulle värma nu, men eldningssäsongen är inaktiv. Använd boost eller slå på ”ignorera eldningssäsong” i rummets inställningar."
+    },
+    "warmup_stall": {
+      "title": "IHC: {room} blir inte varmare",
+      "description": "**{room}** har värmt i {minutes} min utan att bli varmare (förväntat: cirka {expected} min). Möjliga orsaker: luft i elementet, stängd dörr, värmekällan levererar ingen värme eller felkalibrerad ventil."
     }
   }
 }

@@ -29,6 +29,10 @@ from .const import (
     CONF_SOLAR_WEATHER_PROTECTION_ENABLED,
     DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED,
     CONF_SOLAR_WIND_SPEED_THRESHOLD,
+    CONF_SOLAR_WIND_WARN_THRESHOLD,
+    DEFAULT_SOLAR_WIND_WARN_THRESHOLD,
+    CONF_SOLAR_WEATHER_RESUME_MINUTES,
+    DEFAULT_SOLAR_WEATHER_RESUME_MINUTES,
     DEFAULT_SOLAR_WIND_SPEED_THRESHOLD,
     CONF_WEATHER_ENTITY,
     CONF_SUN_ENTITY,
@@ -197,6 +201,30 @@ def physical_position(logical: int, device_class: Optional[str]) -> Optional[int
     return logical
 
 
+
+def weather_protection_step(state: Optional[dict], wind: Optional[float], unsafe: bool,
+                            warn: float, storm: float, resume_minutes: float, now: float) -> tuple:
+    """v2.7 – two-stage storm protection with a calm-down delay (HA-free, unit-tested).
+
+    Returns (stage, new_state): "storm" = move covers to the safe position, "wind" = keep
+    them where they are (no new movements), None = normal operation. After a storm the
+    covers only resume once the wind stayed below the warn threshold for resume_minutes,
+    so single gusts don't make them go up and down. `now` in seconds."""
+    w = wind or 0.0
+    st = dict(state or {})
+    if unsafe or w >= storm:
+        return "storm", {"stage": "storm", "calm_since": None}
+    if st.get("stage") == "storm":
+        if warn > 0 and w >= warn:
+            return "storm", {"stage": "storm", "calm_since": None}
+        calm = st.get("calm_since") or now
+        if (now - calm) / 60.0 < resume_minutes:
+            return "storm", {"stage": "storm", "calm_since": calm}
+        return None, {}
+    if warn > 0 and w >= warn:
+        return "wind", {"stage": "wind"}
+    return None, {}
+
 class SolarCoverManagerMixin:
     """Mixin for passive solar heating/shading via cover entities."""
 
@@ -225,6 +253,7 @@ class SolarCoverManagerMixin:
         so a missing/unavailable weather entity never blocks normal passive-solar operation.
         """
         cfg = self.get_config()
+        self._solar_wind_hold = False
         if not bool(cfg.get(CONF_SOLAR_WEATHER_PROTECTION_ENABLED, DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED)):
             return False
         weather_entity = self._get_weather_entity_id()
@@ -233,16 +262,23 @@ class SolarCoverManagerMixin:
         state = self.hass.states.get(weather_entity)
         if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return False
-        if state.state in SOLAR_UNSAFE_WEATHER_CONDITIONS:
-            return True
-        wind_speed = state.attributes.get("wind_speed")
-        if wind_speed is None:
-            return False
-        threshold = float(cfg.get(CONF_SOLAR_WIND_SPEED_THRESHOLD, DEFAULT_SOLAR_WIND_SPEED_THRESHOLD))
-        try:
-            return float(wind_speed) >= threshold
-        except (TypeError, ValueError):
-            return False
+        winds = []
+        for key in ("wind_speed", "wind_gust_speed"):
+            try:
+                winds.append(float(state.attributes.get(key)))
+            except (TypeError, ValueError):
+                pass
+        import time as _time
+        stage, self._solar_weather_state = weather_protection_step(
+            getattr(self, "_solar_weather_state", None), max(winds) if winds else None,
+            state.state in SOLAR_UNSAFE_WEATHER_CONDITIONS,
+            float(cfg.get(CONF_SOLAR_WIND_WARN_THRESHOLD, DEFAULT_SOLAR_WIND_WARN_THRESHOLD) or 0),
+            float(cfg.get(CONF_SOLAR_WIND_SPEED_THRESHOLD, DEFAULT_SOLAR_WIND_SPEED_THRESHOLD)),
+            float(cfg.get(CONF_SOLAR_WEATHER_RESUME_MINUTES, DEFAULT_SOLAR_WEATHER_RESUME_MINUTES)),
+            _time.time(),
+        )
+        self._solar_wind_hold = stage == "wind"
+        return stage == "storm"
 
     def _record_cover_command(self, cover: str, position: int) -> None:
         """Remember a position IHC just sent, for the override-confirmation check below."""
@@ -360,6 +396,11 @@ class SolarCoverManagerMixin:
 
             if weather_protection_active:
                 target, reason = 100, "weather_protection"  # out of harm's way, wins over everything
+            elif getattr(self, "_solar_wind_hold", False):
+                # v2.7 – Sturmschutz Stufe 1: windy, not yet stormy - don't move anything
+                rdata["solar_cover_active"] = True
+                rdata["solar_cover_reason"] = "wind_hold"
+                continue
             elif any(self._is_cover_overridden(c) for c in covers):
                 rdata["solar_cover_overridden"] = True
                 continue  # user moved it by hand recently - leave it alone until it re-arms

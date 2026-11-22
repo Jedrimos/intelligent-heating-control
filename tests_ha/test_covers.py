@@ -149,6 +149,15 @@ async def test_weather_protection_and_manual_override(hass, setup_ihc, freezer):
     assert pos(hass) == 100, "storm: raise the shutter out of harm's way"
     weather(hass, "sunny", wind_speed=10)
     await cycle(hass, coord)
+    assert pos(hass) == 100, "v2.7: stays up until it has been calm for the resume delay"
+    weather(hass, "sunny", wind_speed=30)
+    freezer.tick(20 * 60)
+    await cycle(hass, coord)
+    assert pos(hass) == 100, "windy again (stage 1) restarts the calm-down delay"
+    weather(hass, "sunny", wind_speed=10)
+    await cycle(hass, coord)
+    freezer.tick(16 * 60)
+    await cycle(hass, coord)
     assert pos(hass) == 0
     cover(hass, position=60)  # user opens it by hand
     freezer.tick(120)

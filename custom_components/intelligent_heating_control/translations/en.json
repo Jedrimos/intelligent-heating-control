@@ -233,6 +233,18 @@
     "entity_unavailable": {
       "title": "IHC: {role} {entity} unavailable",
       "description": "The {role} `{entity}` in room **{room}** has been unavailable for {minutes} minutes (battery empty, out of range, integration offline?). IHC uses fallbacks in the meantime (last known value, thermostat temperature)."
+    },
+    "sensor_stale": {
+      "title": "IHC: temperature sensor {entity} silent for {hours} h",
+      "description": "The temperature sensor `{entity}` in **{room}** is available but has not reported a new value for {hours} hours (battery empty? radio link?). IHC no longer trusts the frozen value and runs in safety mode on the thermostat's own sensor. A thermostat using the room sensor is switched back to its internal sensor."
+    },
+    "heating_period_blocked": {
+      "title": "IHC: heating season blocks {room}",
+      "description": "**{room}** would heat right now, but the heating season is inactive. Use boost for a quick warm-up, or enable \"ignore heating season for this room\" in the room settings if this should happen more often. The message clears itself."
+    },
+    "warmup_stall": {
+      "title": "IHC: {room} is not warming up",
+      "description": "**{room}** has been heating for {minutes} min without getting noticeably warmer (expected: about {expected} min). Possible causes: air in the radiator, door closed, the heat source isn't delivering heat or the valve is miscalibrated. Please check the radiator. The message clears once the room warms up."
     }
   }
 }

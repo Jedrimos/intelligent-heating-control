@@ -112,6 +112,7 @@
         alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
       }
       if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
+      if (room.sensor_failed)              alerts.push(`<div class="room-alert alert-warn" title="Kein aktueller Wert vom Raumthermometer (Batterie? Funk?) – das Thermostat regelt mit seinem eigenen Fühler weiter">⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst</div>`);
       if (room.afterheat_coasting)         alerts.push(`<div class="room-alert alert-info" title="Ventil früher zu – die Restwärme des Heizkörpers bringt den Raum auf Soll">♨️ Restwärme – Heizkörper heizt nach</div>`);
       if (room.window_auto_detected)       alerts.push(`<div class="room-alert alert-info" title="Kein Fenstersensor - erkannt an einem plötzlichen Temperatursturz">🪟 Fenster offen erkannt (Temperatursturz) – Heizung pausiert</div>`);
       // Fenster-Kaskade: zeigt welches Zimmer diese Absenkung verursacht

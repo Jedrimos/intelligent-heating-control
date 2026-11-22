@@ -299,6 +299,38 @@
         </div>
       </details>
 
+      <!-- ── Spar-Bilanz (v2.7) ─────────────────────────────── -->
+      ${(() => {
+        const sv = g.savings;
+        if (!sv) return "";
+        const names = { window: "🪟 Fenster-Pausen", away: "🚶 Abwesenheit", vacation: "✈️ Urlaub",
+          schedule: "🌙 Zeitplan & Nacht", saving: "💶 Spar-Regler", afterheat: "♨️ Restwärme" };
+        const cats = Object.entries(sv.by_category || {}).filter(([, v]) => v >= 0.1).sort((a, b) => b[1] - a[1]);
+        const max = cats.length ? cats[0][1] : 1;
+        return `
+      <details class="ihc-card" open>
+        <summary><span class="ihc-card-title">💶 Spar-Bilanz (dieser Monat)</span></summary>
+        <div class="ihc-card-body">
+          <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:10px">
+            <div><div style="font-size:11px;color:var(--secondary-text-color)">Durch IHC gespart</div>
+              <div style="font-size:22px;font-weight:700;color:#43a047">${this._kwh(sv.total_kwh)} kWh${sv.total_eur != null ? ` <span style="font-size:15px">≈ ${sv.total_eur.toFixed(2)} €</span>` : ""}</div></div>
+            <div><div style="font-size:11px;color:var(--secondary-text-color)">Verbrauch bisher</div>
+              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${this._kwh(sv.consumption_kwh)} kWh</div></div>
+            ${sv.prev_month ? `<div><div style="font-size:11px;color:var(--secondary-text-color)">Vormonat gespart</div>
+              <div style="font-size:18px;font-weight:600;color:var(--secondary-text-color)">${this._kwh(sv.prev_total_kwh)} kWh</div></div>` : ""}
+          </div>
+          ${cats.length ? cats.map(([c, v]) => `
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin:3px 0">
+              <span style="min-width:150px">${names[c] || c}</span>
+              <div style="flex:1;height:8px;background:var(--divider-color);border-radius:4px;overflow:hidden">
+                <div style="width:${Math.round(v / max * 100)}%;height:100%;background:#43a047"></div></div>
+              <span style="min-width:70px;text-align:right">${this._kwh(v)} kWh</span>
+            </div>`).join("") : `<div style="font-size:13px">Noch nichts gezählt – gezählt wird, sobald geheizt werden müsste.</div>`}
+          <div class="form-hint" style="margin-top:8px">Verglichen mit einem Thermostat, das immer die Wohlfühltemperatur hält. Schätzung aus Heizkörperleistung und Außentemperatur.</div>
+        </div>
+      </details>`;
+      })()}
+
       <!-- ── Zimmer-Status Tabelle ───────────────────────────── -->
       ${roomList.length ? `
       <details class="ihc-card" open>
@@ -444,6 +476,38 @@
         this._renderAnalyse(content);
       })
     );
+
+    // ── Hydraulik & Vorlauf (v2.7, house-wide) ───────────────────────────────
+    {
+      const g = this._getGlobal();
+      const learned = roomList.filter(r => (r.hydraulic_hours || 0) >= 6);
+      const hintRooms = roomList.filter(r => r.hydraulic_hint);
+      const fr = g.flow_recommendation;
+      const sysName = { heatpump: "Wärmepumpe" }[g.heating_system] || "Kessel";
+      const hyCard = document.createElement("div");
+      hyCard.className = "card";
+      hyCard.style.marginTop = "12px";
+      hyCard.innerHTML = `
+        <div class="card-title">🔧 Hydraulischer Abgleich &amp; Vorlauftemperatur</div>
+        <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
+          IHC vergleicht, wie weit die Ventile der Zimmer beim Heizen öffnen und wie schnell die Zimmer warm werden. Nur Hinweise – IHC verstellt hier nichts.
+        </div>
+        ${learned.length < 2 ? `<div style="font-size:13px">Wird gelernt: braucht mindestens 2 Zimmer mit Ventilstellung und je 6 Stunden Heizbetrieb (bisher ${learned.length}).</div>` : `
+          ${hintRooms.length ? hintRooms.map(r => `<div style="font-size:13px;margin:4px 0">${r.hydraulic_hint === "too_little"
+              ? `🔺 <strong>${this._esc(r.name)}</strong>: bekommt zu wenig Heizwasser – Voreinstellung am Ventilunterteil höher stellen.`
+              : `🔻 <strong>${this._esc(r.name)}</strong>: bekommt mehr als nötig – Voreinstellung am Ventilunterteil kleiner stellen.`}</div>`).join("")
+            : `<div style="font-size:13px">✓ Die Zimmer werden gleichmäßig versorgt.</div>`}
+          <div style="font-size:13px;margin-top:8px">${fr
+            ? (fr.direction === "down"
+              ? `🌡️ <strong>Vorlauftemperatur senken:</strong> Alle Zimmer werden mit halb offenen Ventilen warm – die Heizkurve am ${sysName} kann etwa <strong>${fr.kelvin} K</strong> tiefer. Spart Energie${g.heating_system === "heatpump" ? " (bei Wärmepumpen besonders viel)" : ""}.`
+              : `🌡️ <strong>Vorlauftemperatur zu niedrig:</strong> Mehrere Zimmer bleiben trotz voll offener Ventile kalt – die Heizkurve am ${sysName} etwa <strong>${fr.kelvin} K</strong> anheben.`)
+            : "🌡️ Vorlauftemperatur passt."}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+            <tr style="color:var(--secondary-text-color)"><td>Zimmer</td><td style="text-align:right">Ø Ventil beim Heizen</td><td style="text-align:right">Ø Aufheizzeit</td></tr>
+            ${learned.map(r => `<tr><td>${this._esc(r.name)}</td><td style="text-align:right">${r.hydraulic_valve_avg} %</td><td style="text-align:right">${r.avg_warmup_minutes != null ? Math.round(r.avg_warmup_minutes) + " min" : "–"}</td></tr>`).join("")}
+          </table>`}`;
+      content.appendChild(hyCard);
+    }
 
     // ── Heatmap card ─────────────────────────────────────────────────────────
     const hmCard = document.createElement("div");

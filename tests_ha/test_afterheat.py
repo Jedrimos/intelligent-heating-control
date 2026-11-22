@@ -64,3 +64,28 @@ async def test_afterheat_needs_room_thermometer_and_can_be_disabled(hass, setup_
     await cycle(hass, coord)
     rd = coord.data["rooms"]["wz"]
     assert rd["afterheat_coasting"] is False                # no room sensor + disabled
+
+
+async def test_hydraulic_hints_and_flow_recommendation(hass, setup_ihc, freezer):
+    """v2.7 – rooms compared by valve opening while heating: the starved bathroom is
+    flagged, and with one starved room IHC asks for balancing, not a higher flow temp."""
+    freezer.move_to(datetime(2026, 11, 24, 10, 0, tzinfo=BERLIN))
+    for rid in ("wz", "bad", "kz"):
+        trv(hass, f"climate.trv_{rid}", current=19.0, target=21.0, valve_position=50)
+    coord, hw = await setup_ihc([room("wz", "Wohnzimmer"), room("bad", "Bad"), room("kz", "Kinderzimmer")])
+    await cycle(hass, coord)
+    coord._hydraulic_stats.update({
+        "wz": {"avg": 35.0, "starved": 0.0, "n": 600},
+        "bad": {"avg": 98.0, "starved": 0.8, "n": 600},
+        "kz": {"avg": 40.0, "starved": 0.0, "n": 600},
+    })
+    await cycle(hass, coord)
+    rooms = coord.data["rooms"]
+    assert rooms["bad"]["hydraulic_hint"] == "too_little"
+    assert rooms["wz"]["hydraulic_hint"] is None
+    assert coord.data["flow_recommendation"] is None          # balance first
+
+    coord._hydraulic_stats["bad"] = {"avg": 38.0, "starved": 0.0, "n": 600}
+    await cycle(hass, coord)
+    assert coord.data["flow_recommendation"]["direction"] == "down"   # all rooms ~40 % open
+    assert coord._hydraulic_stats["wz"]["n"] == 600 + 2       # heating samples keep counting

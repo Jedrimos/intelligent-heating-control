@@ -296,6 +296,8 @@
         })()}
         ${room.external_sensor_sync ? row(true, "🌡️", "Raumfühler im Thermostat", "Das Thermostat regelt mit der echten Raumtemperatur.") : ""}
         ${room.wakeup_enabled ? row(true, "⏰", "Warm aufwachen", "Warm, wenn der Handy-Wecker klingelt.") : ""}
+        ${room.hydraulic_hint === "too_little" ? row(false, "🔧", "Bekommt zu wenig Heizwasser", "💡 Ventil oft ganz offen und trotzdem zu kalt – Voreinstellung am Ventilunterteil höher stellen (hydraulischer Abgleich).") : ""}
+        ${room.hydraulic_hint === "too_much" ? row(false, "🔧", "Bekommt mehr Heizwasser als nötig", "💡 Ventil öffnet kaum – Voreinstellung am Ventilunterteil kleiner stellen, dann bleibt mehr für die anderen Zimmer.") : ""}
         ${room.afterheat_overshoot ? row(true, "♨️", `Restwärme: +${room.afterheat_overshoot} °C`, "Der Heizkörper heizt so viel nach – IHC schließt das Ventil entsprechend früher.") : ""}
         ${room.feel_learned_offset ? row(true, "🧠", `Gelernt: ${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C um diese Zeit`, "Aus deinen „Mir ist kalt/warm“-Rückmeldungen gelernt.") : ""}
         ${row(hasPresence ? true : false, "👤", hasPresence ? "Anwesenheit im Zimmer" : "Keine Zimmer-Anwesenheit",
@@ -472,6 +474,10 @@
         afterheat_minutes:       state.attributes.afterheat_minutes ?? null,
         afterheat_samples:       state.attributes.afterheat_samples ?? 0,
         afterheat_coasting:      state.attributes.afterheat_coasting === true,
+        sensor_failed:           state.attributes.sensor_failed === true,
+        hydraulic_hint:          state.attributes.hydraulic_hint || null,
+        hydraulic_valve_avg:     state.attributes.hydraulic_valve_avg ?? null,
+        hydraulic_hours:         state.attributes.hydraulic_hours ?? 0,
         optimum_stop_minutes:    state.attributes.optimum_stop_minutes ?? null,
         optimum_stop_predicted:  state.attributes.optimum_stop_predicted ?? null,
         ha_schedule_entity:      state.attributes.ha_schedule_entity || "",
@@ -559,6 +565,9 @@
       battery_soc:               ea.battery_soc != null ? parseFloat(ea.battery_soc) : null,
       outdoor_temp_source:       a.outdoor_temp_source || null,
       flow_temp_now:             a.flow_temp_now ?? null,
+      flow_recommendation:       a.flow_recommendation || null,
+      heating_system:            a.heating_system || "gas",
+      savings:                   a.savings || null,
       weather_entity_effective:  a.weather_entity_effective || null,
       presence_entities:         a.presence_entities || [],
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),

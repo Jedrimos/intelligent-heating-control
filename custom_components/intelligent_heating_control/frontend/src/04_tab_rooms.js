@@ -683,7 +683,7 @@
 
         <details class="modal-collapsible" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
           <summary class="modal-section-title">🪟 Rollläden automatisch steuern
-            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">${this._esc(({ night_insulation: "🌙 nachts zu (Wärmedämmung)", evening_privacy: "🌙 Privatsphäre", morning_hold: "🌅 zu, bis die Sonne kommt", glare: "📺 Blendschutz", shade: "😎 Beschattung (zu warm)", solar_gain: "☀️ offen – Sonnenwärme", daylight: "🔆 offen – Tageslicht", weather_protection: "🌬️ Sturm-/Regenschutz" }[room.solar_cover_reason]) || "Aktiv")} · ${room.solar_cover_position}%</span>` : ""}
+            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">${this._esc(({ night_insulation: "🌙 nachts zu (Wärmedämmung)", evening_privacy: "🌙 Privatsphäre", morning_hold: "🌅 zu, bis die Sonne kommt", glare: "📺 Blendschutz", shade: "😎 Beschattung (zu warm)", solar_gain: "☀️ offen – Sonnenwärme", daylight: "🔆 offen – Tageslicht", weather_protection: "🌬️ Sturm-/Regenschutz", wind_hold: "🌬️ Wind – bleibt, wie er ist" }[room.solar_cover_reason]) || "Aktiv")} · ${room.solar_cover_position}%</span>` : ""}
             ${room.solar_cover_overridden ? `<span class="badge" style="background:#9e9e9e;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✋ von Hand verstellt – IHC wartet</span>` : ""}
           </summary>
           <div style="font-size:12px;color:var(--secondary-text-color);margin:8px 0 12px">

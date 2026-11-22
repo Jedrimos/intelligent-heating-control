@@ -82,6 +82,18 @@ def external_option(options: Optional[list]) -> Optional[str]:
     return None
 
 
+def internal_option(options: Optional[list]) -> Optional[str]:
+    """The option of a sensor_select that means "use the thermostat's own sensor"
+    (v2.7 – fallback when the room thermometer fails)."""
+    ext = external_option(options)
+    for o in options or []:
+        lo = str(o).lower()
+        if lo.startswith("internal") or lo in ("local", "intern", "builtin", "built_in"):
+            return str(o)
+    others = [str(o) for o in options or [] if str(o) != ext]
+    return others[0] if len(others) == 1 else None
+
+
 def external_temp_value(temp: float, number_max: Optional[float]) -> float:
     """Scale a room temperature for the TRV's external-temperature number entity.
     Danfoss Ally (Z2M) expects centi-degrees (range up to 3500, -8000 = unset)."""

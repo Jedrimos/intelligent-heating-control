@@ -55,6 +55,18 @@
     "entity_unavailable": {
       "title": "IHC: {role} {entity} nedostupné",
       "description": "{role} `{entity}` v místnosti **{room}** je nedostupné už {minutes} minut (vybitá baterie, mimo dosah, integrace offline?). Mezitím IHC používá náhradní hodnoty (poslední známá hodnota, teplota termostatu)."
+    },
+    "sensor_stale": {
+      "title": "IHC: čidlo {entity} mlčí {hours} h",
+      "description": "Teplotní čidlo `{entity}` v **{room}** je dostupné, ale {hours} hodin neposlalo novou hodnotu (vybitá baterie? rádiové spojení?). IHC už zamrzlou hodnotu nepoužívá a běží v bezpečném režimu s čidlem termostatu."
+    },
+    "heating_period_blocked": {
+      "title": "IHC: topná sezóna blokuje {room}",
+      "description": "**{room}** by teď topil, ale topná sezóna je neaktivní. Použijte boost nebo v nastavení místnosti zapněte „ignorovat topnou sezónu“."
+    },
+    "warmup_stall": {
+      "title": "IHC: {room} se neohřívá",
+      "description": "**{room}** topí {minutes} min a neohřívá se (očekáváno asi {expected} min). Možné příčiny: vzduch v radiátoru, zavřené dveře, zdroj nedodává teplo nebo špatně kalibrovaný ventil."
     }
   }
 }

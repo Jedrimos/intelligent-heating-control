@@ -37,6 +37,10 @@ Komforttemperatur, jeweils mit einstellbarer Obergrenze. Zusätzlich lernt IHC p
 | 🛋️ **Komfort** | „Mir ist kalt/warm“-Knopf, der dazulernt · warm aufwachen mit dem Handy-Wecker · Lieblingstemperatur pro Person · Raumfühler ins Thermostat |
 | 🔎 **Thermostat-Erkennung** | IHC erkennt Modell und Fähigkeiten (Ventilstellung, Fühlereingang, Schrittweite) und stellt sich darauf ein |
 | ⚡ **Ehrlicher Verbrauch** | Physikalisches Modell (EN 442, Vorlauftemperatur, Ventilöffnung, Wirkungsgrad/JAZ), optional mit echtem Zähler kalibriert |
+| ♨️ **Restwärme nutzen** | Lernt, wie stark jeder Heizkörper nachheizt, und schließt das Ventil entsprechend früher |
+| 💶 **Spar-Bilanz & Monatsbericht** | Was IHC wodurch gespart hat (kWh/€), monatlich als Benachrichtigung |
+| 🔧 **Hydraulik-Check** | Erkennt schlecht versorgte Zimmer und eine zu hohe Vorlauftemperatur |
+| ⚠️ **Sicherheitsmodus** | Eingefrorene oder ausgefallene Raumthermometer werden erkannt, das Thermostat übernimmt |
 | 🧩 **Für Einsteiger & Bastler** | Zimmer werden automatisch aus HA-Bereichen erkannt; einfache Ansicht mit dem Nötigsten, Expertenansicht mit allem. Ohne Außensensor → Wettervorhersage, ohne Fensterkontakt → Temperatursturz-Erkennung |
 | 🩺 **Diagnose-Download** | Konfiguration + Live-Entscheidung pro Zimmer als JSON für Bug-Reports (Geräte & Dienste → IHC → ⋮) |
 | 🧠 **Optimum Start** | IHC lernt die Aufheizzeit je Außentemperatur und startet exakt so früh wie nötig |
