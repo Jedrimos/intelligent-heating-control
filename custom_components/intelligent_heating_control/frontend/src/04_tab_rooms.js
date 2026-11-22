@@ -649,14 +649,16 @@
           <span class="form-hint">Optional. Beispiel: media_player.wohnzimmer / playing · binary_sensor.jemand_zuhause / on</span>
         </details>
 
-        <details class="modal-collapsible expert-only" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
-          <summary class="modal-section-title">☀️ Passive Solarheizung (Rolladen)
-            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">☀️ Aktiv (${room.solar_cover_position}%)</span>` : ""}
+        <details class="modal-collapsible" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
+          <summary class="modal-section-title">🪟 Rollläden automatisch steuern
+            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">${this._esc(({ night_insulation: "🌙 nachts zu (Wärmedämmung)", evening_privacy: "🌙 Privatsphäre", morning_hold: "🌅 zu, bis die Sonne kommt", glare: "📺 Blendschutz", shade: "😎 Beschattung (zu warm)", solar_gain: "☀️ offen – Sonnenwärme", daylight: "🔆 offen – Tageslicht", weather_protection: "🌬️ Sturm-/Regenschutz" }[room.solar_cover_reason]) || "Aktiv")} · ${room.solar_cover_position}%</span>` : ""}
+            ${room.solar_cover_overridden ? `<span class="badge" style="background:#9e9e9e;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✋ von Hand verstellt – IHC wartet</span>` : ""}
           </summary>
           <div style="font-size:12px;color:var(--secondary-text-color);margin:8px 0 12px">
-            Öffnet die Rolladen bevor die Heizung anspringt wenn die Sonne aufs Fenster scheint (kostenlose
-            Wärme), bzw. beschattet leicht wenn der Raum sich im Sommer aufheizt. Braucht Rolladen-Entitäten
-            und die Fensterausrichtung.
+            Wie bei Loxone: in der Heizsaison nachts zu (spart Wärme), morgens zu bis die Sonne auf die Fassade
+            kommt, dann Sonnenwärme nutzen – beschattet wird erst, wenn das Zimmer wirklich zu warm wird. Im Sommer
+            vorsorglich beschatten. Von Hand verstellte Rollläden lässt IHC eine Weile in Ruhe.
+            Braucht die Rollläden und die Himmelsrichtung des Fensters.
           </div>
           <div class="settings-item" style="grid-column:1/-1;margin-bottom:10px">
             <label>Rolladen-Entitäten (mehrere möglich)</label>
@@ -679,20 +681,20 @@
               <label>Fensterausrichtung</label>
               <select class="form-select" id="rs-window-orientation">
                 <option value="" ${!room.window_orientation ? "selected" : ""}>– keine –</option>
-                ${["N", "NE", "E", "SE", "S", "SW", "W", "NW"].map(o =>
-                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${o}</option>`).join("")}
+                ${[["N", "Nord"], ["NE", "Nordost"], ["E", "Ost"], ["SE", "Südost"], ["S", "Süd"], ["SW", "Südwest"], ["W", "West"], ["NW", "Nordwest"]].map(([o, l]) =>
+                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${l}</option>`).join("")}
               </select>
             </div>
             <div class="settings-item">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
                 <input type="checkbox" id="rs-solar-passive-heat" ${room.solar_passive_heat ? "checked" : ""}>
-                Passive Solarheizung
+                ☀️ Sonnenwärme nutzen + nachts dämmen
               </label>
             </div>
             <div class="settings-item">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
                 <input type="checkbox" id="rs-solar-passive-cool" ${room.solar_passive_cool ? "checked" : ""}>
-                Passive Beschattung
+                😎 Beschatten, wenn zu warm
               </label>
             </div>
             <div class="settings-item">

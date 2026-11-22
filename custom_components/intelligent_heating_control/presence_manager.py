@@ -14,6 +14,9 @@ from .const import (
     CONF_PRESENCE_ARRIVE_DELAY_MINUTES,
     DEFAULT_PRESENCE_ARRIVE_DELAY_MINUTES,
     CONF_ROOM_PRESENCE_ENTITIES,
+    CONF_PRESENCE_AUTO_PERSONS,
+    DEFAULT_PRESENCE_AUTO_PERSONS,
+    PRESENCE_AUTO_MIN_DELAY_MINUTES,
     SYSTEM_MODE_AUTO,
     SYSTEM_MODE_AWAY,
 )
@@ -24,6 +27,25 @@ _LOGGER = logging.getLogger(__name__)
 class PresenceManagerMixin:
     """Mixin for presence detection and auto-away logic."""
 
+    _UNKNOWN = ("unknown", "unavailable")
+
+    def _get_presence_entities(self) -> list:
+        """v2.6 – configured presence entities, or (default) every HA person whose
+        location is actually tracked. Same auto-away for people who never configured it."""
+        cfg = self.get_config()
+        configured = [e for e in cfg.get(CONF_PRESENCE_ENTITIES, []) if e]
+        if configured:
+            return configured
+        if not cfg.get(CONF_PRESENCE_AUTO_PERSONS, DEFAULT_PRESENCE_AUTO_PERSONS):
+            return []
+        return sorted(
+            s.entity_id for s in self.hass.states.async_all("person")
+            if s.state not in self._UNKNOWN
+        )
+
+    def _presence_is_auto(self) -> bool:
+        return not [e for e in self.get_config().get(CONF_PRESENCE_ENTITIES, []) if e]
+
     def _check_presence(self) -> bool:
         """
         Return True if at least one tracked person is home.
@@ -31,19 +53,24 @@ class PresenceManagerMixin:
         Checks `presence_entities` list (person.* or device_tracker.*).
         If no entities configured, always returns True (unknown = home).
         """
-        cfg = self.get_config()
-        entities: list = cfg.get(CONF_PRESENCE_ENTITIES, [])
+        entities = self._get_presence_entities()
         if not entities:
             return True  # no tracking configured → assume home
 
         home_states = {"home", "on", STATE_ON}
+        any_known = False
         for entity_id in entities:
             if not entity_id:
                 continue
             state = self.hass.states.get(entity_id)
-            if state and state.state.lower() in home_states:
+            if state is None or state.state in self._UNKNOWN:
+                continue  # tracker offline / not restored yet - no evidence either way
+            any_known = True
+            if state.state.lower() in home_states:
                 return True
-        return False
+        # Nobody reports "home": away only if at least one tracker actually reports
+        # something else - all trackers unknown must not switch the house to AWAY.
+        return not any_known
 
     def _update_presence_auto_away(self) -> None:
         """
@@ -53,11 +80,14 @@ class PresenceManagerMixin:
         """
         someone_home = self._check_presence()
         cfg = self.get_config()
-        entities: list = cfg.get(CONF_PRESENCE_ENTITIES, [])
+        entities = self._get_presence_entities()
         if not entities:
             return  # feature disabled
 
         delay_minutes = int(cfg.get(CONF_PRESENCE_AWAY_DELAY_MINUTES, DEFAULT_PRESENCE_AWAY_DELAY_MINUTES))
+        if self._presence_is_auto():
+            # Auto-discovered persons: never switch instantly (phone GPS jitter, short walks)
+            delay_minutes = max(delay_minutes, PRESENCE_AUTO_MIN_DELAY_MINUTES)
 
         if not someone_home and self._system_mode == SYSTEM_MODE_AUTO:
             if delay_minutes > 0:
@@ -111,23 +141,20 @@ class PresenceManagerMixin:
         is AWAY (was set automatically before restart), IHC doesn't restore AUTO mode."""
         if not self.hass:
             return
-        presence_entities = self.get_config().get(CONF_PRESENCE_ENTITIES, [])
+        presence_entities = self._get_presence_entities()
         if not presence_entities:
             return
-        someone_home = any(
-            (s := self.hass.states.get(e)) and s.state in ("home", "on", "true", "1")
-            for e in presence_entities
-        )
+        known = [s for e in presence_entities if (s := self.hass.states.get(e)) and s.state not in self._UNKNOWN]
+        if not known:
+            return  # trackers not restored yet right after startup - decide later
+        someone_home = any(s.state in ("home", "on", "true", "1") for s in known)
         # If someone is home but we're in AWAY mode, check if IHC set this automatically
         if someone_home and self._system_mode == SYSTEM_MODE_AWAY and self._presence_away_active:
             _LOGGER.info("IHC startup sync: presence detected home, restoring AUTO mode")
             self._presence_away_active = False
             self._system_mode = SYSTEM_MODE_AUTO
-        elif not someone_home and self._system_mode == SYSTEM_MODE_AUTO:
-            # Nobody home at startup - mark as away
-            _LOGGER.info("IHC startup sync: no presence detected, switching to AWAY")
-            self._presence_away_active = True
-            self._system_mode = SYSTEM_MODE_AWAY
+        # Nobody home at startup: no instant AWAY any more - the regular cycle applies
+        # the configured away delay (it used to switch immediately, ignoring the delay).
 
     def _check_room_presence(self, room: dict) -> bool:
         """

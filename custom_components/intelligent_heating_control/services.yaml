@@ -1477,6 +1477,38 @@ update_global_settings:
           max: 90
           step: 5
           unit_of_measurement: min
+    saving_offset:
+      name: Spar-Regler (°C)
+      description: >-
+        Senkt alle Wohlfühl- und Zeitplan-Temperaturen um diesen Wert (nicht Frostschutz,
+        Abwesend, Urlaub, Manuell). Faustregel - jedes Grad weniger spart rund 6 % Heizenergie.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 3
+          step: 0.5
+          unit_of_measurement: "°C"
+    window_reminder_minutes:
+      name: Fenster-offen-Erinnerung (min)
+      description: >-
+        Benachrichtigung (und Event intelligent_heating_control_window_open_too_long), wenn ein
+        Fenster bei unter 15 °C draußen länger offen ist. 0 = aus.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 120
+          step: 5
+          unit_of_measurement: min
+    presence_auto_persons:
+      name: Anwesenheit automatisch aus HA-Personen
+      description: >-
+        Ohne eingetragene Anwesenheits-Entitäten nutzt IHC alle HA-Personen mit Standort
+        (z. B. Companion-App) für die Abwesenheitsabsenkung, mit mindestens 20 min Verzögerung.
+      required: false
+      selector:
+        boolean:
     warmup_stall_notify_enabled:
       name: Benachrichtigung bei Warmup-Stillstand
       description: >-
@@ -1602,14 +1634,40 @@ update_global_settings:
           unit_of_measurement: "%"
     solar_heat_min_outdoor:
       name: Passive Solarheizung – Min. Außentemperatur (°C)
-      description: Unterhalb dieser Außentemperatur lohnt sich das Öffnen der Rolladen nicht
+      description: >-
+        Unterhalb dieser Außentemperatur werden Rollläden nicht für Sonnenwärme geöffnet.
+        Standard -20 °C (praktisch immer) - Sonne durchs Fenster lohnt sich auch bei Frost.
       required: false
       selector:
         number:
-          min: -10
+          min: -25
           max: 15
           step: 0.5
           unit_of_measurement: "°C"
+    solar_night_insulation_enabled:
+      name: Rollläden nachts schließen (Wärmedämmung)
+      description: >-
+        In der Heizsaison schließen Zimmer mit aktivierter Solarheizung ihre Rollläden nach
+        Sonnenuntergang - geschlossene Rollläden verringern den Wärmeverlust über die Fenster.
+      required: false
+      selector:
+        boolean:
+    solar_morning_mode:
+      name: Rollläden morgens öffnen
+      description: >-
+        "sun" = zu lassen, bis die Sonne auf die Fassade kommt (spätestens zur Uhrzeit unten),
+        "sunrise" = bei Sonnenaufgang öffnen.
+      required: false
+      selector:
+        select:
+          options: ["sun", "sunrise"]
+    solar_morning_latest_time:
+      name: Rollläden spätestens öffnen um
+      description: 'Uhrzeit "HH:MM" - für Fassaden, auf die keine Sonne kommt (z. B. Nordseite).'
+      required: false
+      example: "09:30"
+      selector:
+        text:
     solar_weather_protection_enabled:
       name: Rolladen-Wetterschutz aktiv
       description: >-

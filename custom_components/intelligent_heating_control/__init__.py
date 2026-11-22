@@ -526,6 +526,7 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # Roadmap 1.3 – Energy
             "solar_entity", "solar_surplus_threshold", "solar_boost_temp",
             "solar_min_elevation", "solar_shade_position", "solar_heat_min_outdoor",
+            "solar_night_insulation_enabled", "solar_morning_mode", "solar_morning_latest_time",
             "solar_weather_protection_enabled", "solar_wind_speed_threshold",
             # Rollo-Backlog 2026-10-15
             "solar_evening_privacy_mode", "solar_evening_privacy_time", "solar_evening_privacy_position",
@@ -592,6 +593,8 @@ def _register_services(hass: HomeAssistant, coordinator: IHCCoordinator, entry: 
             # v2.6 – Sensorlose Fenstererkennung
             "window_auto_detect_enabled", "window_auto_detect_drop",
             "window_auto_detect_minutes", "window_auto_detect_hold_minutes",
+            # v2.6 – Sparen / virtuelle Anwesenheit
+            "saving_offset", "window_reminder_minutes", "presence_auto_persons",
             # Heizgradtage
             "degree_day_base_temp", "degree_day_threshold_temp",
         }

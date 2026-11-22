@@ -250,7 +250,7 @@ DEFAULT_SOLAR_MIN_ELEVATION: Final = 10.0
 CONF_SOLAR_SHADE_POSITION: Final = "solar_shade_position"       # global, cover % when shading
 DEFAULT_SOLAR_SHADE_POSITION: Final = 20
 CONF_SOLAR_HEAT_MIN_OUTDOOR: Final = "solar_heat_min_outdoor"   # global, °C - not worth it below this
-DEFAULT_SOLAR_HEAT_MIN_OUTDOOR: Final = 5.0
+DEFAULT_SOLAR_HEAT_MIN_OUTDOOR: Final = -20.0  # v2.6: Solargewinn lohnt auch bei Frost (war 5.0)
 # Wind/rain/frost safety override for passive-solar covers - reuses the existing CONF_WEATHER_ENTITY
 # rather than requiring a dedicated per-room sensor. Hard override: forces covers open regardless of
 # the heat/cool logic below, since an extended cover is the one that's at risk of wind/water/ice
@@ -297,6 +297,16 @@ DEFAULT_SOLAR_COVER_OVERRIDE_REARM_MINUTES: Final = 120
 # window_orientation) stärker runterfahren als die reine Heiz-/Kühllogik verlangen würde – eher
 # Komfort- als Sicherheitsfeature, übersteuert daher nur passive_heat "voll offen", nicht aber die
 # davor geprüfte Privatsphäre-Schließung/Fenster-offen/Wetter-Sicherheit/manuelle Übersteuerung.
+# v2.6 – Loxone-Tageszyklus für Rollläden (Zimmer mit solar_passive_heat):
+# nachts in der Heizsaison schließen (Wärmedämmung), morgens zu lassen bis die Sonne auf die
+# Fassade kommt (spätestens zur angegebenen Uhrzeit), danach Sonnenwärme nutzen.
+CONF_SOLAR_NIGHT_INSULATION_ENABLED: Final = "solar_night_insulation_enabled"  # global, bool
+DEFAULT_SOLAR_NIGHT_INSULATION_ENABLED: Final = True
+CONF_SOLAR_MORNING_MODE: Final = "solar_morning_mode"  # global, "sun" | "sunrise"
+DEFAULT_SOLAR_MORNING_MODE: Final = "sun"
+CONF_SOLAR_MORNING_LATEST_TIME: Final = "solar_morning_latest_time"  # global, "HH:MM"
+DEFAULT_SOLAR_MORNING_LATEST_TIME: Final = "09:30"
+
 CONF_SOLAR_GLARE_PROTECTION_ENABLED: Final = "solar_glare_protection_enabled"  # per room, bool
 DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED: Final = False
 CONF_SOLAR_GLARE_MAX_ELEVATION: Final = "solar_glare_max_elevation"  # global, ° – Band 0..diesem Wert
@@ -501,6 +511,21 @@ CONF_WINDOW_AUTO_DETECT_MINUTES: Final = "window_auto_detect_minutes"
 DEFAULT_WINDOW_AUTO_DETECT_MINUTES: Final = 6         # ... innerhalb dieser Minuten
 CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES: Final = "window_auto_detect_hold_minutes"
 DEFAULT_WINDOW_AUTO_DETECT_HOLD_MINUTES: Final = 20   # max. Dauer, danach heizt das Zimmer wieder
+
+# v2.6 – ohne eingetragene Anwesenheits-Entitäten automatisch alle HA-Personen (person.*)
+# mit Standortverfolgung nutzen; dann gilt mindestens PRESENCE_AUTO_MIN_DELAY_MINUTES Verzögerung.
+CONF_PRESENCE_AUTO_PERSONS: Final = "presence_auto_persons"
+DEFAULT_PRESENCE_AUTO_PERSONS: Final = True
+PRESENCE_AUTO_MIN_DELAY_MINUTES: Final = 20
+
+# v2.6 – Fenster-offen-Erinnerung (Persistent-Notification + Event), 0 = aus
+CONF_WINDOW_REMINDER_MINUTES: Final = "window_reminder_minutes"
+DEFAULT_WINDOW_REMINDER_MINUTES: Final = 15
+EVENT_WINDOW_OPEN_TOO_LONG: Final = "intelligent_heating_control_window_open_too_long"
+
+# v2.6 – globaler Spar-Regler: senkt alle Wohlfühl-/Zeitplan-Temperaturen um X °C
+CONF_SAVING_OFFSET: Final = "saving_offset"
+DEFAULT_SAVING_OFFSET: Final = 0.0
 
 # Anwesenheits-Verzögerung: Minuten bis Auto-Away nach Abwesenheit aller Personen
 CONF_PRESENCE_AWAY_DELAY_MINUTES: Final = "presence_away_delay_minutes"

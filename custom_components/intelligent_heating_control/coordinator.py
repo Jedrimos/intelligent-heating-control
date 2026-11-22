@@ -255,6 +255,11 @@ from .const import (
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
     CONF_WINDOW_AUTO_DETECT_ENABLED,
     DEFAULT_WINDOW_AUTO_DETECT_ENABLED,
+    CONF_WINDOW_REMINDER_MINUTES,
+    DEFAULT_WINDOW_REMINDER_MINUTES,
+    EVENT_WINDOW_OPEN_TOO_LONG,
+    CONF_SAVING_OFFSET,
+    DEFAULT_SAVING_OFFSET,
     CONF_WINDOW_AUTO_DETECT_DROP,
     DEFAULT_WINDOW_AUTO_DETECT_DROP,
     CONF_WINDOW_AUTO_DETECT_MINUTES,
@@ -495,6 +500,8 @@ class IHCCoordinator(
         self._smart_meter_day_start = None
         self._curve_adaptation_delta: float = 0.0
         self._outdoor_temp_source: Optional[str] = None            # "sensor:<id>" | "weather:<id>" | None (v2.6)
+        self._window_open_since_wall: Dict[str, datetime] = {}     # room_id -> when the window opened (reminder)
+        self._window_reminder_sent: set = set()
         self._weather_forecast_cache: tuple = (None, [], 0.0)      # (entity_id, daily forecast, monotonic ts)
         # Backlog 2026-11-02 – Decision-Sensor: last-seen (source, target_temp) per room, to
         # fire EVENT_DECISION_CHANGED only when the decision actually changes, not every cycle.
@@ -1291,6 +1298,49 @@ class IHCCoordinator(
             )
         self._heating_period_notified_rooms = should_notify_now
 
+    def _check_window_reminders(self, room_data: Dict[str, dict], outdoor_temp: Optional[float]) -> None:
+        """v2.6 – "Fenster schließen!" after CONF_WINDOW_REMINDER_MINUTES of airing while it
+        is cold outside. Works for real window sensors and the sensorless detection alike.
+        Persistent notification (stable id, auto-dismissed) + an event for own automations
+        (TTS, push, light flash)."""
+        minutes = int(self.get_config().get(CONF_WINDOW_REMINDER_MINUTES, DEFAULT_WINDOW_REMINDER_MINUTES))
+        now = dt_util.utcnow()
+        cold_outside = outdoor_temp is None or outdoor_temp < 15.0
+        for room_id, rdata in room_data.items():
+            if rdata.get("window_open") and not rdata.get("child_lock"):
+                self._window_open_since_wall.setdefault(room_id, now)
+            else:
+                self._window_open_since_wall.pop(room_id, None)
+            since = self._window_open_since_wall.get(room_id)
+            due = (
+                minutes > 0 and cold_outside and since is not None
+                and (now - since).total_seconds() >= minutes * 60
+            )
+            if due and room_id not in self._window_reminder_sent:
+                self._window_reminder_sent.add(room_id)
+                name = rdata.get("name", room_id)
+                open_min = round((now - since).total_seconds() / 60)
+                self.hass.bus.async_fire(EVENT_WINDOW_OPEN_TOO_LONG, {
+                    "room_id": room_id, "room_name": name, "minutes": open_min,
+                    "outdoor_temp": outdoor_temp, "auto_detected": bool(rdata.get("window_auto_detected")),
+                })
+                self.hass.async_create_task(self.hass.services.async_call(
+                    "persistent_notification", "create", {
+                        "title": f"IHC: Fenster in {name} schließen?",
+                        "message": (
+                            f"In **{name}** ist seit {open_min} min ein Fenster offen"
+                            + (f" (draußen {outdoor_temp:.0f} °C)" if outdoor_temp is not None else "")
+                            + ". Stoßlüften für 5–10 Minuten reicht – danach heizt IHC das Zimmer wieder."
+                        ),
+                        "notification_id": f"ihc_window_open_{room_id}",
+                    },
+                ))
+            elif not due and room_id in self._window_reminder_sent and since is None:
+                self._window_reminder_sent.discard(room_id)
+                self.hass.async_create_task(self.hass.services.async_call(
+                    "persistent_notification", "dismiss", {"notification_id": f"ihc_window_open_{room_id}"},
+                ))
+
     def _check_warmup_stall_notifications(self, room_data: Dict[str, dict]) -> None:
         """Notify when a room has been calling for heat far longer than its own learned
         warmup time without actually warming up - likely a real problem (airlock, boiler
@@ -2059,6 +2109,18 @@ class IHCCoordinator(
         if _preset_max is not None and meta.get("source") != "comfort_extended" and target_temp > _preset_max:
             target_temp = max(_preset_max, float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)))
 
+        # v2.6 – global saving offset ("Spar-Regler"): every °C less saves roughly 6 % heating
+        # energy. Not applied to fixed/explicit targets (frost, away, vacation, off, manual,
+        # safety threshold, boost) - those are already deliberate values.
+        saving = float(cfg.get(CONF_SAVING_OFFSET, DEFAULT_SAVING_OFFSET))
+        if saving > 0 and meta.get("source") not in (
+            "frost_protection", "system_off", "system_away", "system_vacation", "room_off", "room_away",
+            "manual", "temp_threshold_override", "boost",
+        ) and room_mode != ROOM_MODE_MANUAL:
+            target_temp = max(self._get_frost_protection_temp(),
+                              float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)), target_temp - saving)
+            meta["saving_offset"] = saving
+
         # Window restore mode: snapshot/restore target_temp around window open events
         prev_win = self._prev_window_open.get(room_id, False)
         if window_open and not prev_win:
@@ -2338,6 +2400,7 @@ class IHCCoordinator(
         heating_period_active = ctx["heating_period_active"]
         self._check_heating_period_notifications(room_data, summer_mode, heating_period_active)
         self._check_warmup_stall_notifications(room_data)
+        self._check_window_reminders(room_data, ctx.get("outdoor_temp"))
         total_demand = self._controller.get_total_demand()
         rooms_demanding = self._controller.get_rooms_demanding()
 
@@ -2569,7 +2632,10 @@ class IHCCoordinator(
         self._run_limescale_protection(room_data)
 
         # Roadmap 2.1: passive solar heating/shading via Rollosteuerung (opt-in per room)
-        self._update_solar_covers(room_data, ctx["outdoor_temp"])
+        self._update_solar_covers(
+            room_data, ctx["outdoor_temp"],
+            heating_season=heating_period_active and not summer_mode,
+        )
 
     def _update_phase_energy_and_ventilation(self, room_data: Dict[str, dict], ctx: Dict[str, Any]) -> None:
         """Phase 7: per-room and total energy estimates, efficiency score,

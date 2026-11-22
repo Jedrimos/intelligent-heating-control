@@ -50,6 +50,12 @@ from .const import (
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
     CONF_WINDOW_AUTO_DETECT_ENABLED,
     DEFAULT_WINDOW_AUTO_DETECT_ENABLED,
+    CONF_PRESENCE_AUTO_PERSONS,
+    DEFAULT_PRESENCE_AUTO_PERSONS,
+    CONF_WINDOW_REMINDER_MINUTES,
+    DEFAULT_WINDOW_REMINDER_MINUTES,
+    CONF_SAVING_OFFSET,
+    DEFAULT_SAVING_OFFSET,
     CONF_WINDOW_AUTO_DETECT_DROP,
     DEFAULT_WINDOW_AUTO_DETECT_DROP,
     CONF_WINDOW_AUTO_DETECT_MINUTES,
@@ -103,6 +109,12 @@ from .const import (
     DEFAULT_SOLAR_SHADE_POSITION,
     CONF_SOLAR_HEAT_MIN_OUTDOOR,
     DEFAULT_SOLAR_HEAT_MIN_OUTDOOR,
+    CONF_SOLAR_NIGHT_INSULATION_ENABLED,
+    DEFAULT_SOLAR_NIGHT_INSULATION_ENABLED,
+    CONF_SOLAR_MORNING_MODE,
+    DEFAULT_SOLAR_MORNING_MODE,
+    CONF_SOLAR_MORNING_LATEST_TIME,
+    DEFAULT_SOLAR_MORNING_LATEST_TIME,
     CONF_SOLAR_WEATHER_PROTECTION_ENABLED,
     DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED,
     CONF_SOLAR_WIND_SPEED_THRESHOLD,
@@ -547,6 +559,19 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES,
                 default=int(cfg.get(CONF_WINDOW_AUTO_DETECT_HOLD_MINUTES, DEFAULT_WINDOW_AUTO_DETECT_HOLD_MINUTES))
             ): selector.selector({"number": {"min": 5, "max": 90, "step": 5, "unit_of_measurement": "min"}}),
+            # --- v2.6: Heizkosten sparen / virtuelle Anwesenheit ---
+            vol.Optional(
+                CONF_SAVING_OFFSET,
+                default=float(cfg.get(CONF_SAVING_OFFSET, DEFAULT_SAVING_OFFSET))
+            ): selector.selector({"number": {"min": 0, "max": 3, "step": 0.5, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_WINDOW_REMINDER_MINUTES,
+                default=int(cfg.get(CONF_WINDOW_REMINDER_MINUTES, DEFAULT_WINDOW_REMINDER_MINUTES))
+            ): selector.selector({"number": {"min": 0, "max": 120, "step": 5, "unit_of_measurement": "min"}}),
+            vol.Optional(
+                CONF_PRESENCE_AUTO_PERSONS,
+                default=bool(cfg.get(CONF_PRESENCE_AUTO_PERSONS, DEFAULT_PRESENCE_AUTO_PERSONS))
+            ): selector.selector({"boolean": {}}),
             # --- Heizgradtage (für die kumulative Heizgradtage-Entity) ---
             vol.Optional(
                 CONF_DEGREE_DAY_BASE_TEMP,
@@ -641,7 +666,19 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_SOLAR_HEAT_MIN_OUTDOOR,
                 default=float(cfg.get(CONF_SOLAR_HEAT_MIN_OUTDOOR, DEFAULT_SOLAR_HEAT_MIN_OUTDOOR))
-            ): selector.selector({"number": {"min": -10, "max": 15, "step": 0.5, "unit_of_measurement": "°C"}}),
+            ): selector.selector({"number": {"min": -25, "max": 15, "step": 0.5, "unit_of_measurement": "°C"}}),
+            vol.Optional(
+                CONF_SOLAR_NIGHT_INSULATION_ENABLED,
+                default=bool(cfg.get(CONF_SOLAR_NIGHT_INSULATION_ENABLED, DEFAULT_SOLAR_NIGHT_INSULATION_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_SOLAR_MORNING_MODE,
+                default=str(cfg.get(CONF_SOLAR_MORNING_MODE, DEFAULT_SOLAR_MORNING_MODE))
+            ): selector.selector({"select": {"options": ["sun", "sunrise"], "mode": "dropdown"}}),
+            vol.Optional(
+                CONF_SOLAR_MORNING_LATEST_TIME,
+                default=str(cfg.get(CONF_SOLAR_MORNING_LATEST_TIME, DEFAULT_SOLAR_MORNING_LATEST_TIME))
+            ): selector.selector({"text": {}}),
             vol.Optional(
                 CONF_SOLAR_WEATHER_PROTECTION_ENABLED,
                 default=bool(cfg.get(CONF_SOLAR_WEATHER_PROTECTION_ENABLED, DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED))

@@ -28,11 +28,47 @@
         <div class="auto-row"><span>🌦️ Wettervorhersage</span><span>${g.weather_entity_effective ? `<b>${this._esc(this._friendly(g.weather_entity_effective))}</b> – für Kälteprognose &amp; Frühstart` : "keine Wetter-Entität gefunden"}</span></div>
         <div class="auto-row"><span>🪟 Fenster ohne Sensor</span><span>${g.window_auto_detect_enabled ? "werden am Temperatursturz erkannt ✓" : "nicht erkannt (unten unter Temperaturen einschaltbar)"}</span></div>
         <div class="auto-row"><span>🍂 Heizperiode</span><span>${a.heating_period_entity ? "per eigenem Schalter gesteuert" : (a.heating_period_auto_enabled !== false ? "startet/endet automatisch nach Außentemperatur ✓" : "immer aktiv")}</span></div>
-        <div class="auto-row"><span>🚶 Abwesenheit</span><span>${(a.presence_entities || []).length ? `über ${(a.presence_entities || []).length} Person(en)/Tracker ✓` : "nicht eingerichtet – 💡 Personen unter „Anwesenheitserkennung“ zuordnen, dann senkt IHC ab, wenn niemand zu Hause ist"}</span></div>
+        <div class="auto-row"><span>🚶 Abwesenheit</span><span>${(() => {
+          const eff = a.presence_entities_effective || [];
+          if ((a.presence_entities || []).length) return `über ${eff.length} eingetragene Person(en)/Tracker ✓`;
+          if (eff.length) return `automatisch über ${eff.map(e => this._esc(this._friendly(e))).join(", ")} ✓ (mind. 20 min Verzögerung)`;
+          return "keine Person mit Standort gefunden – 💡 mit der HA-Companion-App senkt IHC automatisch ab, wenn niemand zu Hause ist";
+        })()}</span></div>
+        <div class="auto-row"><span>💧 Außenfeuchte</span><span>${a.outdoor_humidity_sensor ? "eigener Sensor ✓" : (g.weather_entity_effective ? "aus der Wettervorhersage" : "nicht verfügbar")}</span></div>
+      </div>`;
+
+    const saving = parseFloat(a.saving_offset ?? 0) || 0;
+    const savingCard = `
+      <div class="card">
+        <div class="card-title">💶 Heizkosten sparen</div>
+        <div class="settings-item">
+          <label>Spar-Regler: alle Wohlfühltemperaturen absenken um</label>
+          <div class="comfort-pick">
+            <input type="range" id="saving-offset" min="0" max="3" step="0.5" value="${saving}">
+            <span id="saving-offset-val">${saving.toFixed(1)} °C</span>
+          </div>
+          <span class="form-hint"><span id="saving-offset-est">${saving > 0 ? `≈ ${Math.round(saving * 6)} % weniger Heizenergie.` : "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie."}</span> Frostschutz, Abwesend, Urlaub und manuell eingestellte Werte bleiben unverändert.</span>
+        </div>
+        <div class="settings-grid" style="margin-top:8px">
+          <div class="settings-item">
+            <label>🪟 Erinnern, wenn ein Fenster länger offen ist (min)</label>
+            <input type="number" class="form-input" id="window-reminder-minutes" min="0" max="120" step="5" value="${a.window_reminder_minutes ?? 15}">
+            <span class="form-hint">Nur bei unter 15 °C draußen. 0 = aus. Löst auch das Event <code>intelligent_heating_control_window_open_too_long</code> für eigene Automationen aus.</span>
+          </div>
+          <div class="settings-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+              <input type="checkbox" id="presence-auto-persons" ${a.presence_auto_persons !== false ? "checked" : ""}>
+              🚶 Abwesenheit automatisch aus HA-Personen
+            </label>
+            <span class="form-hint">Nur wenn unter „Anwesenheitserkennung“ nichts eingetragen ist.</span>
+          </div>
+        </div>
+        <div class="btn-row"><button class="btn btn-primary" id="save-saving">💾 Speichern</button></div>
       </div>`;
 
     content.innerHTML = `
       ${autoCard}
+      ${savingCard}
       <div class="simple-hint">🧩 Einfache Ansicht: Profi-Funktionen (Energiepreise, Solar, Kalkschutz, Kessel-Relais …) sind ausgeblendet – oben rechts auf <b>🛠️ Experte</b> umschalten.</div>
       <!-- ── System-Hardware ─────────────────────────────── -->
       <details class="ihc-card" open>
@@ -505,12 +541,33 @@
             </div>
           </div>
           <hr class="divider">
-          <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Passive Solarheizung (Rolladen)</div>
+          <div class="card-title" style="font-size:13px;margin:8px 0">☀️ Rollladen-Automatik (wie Loxone)</div>
           <p style="font-size:12px;color:var(--secondary-text-color);margin:0 0 10px">
-            Öffnet die Rolladen sonnenzugewandter Zimmer bevor die Heizung anspringt (kostenlose Wärme) bzw.
-            beschattet leicht im Sommer. Muss pro Zimmer aktiviert werden (Rolladen-Entitäten + Fensterausrichtung
-            im Zimmer-Bearbeiten-Dialog).
+            Pro Zimmer aktivieren (Zimmer → ⚙️ Einstellungen → Rollläden). Tagesablauf in der Heizsaison:
+            nachts zu (Wärmedämmung) → morgens zu, bis die Sonne auf die Fassade kommt → Sonne nutzen,
+            erst bei Überhitzung beschatten → abends wieder zu. Im Sommer wird vorsorglich beschattet.
+            Bewölkung erkennt IHC über den Helligkeitssensor des Zimmers oder – ohne Sensor – über die Wettervorhersage.
           </p>
+          <div class="settings-grid">
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="solar-night-insulation" ${a.solar_night_insulation_enabled !== false ? "checked" : ""}>
+                🌙 Nachts schließen (Wärmedämmung, nur Heizsaison)
+              </label>
+            </div>
+            <div class="settings-item">
+              <label>Morgens öffnen</label>
+              <select class="form-select" id="solar-morning-mode">
+                <option value="sun" ${(a.solar_morning_mode || "sun") === "sun" ? "selected" : ""}>wenn die Sonne auf die Fassade kommt</option>
+                <option value="sunrise" ${a.solar_morning_mode === "sunrise" ? "selected" : ""}>bei Sonnenaufgang</option>
+              </select>
+            </div>
+            <div class="settings-item">
+              <label>Spätestens öffnen um</label>
+              <input type="time" class="form-input" id="solar-morning-latest" value="${a.solar_morning_latest_time || "09:30"}">
+              <span class="form-hint">Für Fassaden ohne Sonne (z. B. Nordseite) oder trübe Tage.</span>
+            </div>
+          </div>
           <div class="settings-grid">
             <div class="settings-item">
               <label>Min. Sonnenhöhe (°)</label>
@@ -524,8 +581,8 @@
             </div>
             <div class="settings-item">
               <label>Min. Außentemp. für Solarheizung (°C)</label>
-              <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-10" max="15" step="0.5" value="${a.solar_heat_min_outdoor ?? 5}">
-              <span class="form-hint">Unterhalb dieser Außentemperatur lohnt sich das Öffnen der Rolladen nicht.</span>
+              <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-25" max="15" step="0.5" value="${a.solar_heat_min_outdoor ?? -20}">
+              <span class="form-hint">Standard −20 °C: Sonne durchs Fenster lohnt sich auch bei Frost.</span>
             </div>
           </div>
           <div class="settings-item" style="margin-top:10px">
@@ -1130,6 +1187,24 @@
       this._toast("✓ Anwesenheitserkennung gespeichert");
     });
 
+    // v2.6 – Heizkosten sparen
+    const savingRange = content.querySelector("#saving-offset");
+    savingRange?.addEventListener("input", () => {
+      const v = parseFloat(savingRange.value) || 0;
+      content.querySelector("#saving-offset-val").textContent = `${v.toFixed(1)} °C`;
+      content.querySelector("#saving-offset-est").textContent =
+        v > 0 ? `≈ ${Math.round(v * 6)} % weniger Heizenergie.` : "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.";
+    });
+    content.querySelector("#save-saving")?.addEventListener("click", () => {
+      const reminder = parseInt(content.querySelector("#window-reminder-minutes")?.value, 10);
+      this._callService("update_global_settings", {
+        saving_offset: Math.min(3, Math.max(0, parseFloat(savingRange?.value) || 0)),
+        window_reminder_minutes: isNaN(reminder) ? 15 : Math.min(120, Math.max(0, reminder)),
+        presence_auto_persons: content.querySelector("#presence-auto-persons")?.checked === true,
+      });
+      this._toast("✓ Spar-Einstellungen gespeichert");
+    });
+
     // Runtime / costs visibility toggles – stored in localStorage (frontend-only)
     content.querySelector("#show-runtime-stats").addEventListener("change", e => {
       this._lsSet("ihc_show_runtime", e.target.value);
@@ -1170,6 +1245,9 @@
         solar_min_elevation:     solarMinElevation,
         solar_shade_position:    solarShadePosition,
         solar_heat_min_outdoor:  solarHeatMinOutdoor,
+        solar_night_insulation_enabled: content.querySelector("#solar-night-insulation")?.checked === true,
+        solar_morning_mode:      content.querySelector("#solar-morning-mode")?.value || "sun",
+        solar_morning_latest_time: content.querySelector("#solar-morning-latest")?.value || "09:30",
         solar_weather_protection_enabled: content.querySelector("#solar-weather-protection-enabled")?.checked === true,
         solar_wind_speed_threshold: solarWindSpeedThreshold,
         solar_cover_override_rearm_minutes: solarOverrideRearm,

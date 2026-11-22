@@ -151,6 +151,15 @@
           hasSchedule ? "Heizt nach deinem Wochenplan." : "Heizt nach Heizkurve/Wohlfühltemperatur. 💡 Unter „📅 Zeitplan“ Heizzeiten festlegen und Energie sparen.")}
         ${row(hasHumidity ? true : false, "💧", hasHumidity ? "Luftfeuchte bekannt" : "Keine Luftfeuchte",
           hasHumidity ? "Schimmelschutz und Lüftungsempfehlung sind aktiv." : "💡 Ein Feuchtesensor aktiviert Schimmelschutz und Lüftungsempfehlung.")}
+        ${(() => {
+          const hasCovers = (room.cover_entities || []).length > 0;
+          const coverAuto = hasCovers && (room.solar_passive_heat || room.solar_passive_cool);
+          return row(coverAuto ? true : false, "🪟",
+            coverAuto ? "Rollläden automatisch" : hasCovers ? "Rollläden verbunden, Automatik aus" : "Keine Rollläden",
+            coverAuto ? "Nachts dämmen, Sonnenwärme nutzen, bei Hitze beschatten (wie Loxone)."
+                      : hasCovers ? "💡 Unter „Rollläden automatisch steuern“ einschalten – spart Heizenergie."
+                                  : "Optional: Rollläden zuordnen – nachts geschlossen sparen sie Wärme, tagsüber holen sie Sonnenwärme rein.");
+        })()}
         ${row(hasPresence ? true : false, "👤", hasPresence ? "Anwesenheit im Zimmer" : "Keine Zimmer-Anwesenheit",
           hasPresence ? "Senkt ab, wenn niemand im Zimmer ist." : "Optional: Bewegungsmelder oder Personen zuordnen, um leere Zimmer abzusenken.")}
       </div>`;
@@ -188,6 +197,30 @@
         demand: state.attributes.demand || 0,
         window_open: state.attributes.window_open || false,
         window_auto_detected: state.attributes.window_auto_detected === true,
+        // v2.6 – fields the panel used but never mapped from the climate attributes.
+        // Room settings showed them empty and SAVING wiped them (covers, sleep profile,
+        // extra temperature sensors); mold/CO2/ventilation alerts never appeared.
+        cover_entities:          state.attributes.cover_entities || [],
+        window_orientation:      state.attributes.window_orientation || "",
+        lux_sensor:              state.attributes.lux_sensor || "",
+        solar_passive_heat:      state.attributes.solar_passive_heat === true,
+        solar_passive_cool:      state.attributes.solar_passive_cool === true,
+        solar_evening_privacy_enabled:  state.attributes.solar_evening_privacy_enabled === true,
+        solar_glare_protection_enabled: state.attributes.solar_glare_protection_enabled === true,
+        sleep_temp_profile:      state.attributes.sleep_temp_profile || [],
+        temp_sensors:            state.attributes.temp_sensors || [],
+        mold:                    state.attributes.mold || null,
+        co2_ppm:                 state.attributes.co2_ppm ?? null,
+        ventilation:             state.attributes.ventilation || null,
+        room_presence_active:    state.attributes.room_presence_active ?? null,
+        thermal_bridge:          state.attributes.thermal_bridge || null,
+        trv_suggested_offset:    state.attributes.trv_suggested_offset ?? null,
+        manual_temp:             state.attributes.manual_temp ?? null,
+        // Rollladen-Automatik live status (was never mapped -> badge never showed)
+        solar_cover_active:     state.attributes.solar_cover_active === true,
+        solar_cover_position:   state.attributes.solar_cover_position ?? null,
+        solar_cover_reason:     state.attributes.solar_cover_reason || null,
+        solar_cover_overridden: state.attributes.solar_cover_overridden === true,
         room_mode: state.attributes.room_mode || "auto",
         schedule_active: state.attributes.schedule_active || false,
         source: state.attributes.source || "",
@@ -369,6 +402,7 @@
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
       // v2.6 – automatic fallbacks, shown in plain language in the UI
       window_auto_detect_enabled: a.window_auto_detect_enabled !== false,
+      battery_soc:               ea.battery_soc != null ? parseFloat(ea.battery_soc) : null,
       outdoor_temp_source:       a.outdoor_temp_source || null,
       weather_entity_effective:  a.weather_entity_effective || null,
       presence_entities:         a.presence_entities || [],

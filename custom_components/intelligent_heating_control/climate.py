@@ -445,6 +445,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             # Presence
             "room_presence_entities": room_cfg.get("room_presence_entities", []),
             "room_presence_active": d.get("room_presence_active"),
+            "manual_temp": d.get("manual_temp"),
             # PIR sensor presence
             "presence_sensor": room_cfg.get(CONF_PRESENCE_SENSOR, ""),
             "presence_sensor_on_delay": room_cfg.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY),
@@ -464,6 +465,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "solar_cover_active": d.get("solar_cover_active", False),
             "solar_cover_position": d.get("solar_cover_position"),
             "solar_cover_overridden": d.get("solar_cover_overridden", False),
+            "solar_cover_reason": d.get("solar_cover_reason"),
             # Rollo-Backlog 2026-10-15
             "lux_sensor": room_cfg.get(CONF_LUX_SENSOR, ""),
             "solar_evening_privacy_enabled": room_cfg.get(CONF_SOLAR_EVENING_PRIVACY_ENABLED, DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED),

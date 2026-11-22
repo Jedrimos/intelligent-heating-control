@@ -404,7 +404,7 @@ class ClimateAdjustmentsMixin:
         cfg = self.get_config()
         if not cfg.get(CONF_ETA_PREHEAT_ENABLED, DEFAULT_ETA_PREHEAT_ENABLED):
             return None
-        entities = cfg.get(CONF_PRESENCE_ENTITIES, [])
+        entities = self._get_presence_entities()
         min_minutes: Optional[float] = None
         for entity_id in entities:
             if not entity_id:
