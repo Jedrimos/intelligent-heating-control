@@ -107,3 +107,24 @@ def test_lux_enter_threshold_when_inactive():
 def test_lux_exit_threshold_once_active():
     assert lux_hysteresis_active(300, was_active=True, on_threshold=350, off_threshold=270) is True
     assert lux_hysteresis_active(250, was_active=True, on_threshold=350, off_threshold=270) is False
+
+
+def test_two_stage_storm_protection_with_calm_down_delay():
+    from custom_components.intelligent_heating_control.solar_cover_manager import weather_protection_step as step
+    st = None
+    stage, st = step(st, 10, False, 25, 40, 15, 0)
+    assert stage is None
+    stage, st = step(st, 30, False, 25, 40, 15, 60)
+    assert stage == "wind"                      # stage 1: hold
+    stage, st = step(st, 45, False, 25, 40, 15, 120)
+    assert stage == "storm"                     # stage 2: safe position
+    stage, st = step(st, 30, False, 25, 40, 15, 180)
+    assert stage == "storm"                     # still windy after the storm
+    stage, st = step(st, 10, False, 25, 40, 15, 240)
+    assert stage == "storm"                     # calm, but the delay runs
+    stage, st = step(st, 12, False, 25, 40, 15, 240 + 14 * 60)
+    assert stage == "storm"
+    stage, st = step(st, 12, False, 25, 40, 15, 240 + 16 * 60)
+    assert stage is None                        # 15 min calm → normal again
+    assert step(None, 0, True, 25, 40, 15, 0)[0] == "storm"      # hail/rain condition
+    assert step(None, 30, False, 0, 40, 15, 0)[0] is None        # warn stage disabled

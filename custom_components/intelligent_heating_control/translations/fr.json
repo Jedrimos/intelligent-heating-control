@@ -233,6 +233,18 @@
     "entity_unavailable": {
       "title": "IHC : {role} {entity} indisponible",
       "description": "{role} `{entity}` de la pièce **{room}** est indisponible depuis {minutes} minutes (pile vide, hors de portée ?). IHC utilise des valeurs de repli en attendant."
+    },
+    "sensor_stale": {
+      "title": "IHC : le capteur {entity} est muet depuis {hours} h",
+      "description": "Le capteur de température `{entity}` dans **{room}** est disponible mais n'a envoyé aucune nouvelle valeur depuis {hours} heures (pile vide ? liaison radio ?). IHC n'utilise plus la valeur figée et passe en mode sécurité avec le capteur du thermostat."
+    },
+    "heating_period_blocked": {
+      "title": "IHC : la saison de chauffe bloque {room}",
+      "description": "**{room}** chaufferait maintenant, mais la saison de chauffe est inactive. Utilisez le boost ou activez « ignorer la saison de chauffe » dans les paramètres de la pièce."
+    },
+    "warmup_stall": {
+      "title": "IHC : {room} ne se réchauffe pas",
+      "description": "**{room}** chauffe depuis {minutes} min sans se réchauffer (attendu : environ {expected} min). Causes possibles : air dans le radiateur, porte fermée, pas de chaleur de la chaudière ou vanne mal calibrée."
     }
   }
 }

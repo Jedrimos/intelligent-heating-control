@@ -534,6 +534,15 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             "optimum_stop_active": d.get("optimum_stop_active", False),
             "optimum_stop_minutes": d.get("optimum_stop_minutes"),
             "optimum_stop_predicted": d.get("optimum_stop_predicted"),
+            "sensor_failed": d.get("sensor_failed", False),
+            "hydraulic_hint": d.get("hydraulic_hint"),
+            "hydraulic_valve_avg": d.get("hydraulic_valve_avg"),
+            "hydraulic_hours": d.get("hydraulic_hours", 0),
+            # v2.7 – Restwärme nutzen
+            "afterheat_overshoot": d.get("afterheat_overshoot"),
+            "afterheat_minutes": d.get("afterheat_minutes"),
+            "afterheat_samples": d.get("afterheat_samples", 0),
+            "afterheat_coasting": d.get("afterheat_coasting", False),
             # Fenster-Kaskade: Status + Quelle
             "window_cascade_active": d.get("window_cascade_active", False),
             "window_cascade_offset": d.get("window_cascade_offset"),

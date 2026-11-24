@@ -123,7 +123,7 @@ class IHCPanel extends HTMLElement {
         </button>
         <span class="topbar-title">Intelligent Heating Control</span>
         <button class="ui-mode-toggle" id="ihc-ui-mode" title="Zwischen einfacher Ansicht und allen Einstellungen umschalten"></button>
-        <span class="topbar-version">v2.6.1</span>
+        <span class="topbar-version">v2.7.0</span>
       `;
       shadow.appendChild(topbar);
       // Einfach/Experte (v2.6): beginners only see what they need, tinkerers get everything

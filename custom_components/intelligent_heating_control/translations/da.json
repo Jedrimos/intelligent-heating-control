@@ -55,6 +55,18 @@
     "entity_unavailable": {
       "title": "IHC: {role} {entity} utilgængelig",
       "description": "{role} `{entity}` i rummet **{room}** har været utilgængelig i {minutes} minutter (tomt batteri, uden for rækkevidde, integration offline?). Imens bruger IHC reserveværdier (sidst kendte værdi, termostatens temperatur)."
+    },
+    "sensor_stale": {
+      "title": "IHC: temperatursensor {entity} tavs i {hours} t",
+      "description": "Temperatursensoren `{entity}` i **{room}** er tilgængelig, men har ikke sendt en ny værdi i {hours} timer (tomt batteri? radioforbindelse?). IHC bruger ikke længere den frosne værdi og kører i sikker tilstand med termostatens egen sensor."
+    },
+    "heating_period_blocked": {
+      "title": "IHC: fyringssæsonen blokerer {room}",
+      "description": "**{room}** ville varme nu, men fyringssæsonen er inaktiv. Brug boost eller slå „ignorer fyringssæson“ til i rummets indstillinger."
+    },
+    "warmup_stall": {
+      "title": "IHC: {room} bliver ikke varmere",
+      "description": "**{room}** har varmet i {minutes} min uden at blive varmere (forventet: ca. {expected} min). Mulige årsager: luft i radiatoren, lukket dør, varmekilden leverer ikke varme eller ventilen er forkert kalibreret."
     }
   }
 }

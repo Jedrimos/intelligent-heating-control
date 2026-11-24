@@ -19,8 +19,8 @@
 
     const rows = curve.map((pt, i) => `
       <tr>
-        <td><input type="number" class="curve-outdoor" value="${pt.outdoor_temp}" step="1" min="-30" max="40"> °C</td>
-        <td><input type="number" class="curve-target"  value="${pt.target_temp}"  step="0.5" min="10" max="35"> °C</td>
+        <td><input type="number" class="curve-outdoor" value="${ihcEsc(pt.outdoor_temp)}" step="1" min="-30" max="40"> °C</td>
+        <td><input type="number" class="curve-target"  value="${ihcEsc(pt.target_temp)}"  step="0.5" min="10" max="35"> °C</td>
         <td><button class="btn btn-danger btn-icon" data-action="del-row">✕</button></td>
       </tr>`).join("");
 
@@ -29,8 +29,8 @@
         <div class="card-title">📈 Heizkurve</div>
         <div class="info-box">
           Basis-Solltemperatur in Abhängigkeit der Außentemperatur.
-          Jetzt: Außen <strong>${ot ? ot.state + " °C" : "—"}</strong>
-          → Ziel <strong>${ct ? ct.state + " °C" : "—"}</strong>
+          Jetzt: Außen <strong>${ot ? ihcEsc(ot.state) + " °C" : "—"}</strong>
+          → Ziel <strong>${ct ? ihcEsc(ct.state) + " °C" : "—"}</strong>
         </div>
         <table class="curve-table">
           <thead><tr>
@@ -131,7 +131,7 @@
         const offset = parseFloat(r.room_offset ?? 0);
         const eff = (base + offset).toFixed(1);
         return `<span style="font-size:11px;padding:3px 8px;border-radius:8px;background:var(--secondary-background-color);border:1px solid var(--divider-color)">
-          ${this._esc(r.name)}: <strong>${eff} °C</strong>${offset !== 0 ? ` <span style="color:var(--secondary-text-color)">(${offset > 0 ? "+" : ""}${offset})</span>` : ""}
+          ${this._esc(r.name)}: <strong>${ihcEsc(eff)} °C</strong>${offset !== 0 ? ` <span style="color:var(--secondary-text-color)">(${offset > 0 ? "+" : ""}${ihcEsc(offset)})</span>` : ""}
         </span>`;
       }).join("");
     };

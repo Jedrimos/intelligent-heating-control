@@ -42,6 +42,12 @@ const _IHC_CARD_EN = [
   ["Ist", "Current"], ["Soll", "Target"], ["Aus", "Off"], ["aktiv", "active"], ["nicht gefunden", "not found"],
   ["Uhr", ""], ["Ab ", "From "],
 ];
+// HTML-escape for innerHTML templates (HACS review 2026-11-24)
+function ihcEsc(value) {
+  if (value == null) return "";
+  return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function _ihcCardTranslate(root, hass) {
   const lang = String((hass && ((hass.locale && hass.locale.language) || hass.language)) || "de").toLowerCase();
   if (!root || lang.startsWith("de")) return;
@@ -254,7 +260,7 @@ class IhcRoomCard extends HTMLElement {
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     }).join(" ");
     return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;width:100%">
-      <polyline points="${pts}" fill="none" stroke="var(--primary-color)" stroke-width="1.5"
+      <polyline points="${ihcEsc(pts)}" fill="none" stroke="var(--primary-color)" stroke-width="1.5"
         stroke-linejoin="round" stroke-linecap="round"/>
     </svg>`;
   }
@@ -300,8 +306,8 @@ class IhcRoomCard extends HTMLElement {
     // Status badges
     const badgeParts = [];
     if (room.window_open) badgeParts.push(`<span class="badge badge-window">🪟 Offen</span>`);
-    if (room.mold && room.mold.risk) badgeParts.push(`<span class="badge badge-mold">💧 Schimmel ${room.mold.humidity}%</span>`);
-    if (room.boost_remaining > 0) badgeParts.push(`<span class="badge badge-boost">⚡ Boost ${room.boost_remaining}min</span>`);
+    if (room.mold && room.mold.risk) badgeParts.push(`<span class="badge badge-mold">💧 Schimmel ${ihcEsc(room.mold.humidity)}%</span>`);
+    if (room.boost_remaining > 0) badgeParts.push(`<span class="badge badge-boost">⚡ Boost ${ihcEsc(room.boost_remaining)}min</span>`);
     if (room.night_setback > 0) badgeParts.push(`<span class="badge badge-eco">🌙 Absenkung</span>`);
     if (room.room_presence_active === false) badgeParts.push(`<span class="badge badge-away">🚶 Abwesend</span>`);
     // Ventilation advice – only shown when sensor data is available
@@ -309,11 +315,11 @@ class IhcRoomCard extends HTMLElement {
       const vIcons = { urgent: "🪟❗", recommended: "🪟", possible: "🌬️" };
       const vCls   = { urgent: "badge-heat", recommended: "badge-boost", possible: "badge-eco" };
       const co2str = room.co2_ppm != null ? ` · ${room.co2_ppm}ppm` : "";
-      badgeParts.push(`<span class="badge ${vCls[room.ventilation.level] || "badge-eco"}">${vIcons[room.ventilation.level] || "🌬️"} Lüften${co2str}</span>`);
+      badgeParts.push(`<span class="badge ${ihcEsc(vCls[room.ventilation.level] || "badge-eco")}">${ihcEsc(vIcons[room.ventilation.level] || "🌬️")} Lüften${ihcEsc(co2str)}</span>`);
     }
     if (room.co2_ppm != null && !(room.ventilation && room.ventilation.level !== "none")) {
       // CO2 only badge when no full ventilation advice (sensor present but level=none)
-      badgeParts.push(`<span class="badge badge-ok">CO₂ ${room.co2_ppm} ppm</span>`);
+      badgeParts.push(`<span class="badge badge-ok">CO₂ ${ihcEsc(room.co2_ppm)} ppm</span>`);
     }
     const heatingBadge = room.demand > 5
       ? `<span class="badge badge-heat">🔥 ${room.demand.toFixed(0)}%</span>`
@@ -332,11 +338,11 @@ class IhcRoomCard extends HTMLElement {
     const currentMode = room.room_mode || "auto";
     const modeChips = modes.map(m => {
       const active = currentMode === m ? " active" : "";
-      return `<button class="chip${active}" data-mode="${m}" data-room-id="${room.room_id}">${_MODE_ICONS[m]} ${_MODE_LABELS[m]}</button>`;
+      return `<button class="chip${ihcEsc(active)}" data-mode="${m}" data-room-id="${ihcEsc(room.room_id)}">${ihcEsc(_MODE_ICONS[m])} ${ihcEsc(_MODE_LABELS[m])}</button>`;
     }).join("");
     const boostChip = room.boost_remaining > 0
-      ? `<button class="chip boost active" data-action="boost-cancel" data-room-id="${room.room_id}">⚡ ${room.boost_remaining}min</button>`
-      : `<button class="chip boost" data-action="boost" data-room-id="${room.room_id}">⚡ Boost</button>`;
+      ? `<button class="chip boost active" data-action="boost-cancel" data-room-id="${ihcEsc(room.room_id)}">⚡ ${ihcEsc(room.boost_remaining)}min</button>`
+      : `<button class="chip boost" data-action="boost" data-room-id="${ihcEsc(room.room_id)}">⚡ Boost</button>`;
 
     // Sparkline
     const sparkHtml = (this._config.show_sparkline && room.temp_history && room.temp_history.length >= 2)
@@ -361,12 +367,12 @@ class IhcRoomCard extends HTMLElement {
 
       <div class="temp-row">
         <div class="temp-block">
-          <div class="temp-main">${curTemp}°</div>
+          <div class="temp-main">${ihcEsc(curTemp)}°</div>
           <div class="temp-label">Ist</div>
         </div>
         <div class="temp-sep">→</div>
         <div class="temp-block">
-          <div class="temp-target">${tgtTemp}°</div>
+          <div class="temp-target">${ihcEsc(tgtTemp)}°</div>
           <div class="temp-label">Soll</div>
         </div>
         <div style="flex:1;text-align:right;font-size:11px;color:var(--secondary-text-color)">
@@ -378,7 +384,7 @@ class IhcRoomCard extends HTMLElement {
       ${sparkHtml}
 
       <div class="demand-bg">
-        <div class="demand-bar" style="width:${barWidth}%;background:${barColor}"></div>
+        <div class="demand-bar" style="width:${ihcEsc(barWidth)}%;background:${ihcEsc(barColor)}"></div>
       </div>
       <div class="demand-label">Wärmebedarf ${this._fmt(Math.round(room.demand), "%")} · ${this._esc(room.reason || room.source || "—")}</div>
 

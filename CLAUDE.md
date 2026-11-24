@@ -11,7 +11,7 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.6.1`
+- **Version:** `2.7.0`
 - **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
@@ -1303,8 +1303,16 @@ regeln weiterhin jedes Zimmer einzeln, siehe Kapitel 1/14).
 - **Zeitzonen-Regel:** Uhrzeit-/Wochentag-Entscheidungen IMMER mit `dt_util.now()`, nie
   `datetime.now()` (OS-Zeitzone ≠ HA-Zeitzone in Docker). `ScheduleManager`-Methoden bekommen
   `now=dt_util.now()` explizit übergeben. Reine Dauer-Messungen (Boost-Ende etc.) dürfen naiv bleiben.
-- **Frontend-Regel:** Zimmernamen und andere Freitexte nur über `this._esc()` ins HTML,
+- **Frontend-Regel:** JEDER Datenwert (Zimmer-/Gruppennamen, Entitäts-IDs, Zustände und Attribute
+  anderer Integrationen, Wetter/Vorhersage, Konfig-Strings) nur über `this._esc()`/`ihcEsc()` ins HTML
+  (seit 2.7.0 erzwungen: `tests/test_html_escape.py` → `tests/tools/check_html_escape.js`, acorn-
+  basiert, prüft Panel-`src/` und beide Lovelace-Karten; `node tests/tools/check_html_escape.js
+  <src> --fix` wrappt automatisch). Toasts sind reiner Text (`textContent`), nie HTML übergeben.
   `localStorage` nur über `this._lsGet()/_lsSet()`.
+- **Config-Flow-Regel (seit 2.7.0):** Einzel-Entitätsfelder NIE mit `default=` – immer
+  `_opt_entity(KEY, aktueller_wert)` (suggested_value) und den Key in `_ENTITY_KEYS_GLOBAL`/
+  `_ENTITY_KEYS_ROOM` eintragen (geleertes Feld = fehlender Key → ""). Erzwungen durch
+  `tests/test_config_flow_static.py`, Szenarien in `tests_ha/test_config_flow.py`.
 - [x] Rollläden Loxone-Tageszyklus (`solar_cover_manager._update_solar_covers`, Priorität:
   Wetterschutz > Handbetrieb > Fenster offen > Nacht (Dämmung/Privatsphäre) > Morgen-Halt >
   Blendschutz > Beschattung bei Überhitzung > Sonnenwärme > Tageslicht). Logische Position
@@ -1365,7 +1373,14 @@ Vollständigkeit der Tupel und gleiche Platzhalter.
 **Neue Module seit 2.6.0 (HA-frei, unit-getestet):** `comfort_learning.py` („Mir ist kalt/warm“-
 Lernen), `heat_output.py` (EN-442-Verbrauchsmodell, Heizkörper-Rechner, Zählereinheiten),
 `trv_capabilities.py` (Geschwister-Entitäten eines Thermostats klassifizieren, Fühlereingang,
-Eigenheiten-Tabelle `QUIRKS`).
+Eigenheiten-Tabelle `QUIRKS`), seit 2.7.0 `afterheat.py` (Restwärme lernen + Ventil früher schließen), `hydraulics.py`
+(Abgleich-Hinweise + Vorlauf-Empfehlung aus Ventilstatistik), `savings.py` (Spar-Bilanz +
+Monatsbericht-Text); `solar_cover_manager.weather_protection_step()` (Sturmschutz zweistufig).
+**Sicherheitsmodus (2.7.0):** `_get_sensor_temp()` verwirft Raumthermometer ohne Meldung seit
+`SENSOR_STALE_HOURS` (4 h, `last_reported`), `rdata["sensor_failed"]`, Repair `sensor_stale`,
+`_sync_external_sensor()` schaltet dann auf `sensor_select_internal` zurück.
+**Repairs statt Pop-ups (2.7.0):** Heizperioden- und Warmup-Stall-Hinweise sind Issues
+(`heating_period_blocked_<id>`, `warmup_stall_<id>`), Texte in `translations/*.json` → `issues`.
 
 **Panel im Browser prüfen** (ohne HA): Playwright + Mock-`hass` (siehe Git-Historie von 2.6.0) –
 alle Tabs in einfach/experte und de/en rendern, JS-Fehler sammeln, Screenshots ansehen.
@@ -1462,6 +1477,10 @@ gesendet wird, unabhängig von A-C, kann deren Ergebnis komplett verwerfen)
 39. **Sommerautomatik** ODER **Heizperiode inaktiv** (außer `CONF_ROOM_IGNORE_HEATING_PERIOD`)
     – TRV aus
 40. Sonst: normaler Sollwert-Versand (inkl. `_apply_aggressive_mode` + Peak-Shaving-Clamp)
+40a. **Restwärme nutzen** (seit 2.7.0, `afterheat.py` + `coordinator._update_afterheat()`): nur in
+    Zweig 40 – heizt das Zimmer und liegt es weniger als den gelernten Nachlauf unter Soll, wird
+    der gesendete Sollwert auf `coast_setpoint()` gesenkt (Ventil früher zu). Gelernt wird immer
+    (außer bei 35–39), nur mit Raumthermometer + Hardware-Heizsignal (Ventil > 8 % / hvac_action)
 
 ### Wo eine neue Regel einsortiert wird
 

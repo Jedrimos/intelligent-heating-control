@@ -27,10 +27,11 @@
         <div class="auto-row"><span>🌡️ Außentemperatur</span><span>${outdoorTxt}</span></div>
         <div class="auto-row"><span>🌦️ Wettervorhersage</span><span>${g.weather_entity_effective ? `<b>${this._esc(this._friendly(g.weather_entity_effective))}</b> – für Kälteprognose &amp; Frühstart` : "keine Wetter-Entität gefunden"}</span></div>
         <div class="auto-row"><span>🪟 Fenster ohne Sensor</span><span>${g.window_auto_detect_enabled ? "werden am Temperatursturz erkannt ✓" : "nicht erkannt (unten unter Temperaturen einschaltbar)"}</span></div>
+        <div class="auto-row"><span>♨️ Restwärme</span><span>${g.afterheat_enabled ? "wird pro Zimmer gelernt – Ventil schließt früher ✓" : "aus (unten unter Temperaturen einschaltbar)"}</span></div>
         <div class="auto-row"><span>🍂 Heizperiode</span><span>${a.heating_period_entity ? "per eigenem Schalter gesteuert" : (a.heating_period_auto_enabled !== false ? "startet/endet automatisch nach Außentemperatur ✓" : "immer aktiv")}</span></div>
         <div class="auto-row"><span>🚶 Abwesenheit</span><span>${(() => {
           const eff = a.presence_entities_effective || [];
-          if ((a.presence_entities || []).length) return `über ${eff.length} eingetragene Person(en)/Tracker ✓`;
+          if ((a.presence_entities || []).length) return `über ${ihcEsc(eff.length)} eingetragene Person(en)/Tracker ✓`;
           if (eff.length) return `automatisch über ${eff.map(e => this._esc(this._friendly(e))).join(", ")} ✓ (mind. 20 min Verzögerung)`;
           return "keine Person mit Standort gefunden – 💡 mit der HA-Companion-App senkt IHC automatisch ab, wenn niemand zu Hause ist";
         })()}</span></div>
@@ -44,7 +45,7 @@
         <div class="settings-item">
           <label>Spar-Regler: alle Wohlfühltemperaturen absenken um</label>
           <div class="comfort-pick">
-            <input type="range" id="saving-offset" min="0" max="3" step="0.5" value="${saving}">
+            <input type="range" id="saving-offset" min="0" max="3" step="0.5" value="${ihcEsc(saving)}">
             <span id="saving-offset-val">${saving.toFixed(1)} °C</span>
           </div>
           <span class="form-hint"><span id="saving-offset-est">${saving > 0 ? `≈ ${Math.round(saving * 6)} % weniger Heizenergie.` : "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie."}</span> Frostschutz, Abwesend, Urlaub und manuell eingestellte Werte bleiben unverändert.</span>
@@ -52,7 +53,7 @@
         <div class="settings-grid" style="margin-top:8px">
           <div class="settings-item">
             <label>🪟 Erinnern, wenn ein Fenster länger offen ist (min)</label>
-            <input type="number" class="form-input" id="window-reminder-minutes" min="0" max="120" step="5" value="${a.window_reminder_minutes ?? 15}">
+            <input type="number" class="form-input" id="window-reminder-minutes" min="0" max="120" step="5" value="${ihcEsc(a.window_reminder_minutes ?? 15)}">
             <span class="form-hint">Nur bei unter 15 °C draußen. 0 = aus. Löst auch das Event <code>intelligent_heating_control_window_open_too_long</code> für eigene Automationen aus.</span>
           </div>
           <div class="settings-item">
@@ -61,6 +62,13 @@
               🚶 Abwesenheit automatisch aus HA-Personen
             </label>
             <span class="form-hint">Nur wenn unter „Anwesenheitserkennung“ nichts eingetragen ist.</span>
+          </div>
+          <div class="settings-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+              <input type="checkbox" id="monthly-report" ${a.monthly_report_enabled !== false ? "checked" : ""}>
+              📬 Monatsbericht
+            </label>
+            <span class="form-hint">Am Monatsanfang eine Benachrichtigung: Verbrauch, Vergleich zum Vormonat, was IHC gespart hat und Hinweise.</span>
           </div>
         </div>
         <div class="btn-row"><button class="btn btn-primary" id="save-saving">💾 Speichern</button></div>
@@ -77,11 +85,11 @@
         <div class="settings-grid">
           <div class="settings-item">
             <label>⏰ Warm aufwachen – so lange vor dem Wecker heizen (min)</label>
-            <input type="number" class="form-input" id="wakeup-preheat" min="0" max="180" step="5" value="${a.wakeup_preheat_minutes ?? 30}">
+            <input type="number" class="form-input" id="wakeup-preheat" min="0" max="180" step="5" value="${ihcEsc(a.wakeup_preheat_minutes ?? 30)}">
           </div>
           <div class="settings-item">
             <label>… und danach warm halten (min)</label>
-            <input type="number" class="form-input" id="wakeup-comfort" min="0" max="240" step="5" value="${a.wakeup_comfort_minutes ?? 60}">
+            <input type="number" class="form-input" id="wakeup-comfort" min="0" max="240" step="5" value="${ihcEsc(a.wakeup_comfort_minutes ?? 60)}">
           </div>
         </div>
         <span class="form-hint">${alarms.length
@@ -101,7 +109,7 @@
         <div class="settings-grid">
           <div class="settings-item">
             <label>🥶/🥵 „Mir ist kalt/warm“ wirkt für (min)</label>
-            <input type="number" class="form-input" id="feel-duration" min="15" max="480" step="15" value="${a.feel_duration_minutes ?? 120}">
+            <input type="number" class="form-input" id="feel-duration" min="15" max="480" step="15" value="${ihcEsc(a.feel_duration_minutes ?? 120)}">
           </div>
           <div class="settings-item">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
@@ -125,18 +133,18 @@
           <div class="settings-item">
             <label>Heizungsart</label>
             <select class="form-select" id="heating-system">
-              ${systems.map(([v, l]) => `<option value="${v}" ${(a.heating_system || "gas") === v ? "selected" : ""}>${l}</option>`).join("")}
+              ${systems.map(([v, l]) => `<option value="${ihcEsc(v)}" ${(a.heating_system || "gas") === v ? "selected" : ""}>${l}</option>`).join("")}
             </select>
-            <span class="form-hint">Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).${g.flow_temp_now != null ? ` Vorlauf jetzt geschätzt: ${g.flow_temp_now} °C.` : ""}</span>
+            <span class="form-hint">Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).${g.flow_temp_now != null ? ` Vorlauf jetzt geschätzt: ${ihcEsc(g.flow_temp_now)} °C.` : ""}</span>
           </div>
           <div class="settings-item expert-only">
             <label>Wirkungsgrad bzw. JAZ (0 = automatisch)</label>
-            <input type="number" class="form-input" id="heating-efficiency" min="0" max="7" step="0.05" value="${a.heating_efficiency ?? 0}">
+            <input type="number" class="form-input" id="heating-efficiency" min="0" max="7" step="0.05" value="${ihcEsc(a.heating_efficiency ?? 0)}">
             <span class="form-hint">Gas ≈ 0,92 · Öl ≈ 0,88 · Wärmepumpe: Jahresarbeitszahl (z. B. 3,5)</span>
           </div>
           <div class="settings-item expert-only">
             <label>Vorlauftemperatur bei −12 °C außen (0 = automatisch)</label>
-            <input type="number" class="form-input" id="design-flow-temp" min="0" max="90" step="1" value="${a.design_flow_temp ?? 0}">
+            <input type="number" class="form-input" id="design-flow-temp" min="0" max="90" step="1" value="${ihcEsc(a.design_flow_temp ?? 0)}">
           </div>
           <div class="settings-item expert-only">
             <label>Vorlauf-Sensor (optional)</label>
@@ -145,7 +153,7 @@
           <div class="settings-item">
             <label>Echter Zähler (optional)</label>
             <input type="text" class="form-input" id="energy-meter-entity" value="${this._esc(a.energy_meter_entity || "")}" placeholder="sensor.gaszaehler" data-ep-domains="sensor" autocomplete="off">
-            <span class="form-hint">Gaszähler (m³ oder kWh), Wärmemengen- oder Wärmepumpen-Stromzähler. IHC gleicht seine Zimmer-Schätzung täglich daran an${a.energy_calibration_factor && a.energy_calibration_factor !== 1 ? ` (aktuell × ${a.energy_calibration_factor})` : ""}. Hinweis: Zählt der Zähler Warmwasser mit, wird das anteilig den Zimmern zugerechnet.</span>
+            <span class="form-hint">Gaszähler (m³ oder kWh), Wärmemengen- oder Wärmepumpen-Stromzähler. IHC gleicht seine Zimmer-Schätzung täglich daran an${a.energy_calibration_factor && a.energy_calibration_factor !== 1 ? ` (aktuell × ${ihcEsc(a.energy_calibration_factor)})` : ""}. Hinweis: Zählt der Zähler Warmwasser mit, wird das anteilig den Zimmern zugerechnet.</span>
           </div>
         </div>
         <div class="btn-row"><button class="btn btn-primary" id="save-heating">💾 Speichern</button></div>
@@ -168,31 +176,31 @@
               <label>Außentemperatur-Sensor</label>
               <input type="text" class="form-input" id="outdoor-sensor"
                 placeholder="sensor.aussensensor"
-                value="${a.outdoor_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
+                value="${ihcEsc(a.outdoor_temp_sensor ?? '')}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Für Heizkurve, Sommerautomatik und Heizperiode. <b>Leer lassen geht auch:</b> dann nimmt IHC automatisch die Temperatur aus der Wettervorhersage.</span>
             </div>
             <div class="settings-item expert-only">
               <label>Außentemperatur-Glättung (Minuten)</label>
-              <input type="number" class="form-input" id="outdoor-smoothing" min="0" max="60" step="5" value="${a.outdoor_temp_smoothing_minutes ?? 30}">
+              <input type="number" class="form-input" id="outdoor-smoothing" min="0" max="60" step="5" value="${ihcEsc(a.outdoor_temp_smoothing_minutes ?? 30)}">
               <span class="form-hint">Gleitender Mittelwert über die letzten N Minuten (0 = aus). Verhindert dass schnelle Sonne/Wolken-Wechsel die Heizkurve und die TRVs oszillieren lassen. Empfohlen: 20–30 Minuten.</span>
             </div>
             <div class="settings-item">
               <label>Wettervorhersage-Entität</label>
               <input type="text" class="form-input" id="weather-entity"
                 placeholder="leer = automatisch erste Wetter-Entität"
-                value="${a.weather_entity ?? ''}" data-ep-domains="weather" autocomplete="off">
+                value="${ihcEsc(a.weather_entity ?? '')}" data-ep-domains="weather" autocomplete="off">
               <span class="form-hint">Wetter-Entität aus HA (z.B. <code>weather.forecast_home</code> von Met.no). Leer = IHC nimmt automatisch die erste vorhandene. Für Kälteprognose, Frühstart und 3-Tage-Vorschau.</span>
             </div>
             <div class="settings-item expert-only">
               <label>Kältewarnung ab (°C)</label>
               <input type="number" class="form-input" id="weather-cold-threshold"
-                step="0.5" value="${a.weather_cold_threshold ?? 0}">
+                step="0.5" value="${ihcEsc(a.weather_cold_threshold ?? 0)}">
               <span class="form-hint">Banner erscheint wenn die vorhergesagte Tiefsttemperatur diesen Wert unterschreitet (0 = deaktiviert).</span>
             </div>
             <div class="settings-item expert-only">
               <label>Kälteboost (°C)</label>
               <input type="number" class="form-input" id="weather-cold-boost"
-                step="0.5" min="0" max="5" value="${a.weather_cold_boost ?? 0}">
+                step="0.5" min="0" max="5" value="${ihcEsc(a.weather_cold_boost ?? 0)}">
               <span class="form-hint">Bei Kältewarnung werden alle Zimmer um diesen Wert zusätzlich aufgeheizt (0 = kein Boost).</span>
             </div>
           </div>
@@ -214,17 +222,17 @@
           <div class="settings-grid">
             <div class="settings-item">
               <label>Abwesend-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="away-temp" min="5" max="25" step="0.5" value="${a.away_temp ?? 16}">
+              <input type="number" class="form-input" id="away-temp" min="5" max="25" step="0.5" value="${ihcEsc(a.away_temp ?? 16)}">
               <span class="form-hint">Globale Mindesttemperatur wenn niemand zuhause ist (Anwesenheitserkennung aktiv oder Systemmodus = Abwesend).</span>
             </div>
             <div class="settings-item">
               <label>Urlaubs-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="vacation-temp" min="5" max="20" step="0.5" value="${a.vacation_temp ?? 14}">
+              <input type="number" class="form-input" id="vacation-temp" min="5" max="20" step="0.5" value="${ihcEsc(a.vacation_temp ?? 14)}">
               <span class="form-hint">Niedrige Grundtemperatur für den Urlaubs-Modus – spart Energie und verhindert trotzdem Frostschäden.</span>
             </div>
             <div class="settings-item">
               <label>Frostschutz-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="frost-temp" min="4" max="15" step="0.5" value="${a.frost_protection_temp ?? 7}">
+              <input type="number" class="form-input" id="frost-temp" min="4" max="15" step="0.5" value="${ihcEsc(a.frost_protection_temp ?? 7)}">
               <span class="form-hint">Absolute Untergrenze für Abwesend- und Urlaubsmodus. Im Modus „Aus" wird dieser Wert nur genutzt wenn die Option unten aktiviert ist.</span>
             </div>
             <div class="settings-item expert-only">
@@ -248,7 +256,7 @@
             </div>
             <div class="settings-item">
               <label>Sommer-Schwelle (°C)</label>
-              <input type="number" class="form-input" id="summer-threshold" min="10" max="30" step="0.5" value="${a.summer_threshold ?? 18}">
+              <input type="number" class="form-input" id="summer-threshold" min="10" max="30" step="0.5" value="${ihcEsc(a.summer_threshold ?? 18)}">
               <span class="form-hint">Ab dieser Außentemperatur wird die Heizung gesperrt (Sommerautomatik muss aktiviert sein).</span>
             </div>
             <div class="settings-item expert-only" style="grid-column:1/-1">
@@ -256,7 +264,7 @@
                 ${a.summer_mode_entity ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">Extern gesteuert</span>` : ""}
               </label>
               <input type="text" class="form-input full" id="s-summer-mode-entity"
-                value="${a.summer_mode_entity || ''}" placeholder="input_boolean.sommermodus"
+                value="${ihcEsc(a.summer_mode_entity || '')}" placeholder="input_boolean.sommermodus"
                 data-ep-domains="input_boolean,binary_sensor" autocomplete="off">
               <span class="form-hint">Optional: Überschreibt die Temperatur-Automatik. ON = Sommer aktiv (Heizung gesperrt), OFF = Heizung freigegeben. Ideal für Automationen oder einen physischen Schalter.</span>
             </div>
@@ -269,15 +277,15 @@
               <span class="form-hint">
                 Gleitendes Mehrtage-Mittel statt Momentanwert – vermeidet Flip-Flop an Grenztagen.
                 ${a.summer_mode_rolling_avg != null
-                  ? `<br>Aktuelles Ø (${a.summer_mode_hysteresis_days ?? 3} Tage): <strong>${a.summer_mode_rolling_avg}°C</strong> → ${a.summer_mode_auto_active ? "Sommerautomatik aktiv" : "Sommerautomatik inaktiv"}`
+                  ? `<br>Aktuelles Ø (${ihcEsc(a.summer_mode_hysteresis_days ?? 3)} Tage): <strong>${ihcEsc(a.summer_mode_rolling_avg)}°C</strong> → ${a.summer_mode_auto_active ? "Sommerautomatik aktiv" : "Sommerautomatik inaktiv"}`
                   : ""}
               </span>
             </div>
             <div class="settings-item expert-only">
               <label>Hysterese-Band (°C) / Fenstergröße (Tage)</label>
               <div style="display:flex;gap:8px">
-                <input type="number" class="form-input" id="summer-hysteresis-band" min="0.5" max="10" step="0.5" value="${a.summer_mode_hysteresis_band ?? 2}" title="Band unter der Sommer-Schwelle" style="flex:1">
-                <input type="number" class="form-input" id="summer-hysteresis-days" min="1" max="14" step="1" value="${a.summer_mode_hysteresis_days ?? 3}" title="Fenstergröße in Tagen" style="flex:1">
+                <input type="number" class="form-input" id="summer-hysteresis-band" min="0.5" max="10" step="0.5" value="${ihcEsc(a.summer_mode_hysteresis_band ?? 2)}" title="Band unter der Sommer-Schwelle" style="flex:1">
+                <input type="number" class="form-input" id="summer-hysteresis-days" min="1" max="14" step="1" value="${ihcEsc(a.summer_mode_hysteresis_days ?? 3)}" title="Fenstergröße in Tagen" style="flex:1">
               </div>
               <span class="form-hint">Band: °C unter der Sommer-Schwelle, ab der wieder deaktiviert wird. Fenstergröße: Tage für das gleitende Mittel.</span>
             </div>
@@ -287,7 +295,7 @@
                 ${!a.heating_period_entity ? `<span class="badge" style="background:#2196f3;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">🤖 Automatik aktiv</span>` : ""}
               </label>
               <input type="text" class="form-input full" id="s-heating-period-entity"
-                value="${a.heating_period_entity || ''}" placeholder="Leer lassen für automatische Erkennung"
+                value="${ihcEsc(a.heating_period_entity || '')}" placeholder="Leer lassen für automatische Erkennung"
                 data-ep-domains="input_boolean,binary_sensor" autocomplete="off">
               <span class="form-hint">Optional: Entity (input_boolean.* oder binary_sensor.*) die die Heizperiode manuell steuert und die Automatik unten übersteuert. <strong>Leer lassen (empfohlen):</strong> IHC entscheidet selbst, siehe "Automatische Heizperioden-Erkennung".</span>
             </div>
@@ -302,21 +310,21 @@
                 gleitenden Mehrtage-Mittels der Außentemperatur (Hysterese) + Kälteprognose-Frühstart –
                 damit ein einzelner kalter Tag in der Übergangszeit nicht ausgesperrt bleibt.
                 ${a.heating_period_rolling_avg != null
-                  ? `<br>Aktuelles Ø (${a.heating_period_auto_days ?? 3} Tage): <strong>${a.heating_period_rolling_avg}°C</strong> → ${a.heating_period_auto_active !== false ? "Heizperiode aktiv" : "Heizperiode inaktiv"}`
+                  ? `<br>Aktuelles Ø (${ihcEsc(a.heating_period_auto_days ?? 3)} Tage): <strong>${ihcEsc(a.heating_period_rolling_avg)}°C</strong> → ${a.heating_period_auto_active !== false ? "Heizperiode aktiv" : "Heizperiode inaktiv"}`
                   : `<br><em>Noch nicht genug Tages-Historie gesammelt – bis dahin bleibt die Heizperiode sicherheitshalber aktiv.</em>`}
               </span>
             </div>
             <div class="settings-item expert-only">
               <label>Grenze aktiv / inaktiv (°C Ø-Außentemp.)</label>
               <div style="display:flex;gap:8px">
-                <input type="number" class="form-input" id="hp-auto-low" min="-10" max="20" step="0.5" value="${a.heating_period_auto_low_temp ?? 12}" title="Darunter: aktiv" style="flex:1">
-                <input type="number" class="form-input" id="hp-auto-high" min="-5" max="25" step="0.5" value="${a.heating_period_auto_high_temp ?? 16}" title="Darüber: inaktiv" style="flex:1">
+                <input type="number" class="form-input" id="hp-auto-low" min="-10" max="20" step="0.5" value="${ihcEsc(a.heating_period_auto_low_temp ?? 12)}" title="Darunter: aktiv" style="flex:1">
+                <input type="number" class="form-input" id="hp-auto-high" min="-5" max="25" step="0.5" value="${ihcEsc(a.heating_period_auto_high_temp ?? 16)}" title="Darüber: inaktiv" style="flex:1">
               </div>
               <span class="form-hint">Links: darunter aktiviert die Automatik die Heizperiode. Rechts: darüber deaktiviert sie sie. Dazwischen bleibt der letzte Zustand (Hysterese, kein Flattern).</span>
             </div>
             <div class="settings-item expert-only">
               <label>Fenstergröße gleitendes Mittel (Tage)</label>
-              <input type="number" class="form-input" id="hp-auto-days" min="1" max="14" step="1" value="${a.heating_period_auto_days ?? 3}">
+              <input type="number" class="form-input" id="hp-auto-days" min="1" max="14" step="1" value="${ihcEsc(a.heating_period_auto_days ?? 3)}">
               <span class="form-hint">Größer = träger/stabiler, kleiner = reagiert schneller auf einen Wetterumschwung.</span>
             </div>
             <div class="settings-item expert-only" style="grid-column:1/-1">
@@ -335,24 +343,31 @@
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="afterheat-enabled" ${a.afterheat_enabled !== false ? "checked" : ""}>
+                ♨️ Restwärme nutzen
+              </label>
+              <span class="form-hint">IHC lernt pro Zimmer, wie weit die Temperatur nach dem Schließen des Ventils noch steigt, und schließt es entsprechend früher – nicht mehr zu warm, weniger Verbrauch. Braucht ein Raumthermometer, greift nach 3 gemessenen Heizphasen.</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
                 <input type="checkbox" id="window-auto-detect-enabled" ${a.window_auto_detect_enabled !== false ? "checked" : ""}>
                 🪟 Sensorlose Fenstererkennung (Temperatursturz)
               </label>
               <span class="form-hint">Nur für Zimmer <b>ohne</b> Fenstersensor: fällt die Raumtemperatur plötzlich stark, wird ein offenes Fenster angenommen und das Thermostat pausiert – bis die Temperatur wieder steigt, höchstens aber für die maximale Dauer.</span>
               <div class="expert-only" style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
                 <label style="flex:1;min-width:120px;font-size:12px">Sturz (°C)
-                  <input type="number" class="form-input" id="window-auto-detect-drop" min="0.3" max="3" step="0.1" value="${a.window_auto_detect_drop ?? 0.8}"></label>
+                  <input type="number" class="form-input" id="window-auto-detect-drop" min="0.3" max="3" step="0.1" value="${ihcEsc(a.window_auto_detect_drop ?? 0.8)}"></label>
                 <label style="flex:1;min-width:120px;font-size:12px">innerhalb (min)
-                  <input type="number" class="form-input" id="window-auto-detect-minutes" min="2" max="20" step="1" value="${a.window_auto_detect_minutes ?? 6}"></label>
+                  <input type="number" class="form-input" id="window-auto-detect-minutes" min="2" max="20" step="1" value="${ihcEsc(a.window_auto_detect_minutes ?? 6)}"></label>
                 <label style="flex:1;min-width:120px;font-size:12px">max. Dauer (min)
-                  <input type="number" class="form-input" id="window-auto-detect-hold" min="5" max="90" step="5" value="${a.window_auto_detect_hold_minutes ?? 20}"></label>
+                  <input type="number" class="form-input" id="window-auto-detect-hold" min="5" max="90" step="5" value="${ihcEsc(a.window_auto_detect_hold_minutes ?? 20)}"></label>
               </div>
             </div>
             <div class="settings-item expert-only">
               <label>🔥 Heizgradtage – Basis- / Schwellentemperatur (°C)</label>
               <div style="display:flex;gap:8px">
-                <input type="number" class="form-input" id="dd-base-temp" min="15" max="22" step="0.5" value="${a.degree_day_base_temp ?? 20}" title="Basistemperatur" style="flex:1">
-                <input type="number" class="form-input" id="dd-threshold-temp" min="10" max="20" step="0.5" value="${a.degree_day_threshold_temp ?? 15}" title="Schwelle" style="flex:1">
+                <input type="number" class="form-input" id="dd-base-temp" min="15" max="22" step="0.5" value="${ihcEsc(a.degree_day_base_temp ?? 20)}" title="Basistemperatur" style="flex:1">
+                <input type="number" class="form-input" id="dd-threshold-temp" min="10" max="20" step="0.5" value="${ihcEsc(a.degree_day_threshold_temp ?? 15)}" title="Schwelle" style="flex:1">
               </div>
               <span class="form-hint">Speist sensor.ihc_heizgradtage (kumulativ – HA liefert daraus Monats-/Jahressummen). Gradtag = Basis − Tagesmittel Außentemp., nur an Tagen mit Tagesmittel unter der Schwelle.</span>
             </div>
@@ -367,7 +382,7 @@
       <details class="ihc-card expert-only" ${a.forecast_coldnight_enabled ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">❄️ Kälteprognose – Frühstart
-            ${(() => { const fc = g.weather_forecast; const active = g.forecast_coldnight_active || (a.forecast_coldnight_enabled && fc && fc.forecast_today_min != null && fc.forecast_today_min <= (a.forecast_coldnight_temp ?? 8)); const t = g.forecast_coldnight_min_temp ?? fc?.forecast_today_min; return active ? `<span class="badge" style="background:#29b6f6;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">❄️ Aktiv${t != null ? ` – ${t}°C` : ""}</span>` : ""; })()}
+            ${(() => { const fc = g.weather_forecast; const active = g.forecast_coldnight_active || (a.forecast_coldnight_enabled && fc && fc.forecast_today_min != null && fc.forecast_today_min <= (a.forecast_coldnight_temp ?? 8)); const t = g.forecast_coldnight_min_temp ?? fc?.forecast_today_min; return active ? `<span class="badge" style="background:#29b6f6;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">❄️ Aktiv${t != null ? ` – ${ihcEsc(t)}°C` : ""}</span>` : ""; })()}
           </span>
         </summary>
         <div class="ihc-card-body">
@@ -385,19 +400,19 @@
             <div class="settings-item">
               <label>Kälteschwelle Nacht (°C)</label>
               <input type="number" class="form-input" id="s-forecast-coldnight-temp"
-                min="-10" max="20" step="0.5" value="${a.forecast_coldnight_temp ?? 8}">
+                min="-10" max="20" step="0.5" value="${ihcEsc(a.forecast_coldnight_temp ?? 8)}">
               <span class="form-hint">Unter dieser Nachttemperatur-Prognose wird der Frühstart ausgelöst.</span>
             </div>
             <div class="settings-item">
               <label>Frühstart-Vorlaufzeit (Stunden)</label>
               <input type="number" class="form-input" id="s-forecast-advance-hours"
-                min="1" max="8" step="1" value="${a.forecast_advance_hours ?? 3}">
+                min="1" max="8" step="1" value="${ihcEsc(a.forecast_advance_hours ?? 3)}">
               <span class="form-hint">Um wie viele Stunden früher soll die Heizung anspringen. Empfehlung: 2–4 Stunden.</span>
             </div>
             <div class="settings-item">
               <label>Vorschau-Tage</label>
               <input type="number" class="form-input" id="s-forecast-lookahead-days"
-                min="1" max="3" step="1" value="${a.forecast_lookahead_days ?? 1}">
+                min="1" max="3" step="1" value="${ihcEsc(a.forecast_lookahead_days ?? 1)}">
               <span class="form-hint">1 = nur heute Nacht (bisheriges Verhalten). 2–3 reagieren schon auf einen Kälteeinbruch, der erst in 1–2 Tagen kommt.</span>
             </div>
           </div>
@@ -427,17 +442,17 @@
             </div>
             <div class="settings-item">
               <label>Absenkungsbetrag (°C)</label>
-              <input type="number" class="form-input" id="night-setback-offset" min="0.5" max="6" step="0.5" value="${a.night_setback_offset ?? 2}">
+              <input type="number" class="form-input" id="night-setback-offset" min="0.5" max="6" step="0.5" value="${ihcEsc(a.night_setback_offset ?? 2)}">
               <span class="form-hint">Um diesen Betrag werden alle Zieltemperaturen in der Nacht reduziert.</span>
             </div>
             <div class="settings-item">
               <label>Vorheiz-Vorlaufzeit (min)</label>
-              <input type="number" class="form-input" id="preheat-minutes" min="0" max="120" step="5" value="${a.preheat_minutes ?? 0}">
+              <input type="number" class="form-input" id="preheat-minutes" min="0" max="120" step="5" value="${ihcEsc(a.preheat_minutes ?? 0)}">
               <span class="form-hint">Heizung startet so viele Minuten <em>vor</em> dem Zeitplan-Beginn – damit das Zimmer schon warm ist wenn du aufstehst. 0 = deaktiviert.</span>
             </div>
             <div class="settings-item">
               <label>Sonnen-Entität</label>
-              <input type="text" class="form-input" id="sun-entity" placeholder="sun.sun" value="${a.sun_entity ?? 'sun.sun'}">
+              <input type="text" class="form-input" id="sun-entity" placeholder="sun.sun" value="${ihcEsc(a.sun_entity ?? 'sun.sun')}">
               <span class="form-hint">Wird für die Nacht-Erkennung genutzt. Standard <code>sun.sun</code> ist in HA immer vorhanden.</span>
             </div>
           </div>
@@ -469,22 +484,22 @@
             <div class="settings-item">
               <label>Auto-Away Verzögerung (min)</label>
               <div style="display:flex;align-items:center;gap:8px">
-                <input type="range" id="s-presence-away-delay" min="0" max="120" step="5" value="${a.presence_away_delay_minutes ?? 0}" style="flex:1">
-                <span id="s-presence-away-delay-val" style="min-width:42px;text-align:right">${a.presence_away_delay_minutes ?? 0} min</span>
+                <input type="range" id="s-presence-away-delay" min="0" max="120" step="5" value="${ihcEsc(a.presence_away_delay_minutes ?? 0)}" style="flex:1">
+                <span id="s-presence-away-delay-val" style="min-width:42px;text-align:right">${ihcEsc(a.presence_away_delay_minutes ?? 0)} min</span>
               </div>
               <span class="form-hint">Wie lange alle Personen abwesend sein müssen bevor IHC auf Abwesend-Modus schaltet. 0 = sofort.</span>
             </div>
             <div class="settings-item">
               <label>Ankunfts-Verzögerung (min)</label>
               <div style="display:flex;align-items:center;gap:8px">
-                <input type="range" id="s-presence-arrive-delay" min="0" max="30" step="1" value="${a.presence_arrive_delay_minutes ?? 0}" style="flex:1">
-                <span id="s-presence-arrive-delay-val" style="min-width:42px;text-align:right">${a.presence_arrive_delay_minutes ?? 0} min</span>
+                <input type="range" id="s-presence-arrive-delay" min="0" max="30" step="1" value="${ihcEsc(a.presence_arrive_delay_minutes ?? 0)}" style="flex:1">
+                <span id="s-presence-arrive-delay-val" style="min-width:42px;text-align:right">${ihcEsc(a.presence_arrive_delay_minutes ?? 0)} min</span>
               </div>
               <span class="form-hint">Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).</span>
             </div>
             <div class="settings-item">
               <label>Manuelle Zimmer-Übersteuerung – fester Timeout (min)</label>
-              <input type="number" class="form-input" id="manual-override-timeout" min="0" max="480" step="5" value="${a.manual_override_timeout_minutes ?? 0}">
+              <input type="number" class="form-input" id="manual-override-timeout" min="0" max="480" step="5" value="${ihcEsc(a.manual_override_timeout_minutes ?? 0)}">
               <span class="form-hint">Setzt ein manuell übersteuertes Zimmer nach dieser Zeit automatisch zurück auf den Zeitplan, unabhängig vom bestehenden Reset bei Zeitplan-Wechsel. 0 = aus.</span>
             </div>
           </div>
@@ -513,7 +528,7 @@
                 <div class="settings-item">
                   <label>Vorheizen ab (min vor Ankunft)</label>
                   <input type="number" class="form-input" id="eta-preheat-threshold"
-                    min="10" max="120" step="5" value="${a.eta_preheat_threshold_minutes ?? 90}">
+                    min="10" max="120" step="5" value="${ihcEsc(a.eta_preheat_threshold_minutes ?? 90)}">
                   <span class="form-hint">Vorheizen startet wenn Ankunft ≤ diesem Wert (Standard: 90 min)</span>
                 </div>
               </div>
@@ -529,7 +544,7 @@
                   if (mins < 0 || mins > (a.eta_preheat_threshold_minutes ?? 90)) return null;
                   const name = st.attributes?.friendly_name || eid;
                   const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-                  return `<div style="font-size:11px;color:#1565c0;margin-top:4px">⏱ ${this._esc(name)}: ~${mins} min (${time} Uhr)</div>`;
+                  return `<div style="font-size:11px;color:#1565c0;margin-top:4px">⏱ ${this._esc(name)}: ~${ihcEsc(mins)} min (${ihcEsc(time)} Uhr)</div>`;
                 }).filter(Boolean);
                 if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt im konfigurierten Fenster</div>`;
                 return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;
@@ -558,7 +573,7 @@
           <div class="settings-grid">
             <div class="settings-item">
               <label>Standarddauer (Stunden)</label>
-              <input type="number" class="form-input" id="guest-duration" min="0" max="168" step="1" value="${a.guest_duration_hours ?? 24}">
+              <input type="number" class="form-input" id="guest-duration" min="0" max="168" step="1" value="${ihcEsc(a.guest_duration_hours ?? 24)}">
               <span class="form-hint">Wie lange der Gäste-Modus aktiv bleibt. 0 = unbegrenzt (bis manuell beendet). Max 168 h (7 Tage).</span>
             </div>
           </div>
@@ -599,7 +614,7 @@
             </div>
             <div class="settings-item">
               <label>Fester Energiepreis (€/kWh) <span style="font-size:10px;color:var(--secondary-text-color)">(optional)</span></label>
-              <input type="number" class="form-input" id="static-energy-price" min="0.01" max="2" step="0.01" value="${a.static_energy_price ?? ''}" placeholder="z.B. 0.09 (leer = nur kWh)">
+              <input type="number" class="form-input" id="static-energy-price" min="0.01" max="2" step="0.01" value="${ihcEsc(a.static_energy_price ?? '')}" placeholder="z.B. 0.09 (leer = nur kWh)">
               <span class="form-hint">Wenn kein dynamischer Preis-Sensor vorhanden: fester Preis für die Kostenanzeige (Gas ≈ 0,09 €/kWh, Fernwärme ≈ 0,11 €/kWh).</span>
             </div>
           </div>
@@ -613,17 +628,17 @@
               <label>Solar-Leistungssensor</label>
               <input type="text" class="form-input" id="solar-entity"
                 placeholder="sensor.solar_power (leer = aus)"
-                value="${a.solar_entity ?? ''}" data-ep-domains="sensor" autocomplete="off">
+                value="${ihcEsc(a.solar_entity ?? '')}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Sensor der die aktuelle Erzeugungsleistung in Watt liefert.</span>
             </div>
             <div class="settings-item">
               <label>Überschuss-Schwelle (W)</label>
-              <input type="number" class="form-input" id="solar-surplus-threshold" min="100" max="10000" step="100" value="${a.solar_surplus_threshold ?? 1000}">
+              <input type="number" class="form-input" id="solar-surplus-threshold" min="100" max="10000" step="100" value="${ihcEsc(a.solar_surplus_threshold ?? 1000)}">
               <span class="form-hint">Erst ab diesem Überschuss wird der Heizboost aktiviert.</span>
             </div>
             <div class="settings-item">
               <label>Heizboost bei Solar (°C)</label>
-              <input type="number" class="form-input" id="solar-boost-temp" min="0.5" max="5" step="0.5" value="${a.solar_boost_temp ?? 1}">
+              <input type="number" class="form-input" id="solar-boost-temp" min="0.5" max="5" step="0.5" value="${ihcEsc(a.solar_boost_temp ?? 1)}">
               <span class="form-hint">Alle Zieltemperaturen werden um diesen Wert angehoben wenn Solar-Überschuss vorhanden ist.</span>
             </div>
           </div>
@@ -651,24 +666,24 @@
             </div>
             <div class="settings-item">
               <label>Spätestens öffnen um</label>
-              <input type="time" class="form-input" id="solar-morning-latest" value="${a.solar_morning_latest_time || "09:30"}">
+              <input type="time" class="form-input" id="solar-morning-latest" value="${ihcEsc(a.solar_morning_latest_time || "09:30")}">
               <span class="form-hint">Für Fassaden ohne Sonne (z. B. Nordseite) oder trübe Tage.</span>
             </div>
           </div>
           <div class="settings-grid">
             <div class="settings-item">
               <label>Min. Sonnenhöhe (°)</label>
-              <input type="number" class="form-input" id="solar-min-elevation" min="0" max="45" step="1" value="${a.solar_min_elevation ?? 10}">
+              <input type="number" class="form-input" id="solar-min-elevation" min="0" max="45" step="1" value="${ihcEsc(a.solar_min_elevation ?? 10)}">
               <span class="form-hint">Erst ab dieser Sonnenelevation wird die passive Solarheizung/-beschattung aktiv.</span>
             </div>
             <div class="settings-item">
               <label>Beschattungs-Position (%)</label>
-              <input type="number" class="form-input" id="solar-shade-position" min="0" max="100" step="5" value="${a.solar_shade_position ?? 20}">
+              <input type="number" class="form-input" id="solar-shade-position" min="0" max="100" step="5" value="${ihcEsc(a.solar_shade_position ?? 20)}">
               <span class="form-hint">Rolladen-Position bei aktiver Beschattung (0 = ganz zu, 100 = ganz offen).</span>
             </div>
             <div class="settings-item">
               <label>Min. Außentemp. für Solarheizung (°C)</label>
-              <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-25" max="15" step="0.5" value="${a.solar_heat_min_outdoor ?? -20}">
+              <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-25" max="15" step="0.5" value="${ihcEsc(a.solar_heat_min_outdoor ?? -20)}">
               <span class="form-hint">Standard −20 °C: Sonne durchs Fenster lohnt sich auch bei Frost.</span>
             </div>
           </div>
@@ -682,12 +697,22 @@
           <div class="settings-grid">
             <div class="settings-item">
               <label>Wind-Schwelle (km/h)</label>
-              <input type="number" class="form-input" id="solar-wind-speed-threshold" min="10" max="120" step="5" value="${a.solar_wind_speed_threshold ?? 40}">
-              <span class="form-hint">Ab dieser Windgeschwindigkeit werden Rolladen angehoben. Muss zur Einheit des Wetter-Entity passen.</span>
+              <input type="number" class="form-input" id="solar-wind-speed-threshold" min="10" max="120" step="5" value="${ihcEsc(a.solar_wind_speed_threshold ?? 40)}">
+              <span class="form-hint">Stufe 2 (Sturm): ab dieser Windgeschwindigkeit oder Böe fahren die Rolladen in Schutzstellung. Muss zur Einheit des Wetter-Entity passen.</span>
+            </div>
+            <div class="settings-item">
+              <label>Warn-Schwelle (km/h)</label>
+              <input type="number" class="form-input" id="solar-wind-warn-threshold" min="0" max="120" step="5" value="${ihcEsc(a.solar_wind_warn_threshold ?? 25)}">
+              <span class="form-hint">Stufe 1 (Wind): ab hier bewegt IHC die Rolladen nicht mehr. 0 = aus.</span>
+            </div>
+            <div class="settings-item">
+              <label>Wartezeit nach dem Sturm (min)</label>
+              <input type="number" class="form-input" id="solar-weather-resume" min="0" max="120" step="5" value="${ihcEsc(a.solar_weather_resume_minutes ?? 15)}">
+              <span class="form-hint">So lange muss es ruhig bleiben, bevor die Rolladen wieder normal gesteuert werden – kein Hin und Her bei Böen.</span>
             </div>
             <div class="settings-item">
               <label>Rollo-Übersteuerung – Re-Arm-Zeit (min)</label>
-              <input type="number" class="form-input" id="solar-override-rearm" min="10" max="720" step="10" value="${a.solar_cover_override_rearm_minutes ?? 120}">
+              <input type="number" class="form-input" id="solar-override-rearm" min="10" max="720" step="10" value="${ihcEsc(a.solar_cover_override_rearm_minutes ?? 120)}">
               <span class="form-hint">Wie lange IHC ein von Hand verstelltes Rollo in Ruhe lässt, bevor es die Steuerung wieder übernimmt.</span>
             </div>
           </div>
@@ -707,11 +732,11 @@
             </div>
             <div class="settings-item">
               <label>Uhrzeit (nur Modus "Feste Uhrzeit")</label>
-              <input type="time" class="form-input" id="solar-privacy-time" value="${a.solar_evening_privacy_time ?? "21:00"}">
+              <input type="time" class="form-input" id="solar-privacy-time" value="${ihcEsc(a.solar_evening_privacy_time ?? "21:00")}">
             </div>
             <div class="settings-item">
               <label>Rolladen-Position (%)</label>
-              <input type="number" class="form-input" id="solar-privacy-position" min="0" max="100" step="5" value="${a.solar_evening_privacy_position ?? 0}">
+              <input type="number" class="form-input" id="solar-privacy-position" min="0" max="100" step="5" value="${ihcEsc(a.solar_evening_privacy_position ?? 0)}">
             </div>
           </div>
           <hr class="divider">
@@ -723,11 +748,11 @@
           <div class="settings-grid">
             <div class="settings-item">
               <label>Ein-Schwelle (lx)</label>
-              <input type="number" class="form-input" id="solar-lux-on" min="0" max="2000" step="10" value="${a.lux_on_threshold ?? 350}">
+              <input type="number" class="form-input" id="solar-lux-on" min="0" max="2000" step="10" value="${ihcEsc(a.lux_on_threshold ?? 350)}">
             </div>
             <div class="settings-item">
               <label>Aus-Schwelle (lx)</label>
-              <input type="number" class="form-input" id="solar-lux-off" min="0" max="2000" step="10" value="${a.lux_off_threshold ?? 270}">
+              <input type="number" class="form-input" id="solar-lux-off" min="0" max="2000" step="10" value="${ihcEsc(a.lux_off_threshold ?? 270)}">
             </div>
           </div>
           <hr class="divider">
@@ -739,11 +764,11 @@
           <div class="settings-grid">
             <div class="settings-item">
               <label>Max. Sonnenhöhe (°)</label>
-              <input type="number" class="form-input" id="solar-glare-max-elevation" min="0" max="30" step="1" value="${a.solar_glare_max_elevation ?? 15}">
+              <input type="number" class="form-input" id="solar-glare-max-elevation" min="0" max="30" step="1" value="${ihcEsc(a.solar_glare_max_elevation ?? 15)}">
             </div>
             <div class="settings-item">
               <label>Rolladen-Position (%)</label>
-              <input type="number" class="form-input" id="solar-glare-position" min="0" max="100" step="5" value="${a.solar_glare_position ?? 30}">
+              <input type="number" class="form-input" id="solar-glare-position" min="0" max="100" step="5" value="${ihcEsc(a.solar_glare_position ?? 30)}">
             </div>
           </div>
           <hr class="divider">
@@ -756,24 +781,24 @@
               <label>Preis-Sensor</label>
               <input type="text" class="form-input" id="energy-price-entity"
                 placeholder="sensor.strompreis (leer = aus)"
-                value="${a.energy_price_entity ?? ''}" data-ep-domains="sensor" autocomplete="off">
+                value="${ihcEsc(a.energy_price_entity ?? '')}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">z.B. Tibber-Integration <code>sensor.tibber_current_price</code>.</span>
             </div>
             <div class="settings-item">
               <label>Teuer-Schwelle (€/kWh)</label>
-              <input type="number" class="form-input" id="energy-price-threshold" min="0.05" max="2" step="0.01" value="${a.energy_price_threshold ?? 0.30}">
+              <input type="number" class="form-input" id="energy-price-threshold" min="0.05" max="2" step="0.01" value="${ihcEsc(a.energy_price_threshold ?? 0.30)}">
               <span class="form-hint">Über diesem Preis gilt Strom als „teuer" und der Eco-Modus wird aktiv.</span>
             </div>
             <div class="settings-item">
               <label>Eco-Absenkung bei hohem Preis (°C)</label>
-              <input type="number" class="form-input" id="energy-price-eco-offset" min="0.5" max="6" step="0.5" value="${a.energy_price_eco_offset ?? 2}">
+              <input type="number" class="form-input" id="energy-price-eco-offset" min="0.5" max="6" step="0.5" value="${ihcEsc(a.energy_price_eco_offset ?? 2)}">
               <span class="form-hint">Um diesen Betrag werden die Zieltemperaturen in der teuren Zeit reduziert.</span>
             </div>
             <div class="settings-item">
               <label>Preis-Prognose-Attribut</label>
               <input type="text" class="form-input" id="price-forecast-attribute"
                 placeholder="today_prices"
-                value="${a.price_forecast_attribute ?? 'today_prices'}">
+                value="${ihcEsc(a.price_forecast_attribute ?? 'today_prices')}">
               <span class="form-hint">Attributname für stündliche Preise (Tibber/Nordpool). Standard: <code>today_prices</code>.</span>
             </div>
           </div>
@@ -796,16 +821,16 @@
           <div class="settings-grid">
             <div class="settings-item">
               <label>Batterie-Ladestand-Sensor</label>
-              <input type="text" class="form-input" id="battery-soc-entity" value="${a.battery_soc_entity ?? ""}"
+              <input type="text" class="form-input" id="battery-soc-entity" value="${ihcEsc(a.battery_soc_entity ?? "")}"
                 placeholder="sensor.hausbatterie_ladestand" data-ep-domains="sensor" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>Batterie niedrig ab (%)</label>
-              <input type="number" class="form-input" id="battery-soc-low" min="0" max="50" step="5" value="${a.battery_soc_low_threshold ?? 20}">
+              <input type="number" class="form-input" id="battery-soc-low" min="0" max="50" step="5" value="${ihcEsc(a.battery_soc_low_threshold ?? 20)}">
             </div>
             <div class="settings-item">
               <label>Batterie voll genug ab (%)</label>
-              <input type="number" class="form-input" id="battery-soc-full" min="50" max="100" step="5" value="${a.battery_soc_full_threshold ?? 90}">
+              <input type="number" class="form-input" id="battery-soc-full" min="50" max="100" step="5" value="${ihcEsc(a.battery_soc_full_threshold ?? 90)}">
               <span class="form-hint">Solar-Boost wird erst ab diesem Ladestand freigegeben.</span>
             </div>
           </div>
@@ -834,7 +859,7 @@
               <label>Außenfeuchte-Sensor</label>
               <input type="text" class="form-input" id="outdoor-humidity-sensor"
                 placeholder="sensor.aussenfeuchte (leer = deaktiviert)"
-                value="${a.outdoor_humidity_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
+                value="${ihcEsc(a.outdoor_humidity_sensor ?? '')}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Wird genutzt um zu prüfen ob Lüften bei hoher Außenfeuchte (Nebel, Regen) sinnvoll ist. Verhindert unnötige Empfehlungen.</span>
             </div>
             <div class="settings-item">
@@ -873,7 +898,7 @@
                 damit die Heizung genau dann fertig ist wenn der Zeitplan beginnt.<br>
                 <strong>Benötigt:</strong> globale Vorheizzeit &gt; 0 min (Einstellung darunter).
                 ${a.adaptive_preheat_enabled !== false && a.preheat_minutes > 0 ? `
-                <br>Aktuell: fixer Basiswert ${a.preheat_minutes} min – IHC passt diesen pro Zimmer an.` : ""}
+                <br>Aktuell: fixer Basiswert ${ihcEsc(a.preheat_minutes)} min – IHC passt diesen pro Zimmer an.` : ""}
               </span>
             </div>
             <div class="settings-item">
@@ -901,21 +926,21 @@
               <label>Urlaubs-Kalender</label>
               <input type="text" class="form-input" id="vacation-calendar"
                 placeholder="calendar.urlaub (leer = aus)"
-                value="${a.vacation_calendar ?? ''}" data-ep-domains="calendar" autocomplete="off">
+                value="${ihcEsc(a.vacation_calendar ?? '')}" data-ep-domains="calendar" autocomplete="off">
               <span class="form-hint">Kalender-Entität aus HA. Termine die das Schlüsselwort „urlaub" im Namen enthalten schalten automatisch den Urlaubs-Modus ein.</span>
             </div>
             <div class="settings-item">
               <label>Urlaubs-Kalender Stichwort</label>
               <input type="text" class="form-input" id="vacation-calendar-keyword"
                 placeholder="urlaub"
-                value="${a.vacation_calendar_keyword ?? 'urlaub'}">
+                value="${ihcEsc(a.vacation_calendar_keyword ?? 'urlaub')}">
               <span class="form-hint">Stichwort im Termintext das den Urlaubs-Kalender oben auslöst (Standard: „urlaub").</span>
             </div>
             <div class="settings-item">
               <label>Feiertags-/Ferienkalender</label>
               <input type="text" class="form-input" id="holiday-calendar"
                 placeholder="calendar.feiertage (leer = aus)"
-                value="${a.holiday_calendar ?? ''}" data-ep-domains="calendar" autocomplete="off">
+                value="${ihcEsc(a.holiday_calendar ?? '')}" data-ep-domains="calendar" autocomplete="off">
               <span class="form-hint">HA-Kalender-Entität. Wenn ein Termin aktiv → Wochenend-Zeitplan oder Komfortmodus.
                 ${g.holiday_active ? '<strong style="color:#1565c0">📅 Feiertag/Ferien aktiv</strong>' : ""}</span>
             </div>
@@ -940,7 +965,7 @@
             </div>
             <div class="settings-item">
               <label>Max. Anhebung (°C)</label>
-              <input type="number" class="form-input" id="felt-temp-max" min="0.5" max="4" step="0.5" value="${a.felt_temp_adjustment_max ?? 1.5}">
+              <input type="number" class="form-input" id="felt-temp-max" min="0.5" max="4" step="0.5" value="${ihcEsc(a.felt_temp_adjustment_max ?? 1.5)}">
               <span class="form-hint">Obergrenze für die Sollwert-Anhebung durch die gefühlte Temperatur.</span>
             </div>
           </div>
@@ -971,31 +996,31 @@
             <div class="settings-item">
               <label>Intervall (Tage)</label>
               <input type="number" class="form-input" id="limescale-interval" min="7" max="90" step="1"
-                value="${a.limescale_interval_days ?? 14}">
+                value="${ihcEsc(a.limescale_interval_days ?? 14)}">
               <span class="form-hint">Alle N Tage wird die Übung durchgeführt (Standard: 14 Tage).</span>
             </div>
             <div class="settings-item">
               <label>Uhrzeit (HH:MM)</label>
               <input type="text" class="form-input" id="limescale-time" placeholder="10:00"
-                value="${a.limescale_time ?? '10:00'}">
+                value="${ihcEsc(a.limescale_time ?? '10:00')}">
               <span class="form-hint">Zeitfenster (±15 min) für die Ventil-Übung. Wähle eine Zeit wenn niemand zuhause friert.</span>
             </div>
             <div class="settings-item">
               <label>Dauer (min)</label>
               <input type="number" class="form-input" id="limescale-duration" min="1" max="30" step="1"
-                value="${a.limescale_duration_minutes ?? 5}">
+                value="${ihcEsc(a.limescale_duration_minutes ?? 5)}">
               <span class="form-hint">Wie lange die Ventile vollständig geöffnet bleiben (Standard: 5 min).</span>
             </div>
             <div class="settings-item">
               <label>Stuck-Valve Timeout (s)</label>
               <input type="number" class="form-input" id="stuck-valve-timeout" min="300" max="7200" step="300"
-                value="${a.stuck_valve_timeout ?? 1800}">
+                value="${ihcEsc(a.stuck_valve_timeout ?? 1800)}">
               <span class="form-hint">Sekunden bis ein klemmendes Ventil als Fehler gemeldet wird (Standard: 1800 = 30 min). Erkannte Fehler erscheinen als binary_sensor.</span>
             </div>
             <div class="settings-item">
               <label>Startup-Gnadenfrist (s)</label>
               <input type="number" class="form-input" id="startup-grace-seconds" min="0" max="300" step="10"
-                value="${a.startup_grace_seconds ?? 60}">
+                value="${ihcEsc(a.startup_grace_seconds ?? 60)}">
               <span class="form-hint">Sekunden nach HA-Start bevor Zigbee/Z-Wave-Sensoren als ungültig gelten (Standard: 60s). Verhindert Fehlalarme beim Neustart.</span>
             </div>
           </div>
@@ -1026,7 +1051,7 @@
             <div class="settings-item">
               <label>Staffelungsverzögerung (min)</label>
               <input type="number" class="form-input" id="peak-shaving-delay" min="1" max="15" step="1"
-                value="${a.peak_shaving_delay_minutes ?? 3}">
+                value="${ihcEsc(a.peak_shaving_delay_minutes ?? 3)}">
               <span class="form-hint">Nach dem Einschalten der Heizung werden Räume mit niedrigerer Anforderung erst nach dieser Zeit voll gezählt.</span>
             </div>
           </div>
@@ -1054,17 +1079,17 @@
           <div class="settings-grid">
             <div class="settings-item" style="grid-column:1/-1">
               <label>Kessel-/Pumpen-Schalter</label>
-              <input type="text" class="form-input" id="boiler-switch-entity" value="${a.boiler_switch_entity ?? ""}"
+              <input type="text" class="form-input" id="boiler-switch-entity" value="${ihcEsc(a.boiler_switch_entity ?? "")}"
                 placeholder="switch.heizungspumpe" data-ep-domains="switch" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>Mindest-Einschaltzeit (s)</label>
-              <input type="number" class="form-input" id="boiler-min-on" min="0" max="1800" step="30" value="${a.boiler_min_on_seconds ?? 300}">
+              <input type="number" class="form-input" id="boiler-min-on" min="0" max="1800" step="30" value="${ihcEsc(a.boiler_min_on_seconds ?? 300)}">
               <span class="form-hint">Schützt die Hardware vor Kurztakten.</span>
             </div>
             <div class="settings-item">
               <label>Mindest-Ausschaltzeit (s)</label>
-              <input type="number" class="form-input" id="boiler-min-off" min="0" max="1800" step="30" value="${a.boiler_min_off_seconds ?? 300}">
+              <input type="number" class="form-input" id="boiler-min-off" min="0" max="1800" step="30" value="${ihcEsc(a.boiler_min_off_seconds ?? 300)}">
             </div>
           </div>
           <div class="btn-row">
@@ -1103,15 +1128,15 @@
           <div class="settings-grid">
             <div class="settings-item">
               <label>Urlaub von</label>
-              <input type="date" class="form-input" id="vacation-start" value="${a.vacation_start || ""}">
+              <input type="date" class="form-input" id="vacation-start" value="${ihcEsc(a.vacation_start || "")}">
             </div>
             <div class="settings-item">
               <label>Urlaub bis (inkl.)</label>
-              <input type="date" class="form-input" id="vacation-end" value="${a.vacation_end || ""}">
+              <input type="date" class="form-input" id="vacation-end" value="${ihcEsc(a.vacation_end || "")}">
             </div>
             <div class="settings-item">
               <label>Rückkehr-Vorheizung (Tage)</label>
-              <input type="number" class="form-input" id="vacation-return-preheat" min="0" max="14" step="1" value="${a.vacation_return_preheat_days ?? 0}">
+              <input type="number" class="form-input" id="vacation-return-preheat" min="0" max="14" step="1" value="${ihcEsc(a.vacation_return_preheat_days ?? 0)}">
               <span class="form-hint">N Tage vor Ende auf Auto schalten (0 = aus)</span>
             </div>
           </div>
@@ -1202,6 +1227,7 @@
         heating_period_notify_enabled: content.querySelector("#hp-notify-enabled")?.checked === true,
         warmup_stall_notify_enabled: content.querySelector("#warmup-stall-notify-enabled")?.checked === true,
         window_auto_detect_enabled: content.querySelector("#window-auto-detect-enabled")?.checked === true,
+        afterheat_enabled: content.querySelector("#afterheat-enabled")?.checked === true,
         window_auto_detect_drop: Math.min(3, Math.max(0.3, parseFloat(content.querySelector("#window-auto-detect-drop")?.value) || 0.8)),
         window_auto_detect_minutes: Math.min(20, Math.max(2, parseInt(content.querySelector("#window-auto-detect-minutes")?.value, 10) || 6)),
         window_auto_detect_hold_minutes: Math.min(90, Math.max(5, parseInt(content.querySelector("#window-auto-detect-hold")?.value, 10) || 20)),
@@ -1319,6 +1345,7 @@
         saving_offset: Math.min(3, Math.max(0, parseFloat(savingRange?.value) || 0)),
         window_reminder_minutes: isNaN(reminder) ? 15 : Math.min(120, Math.max(0, reminder)),
         presence_auto_persons: content.querySelector("#presence-auto-persons")?.checked === true,
+        monthly_report_enabled: content.querySelector("#monthly-report")?.checked === true,
       });
       this._toast("✓ Spar-Einstellungen gespeichert");
     });
@@ -1368,6 +1395,8 @@
         solar_morning_latest_time: content.querySelector("#solar-morning-latest")?.value || "09:30",
         solar_weather_protection_enabled: content.querySelector("#solar-weather-protection-enabled")?.checked === true,
         solar_wind_speed_threshold: solarWindSpeedThreshold,
+        solar_wind_warn_threshold: Math.min(120, Math.max(0, parseFloat(content.querySelector("#solar-wind-warn-threshold")?.value) || 0)),
+        solar_weather_resume_minutes: Math.min(120, Math.max(0, parseInt(content.querySelector("#solar-weather-resume")?.value, 10) || 0)),
         solar_cover_override_rearm_minutes: solarOverrideRearm,
         solar_evening_privacy_mode:     content.querySelector("#solar-privacy-mode")?.value || "sunset",
         solar_evening_privacy_time:     content.querySelector("#solar-privacy-time")?.value || "21:00",
@@ -1606,18 +1635,18 @@
           return `
           <div class="card" style="margin-bottom:10px;padding:12px">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span style="font-weight:600;font-size:14px;flex:1">${grp.group_name || "Gruppe"}</span>
-              <span style="font-size:11px;color:var(--secondary-text-color)">${(grp.group_rooms||[]).length} Zimmer</span>
+              <span style="font-weight:600;font-size:14px;flex:1">${ihcEsc(grp.group_name || "Gruppe")}</span>
+              <span style="font-size:11px;color:var(--secondary-text-color)">${ihcEsc((grp.group_rooms||[]).length)} Zimmer</span>
               <button class="btn btn-secondary" style="font-size:11px;padding:3px 10px"
-                data-action="edit-group" data-group-id="${grp.group_id}">✏️ Bearbeiten</button>
+                data-action="edit-group" data-group-id="${ihcEsc(grp.group_id)}">✏️ Bearbeiten</button>
               <button class="btn btn-danger" style="font-size:11px;padding:3px 10px"
-                data-action="delete-group" data-group-id="${grp.group_id}">✕</button>
+                data-action="delete-group" data-group-id="${ihcEsc(grp.group_id)}">✕</button>
             </div>
-            ${memberNames ? `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:4px">🚪 ${memberNames}</div>` : ""}
+            ${memberNames ? `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:4px">🚪 ${ihcEsc(memberNames)}</div>` : ""}
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
               ${["auto","comfort","eco","sleep","away","off"].map(m =>
                 `<button class="btn btn-secondary" style="font-size:11px;padding:3px 8px"
-                  data-action="group-mode" data-group-id="${grp.group_id}" data-mode="${m}">${MODE_ICONS[m]||""} ${MODE_LABELS[m]||m}</button>`
+                  data-action="group-mode" data-group-id="${ihcEsc(grp.group_id)}" data-mode="${m}">${ihcEsc(MODE_ICONS[m]||"")} ${ihcEsc(MODE_LABELS[m]||m)}</button>`
               ).join("")}
             </div>
           </div>`;
@@ -1667,9 +1696,9 @@
     const existingRooms = group?.group_rooms || [];
     const roomCheckboxes = roomList.map(r => `
       <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
-        <input type="checkbox" data-room-id="${r.room_id}" ${existingRooms.includes(r.room_id) ? "checked" : ""}>
+        <input type="checkbox" data-room-id="${ihcEsc(r.room_id)}" ${existingRooms.includes(r.room_id) ? "checked" : ""}>
         <span>${this._esc(r.name)}</span>
-        <span style="font-size:10px;color:var(--secondary-text-color)">${r.current_temp != null ? r.current_temp + " °C" : ""}</span>
+        <span style="font-size:10px;color:var(--secondary-text-color)">${r.current_temp != null ? ihcEsc(r.current_temp) + " °C" : ""}</span>
       </label>`).join("");
 
     this._showModal(`
@@ -1677,7 +1706,7 @@
       <div class="form-group">
         <label class="form-label">Gruppenname</label>
         <input type="text" class="form-input full" id="g-name"
-          value="${group?.group_name || ''}" placeholder="z.B. Erdgeschoss, Schlafzimmer" autocomplete="off">
+          value="${ihcEsc(group?.group_name || '')}" placeholder="z.B. Erdgeschoss, Schlafzimmer" autocomplete="off">
       </div>
       <div class="form-group">
         <label class="form-label">Zimmer auswählen</label>

@@ -122,6 +122,8 @@ class EnergyManagerMixin:
             ratio = max(0.2, min(5.0, measured / estimated))
             self._energy_calibration_factor = round(0.5 * self._energy_calibration_factor + 0.5 * ratio, 3)
         self._room_heat_kwh_today = {}
+        if hasattr(self, "_add_month_consumption"):
+            self._add_month_consumption(sum(self._room_final_kwh_yesterday.values()))
 
     def _reset_runtime_if_new_day(self) -> None:
         today = dt_util.now().day

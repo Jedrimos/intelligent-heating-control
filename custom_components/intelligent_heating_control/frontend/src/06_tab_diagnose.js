@@ -34,7 +34,7 @@
     ].filter(Boolean);
 
     const flagsHtml = flags.length
-      ? flags.map(f => `<span class="ihc-card-badge ${f.cls}" style="font-size:13px;padding:5px 12px">${f.icon} ${f.label}</span>`).join("")
+      ? flags.map(f => `<span class="ihc-card-badge ${ihcEsc(f.cls)}" style="font-size:13px;padding:5px 12px">${ihcEsc(f.icon)} ${ihcEsc(f.label)}</span>`).join("")
       : `<span style="color:var(--secondary-text-color);font-size:13px">Keine aktiven Übersteuerungen</span>`;
 
     // Room status table
@@ -70,11 +70,11 @@
         <tr>
           <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color);font-weight:500">${this._esc(r.name)}</td>
           <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color)">
-            ${r.time ? r.time + " Uhr" : `<span style="color:var(--secondary-text-color)">keine ETA</span>`}
+            ${r.time ? ihcEsc(r.time) + " Uhr" : `<span style="color:var(--secondary-text-color)">keine ETA</span>`}
           </td>
           <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color)">
             ${r.mins != null
-              ? `<span style="font-weight:700;color:${r.mins <= 30 ? "#e53935" : r.mins <= 60 ? "#fb8c00" : "#43a047"}">~${r.mins} min</span>`
+              ? `<span style="font-weight:700;color:${r.mins <= 30 ? "#e53935" : r.mins <= 60 ? "#fb8c00" : "#43a047"}">~${ihcEsc(r.mins)} min</span>`
               : `<span style="color:var(--secondary-text-color);font-size:11px">außerhalb Fenster (0–120 min)</span>`}
           </td>
         </tr>`).join("");
@@ -113,7 +113,7 @@
           <div style="display:flex;flex-wrap:wrap;gap:6px">
             ${preheatingRooms.map(r =>
               `<span style="background:color-mix(in srgb,#ef5350 15%,transparent);padding:3px 10px;border-radius:12px;font-size:12px">
-                ⏱ ${this._esc(r.name)} → ${r.target_temp != null ? r.target_temp + " °C" : "—"}
+                ⏱ ${this._esc(r.name)} → ${r.target_temp != null ? ihcEsc(r.target_temp) + " °C" : "—"}
               </span>`).join("")}
           </div>` : `
           <div style="font-size:12px;color:var(--secondary-text-color)">
@@ -152,16 +152,16 @@
       return `<tr>
         <td style="font-weight:500;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${this._esc(r.name)}</td>
         <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">
-          <div style="font-size:13px">${r.current_temp != null ? r.current_temp + " °C" : "—"}</div>
+          <div style="font-size:13px">${r.current_temp != null ? ihcEsc(r.current_temp) + " °C" : "—"}</div>
           ${r.trv_raw_temp != null && hasTrvData ? `<div style="font-size:10px;color:#e65100;margin-top:1px" title="TRV-Rohtemperatur">TRV: ${parseFloat(r.trv_raw_temp).toFixed(1)}°</div>` : ""}
         </td>
-        <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">${r.source === "system_off" ? "Aus" : (r.target_temp != null ? r.target_temp + " °C" : "—")}${effHtml}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">${r.source === "system_off" ? "Aus" : (r.target_temp != null ? ihcEsc(r.target_temp) + " °C" : "—")}${effHtml}</td>
         <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">
           <div style="display:flex;align-items:center;gap:6px">
             <div style="width:40px;height:7px;border-radius:4px;background:var(--divider-color)">
-              <div style="width:${Math.min(r.demand,100)}%;height:100%;border-radius:4px;background:${demColor}"></div>
+              <div style="width:${Math.min(r.demand,100)}%;height:100%;border-radius:4px;background:${ihcEsc(demColor)}"></div>
             </div>
-            <span style="font-size:12px;color:${demColor};font-weight:600">${r.demand}%</span>
+            <span style="font-size:12px;color:${ihcEsc(demColor)};font-weight:600">${ihcEsc(r.demand)}%</span>
           </div>
           ${r.trv_avg_valve > 0 && hasTrvData ? `<div style="font-size:10px;color:#1565c0;margin-top:2px" title="Durchschn. Ventilöffnung">Ventil: ${Math.round(r.trv_avg_valve)}%</div>` : ""}
         </td>
@@ -169,14 +169,14 @@
           ${humidity != null ? `<span style="${moldRisk ? "color:#c62828;font-weight:600" : "color:var(--secondary-text-color)"}" title="${moldRisk ? "⚠️ Schimmelrisiko!" : "Luftfeuchtigkeit"}">💧 ${Math.round(humidity)}%</span>` : "—"}
         </td>` : ""}
         ${hasCo2 ? `<td style="padding:6px 8px;border-bottom:1px solid var(--divider-color);font-size:12px">
-          ${r.co2_ppm > 0 ? `<span style="color:${r.co2_ppm > (r.co2_threshold_bad || 1200) ? "#c62828" : r.co2_ppm > (r.co2_threshold_good || 800) ? "#fb8c00" : "#43a047"}" title="CO₂-Konzentration">🌬️ ${r.co2_ppm}</span>` : "—"}
+          ${r.co2_ppm > 0 ? `<span style="color:${r.co2_ppm > (r.co2_threshold_bad || 1200) ? "#c62828" : r.co2_ppm > (r.co2_threshold_good || 800) ? "#fb8c00" : "#43a047"}" title="CO₂-Konzentration">🌬️ ${ihcEsc(r.co2_ppm)}</span>` : "—"}
           ${r.co2_ventilation_eta_minutes != null && r.co2_ventilation_eta_minutes <= 30
             ? `<div><span style="font-size:10px;padding:1px 4px;border-radius:6px;background:${r.co2_ventilation_eta_minutes <= 5 ? 'color-mix(in srgb,#ef5350 20%,transparent)' : 'color-mix(in srgb,#fb8c00 20%,transparent)'};color:var(--primary-text-color)" title="Geschätzte Zeit bis CO₂-Grenzwert">💨 ${r.co2_ventilation_eta_minutes <= 0 ? 'Jetzt!' : r.co2_ventilation_eta_minutes.toFixed(0) + ' min'}</span></div>`
             : ""}
         </td>` : ""}
-        <td style="font-size:12px;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${modeLabel}</td>
+        <td style="font-size:12px;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${ihcEsc(modeLabel)}</td>
         <td style="font-size:12px;padding:6px 8px;border-bottom:1px solid var(--divider-color);color:var(--secondary-text-color)">${statusParts.length ? statusParts.join(" · ") : ""}</td>
-        ${hasRuntime ? `<td style="font-size:11px;padding:6px 8px;border-bottom:1px solid var(--divider-color);color:var(--secondary-text-color)">${r.runtime_today_minutes > 0 ? `⏱ ${r.runtime_today_minutes} min` : ""}</td>` : ""}
+        ${hasRuntime ? `<td style="font-size:11px;padding:6px 8px;border-bottom:1px solid var(--divider-color);color:var(--secondary-text-color)">${r.runtime_today_minutes > 0 ? `⏱ ${ihcEsc(r.runtime_today_minutes)} min` : ""}</td>` : ""}
       </tr>`;
     }).join("");
 
@@ -236,7 +236,7 @@
             </div>
             <div class="settings-item">
               <label>Zimmer mit Anforderung</label>
-              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${g.rooms_demanding}</div>
+              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${ihcEsc(g.rooms_demanding)}</div>
             </div>
             ${g.curve_target != null ? `
             <div class="settings-item">
@@ -246,7 +246,7 @@
             ${g.solar_power != null ? `
             <div class="settings-item">
               <label>Solarleistung</label>
-              <div style="font-size:22px;font-weight:700;color:#f9a825">${g.solar_power} W</div>
+              <div style="font-size:22px;font-weight:700;color:#f9a825">${ihcEsc(g.solar_power)} W</div>
             </div>` : ""}
             ${g.energy_price != null ? `
             <div class="settings-item">
@@ -271,7 +271,7 @@
           <div class="settings-grid">
             <div class="settings-item">
               <label>Heizlaufzeit heute</label>
-              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${g.heating_runtime_today} min</div>
+              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${ihcEsc(g.heating_runtime_today)} min</div>
             </div>
             <div class="settings-item">
               <label>Energie heute</label>
@@ -280,7 +280,7 @@
             ${g.heating_runtime_yesterday > 0 ? `
             <div class="settings-item">
               <label>Laufzeit gestern</label>
-              <div style="font-size:18px;font-weight:600;color:var(--secondary-text-color)">${g.heating_runtime_yesterday} min</div>
+              <div style="font-size:18px;font-weight:600;color:var(--secondary-text-color)">${ihcEsc(g.heating_runtime_yesterday)} min</div>
             </div>` : ""}
             ${g.energy_yesterday_kwh > 0 ? `
             <div class="settings-item">
@@ -298,6 +298,38 @@
           </div>
         </div>
       </details>
+
+      <!-- ── Spar-Bilanz (v2.7) ─────────────────────────────── -->
+      ${(() => {
+        const sv = g.savings;
+        if (!sv) return "";
+        const names = { window: "🪟 Fenster-Pausen", away: "🚶 Abwesenheit", vacation: "✈️ Urlaub",
+          schedule: "🌙 Zeitplan & Nacht", saving: "💶 Spar-Regler", afterheat: "♨️ Restwärme" };
+        const cats = Object.entries(sv.by_category || {}).filter(([, v]) => v >= 0.1).sort((a, b) => b[1] - a[1]);
+        const max = cats.length ? cats[0][1] : 1;
+        return `
+      <details class="ihc-card" open>
+        <summary><span class="ihc-card-title">💶 Spar-Bilanz (dieser Monat)</span></summary>
+        <div class="ihc-card-body">
+          <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:10px">
+            <div><div style="font-size:11px;color:var(--secondary-text-color)">Durch IHC gespart</div>
+              <div style="font-size:22px;font-weight:700;color:#43a047">${this._kwh(sv.total_kwh)} kWh${sv.total_eur != null ? ` <span style="font-size:15px">≈ ${sv.total_eur.toFixed(2)} €</span>` : ""}</div></div>
+            <div><div style="font-size:11px;color:var(--secondary-text-color)">Verbrauch bisher</div>
+              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${this._kwh(sv.consumption_kwh)} kWh</div></div>
+            ${sv.prev_month ? `<div><div style="font-size:11px;color:var(--secondary-text-color)">Vormonat gespart</div>
+              <div style="font-size:18px;font-weight:600;color:var(--secondary-text-color)">${this._kwh(sv.prev_total_kwh)} kWh</div></div>` : ""}
+          </div>
+          ${cats.length ? cats.map(([c, v]) => `
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin:3px 0">
+              <span style="min-width:150px">${ihcEsc(names[c] || c)}</span>
+              <div style="flex:1;height:8px;background:var(--divider-color);border-radius:4px;overflow:hidden">
+                <div style="width:${Math.round(v / max * 100)}%;height:100%;background:#43a047"></div></div>
+              <span style="min-width:70px;text-align:right">${this._kwh(v)} kWh</span>
+            </div>`).join("") : `<div style="font-size:13px">Noch nichts gezählt – gezählt wird, sobald geheizt werden müsste.</div>`}
+          <div class="form-hint" style="margin-top:8px">Verglichen mit einem Thermostat, das immer die Wohlfühltemperatur hält. Schätzung aus Heizkörperleistung und Außentemperatur.</div>
+        </div>
+      </details>`;
+      })()}
 
       <!-- ── Zimmer-Status Tabelle ───────────────────────────── -->
       ${roomList.length ? `
@@ -345,12 +377,12 @@
         const color = p > avgP * 1.3 ? "#ef5350" : p < avgP * 0.7 ? "#66bb6a" : "#fb8c00";
         const highlight = isCurrent ? `stroke="white" stroke-width="2"` : "";
         return `<rect x="${(padL + i * barW + 1).toFixed(1)}" y="${y.toFixed(1)}" width="${(barW - 2).toFixed(1)}" height="${barH.toFixed(1)}"
-          fill="${color}" ${highlight} rx="2" opacity="${isCurrent ? 1 : 0.7}"
+          fill="${ihcEsc(color)}" ${ihcEsc(highlight)} rx="2" opacity="${isCurrent ? 1 : 0.7}"
           title="${i}:00 – ${p.toFixed(3)} €/kWh"/>`;
       }).join("");
       const avgY = padT + (H - padT - padB) - ((avgP - minP) / rangeP) * (H - padT - padB);
       const xLabels = [0, 6, 12, 18, 23].map(i =>
-        `<text x="${(padL + i * barW + barW / 2).toFixed(1)}" y="${H - padB + 14}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${i}:00</text>`
+        `<text x="${(padL + i * barW + barW / 2).toFixed(1)}" y="${ihcEsc(H - padB + 14)}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${i}:00</text>`
       ).join("");
       const priceCard = document.createElement("details");
       priceCard.className = "ihc-card";
@@ -366,9 +398,9 @@
             · <span style="color:#66bb6a">■</span> günstig &lt;70%
           </div>
           <div style="overflow-x:auto">
-            <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px">
+            <svg viewBox="0 0 ${ihcEsc(W)} ${ihcEsc(H)}" style="width:100%;max-width:${ihcEsc(W)}px;height:${ihcEsc(H)}px">
               ${bars}
-              <line x1="${padL}" y1="${avgY.toFixed(1)}" x2="${W - padR}" y2="${avgY.toFixed(1)}"
+              <line x1="${ihcEsc(padL)}" y1="${avgY.toFixed(1)}" x2="${W - padR}" y2="${avgY.toFixed(1)}"
                 stroke="var(--secondary-text-color)" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
               <text x="${padL - 4}" y="${(avgY + 4).toFixed(1)}" font-size="8" text-anchor="end" fill="var(--secondary-text-color)">Ø</text>
               ${xLabels}
@@ -435,7 +467,7 @@
     selector.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;padding:12px 0 4px";
     selector.innerHTML = roomList.map(r => {
       const active = r.entity_id === this._analyseRoom;
-      return `<button class="sysmode-pill${active ? " active-auto" : ""}" data-room="${r.entity_id}">${this._esc(r.name)}</button>`;
+      return `<button class="sysmode-pill${active ? " active-auto" : ""}" data-room="${ihcEsc(r.entity_id)}">${this._esc(r.name)}</button>`;
     }).join("");
     content.appendChild(selector);
     selector.querySelectorAll("[data-room]").forEach(btn =>
@@ -444,6 +476,38 @@
         this._renderAnalyse(content);
       })
     );
+
+    // ── Hydraulik & Vorlauf (v2.7, house-wide) ───────────────────────────────
+    {
+      const g = this._getGlobal();
+      const learned = roomList.filter(r => (r.hydraulic_hours || 0) >= 6);
+      const hintRooms = roomList.filter(r => r.hydraulic_hint);
+      const fr = g.flow_recommendation;
+      const sysName = { heatpump: "Wärmepumpe" }[g.heating_system] || "Kessel";
+      const hyCard = document.createElement("div");
+      hyCard.className = "card";
+      hyCard.style.marginTop = "12px";
+      hyCard.innerHTML = `
+        <div class="card-title">🔧 Hydraulischer Abgleich &amp; Vorlauftemperatur</div>
+        <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
+          IHC vergleicht, wie weit die Ventile der Zimmer beim Heizen öffnen und wie schnell die Zimmer warm werden. Nur Hinweise – IHC verstellt hier nichts.
+        </div>
+        ${learned.length < 2 ? `<div style="font-size:13px">Wird gelernt: braucht mindestens 2 Zimmer mit Ventilstellung und je 6 Stunden Heizbetrieb (bisher ${ihcEsc(learned.length)}).</div>` : `
+          ${hintRooms.length ? hintRooms.map(r => `<div style="font-size:13px;margin:4px 0">${r.hydraulic_hint === "too_little"
+              ? `🔺 <strong>${this._esc(r.name)}</strong>: bekommt zu wenig Heizwasser – Voreinstellung am Ventilunterteil höher stellen.`
+              : `🔻 <strong>${this._esc(r.name)}</strong>: bekommt mehr als nötig – Voreinstellung am Ventilunterteil kleiner stellen.`}</div>`).join("")
+            : `<div style="font-size:13px">✓ Die Zimmer werden gleichmäßig versorgt.</div>`}
+          <div style="font-size:13px;margin-top:8px">${fr
+            ? (fr.direction === "down"
+              ? `🌡️ <strong>Vorlauftemperatur senken:</strong> Alle Zimmer werden mit halb offenen Ventilen warm – die Heizkurve am ${ihcEsc(sysName)} kann etwa <strong>${ihcEsc(fr.kelvin)} K</strong> tiefer. Spart Energie${g.heating_system === "heatpump" ? " (bei Wärmepumpen besonders viel)" : ""}.`
+              : `🌡️ <strong>Vorlauftemperatur zu niedrig:</strong> Mehrere Zimmer bleiben trotz voll offener Ventile kalt – die Heizkurve am ${ihcEsc(sysName)} etwa <strong>${ihcEsc(fr.kelvin)} K</strong> anheben.`)
+            : "🌡️ Vorlauftemperatur passt."}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+            <tr style="color:var(--secondary-text-color)"><td>Zimmer</td><td style="text-align:right">Ø Ventil beim Heizen</td><td style="text-align:right">Ø Aufheizzeit</td></tr>
+            ${learned.map(r => `<tr><td>${this._esc(r.name)}</td><td style="text-align:right">${ihcEsc(r.hydraulic_valve_avg)} %</td><td style="text-align:right">${r.avg_warmup_minutes != null ? Math.round(r.avg_warmup_minutes) + " min" : "–"}</td></tr>`).join("")}
+          </table>`}`;
+      content.appendChild(hyCard);
+    }
 
     // ── Heatmap card ─────────────────────────────────────────────────────────
     const hmCard = document.createElement("div");
@@ -481,9 +545,9 @@
 
     const warmupRows = warmupCurve.map(pt => `
       <tr>
-        <td style="padding:5px 12px;text-align:right">${pt.outdoor_temp > 0 ? "+" : ""}${pt.outdoor_temp} °C</td>
+        <td style="padding:5px 12px;text-align:right">${pt.outdoor_temp > 0 ? "+" : ""}${ihcEsc(pt.outdoor_temp)} °C</td>
         <td style="padding:5px 12px;text-align:right;font-weight:600;color:var(--primary-color)">${pt.avg_minutes.toFixed(0)} min</td>
-        <td style="padding:5px 12px;text-align:right;color:var(--secondary-text-color)">${pt.samples}×</td>
+        <td style="padding:5px 12px;text-align:right;color:var(--secondary-text-color)">${ihcEsc(pt.samples)}×</td>
       </tr>`).join("");
 
     learnCard.innerHTML = `
@@ -551,6 +615,25 @@
       content.appendChild(stopCard);
     }
 
+    // ── Restwärme nutzen (v2.7) ─────────────────────────────────────────────────
+    {
+      const ahCard = document.createElement("div");
+      ahCard.className = "card";
+      ahCard.style.marginTop = "0";
+      const hasSensor = !!room.temp_sensor || (room.temp_sensors || []).length > 0;
+      const g2 = this._getGlobal();
+      ahCard.innerHTML = `
+        <div class="card-title">♨️ Restwärme nutzen</div>
+        <div style="font-size:13px;color:var(--secondary-text-color)">
+          ${!g2.afterheat_enabled ? "Ausgeschaltet (Einstellungen → Temperaturen)."
+            : !hasSensor ? "Braucht ein Raumthermometer – die Temperatur am Thermostat sitzt direkt am Heizkörper und sagt darüber nichts aus."
+            : room.afterheat_overshoot != null
+              ? `Nach dem Schließen des Ventils wird ${this._esc(room.name)} noch <strong>+${ihcEsc(room.afterheat_overshoot)} °C</strong> wärmer, Höhepunkt nach etwa <strong>${ihcEsc(room.afterheat_minutes)} min</strong> (${ihcEsc(room.afterheat_samples)} Messungen). IHC schließt das Ventil so viel früher.${room.afterheat_coasting ? " <strong>Gerade aktiv.</strong>" : ""}`
+              : `Wird gelernt: ${ihcEsc(room.afterheat_samples)} von 3 Heizphasen gemessen.`}
+        </div>`;
+      content.appendChild(ahCard);
+    }
+
     // ── Wärmebrücken-Erkennung ─────────────────────────────────────────────────
     if (room.thermal_bridge && room.thermal_bridge.suspected) {
       const bridgeCard = document.createElement("div");
@@ -560,7 +643,7 @@
       bridgeCard.innerHTML = `
         <div class="card-title">🧱 Mögliche Wärmebrücke erkannt</div>
         <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
-          ${this._esc(room.name)} kühlt ca. <strong>${room.thermal_bridge.ratio}×</strong> schneller aus als der
+          ${this._esc(room.name)} kühlt ca. <strong>${ihcEsc(room.thermal_bridge.ratio)}×</strong> schneller aus als der
           Durchschnitt der übrigen Zimmer – ein Hinweis auf schlechte Dämmung, eine undichte
           Fensterdichtung oder eine ungedämmte Außenwandecke. Basiert auf der gelernten Abkühlrate
           (siehe oben) und ist rein informativ.

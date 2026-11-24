@@ -66,7 +66,7 @@
       const statusBadge = (() => {
         if (isWindow) return `<span class="badge badge-window">🪟 offen</span>`;
         if (isOff)    return `<span class="badge badge-off">⛔ Aus</span>`;
-        if (room.boost_remaining > 0)  return `<span class="badge badge-boost">⚡ ${room.boost_remaining}min</span>`;
+        if (room.boost_remaining > 0)  return `<span class="badge badge-boost">⚡ ${ihcEsc(room.boost_remaining)}min</span>`;
         if (isHeating) return `<span class="badge badge-heat">🔥 Heizt</span>`;
         if (room.room_mode === "eco")   return `<span class="badge badge-eco">🌿 Eco</span>`;
         if (room.room_mode === "away")  return `<span class="badge badge-away">🚶 Abwesend</span>`;
@@ -87,21 +87,21 @@
         : "";
 
       const modeOptions = ["auto","comfort","eco","sleep","away","off","manual"].map(m =>
-        `<option value="${m}" ${room.room_mode === m ? "selected" : ""}>${MODE_ICONS[m] || ""} ${MODE_LABELS[m]}</option>`
+        `<option value="${ihcEsc(m)}" ${room.room_mode === m ? "selected" : ""}>${ihcEsc(MODE_ICONS[m] || "")} ${ihcEsc(MODE_LABELS[m])}</option>`
       ).join("");
 
       // Alert chips (compact, stacked)
       const alerts = [];
-      if (systemOverrides) alerts.push(`<div class="room-alert alert-override">${overrideLabel} – Zimmermodus übersteuert</div>`);
+      if (systemOverrides) alerts.push(`<div class="room-alert alert-override">${ihcEsc(overrideLabel)} – Zimmermodus übersteuert</div>`);
       // Manual override: show prominent alert with reset time if known
       if (room.room_mode === "manual") {
         const resetStr = (room.next_period && room.next_period.start) ? ` · Reset: ${room.next_period.start} Uhr` : "";
         const manualTemp = room.manual_temp != null ? ` (${parseFloat(room.manual_temp).toFixed(1)}°C)` : "";
-        alerts.push(`<div class="room-alert alert-warn" style="cursor:pointer" onclick="this.closest('.room-card').dispatchEvent(new CustomEvent('ihc-dismiss-manual',{bubbles:true,detail:{id:'${room.room_id}'}}))">✋ Manuell bedient${manualTemp}${resetStr} – <u>Auto wiederherstellen</u></div>`);
+        alerts.push(`<div class="room-alert alert-warn" style="cursor:pointer" onclick="this.closest('.room-card').dispatchEvent(new CustomEvent('ihc-dismiss-manual',{bubbles:true,detail:{id:'${ihcEsc(room.room_id)}'}}))">✋ Manuell bedient${ihcEsc(manualTemp)}${ihcEsc(resetStr)} – <u>Auto wiederherstellen</u></div>`);
       }
       if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
       if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
-      if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);
+      if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${ihcEsc(room.mold.humidity)}%${room.mold.dew_point != null ? ` · Taupunkt ${ihcEsc(room.mold.dew_point)}°C` : ""}</div>`);
       // Comfort extend: show which entity is keeping the room in comfort mode
       if (room.comfort_extend_active) {
         const ceEntries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
@@ -109,15 +109,17 @@
           : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
         const activeEntry = ceEntries.find(e => e.entity && this._hass?.states[e.entity]?.state === (e.state || "on"));
         const reason = activeEntry ? activeEntry.entity.split(".")[1] : "Bedingung";
-        alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
+        alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${ihcEsc(reason)}</strong></div>`);
       }
-      if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
+      if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${ihcEsc(room.trv_min_battery ?? '?')}%) – bitte tauschen</div>`);
+      if (room.sensor_failed)              alerts.push(`<div class="room-alert alert-warn" title="Kein aktueller Wert vom Raumthermometer (Batterie? Funk?) – das Thermostat regelt mit seinem eigenen Fühler weiter">⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst</div>`);
+      if (room.afterheat_coasting)         alerts.push(`<div class="room-alert alert-info" title="Ventil früher zu – die Restwärme des Heizkörpers bringt den Raum auf Soll">♨️ Restwärme – Heizkörper heizt nach</div>`);
       if (room.window_auto_detected)       alerts.push(`<div class="room-alert alert-info" title="Kein Fenstersensor - erkannt an einem plötzlichen Temperatursturz">🪟 Fenster offen erkannt (Temperatursturz) – Heizung pausiert</div>`);
       // Fenster-Kaskade: zeigt welches Zimmer diese Absenkung verursacht
       if (room.window_cascade_active) {
         const src = this._esc(room.window_cascade_source || "anderes Zimmer");
         const off = room.window_cascade_offset != null ? ` (–${parseFloat(room.window_cascade_offset).toFixed(1)} °C)` : "";
-        alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${off}: Fenster offen in <strong>${src}</strong></div>`);
+        alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${ihcEsc(off)}: Fenster offen in <strong>${src}</strong></div>`);
       }
       // Fenster-Kaskade: zeigt Countdown wenn dieses Zimmer eine Kaskade auslösen wird
       if (room.window_open && !room.window_cascade_active && room.window_cascade_rooms && room.window_cascade_rooms.length > 0 && room.window_open_minutes != null) {
@@ -133,7 +135,7 @@
         const cls   = { urgent: "alert-danger", recommended: "alert-warn", possible: "alert-info" };
         const tip = v.reasons && v.reasons.length ? v.reasons.join(" · ") : v.level;
         const co2part = v.co2_ppm != null ? ` · CO₂ ${v.co2_ppm}` : "";
-        alerts.push(`<div class="room-alert ${cls[v.level] || 'alert-info'}">${icons[v.level] || "🌬️"} ${tip}${co2part}</div>`);
+        alerts.push(`<div class="room-alert ${ihcEsc(cls[v.level] || 'alert-info')}">${ihcEsc(icons[v.level] || "🌬️")} ${ihcEsc(tip)}${ihcEsc(co2part)}</div>`);
       }
       const alertsHtml = alerts.length ? `<div class="room-alerts">${alerts.join("")}</div>` : "";
 
@@ -154,9 +156,9 @@
             const felt = parseFloat(room.felt_temperature);
             const diff = room.current_temp != null ? felt - parseFloat(room.current_temp) : 0;
             const icon = diff <= -0.5 ? "🥶" : diff >= 0.5 ? "🥵" : "🙂";
-            return `<span class="trv-chip" style="background:#fff8e1;color:#f57f17" title="Gefühlte Temperatur (Luftfeuchte berücksichtigt)">${icon} gefühlt ${felt.toFixed(1)}°</span>`;
+            return `<span class="trv-chip" style="background:#fff8e1;color:#f57f17" title="Gefühlte Temperatur (Luftfeuchte berücksichtigt)">${ihcEsc(icon)} gefühlt ${felt.toFixed(1)}°</span>`;
           })() : ""}
-          ${room.trv_min_battery != null ? `<span class="trv-chip ${room.trv_min_battery >= 40 ? "expert-only" : ""}" style="background:${batBg};color:${batColor}" title="TRV-Batterie (niedrigster Wert)">${batIcon} ${room.trv_min_battery}%</span>` : ""}
+          ${room.trv_min_battery != null ? `<span class="trv-chip ${room.trv_min_battery >= 40 ? "expert-only" : ""}" style="background:${ihcEsc(batBg)};color:${ihcEsc(batColor)}" title="TRV-Batterie (niedrigster Wert)">${ihcEsc(batIcon)} ${ihcEsc(room.trv_min_battery)}%</span>` : ""}
           ${room.trv_any_heating ? `<span class="trv-chip expert-only" style="background:#fce4ec;color:#c62828" title="TRV heizt aktiv">🔥</span>` : ""}
         </div>` : "";
 
@@ -180,7 +182,7 @@
       }
 
       return `
-        <div class="room-card${cardStatusCls}">
+        <div class="room-card${ihcEsc(cardStatusCls)}">
           <div class="room-card-inner">
             ${alertsHtml}
             <div class="room-header">
@@ -210,35 +212,35 @@
             </div>
             <div class="demand-wrap">
               <div class="demand-bar-bg">
-                <div class="demand-bar" style="width:${room.demand}%;background:${this._demandColor(room.demand)}"></div>
+                <div class="demand-bar" style="width:${ihcEsc(room.demand)}%;background:${this._demandColor(room.demand)}"></div>
               </div>
               <div class="demand-meta">
-                <span style="font-weight:600;color:${this._demandColor(room.demand)}">${room.demand} %</span>
+                <span style="font-weight:600;color:${this._demandColor(room.demand)}">${ihcEsc(room.demand)} %</span>
                 <span>· ${src}</span>
-                ${room.night_setback > 0 ? `<span>· 🌙 -${room.night_setback}°</span>` : ""}
+                ${room.night_setback > 0 ? `<span>· 🌙 -${ihcEsc(room.night_setback)}°</span>` : ""}
                 ${room.room_presence_active === false ? `<span>· 🚶 niemand da</span>` : ""}
-                ${room.co2_ppm > 0 ? `<span>· CO₂ ${room.co2_ppm} ppm</span>` : ""}
+                ${room.co2_ppm > 0 ? `<span>· CO₂ ${ihcEsc(room.co2_ppm)} ppm</span>` : ""}
               </div>
             </div>
             ${trvChips}
             <div class="room-action-row">
-              <select class="mode-select active-${room.room_mode || 'auto'}" data-room-id="${room.room_id}">
+              <select class="mode-select active-${ihcEsc(room.room_mode || 'auto')}" data-room-id="${ihcEsc(room.room_id)}">
                 ${modeOptions}
               </select>
               ${room.boost_remaining > 0
-                ? `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost-cancel" title="Boost beenden" style="background:#ff7043;color:white;border-color:#ff7043">⚡ ${room.boost_remaining}min ✕</button>`
-                : `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost" title="Boost starten">⚡</button>`}
+                ? `<button class="btn-boost" data-room-id="${ihcEsc(room.room_id)}" data-action="boost-cancel" title="Boost beenden" style="background:#ff7043;color:white;border-color:#ff7043">⚡ ${ihcEsc(room.boost_remaining)}min ✕</button>`
+                : `<button class="btn-boost" data-room-id="${ihcEsc(room.room_id)}" data-action="boost" title="Boost starten">⚡</button>`}
             </div>
             <div class="feel-row">
-              <button class="feel-btn" data-room-id="${room.room_id}" data-feel="cold" title="+1 °C für 2 Stunden – IHC lernt mit">🥶 Mir ist kalt</button>
-              <button class="feel-btn" data-room-id="${room.room_id}" data-feel="warm" title="−1 °C für 2 Stunden – IHC lernt mit">🥵 Mir ist warm</button>
+              <button class="feel-btn" data-room-id="${ihcEsc(room.room_id)}" data-feel="cold" title="+1 °C für 2 Stunden – IHC lernt mit">🥶 Mir ist kalt</button>
+              <button class="feel-btn" data-room-id="${ihcEsc(room.room_id)}" data-feel="warm" title="−1 °C für 2 Stunden – IHC lernt mit">🥵 Mir ist warm</button>
             </div>
             ${(room.feel_temp_offset || room.feel_learned_offset || room.person_offset || room.wakeup_active) ? `<div class="feel-badge">${[
-              room.feel_temp_offset ? `${room.feel_temp_offset > 0 ? "+" : ""}${room.feel_temp_offset} °C auf Wunsch${room.feel_temp_until ? ` bis ${new Date(room.feel_temp_until).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}` : "",
-              room.feel_learned_offset ? `${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C gelernt` : "",
-              room.person_offset ? `${room.person_offset > 0 ? "+" : ""}${room.person_offset} °C für die Anwesenden` : "",
+              room.feel_temp_offset ? `${room.feel_temp_offset > 0 ? "+" : ""}${ihcEsc(room.feel_temp_offset)} °C auf Wunsch${room.feel_temp_until ? ` bis ${new Date(room.feel_temp_until).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}` : "",
+              room.feel_learned_offset ? `${room.feel_learned_offset > 0 ? "+" : ""}${ihcEsc(room.feel_learned_offset)} °C gelernt` : "",
+              room.person_offset ? `${room.person_offset > 0 ? "+" : ""}${ihcEsc(room.person_offset)} °C für die Anwesenden` : "",
               room.wakeup_active ? "⏰ warm aufwachen" : "",
-            ].filter(Boolean).join(" · ")}${room.feel_temp_offset ? ` <a href="#" data-feel-reset="${room.room_id}">zurücksetzen</a>` : ""}</div>` : ""}
+            ].filter(Boolean).join(" · ")}${room.feel_temp_offset ? ` <a href="#" data-feel-reset="${ihcEsc(room.room_id)}">zurücksetzen</a>` : ""}</div>` : ""}
             ${footerParts.length ? `<div class="room-footer"><span class="room-footer-meta">${footerParts.join(" · ")}</span></div>` : ""}
           </div>
         </div>`;
@@ -262,23 +264,23 @@
             ? `<div class="system-banner" style="background:#2e7d3220;border-left-color:#2e7d32">🔥 <strong>Heizperiode-Schalter: AN</strong> – Heizung freigegeben</div>`
             : `<div class="system-banner summer">⏸ <strong>Heizperiode-Schalter: AUS</strong> – Heizung gesperrt · Boost pro Zimmer funktioniert trotzdem</div>`)
         : "",
-      !g.heating_period_entity_set && !g.heating_period_active ? `<div class="system-banner summer">🍂 <strong>Heizperiode automatisch inaktiv</strong>${g.heating_period_rolling_avg != null ? ` – Ø ${g.heating_period_rolling_avg}°C` : ""} · Boost pro Zimmer funktioniert trotzdem</div>` : "",
+      !g.heating_period_entity_set && !g.heating_period_active ? `<div class="system-banner summer">🍂 <strong>Heizperiode automatisch inaktiv</strong>${g.heating_period_rolling_avg != null ? ` – Ø ${ihcEsc(g.heating_period_rolling_avg)}°C` : ""} · Boost pro Zimmer funktioniert trotzdem</div>` : "",
       !g.heating_period_entity_set && g.heating_period_active && g.heating_period_auto_active === false ? `<div class="system-banner cold">🌡️ <strong>Heizperiode kurzfristig reaktiviert</strong> – kalter Tag vorhergesagt</div>` : "",
       g.forecast_coldnight_active ? (() => {
         const daysAhead = g.forecast_coldnight_days_ahead ?? 0;
         const when = daysAhead === 0 ? "heute Nacht" : daysAhead === 1 ? "morgen Nacht" : `in ${daysAhead} Tagen`;
         const temp = g.forecast_coldnight_min_temp ?? g.weather_forecast?.forecast_today_min;
-        return `<div class="system-banner cold">❄️ <strong>Kälte ${when}</strong> – Heizung startet ${g.forecast_advance_hours ?? 3}h früher (${temp}°C erwartet)</div>`;
+        return `<div class="system-banner cold">❄️ <strong>Kälte ${ihcEsc(when)}</strong> – Heizung startet ${ihcEsc(g.forecast_advance_hours ?? 3)}h früher (${ihcEsc(temp)}°C erwartet)</div>`;
       })() : "",
       g.night_setback_active  ? `<div class="system-banner night">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
       g.presence_away_active  ? `<div class="system-banner away">🚶 <strong>Niemand zuhause</strong> – Abwesend-Modus aktiv</div>` : "",
-      g.solar_boost > 0       ? `<div class="system-banner solar">🌞 <strong>Solar-Überschuss</strong>${g.solar_power != null ? " · " + g.solar_power + " W" : ""} · +${g.solar_boost}°C angehoben</div>` : "",
-      g.cold_boost > 0        ? `<div class="system-banner cold">🥶 <strong>Kälteboost</strong> – alle Zimmer +${g.cold_boost}°C angehoben</div>` : "",
+      g.solar_boost > 0       ? `<div class="system-banner solar">🌞 <strong>Solar-Überschuss</strong>${g.solar_power != null ? " · " + ihcEsc(g.solar_power) + " W" : ""} · +${ihcEsc(g.solar_boost)}°C angehoben</div>` : "",
+      g.cold_boost > 0        ? `<div class="system-banner cold">🥶 <strong>Kälteboost</strong> – alle Zimmer +${ihcEsc(g.cold_boost)}°C angehoben</div>` : "",
       g.energy_price_eco_active ? `<div class="system-banner price">💶 <strong>Hoher Strompreis</strong>${g.energy_price != null ? " · " + g.energy_price.toFixed(3) + " €/kWh" : ""} – Eco-Absenkung aktiv</div>` : "",
       g.vacation_auto_active  ? `<div class="system-banner vacation">✈️ <strong>Urlaubs-Modus aktiv</strong></div>` : "",
       g.return_preheat_active ? `<div class="system-banner preheat">🏠 <strong>Rückkehr-Vorheizung</strong> – Haus wird aufgeheizt</div>` : "",
-      g.guest_mode_active     ? `<div class="system-banner guest">🎉 <strong>Gäste-Modus aktiv</strong>${g.guest_remaining_minutes != null ? ` · noch ${g.guest_remaining_minutes} min` : ""}</div>` : "",
-      g.weather_forecast && g.weather_forecast.cold_warning ? `<div class="system-banner cold">🥶 <strong>Kältewarnung</strong> – Tiefst heute: ${g.weather_forecast.forecast_today_min}°C${g.weather_forecast.forecast_today_max != null ? ` / max. ${g.weather_forecast.forecast_today_max}°C` : ""}</div>` : "",
+      g.guest_mode_active     ? `<div class="system-banner guest">🎉 <strong>Gäste-Modus aktiv</strong>${g.guest_remaining_minutes != null ? ` · noch ${ihcEsc(g.guest_remaining_minutes)} min` : ""}</div>` : "",
+      g.weather_forecast && g.weather_forecast.cold_warning ? `<div class="system-banner cold">🥶 <strong>Kältewarnung</strong> – Tiefst heute: ${ihcEsc(g.weather_forecast.forecast_today_min)}°C${g.weather_forecast.forecast_today_max != null ? ` / max. ${ihcEsc(g.weather_forecast.forecast_today_max)}°C` : ""}</div>` : "",
       g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90 ? `<div class="system-banner eta">🕒 <strong>ETA-Vorheizen</strong> – Ankunft in ~${Math.round(g.eta_preheat_minutes)} min</div>` : "",
     ].filter(Boolean).join("");
 
@@ -298,14 +300,14 @@
 
     const heroSection = `
       <div class="overview-hero">
-        <div class="hero-card state-${heatingCls}">
+        <div class="hero-card state-${ihcEsc(heatingCls)}">
           <div class="hero-label">Heizung</div>
-          <div class="hero-value ${heatingCls}">${heatingState}</div>
-          <div class="hero-sub">${g.rooms_demanding ? `${g.rooms_demanding} Zimmer ${g.rooms_demanding === 1 ? "wird" : "werden"} geheizt` : "Alle Zimmer sind warm genug"}</div>
+          <div class="hero-value ${ihcEsc(heatingCls)}">${ihcEsc(heatingState)}</div>
+          <div class="hero-sub">${g.rooms_demanding ? `${ihcEsc(g.rooms_demanding)} Zimmer ${g.rooms_demanding === 1 ? "wird" : "werden"} geheizt` : "Alle Zimmer sind warm genug"}</div>
         </div>
-        <div class="hero-card state-${demandCls}">
+        <div class="hero-card state-${ihcEsc(demandCls)}">
           <div class="hero-label">Gesamtanforderung</div>
-          <div class="hero-value ${demandCls}">${demandNum}</div>
+          <div class="hero-value ${ihcEsc(demandCls)}">${ihcEsc(demandNum)}</div>
           ${(() => {
             const showRuntime = this._lsGet("ihc_show_runtime") !== "false";
             const showCosts   = this._lsGet("ihc_show_costs") !== "false";
@@ -319,7 +321,7 @@
         <div class="hero-card">
           <div class="hero-label">Außen</div>
           <div class="hero-value" style="font-size:20px">
-            ${g.outdoor_temp != null ? g.outdoor_temp + " °C" : "—"}
+            ${g.outdoor_temp != null ? ihcEsc(g.outdoor_temp) + " °C" : "—"}
             ${g.curve_target != null ? `<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color);margin-left:4px" title="Heizkurven-Sollwert (→ TRV-Setpoint)">→ ${g.curve_target.toFixed(1)} °C</span>` : ""}
           </div>
           ${g.efficiency_score != null ? `<div class="hero-sub">Effizienz: <strong style="color:${g.efficiency_score >= 80 ? "#66bb6a" : g.efficiency_score >= 50 ? "#ffa726" : "#ef5350"}">${g.efficiency_score.toFixed(0)} %</strong></div>` : ""}
@@ -329,7 +331,7 @@
         <span class="system-mode-label">Modus:</span>
         ${sysModes.map(([k, icon, label]) =>
           `<button class="sysmode-pill active-${g.system_mode === k ? k : ''}" data-sysmode="${k}"
-            title="${label}">${icon} ${label}</button>`
+            title="${label}">${ihcEsc(icon)} ${label}</button>`
         ).join("")}
       </div>`;
 
@@ -344,24 +346,24 @@
           const fcDays = (fc.forecast || []).slice(0, 3).map((d, i) => {
             const dc = WEATHER_CONDITIONS[d.condition] || { icon: "🌡️" };
             return `<span style="display:inline-flex;flex-direction:column;align-items:center;margin:0 3px;font-size:10px">
-              <span style="color:var(--secondary-text-color)">${dayLabels[i] || ""}</span>
-              <span style="font-size:14px;margin:1px 0">${dc.icon}</span>
-              <span style="font-weight:700">${d.min != null ? d.min : "?"}/${d.max != null ? d.max : "?"}°</span>
+              <span style="color:var(--secondary-text-color)">${ihcEsc(dayLabels[i] || "")}</span>
+              <span style="font-size:14px;margin:1px 0">${ihcEsc(dc.icon)}</span>
+              <span style="font-weight:700">${d.min != null ? ihcEsc(d.min) : "?"}/${d.max != null ? ihcEsc(d.max) : "?"}°</span>
             </span>`;
           }).join("");
           return `<div class="status-item" title="Wettervorhersage 3 Tage" style="min-width:120px;text-align:left;padding:10px 12px">
             <div class="status-label">Wetter</div>
             <div style="display:flex;align-items:center;gap:5px;margin:3px 0">
-              <span style="font-size:20px">${wc.icon}</span>
-              <span style="font-size:11px;font-weight:600">${wc.label}${range ? " · " + range : ""}</span>
+              <span style="font-size:20px">${ihcEsc(wc.icon)}</span>
+              <span style="font-size:11px;font-weight:600">${ihcEsc(wc.label)}${range ? " · " + ihcEsc(range) : ""}</span>
             </div>
             ${fcDays ? `<div style="display:flex;margin-top:4px;gap:4px">${fcDays}</div>` : ""}
           </div>`;
         })() : ""}
         ${g.solar_power != null ? `<div class="status-item">
           <div class="status-label">Solar</div>
-          <div class="status-value" style="color:#f9a825">${g.solar_power} W</div>
-          ${g.solar_boost > 0 ? `<div style="font-size:10px;color:#f9a825">+${g.solar_boost}°C Boost</div>` : ""}
+          <div class="status-value" style="color:#f9a825">${ihcEsc(g.solar_power)} W</div>
+          ${g.solar_boost > 0 ? `<div style="font-size:10px;color:#f9a825">+${ihcEsc(g.solar_boost)}°C Boost</div>` : ""}
         </div>` : ""}
         ${g.energy_price != null ? `<div class="status-item">
           <div class="status-label">Strompreis</div>
@@ -387,7 +389,7 @@
           <h2>Willkommen bei Intelligent Heating Control</h2>
           <p>Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.</p>
           ${found.length
-            ? `<p><b>${found.length} Zimmer mit Thermostaten</b> wurden in deinen Home-Assistant-Bereichen gefunden: ${found.slice(0, 6).map(r => this._esc(r.name)).join(", ")}${found.length > 6 ? " …" : ""}</p>`
+            ? `<p><b>${ihcEsc(found.length)} Zimmer mit Thermostaten</b> wurden in deinen Home-Assistant-Bereichen gefunden: ${found.slice(0, 6).map(r => this._esc(r.name)).join(", ")}${found.length > 6 ? " …" : ""}</p>`
             : `<p>Tipp: Weise deine Thermostate in Home Assistant einem Bereich zu – dann findet IHC sie automatisch.</p>`}
           <div class="btn-row">
             ${found.length ? `<button class="btn btn-primary" id="welcome-discover">🔍 Zimmer automatisch anlegen</button>` : ""}
@@ -404,7 +406,7 @@
       ${banners}
       ${heroSection}
       ${statsGrid}
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--secondary-text-color);margin-bottom:10px">${sortedRooms.length} Zimmer</div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--secondary-text-color);margin-bottom:10px">${ihcEsc(sortedRooms.length)} Zimmer</div>
       <div class="rooms-grid">${roomCards}</div>
     `;
 

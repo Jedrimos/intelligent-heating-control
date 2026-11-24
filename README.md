@@ -2,7 +2,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![HA Version](https://img.shields.io/badge/HA-2024.2%2B-blue.svg)](https://home-assistant.io)
-[![Version](https://img.shields.io/badge/Version-2.6.1-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.7.0-green.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Die intelligente Mehrzimmer-Heizungssteuerung für Thermostat-Ventile (TRVs) in Home Assistant.**
@@ -37,6 +37,10 @@ Komforttemperatur, jeweils mit einstellbarer Obergrenze. Zusätzlich lernt IHC p
 | 🛋️ **Komfort** | „Mir ist kalt/warm“-Knopf, der dazulernt · warm aufwachen mit dem Handy-Wecker · Lieblingstemperatur pro Person · Raumfühler ins Thermostat |
 | 🔎 **Thermostat-Erkennung** | IHC erkennt Modell und Fähigkeiten (Ventilstellung, Fühlereingang, Schrittweite) und stellt sich darauf ein |
 | ⚡ **Ehrlicher Verbrauch** | Physikalisches Modell (EN 442, Vorlauftemperatur, Ventilöffnung, Wirkungsgrad/JAZ), optional mit echtem Zähler kalibriert |
+| ♨️ **Restwärme nutzen** | Lernt, wie stark jeder Heizkörper nachheizt, und schließt das Ventil entsprechend früher |
+| 💶 **Spar-Bilanz & Monatsbericht** | Was IHC wodurch gespart hat (kWh/€), monatlich als Benachrichtigung |
+| 🔧 **Hydraulik-Check** | Erkennt schlecht versorgte Zimmer und eine zu hohe Vorlauftemperatur |
+| ⚠️ **Sicherheitsmodus** | Eingefrorene oder ausgefallene Raumthermometer werden erkannt, das Thermostat übernimmt |
 | 🧩 **Für Einsteiger & Bastler** | Zimmer werden automatisch aus HA-Bereichen erkannt; einfache Ansicht mit dem Nötigsten, Expertenansicht mit allem. Ohne Außensensor → Wettervorhersage, ohne Fensterkontakt → Temperatursturz-Erkennung |
 | 🩺 **Diagnose-Download** | Konfiguration + Live-Entscheidung pro Zimmer als JSON für Bug-Reports (Geräte & Dienste → IHC → ⋮) |
 | 🧠 **Optimum Start** | IHC lernt die Aufheizzeit je Außentemperatur und startet exakt so früh wie nötig |
@@ -536,4 +540,4 @@ MIT License – siehe [LICENSE](LICENSE)
 
 ---
 
-> **Hinweis:** Bugs und Feature-Wünsche bitte als [GitHub Issue](https://github.com/Jedrimos/intelligent-heating-control/issues) melden. Aktuell ist Version 2.6.1 stabil und HACS-kompatibel.
+> **Hinweis:** Bugs und Feature-Wünsche bitte als [GitHub Issue](https://github.com/Jedrimos/intelligent-heating-control/issues) melden. Aktuell ist Version 2.7.0 stabil und HACS-kompatibel.

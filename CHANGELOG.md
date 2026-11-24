@@ -14,6 +14,67 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.7.0] - 2026-11-22
+
+### Neu: ♨️ Restwärme nutzen
+- Ein Heizkörper gibt nach dem Schließen des Ventils noch Wärme ab – der Raum wird oft noch
+  0,3–1 °C wärmer als gewünscht. IHC **lernt das pro Zimmer**: Nach jeder Heizphase (ab 10 min)
+  misst es mit dem Raumthermometer, wie weit die Temperatur danach noch steigt und wann der
+  Höhepunkt erreicht ist (Median der letzten 10 Messungen, ab 3 Messungen aktiv, max. 1,5 °C).
+- Danach **schließt IHC das Ventil entsprechend früher**: Fehlt nur noch so viel bis zum Sollwert,
+  wie der Heizkörper nachheizt, bekommt das Thermostat kurz einen niedrigeren Sollwert. Die
+  Restwärme bringt den Raum auf die Wunschtemperatur statt darüber. Fällt die Temperatur wieder,
+  gilt sofort der normale Sollwert. Weniger Überheizen, weniger Verbrauch.
+- Standard an, braucht ein Raumthermometer und ein Heizsignal des Thermostats (Ventilstellung
+  oder „heizt“). Abschaltbar unter Einstellungen → Temperaturen. Nicht bei offenem Fenster,
+  Boost, Sicherheitsschwelle, Sommer/inaktiver Heizperiode oder ausgeschaltetem Zimmer.
+- Sichtbar: „♨️ Restwärme“ auf der Zimmerkachel und im Zimmer, Lernstand im Analyse-Tab,
+  Zeile in „Was IHC automatisch macht“ und „Was IHC in diesem Zimmer nutzt“. Attribute
+  `afterheat_overshoot/_minutes/_samples/_coasting`, neue Einstellung `afterheat_enabled`.
+
+### Neu: ⚠️ Sicherheitsmodus bei ausgefallenem Raumthermometer
+- Ein Sensor mit leerer Batterie bleibt in HA oft „verfügbar“ und zeigt stundenlang denselben
+  Wert. IHC erkennt das jetzt (seit 4 h keine Meldung) und verwirft den eingefrorenen Wert: Das
+  Zimmer regelt mit dem Fühler des Thermostats weiter, ein Thermostat mit übertragenem Raumfühler
+  (Sonoff, Aqara …) wird auf seinen eigenen Fühler zurückgeschaltet. Hinweis auf der Kachel und
+  unter Reparaturen; meldet der Sensor wieder, läuft alles normal weiter.
+
+### Neu: 🔧 Hydraulischer Abgleich & Vorlauftemperatur
+- IHC vergleicht, wie weit die Ventile der Zimmer beim Heizen öffnen und wie schnell sie warm
+  werden. Zimmer, die mit voll offenem Ventil kalt bleiben („zu wenig Heizwasser“) oder kaum
+  öffnen („mehr als nötig“), bekommen einen konkreten Hinweis zur Voreinstellung am Ventil.
+- Werden alle Zimmer mit halb offenen Ventilen warm, empfiehlt IHC, die Heizkurve am Kessel /
+  an der Wärmepumpe um 3–5 K zu senken (umgekehrt anheben). Nur Hinweise, IHC verstellt nichts.
+
+### Neu: 💶 Spar-Bilanz & 📬 Monatsbericht
+- Status-Tab: was IHC diesen Monat gespart hat (kWh und €), aufgeteilt nach Zeitplan & Nacht,
+  Abwesenheit, Urlaub, Fenster-Pausen, Spar-Regler und Restwärme – verglichen mit einem
+  Thermostat, das immer die Wohlfühltemperatur hält.
+- Am Monatsanfang eine Benachrichtigung mit Verbrauch, Vergleich zum Vormonat, Spar-Bilanz und
+  Hinweisen (Hydraulik, Vorlauf, ausgefallene Sensoren) plus Event
+  `intelligent_heating_control_monthly_report`. Abschaltbar.
+
+### Behoben (HACS-Review)
+- **Einrichtung mit leeren optionalen Feldern schlug fehl:** Außentemperatursensor (Ersteinrichtung),
+  Sommer-/Heizperioden-Schalter, Batteriesensor, Kessel-Schalter, Lux- und Präsenzsensor hatten im
+  Einrichtungs-/Optionsdialog einen leeren Standardwert, den die Entitätsauswahl ablehnt. Wer ein
+  solches (optionales!) Feld leer ließ, konnte nicht speichern. Jetzt Vorschlagswert statt
+  Standardwert; ein geleertes Feld wird als leer gespeichert.
+- **Werte anderer Integrationen landeten teils ungeschützt im HTML des Panels** (Wetterzustand,
+  Vorhersagewerte, Gruppen- und Zimmernamen in der Gruppenliste, Zeitplan-Modi, Entitäts-IDs in
+  Eingabefeldern) – auch in den Lovelace-Karten. Jetzt wird jeder eingesetzte Datenwert escaped,
+  Meldungen (Toasts) sind reiner Text.
+- Neue Prüfungen in der CI: ein JavaScript-Parser (acorn) findet jeden ungeschützten Datenwert in
+  HTML-Vorlagen (`tests/tools/check_html_escape.js`), ein Test verbietet Standardwerte bei
+  Einzel-Entitätsfeldern, und Szenario-Tests gehen alle Dialoge mit leeren Feldern durch.
+
+### Verbessert
+- **Sturmschutz für Rollläden zweistufig:** ab der Warn-Schwelle (Standard 25 km/h) bewegt IHC
+  die Rollläden nicht mehr, ab der Sturm-Schwelle fahren sie in Schutzstellung. Danach erst wieder
+  normal, wenn es eine Wartezeit lang (Standard 15 min) ruhig war. Böen werden berücksichtigt.
+- **„Heizperiode blockiert“ und „Zimmer wird nicht wärmer“** erscheinen jetzt unter Einstellungen →
+  System → Reparaturen (in der HA-Sprache) statt als Pop-up und verschwinden von selbst.
+
 ## [2.6.1] - 2026-11-22
 
 ### Behoben

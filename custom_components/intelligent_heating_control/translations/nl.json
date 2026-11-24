@@ -233,6 +233,18 @@
     "entity_unavailable": {
       "title": "IHC: {role} {entity} niet bereikbaar",
       "description": "{role} `{entity}` in kamer **{room}** is al {minutes} minuten niet bereikbaar (batterij leeg, buiten bereik?). IHC gebruikt intussen vervangende waarden."
+    },
+    "sensor_stale": {
+      "title": "IHC: temperatuursensor {entity} al {hours} u stil",
+      "description": "De temperatuursensor `{entity}` in **{room}** is beschikbaar maar meldt al {hours} uur geen nieuwe waarde (batterij leeg? radioverbinding?). IHC gebruikt de bevroren waarde niet meer en regelt in veilige modus met de sensor van de thermostaat."
+    },
+    "heating_period_blocked": {
+      "title": "IHC: stookseizoen blokkeert {room}",
+      "description": "**{room}** zou nu verwarmen, maar het stookseizoen is inactief. Gebruik boost of schakel „stookseizoen negeren” in bij de kamerinstellingen."
+    },
+    "warmup_stall": {
+      "title": "IHC: {room} wordt niet warmer",
+      "description": "**{room}** verwarmt al {minutes} min zonder warmer te worden (verwacht: ongeveer {expected} min). Mogelijke oorzaken: lucht in de radiator, deur dicht, geen warmte van de ketel of verkeerd gekalibreerde klep."
     }
   }
 }

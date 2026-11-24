@@ -1465,6 +1465,24 @@ update_global_settings:
       required: false
       selector:
         boolean:
+    monthly_report_enabled:
+      name: Monatsbericht
+      description: >-
+        Standard an. Am Monatsanfang eine Benachrichtigung mit geschätztem Verbrauch, Vergleich zum
+        Vormonat, Spar-Bilanz (was IHC wodurch gespart hat) und Hinweisen. Feuert zusätzlich das
+        Event intelligent_heating_control_monthly_report für eigene Automationen.
+      required: false
+      selector:
+        boolean:
+    afterheat_enabled:
+      name: Restwärme nutzen
+      description: >-
+        Standard an. IHC lernt pro Zimmer (mit Raumthermometer), wie weit die Temperatur nach dem
+        Schließen des Ventils durch die Restwärme des Heizkörpers noch steigt, und schließt das
+        Ventil entsprechend früher. Greift erst nach 3 gemessenen Heizphasen.
+      required: false
+      selector:
+        boolean:
     window_auto_detect_enabled:
       name: Sensorlose Fenstererkennung
       description: >-
@@ -1781,6 +1799,30 @@ update_global_settings:
           max: 120
           step: 5
           unit_of_measurement: "km/h"
+    solar_wind_warn_threshold:
+      name: Rolladen-Sturmschutz – Warn-Schwelle (km/h)
+      description: >-
+        Stufe 1: ab dieser Windgeschwindigkeit (oder Böe) bewegt IHC die Rolladen nicht mehr.
+        Ab der Wind-Schwelle (Stufe 2) fahren sie in Schutzstellung. 0 = keine Warnstufe.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 120
+          step: 5
+          unit_of_measurement: "km/h"
+    solar_weather_resume_minutes:
+      name: Rolladen-Sturmschutz – Wartezeit nach dem Sturm (min)
+      description: >-
+        So lange muss der Wind unter der Warn-Schwelle bleiben, bevor die Rolladen nach einem
+        Sturm wieder normal gesteuert werden (verhindert Hin und Her bei Böen).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 120
+          step: 5
+          unit_of_measurement: "min"
     solar_evening_privacy_mode:
       name: Abendliche Privatsphäre-Schließung – Modus
       description: >-

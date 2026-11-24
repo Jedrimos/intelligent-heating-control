@@ -6,6 +6,7 @@ available, and the generated ihc-panel.js must be up to date with en.py.
 """
 import importlib.util
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -88,6 +89,7 @@ def test_ha_translation_files_share_keys():
         data = json.loads((tdir / f"{code}.json").read_text(encoding="utf-8"))
         assert set(data["issues"]) == set(en["issues"]), code
         assert set(data["config"]["step"]) == set(en["config"]["step"]), code
-        for issue in data["issues"].values():
-            for ph in ("{role}", "{entity}"):
-                assert ph in issue["title"], (code, issue["title"])
+        for key, issue in data["issues"].items():
+            for part in ("title", "description"):
+                want = set(re.findall(r"\{\w+\}", en["issues"][key][part]))
+                assert set(re.findall(r"\{\w+\}", issue[part])) == want, (code, key, part)

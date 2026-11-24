@@ -22,6 +22,8 @@ const IHC_I18N_EN = {
 "-Helfer mit diesem Zimmer. Wenn aktiv, übernimmt IHC den gewählten Temperaturmodus. Erstellen: HA → Einstellungen → Helfer → Zeitplan.": "helpers with this room. When active, IHC applies the chosen temperature mode. Create: HA → Settings → Helpers → Schedule.",
 "0 = deaktiviert, nutzt stattdessen die Komfort-Temperatur.": "0 = disabled, uses the comfort temperature instead.",
 "1 = nur heute Nacht (bisheriges Verhalten). 2–3 reagieren schon auf einen Kälteeinbruch, der erst in 1–2 Tagen kommt.": "1 = tonight only (previous behaviour). 2–3 react to a cold snap coming in 1–2 days.",
+": bekommt mehr als nötig – Voreinstellung am Ventilunterteil kleiner stellen.": ": gets more than needed – turn the preset on the valve insert down.",
+": bekommt zu wenig Heizwasser – Voreinstellung am Ventilunterteil höher stellen.": ": gets too little hot water – turn the preset on the valve insert up.",
 "= eigene Temperatur eingeben.": "= enter your own temperature.",
 "Ab dieser Außentemperatur wird die Heizung gesperrt (Sommerautomatik muss aktiviert sein).": "From this outdoor temperature heating is blocked (summer mode must be enabled).",
 "Ab dieser Windgeschwindigkeit werden Rolladen angehoben. Muss zur Einheit des Wetter-Entity passen.": "Shutters are raised from this wind speed. Must match the weather entity's unit.",
@@ -59,6 +61,7 @@ const IHC_I18N_EN = {
 "Alle N Tage wird die Übung durchgeführt (Standard: 14 Tage).": "The exercise runs every N days (default: 14 days).",
 "Alle Zieltemperaturen werden um diesen Wert angehoben wenn Solar-Überschuss vorhanden ist.": "All targets are raised by this value while there is solar surplus.",
 "Alle Zimmer sind warm genug": "All rooms are warm enough",
+"Am Monatsanfang eine Benachrichtigung: Verbrauch, Vergleich zum Vormonat, was IHC gespart hat und Hinweise.": "A notification at the start of each month: consumption, comparison with the previous month, what IHC saved and hints.",
 "Analyse": "Analysis",
 "Anforderung": "Demand",
 "Ankunfts-Verzögerung (min)": "Arrival delay (min)",
@@ -74,6 +77,7 @@ const IHC_I18N_EN = {
 "Aus deinen „Mir ist kalt/warm“-Rückmeldungen gelernt.": "Learned from your “I'm cold/warm” feedback.",
 "Aus-Modus": "Off mode",
 "Aus-Schwelle (lx)": "Off threshold (lx)",
+"Ausgeschaltet (Einstellungen → Temperaturen).": "Switched off (Settings → Temperatures).",
 "Ausgewählte Zimmer anlegen": "Create selected rooms",
 "Ausschalten (Standard):": "Switch off (default):",
 "Ausschaltverzögerung (s)": "Off delay (s)",
@@ -107,6 +111,8 @@ const IHC_I18N_EN = {
 "Bei Kältewarnung werden alle Zimmer um diesen Wert zusätzlich aufgeheizt (0 = kein Boost).": "During a cold warning all rooms are heated this much more (0 = no boost).",
 "Bei Sonnenuntergang": "At sunset",
 "Bei sehr hohen Strompreisen senkt IHC die Zieltemperaturen etwas ab – du heizt dann weniger in der teuren Zeit.": "With very high electricity prices IHC lowers the targets a bit – you heat less during expensive hours.",
+"Bekommt mehr Heizwasser als nötig": "Gets more hot water than needed",
+"Bekommt zu wenig Heizwasser": "Gets too little hot water",
 "Benachrichtigen bei Warmup-Stillstand": "Notify when warm-up stalls",
 "Benachrichtigen statt still sperren": "Notify instead of silently blocking",
 "Benötigt:": "Requires:",
@@ -130,6 +136,7 @@ const IHC_I18N_EN = {
 "Boost-Dauer (min)": "Boost duration (min)",
 "Boost-Zieltemperatur (°C)": "Boost target (°C)",
 "Bosch: externer Wert muss mind. alle 30 min kommen": "Bosch: external value needed at least every 30 min",
+"Braucht ein Raumthermometer – die Temperatur am Thermostat sitzt direkt am Heizkörper und sagt darüber nichts aus.": "Needs a room thermometer – the thermostat's sensor sits right at the radiator and can't measure this.",
 "CO₂ Gut-Schwelle (ppm)": "CO₂ good threshold (ppm)",
 "CO₂ Lüften-Schwelle (ppm)": "CO₂ ventilate threshold (ppm)",
 "CO₂ ppm": "CO₂ ppm",
@@ -153,11 +160,13 @@ const IHC_I18N_EN = {
 "Deaktiviert (ohne Entity: immer an)": "Disabled (no entity: always on)",
 "Deaktiviert – einstellbar unter": "Disabled – can be enabled under",
 "Deaktiviert – nur fixer Vorlauf-Wert": "Disabled – fixed lead time only",
+"Der Heizkörper heizt so viel nach – IHC schließt das Ventil entsprechend früher.": "The radiator gives off this much heat afterwards – IHC closes the valve that much earlier.",
 "Di": "Tue",
 "Diese Aktion entfernt das Zimmer und alle zugehörigen Entitäten dauerhaft.": "This removes the room and all its entities permanently.",
 "Dieser Raum wird gerade kaskadengesenkt durch:": "This room is currently lowered by the cascade from:",
 "Do": "Thu",
 "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "All you need are your radiator thermostats – everything else (room thermometers, window contacts, humidity sensors …) is optional and just makes IHC even more precise.",
+"Durch IHC gespart": "Saved by IHC",
 "Durchschn. Ventilöffnung": "Avg. valve opening",
 "Durchschnittliche TRV-Ventilöffnung": "Average TRV valve opening",
 "Dynamische Sollwert-Entitäten": "Dynamic setpoint entities",
@@ -241,6 +250,7 @@ const IHC_I18N_EN = {
 "Gefühlte Temperatur berücksichtigen": "Consider felt temperature",
 "Gelerntes Wärmeempfinden zurückgesetzt": "Learned comfort preferences reset",
 "Gelerntes zurücksetzen": "Reset what was learned",
+"Gerade aktiv.": "Active right now.",
 "Gesamtanforderung": "Total demand",
 "Gib zur Bestätigung den Zimmernamen ein:": "Type the room name to confirm:",
 "Gleitender Durchschnitt (EMA) der Heizanforderung nach Wochentag und Uhrzeit. Wird über mehrere Wochen gelernt. Blau = niedrige, Rot = hohe Anforderung.": "Moving average (EMA) of heating demand by weekday and hour. Learned over several weeks. Blue = low, red = high demand.",
@@ -312,9 +322,11 @@ const IHC_I18N_EN = {
 "IHC entscheidet selbst, siehe \"Automatische Heizperioden-Erkennung\".": "IHC decides itself, see “Automatic heating season detection”.",
 "IHC hat erkannt": "IHC detected",
 "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC found these thermostats in your Home Assistant areas. Tick and create – done. Fine-tuning comes later in the room.",
+"IHC lernt pro Zimmer, wie weit die Temperatur nach dem Schließen des Ventils noch steigt, und schließt es entsprechend früher – nicht mehr zu warm, weniger Verbrauch. Braucht ein Raumthermometer, greift nach 3 gemessenen Heizphasen.": "IHC learns per room how far the temperature keeps rising after the valve closes, and closes it that much earlier – no more overheating, less energy. Needs a room thermometer, starts after 3 measured heating phases.",
 "IHC misst bei jedem Aufheizzyklus wie lange der Raum braucht – getrennt nach Außentemperatur. Bei −5 °C draußen wird länger vorgeheizt als bei +10 °C. Ergebnisse sichtbar im Zimmer-Detail → Verlauf → Lernkurve. Ersetzt das klassische adaptive Vorheizen sobald genug Messungen vorliegen.": "IHC measures in every heating cycle how long the room needs – separately per outdoor temperature. At −5 °C outside it pre-heats longer than at +10 °C. Results in room detail → history → learning curve. Replaces classic adaptive pre-heat once there are enough measurements.",
 "IHC misst bei jedem Aufheizzyklus wie lange es dauert bis der Raum die Solltemperatur erreicht. Aus diesen Messungen berechnet es automatisch den optimalen Startzeitpunkt – damit die Heizung genau dann fertig ist wenn der Zeitplan beginnt.": "IHC measures in every heating cycle how long the room needs to reach its target. From this it calculates the optimal start time – so heating is done exactly when the schedule begins.",
 "IHC setzt die Thermostate auf „Aus\" (hvac_mode=off). Empfohlen für die meisten Geräte.": "IHC sets the thermostats to “off” (hvac_mode=off). Recommended for most devices.",
+"IHC vergleicht, wie weit die Ventile der Zimmer beim Heizen öffnen und wie schnell die Zimmer warm werden. Nur Hinweise – IHC verstellt hier nichts.": "IHC compares how far the rooms' valves open while heating and how fast the rooms warm up. Hints only – IHC changes nothing here.",
 "IHC-Zeitpläne farbig nach Temperatur (blau=kalt → rot=warm). Grau = Bedingung nicht erfüllt. HA-Zeitpläne blass nach Modus.": "IHC schedules coloured by temperature (blue=cold → red=warm). Grey = condition not met. HA schedules pale by mode.",
 "Immer aktiv": "Always active",
 "Immer zu Hause": "Always at home",
@@ -340,6 +352,7 @@ const IHC_I18N_EN = {
 "Kein Handy-Wecker gefunden – in der Home-Assistant-App den Sensor „Nächster Wecker“ aktivieren.": "No phone alarm found – enable the “Next alarm” sensor in the Home Assistant app.",
 "Kein Thermostat": "No thermostat",
 "Kein Zeitplan": "No schedule",
+"Kein aktueller Wert vom Raumthermometer (Batterie? Funk?) – das Thermostat regelt mit seinem eigenen Fühler weiter": "No current value from the room thermometer (battery? radio?) – the thermostat keeps regulating with its own sensor",
 "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "No room thermometer – temperature comes from the thermostat.",
 "Keine Fenstererkennung": "No window detection",
 "Keine Luftfeuchte": "No humidity",
@@ -428,6 +441,7 @@ const IHC_I18N_EN = {
 "Nichts ausgewählt": "Nothing selected",
 "Niedrige Grundtemperatur für den Urlaubs-Modus – spart Energie und verhindert trotzdem Frostschäden.": "Low base temperature for vacation mode – saves energy and still prevents frost damage.",
 "Noch keine Gruppen.": "No groups yet.",
+"Noch nichts gezählt – gezählt wird, sobald geheizt werden müsste.": "Nothing counted yet – counting starts as soon as heating would be needed.",
 "Noch zu wenig Daten – Verlauf wird stündlich aufgezeichnet (max. 7 Tage).": "Not enough data yet – history is recorded hourly (max. 7 days).",
 "Nord": "North",
 "Nordost": "North-east",
@@ -435,8 +449,8 @@ const IHC_I18N_EN = {
 "Nur bei unter 15 °C draußen. 0 = aus. Löst auch das Event": "Only below 15 °C outside. 0 = off. Also fires the event",
 "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Only a name and a thermostat are required – everything else is optional and can be added later in the room under ⚙️ Settings.",
 "Nur für Zimmer": "Only for rooms",
-"Nur relevant für Zimmer mit aktiviertem Blendschutz (Zimmer-Bearbeiten-Dialog) – fährt bei niedrigem Sonnenwinkel stärker runter als die Heiz-/Kühllogik verlangen würde.": "Only for rooms with glare protection – lowers further at a low sun angle than the heating/cooling logic would.",
-"Nur relevant für Zimmer mit konfiguriertem Lux-Sensor (Zimmer-Bearbeiten-Dialog) – verschärft den geometrischen Sonnenwinkel-Check, um Flackern bei durchziehenden Wolken zu vermeiden.": "Only for rooms with a lux sensor – adds to the geometric sun-angle check to avoid flapping with passing clouds.",
+"Nur relevant für Zimmer mit aktiviertem Blendschutz (Zimmer → ⚙️ Einstellungen → Rollläden) – fährt bei niedrigem Sonnenwinkel stärker runter als die Heiz-/Kühllogik verlangen würde.": "Only for rooms with glare protection – lowers further at a low sun angle than the heating/cooling logic would.",
+"Nur relevant für Zimmer mit konfiguriertem Lux-Sensor (Zimmer → ⚙️ Einstellungen → Rollläden) – verschärft den geometrischen Sonnenwinkel-Check, um Flackern bei durchziehenden Wolken zu vermeiden.": "Only for rooms with a lux sensor – adds to the geometric sun-angle check to avoid flapping with passing clouds.",
 "Nur wenn unter „Anwesenheitserkennung“ nichts eingetragen ist.": "Only if nothing is configured under “Presence detection”.",
 "Nutzt das oben konfigurierte Wetter-Entity (Wettervorhersage-Sektion). Sicherheits-Override, übersteuert die normale Solarlogik.": "Uses the weather entity configured above. Safety override, takes precedence over the normal solar logic.",
 "Nutzt den Wecker aus der Home-Assistant-App (sensor.*_next_alarm) – auch wenn er jeden Tag anders steht. Ideal für Schlafzimmer und Bad. Vor- und Nachlaufzeit unter Einstellungen → Komfort.": "Uses the alarm from the Home Assistant app (sensor.*_next_alarm) – even if it changes every day. Ideal for bedrooms and bathrooms. Lead and follow-up time under Settings → Comfort.",
@@ -471,6 +485,9 @@ const IHC_I18N_EN = {
 "Raumfühler-Eingang": "Room sensor input",
 "Raumthermometer": "Room thermometer",
 "Reaktionszeit (s)": "Reaction time (s)",
+"Restwärme": "Residual heat",
+"Restwärme nutzen": "Use residual heat",
+"Restwärme nutzen: der Heizkörper heizt noch nach": "Using residual heat: the radiator is still giving off heat",
 "Rolladen-Entitäten (mehrere möglich)": "Shutter entities (several allowed)",
 "Rolladen-Position (%)": "Shutter position (%)",
 "Rolladen-Position bei aktiver Beschattung (0 = ganz zu, 100 = ganz offen).": "Shutter position while shading (0 = fully closed, 100 = fully open).",
@@ -498,7 +515,7 @@ const IHC_I18N_EN = {
 "Schlafen": "Sleep",
 "Schlafzimmer (kurz morgens + abends)": "Bedroom (short mornings + evenings)",
 "Schließen": "Close",
-"Schließt opt-in konfigurierte Zimmer (Zimmer-Bearbeiten-Dialog) fix nach Uhrzeit oder Sonnenuntergang, unabhängig von der Heiz-/Kühllogik.": "Closes opted-in rooms at a fixed time or at sunset, independent of the heating/cooling logic.",
+"Schließt opt-in konfigurierte Zimmer (Zimmer → ⚙️ Einstellungen → Rollläden) fix nach Uhrzeit oder Sonnenuntergang, unabhängig von der Heiz-/Kühllogik.": "Closes opted-in rooms at a fixed time or at sunset, independent of the heating/cooling logic.",
 "Schwelle": "Threshold",
 "Schützt die Hardware vor Kurztakten.": "Protects the hardware from short cycling.",
 "Sekunden bis ein klemmendes Ventil als Fehler gemeldet wird (Standard: 1800 = 30 min). Erkannte Fehler erscheinen als binary_sensor.": "Seconds until a stuck valve is reported (default: 1800 = 30 min). Detected faults appear as a binary_sensor.",
@@ -514,6 +531,7 @@ const IHC_I18N_EN = {
 "Setzt gelernte oder berechnete Werte zurück auf den Ausgangszustand.": "Resets learned or calculated values to their initial state.",
 "Simulation – Was-Wenn?": "Simulation – what if?",
 "So": "Sun",
+"So lange muss es ruhig bleiben, bevor die Rolladen wieder normal gesteuert werden – kein Hin und Her bei Böen.": "It must stay calm this long before the shutters are controlled normally again – no up and down with gusts.",
 "Solar-Boost wird erst ab diesem Ladestand freigegeben.": "Solar boost is only allowed above this charge level.",
 "Solar-Leistungssensor": "Solar power sensor",
 "Solarüberschuss-Heizung": "Solar surplus heating",
@@ -529,6 +547,7 @@ const IHC_I18N_EN = {
 "Sonnenwärme nutzen + nachts dämmen": "Use solar heat + insulate at night",
 "Sonoff: valve_opening_degree ist ein Grenzwert, keine Ventilstellung": "Sonoff: valve_opening_degree is a limit, not a valve position",
 "Spar-Einstellungen gespeichert": "Saving settings saved",
+"Spar-Regler": "Saving dial",
 "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Saving slider: lower all comfort temperatures by",
 "Sparen, Schlafen und Abwesend werden automatisch aus der Wohlfühltemperatur abgeleitet – im Expertenmodus einzeln einstellbar.": "Eco, sleep and away are derived from the comfort temperature – adjustable individually in expert mode.",
 "Sparen, Schlafen und Abwesend werden automatisch daraus abgeleitet (−3 / −4 / −6 °C).": "Eco, sleep and away are derived from it automatically (−3 / −4 / −6 °C).",
@@ -550,6 +569,8 @@ const IHC_I18N_EN = {
 "Stichwort im Termintext das den Urlaubs-Kalender oben auslöst (Standard: „urlaub\").": "Keyword in the event text that triggers the vacation calendar above (default: “urlaub”).",
 "Strom direkt": "Direct electric",
 "Stuck-Valve Timeout (s)": "Stuck valve timeout (s)",
+"Stufe 1 (Wind): ab hier bewegt IHC die Rolladen nicht mehr. 0 = aus.": "Stage 1 (wind): from here IHC no longer moves the shutters. 0 = off.",
+"Stufe 2 (Sturm): ab dieser Windgeschwindigkeit oder Böe fahren die Rolladen in Schutzstellung. Muss zur Einheit des Wetter-Entity passen.": "Stage 2 (storm): from this wind speed or gust the shutters move to the safe position. Must match the weather entity's unit.",
 "Sturm-/Regenschutz": "Storm/rain protection",
 "Sturz (°C)": "Drop (°C)",
 "System & Sensoren": "System & sensors",
@@ -615,9 +636,12 @@ const IHC_I18N_EN = {
 "Urlaubs-Kalender": "Vacation calendar",
 "Urlaubs-Kalender Stichwort": "Vacation calendar keyword",
 "Urlaubs-Temperatur (°C)": "Vacation temperature (°C)",
+"Ventil früher zu – die Restwärme des Heizkörpers bringt den Raum auf Soll": "Valve closed early – the radiator's residual heat brings the room to its target",
 "Ventilstellung": "Valve position",
 "Ventilöffnung Ø": "Valve opening Ø",
 "Verbindet": "Links",
+"Verbrauch bisher": "Consumption so far",
+"Verglichen mit einem Thermostat, das immer die Wohlfühltemperatur hält. Schätzung aus Heizkörperleistung und Außentemperatur.": "Compared with a thermostat that always holds the comfort temperature. Estimated from radiator output and outdoor temperature.",
 "Verhalten bei Modus „Aus\"": "Behaviour in “Off” mode",
 "Verhindert Lastspitzen beim Hochfahren der Heizung. Räume mit niedrigerer Priorität werden gestaffelt zugeschaltet, statt alle gleichzeitig.": "Prevents load peaks when heating starts. Lower-priority rooms are switched on staggered instead of all at once.",
 "Verhindert das Festfressen von TRV-Ventilen durch Kalk. Bewegt die Ventile regelmäßig durch den vollen Hub.": "Prevents TRV valves from seizing due to limescale. Moves the valves through their full stroke regularly.",
@@ -635,6 +659,9 @@ const IHC_I18N_EN = {
 "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Template applied – now click “Save schedules”",
 "Vorlauf-Sensor (optional)": "Flow temperature sensor (optional)",
 "Vorlauftemperatur bei −12 °C außen (0 = automatisch)": "Flow temperature at −12 °C outside (0 = automatic)",
+"Vorlauftemperatur senken:": "Lower the flow temperature:",
+"Vorlauftemperatur zu niedrig:": "Flow temperature too low:",
+"Vormonat gespart": "Saved last month",
 "Vorschau": "Preview",
 "Vorschau-Tage": "Preview days",
 "Warm": "Warm",
@@ -642,7 +669,9 @@ const IHC_I18N_EN = {
 "Warm aufwachen (Wecker)": "Wake up warm (alarm)",
 "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Wake up warm – heat this long before the alarm (min)",
 "Warm, wenn der Handy-Wecker klingelt.": "Warm when the phone alarm rings.",
+"Warn-Schwelle (km/h)": "Warning threshold (km/h)",
 "Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).": "Waiting time after arrival before comfort mode starts (0 = immediately).",
+"Wartezeit nach dem Sturm (min)": "Wait after the storm (min)",
 "Was IHC automatisch macht": "What IHC does automatically",
 "Was IHC in diesem Zimmer nutzt": "What IHC uses in this room",
 "Weiteres hinzufügen": "Add another",
@@ -723,7 +752,9 @@ const IHC_I18N_EN = {
 "Zusätzliche Temperatursensoren": "Additional temperature sensors",
 "Zwischen einfacher Ansicht und allen Einstellungen umschalten": "Switch between the simple view and all settings",
 "alle": "all",
+"anheben.": "raise it.",
 "auf": "to",
+"aus (unten unter Temperaturen einschaltbar)": "off (can be enabled below under Temperatures)",
 "aus der Wettervorhersage": "from the weather forecast",
 "ausgewählten Personen abwesend sind, schaltet IHC automatisch auf den": "selected persons are away, IHC switches automatically to",
 "automatisch aus der Wettervorhersage": "automatically from the weather forecast",
@@ -755,6 +786,8 @@ const IHC_I18N_EN = {
 "ohne AT-Korrektur": "without outdoor correction",
 "optional": "optional",
 "startet/endet automatisch nach Außentemperatur ✓": "starts/ends automatically by outdoor temperature ✓",
+"tiefer. Spart Energie (bei Wärmepumpen besonders viel).": "lower. Saves energy (a lot with heat pumps).",
+"tiefer. Spart Energie.": "lower. Saves energy.",
 "umschalten.": "at the top right.",
 "von Hand verstellt – IHC wartet": "moved by hand – IHC waits",
 "von Met.no). Leer = IHC nimmt automatisch die erste vorhandene. Für Kälteprognose, Frühstart und 3-Tage-Vorschau.": "from Met.no). Empty = IHC takes the first one automatically. For cold forecast, early start and 3-day preview.",
@@ -763,6 +796,7 @@ const IHC_I18N_EN = {
 "wenn die Sonne auf die Fassade kommt": "when the sun reaches the facade",
 "werden am Temperatursturz erkannt ✓": "detected from a temperature drop ✓",
 "wie das Raumthermometer. Eingestellt ist eine feste Korrektur von": "as the room thermometer. A fixed correction of",
+"wird pro Zimmer gelernt – Ventil schließt früher ✓": "learned per room – valve closes earlier ✓",
 "z. B. +1 = mag es 1 °C wärmer. Es gilt der Durchschnitt aller, die gerade zu Hause sind. Frostschutz, Abwesend und manuelle Werte bleiben unverändert.": "e.g. +1 = likes it 1 °C warmer. The average of everyone at home applies. Frost protection, away and manual values stay unchanged.",
 "z.B. 0.09 (leer = nur kWh)": "e.g. 0.09 (empty = kWh only)",
 "z.B. Tibber-Integration": "e.g. Tibber integration",
@@ -776,6 +810,7 @@ const IHC_I18N_EN = {
 "Öffnet alle TRV-Ventile vollständig für kurze Zeit in regelmäßigen Abständen.": "Opens all TRV valves fully for a short time at regular intervals.",
 "Öl": "Oil",
 "Ø Aufheizzeit": "Ø warm-up time",
+"Ø Ventil beim Heizen": "Ø valve while heating",
 "Über diesem Preis gilt Strom als „teuer\" und der Eco-Modus wird aktiv.": "Above this price electricity counts as “expensive” and eco mode starts.",
 "Überhöhung (°C über Soll)": "Overshoot (°C above target)",
 "Überschuss-Schwelle (W)": "Surplus threshold (W)",
@@ -796,12 +831,29 @@ const IHC_I18N_EN = {
 "−1 °C für 2 Stunden – IHC lernt mit": "−1 °C for 2 hours – IHC learns",
 "−1 °C für 2 Stunden – IHC merkt sich das": "−1 °C for 2 hours – IHC remembers",
 "−2 = automatisch: gleicht nur die Wärme des laufenden Heizkörpers aus. Jeder andere Wert gilt fest. Vorschlag aus Messungen: Analyse-Tab.": "−2 = automatic: only compensates for the heat of a running radiator. Any other value applies permanently. Suggestion from measurements: Analysis tab.",
+"♨️ Restwärme": "♨️ Residual heat",
+"♨️ Restwärme nutzen": "♨️ Use residual heat",
+"♨️ Restwärme – Heizkörper heizt nach": "♨️ Residual heat – radiator still warming",
+"⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst": "⚠️ Room thermometer silent – thermostat regulates on its own",
+"✈️ Urlaub": "✈️ Vacation",
 "✓ Automatische Thermostat-Korrektur wieder aktiv": "✓ Automatic thermostat correction active again",
-"🎯 Thermostat-Temperatur korrigieren": "🎯 Correct thermostat temperature"
+"✓ Die Zimmer werden gleichmäßig versorgt.": "✓ The rooms are supplied evenly.",
+"🌙 Zeitplan & Nacht": "🌙 Schedule & night",
+"🌡️ Vorlauftemperatur passt.": "🌡️ Flow temperature fits.",
+"🌬️ Wind – bleibt, wie er ist": "🌬️ Wind – stays as it is",
+"🎯 Thermostat-Temperatur korrigieren": "🎯 Correct thermostat temperature",
+"💡 Ventil oft ganz offen und trotzdem zu kalt – Voreinstellung am Ventilunterteil höher stellen (hydraulischer Abgleich).": "💡 Valve often fully open and still too cold – turn the preset on the valve insert up (hydraulic balancing).",
+"💡 Ventil öffnet kaum – Voreinstellung am Ventilunterteil kleiner stellen, dann bleibt mehr für die anderen Zimmer.": "💡 Valve barely opens – turn the preset on the valve insert down, leaving more for the other rooms.",
+"💶 Spar-Bilanz (dieser Monat)": "💶 Savings (this month)",
+"💶 Spar-Regler": "💶 Saving dial",
+"📬 Monatsbericht": "📬 Monthly report",
+"🔧 Hydraulischer Abgleich & Vorlauftemperatur": "🔧 Hydraulic balancing & flow temperature",
+"🚶 Abwesenheit": "🚶 Away",
+"🪟 Fenster-Pausen": "🪟 Window pauses"
 };
-const IHC_I18N_EN_PATTERNS = [["^wie das Raumthermometer\\. Eingestellt ist eine feste Korrektur von (.+) °C\\. Vorschlag:$", "as the room thermometer. A fixed correction of $1 °C is set. Suggestion:"], ["^Bei kaltem Heizkörper misst das Thermostat in (.+) im Mittel$", "With a cold radiator the thermostat in $1 reads on average"], ["^([\\d.]+) °C zu warm$", "$1 °C too warm"], ["^([\\d.]+) °C zu kalt$", "$1 °C too cold"], ["^\\(verglichen mit dem Raumthermometer\\)\\. Eingestellt ist eine feste Korrektur von (.+) °C\\. Vorschlag:$", "(compared with the room thermometer). A fixed correction of $1 °C is set. Suggestion:"], ["^✓ (.+) °C übernehmen$", "✓ Apply $1 °C"], ["^✓ Thermostat-Korrektur (.+) °C übernommen$", "✓ Thermostat correction $1 °C applied"], ["^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\\.$", "$1 – IHC sets the target temperature, the thermostat regulates itself."], ["^(\\d+) Zimmer$", "$1 rooms"], ["^(\\d+) Zimmer wird geheizt$", "$1 room heating"], ["^(\\d+) Zimmer werden geheizt$", "$1 rooms heating"], ["^(\\d+) Zimmer mit Thermostaten$", "$1 rooms with thermostats"], ["^wurden in deinen Home-Assistant-Bereichen gefunden: (.*)$", "found in your Home Assistant areas: $1"], ["^(Mo|Di|Mi|Do|Fr|Sa|So) (\\d+:\\d+) – (\\d+)%$", "$1 $2 – $3%"], ["^Einstellungen – (.+)$", "Settings – $1"], ["^Anforderungs-Heatmap – (.+)$", "Demand heatmap – $1"], ["^Temperaturverlauf – (.+)$", "Temperature history – $1"], ["^IHC misst wie lange (.+) zum Aufheizen braucht und passt die Vorheizzeit automatisch an\\. Je mehr Daten gesammelt werden, desto präziser die Vorhersage\\.$", "IHC measures how long $1 needs to warm up and adjusts the pre-heat time automatically. The more data, the more precise."], ["^Zeitpläne bearbeiten \\((\\d+) konfiguriert\\)$", "Edit schedules ($1 configured)"], ["^TRV-Batterie schwach \\((\\d+)%\\) – bitte tauschen$", "TRV battery low ($1%) – please replace"], ["^Kaskade \\((.+)\\): Fenster offen in$", "Cascade ($1): window open in"], ["^Kaskade in (\\d+) min – andere Räume werden abgesenkt$", "Cascade in $1 min – other rooms will be lowered"], ["^Manuell bedient(.*) · Reset: (.+) Uhr –$", "Manual$1 · reset: $2 –"], ["^Manuell bedient(.*) –$", "Manual$1 –"], ["^↩ Reset (.+) Uhr$", "↩ Reset $1"], ["^Schimmelrisiko – (.+)% · Taupunkt (.+)$", "Mould risk – $1% · dew point $2"], ["^Schimmelrisiko – (.+)%$", "Mould risk – $1%"], ["^gefühlt (.+)$", "feels $1"], ["^Gelernt: (.+) °C um diese Zeit$", "Learned: $1 °C at this time"], ["^(.+) °C auf Wunsch bis (.+)$", "$1 °C on request until $2"], ["^(.+) °C auf Wunsch$", "$1 °C on request"], ["^(.+) °C gelernt$", "$1 °C learned"], ["^(.+) °C für die Anwesenden$", "$1 °C for those at home"], ["^Gefundene Wecker: (.+)\\. Pro Zimmer einschalten unter Zimmer → ⚙️ Einstellungen → Warm aufwachen\\.$", "Alarms found: $1. Enable per room under Rooms → ⚙️ Settings → Wake up warm."], ["^Vorlauf jetzt geschätzt: (.+) °C\\.$", "Estimated flow temperature now: $1 °C."], ["^≈ (.+) kW – jetzt speichern$", "≈ $1 kW – now save"], ["^Schritt (.+) °C$", "Step $1 °C"], ["^Ab (.+) Uhr$", "From $1"], ["^(.+) Zimmer angelegt – HA lädt die Entitäten neu$", "$1 rooms created – HA is reloading the entities"], ["^„(.+)“ angelegt – HA lädt die Entitäten neu$", "“$1” created – HA is reloading the entities"], ["^(.+) gespeichert$", "$1 saved"], ["^Boost (\\d+) min für (.+)$", "Boost $1 min for $2"], ["^Zimmer \"(.+)\" nicht gefunden$", "Room “$1” not found"], ["^Nächste Schaltzeit:?(.*)$", "Next switch:$1"], ["^≈ (\\d+) % weniger Heizenergie\\.$", "≈ $1 % less heating energy."], ["^automatisch über (.+) ✓ \\(mind\\. 20 min Verzögerung\\)$", "automatically via $1 ✓ (min. 20 min delay)"], ["^über (\\d+) eingetragene Person\\(en\\)/Tracker ✓$", "via $1 configured person(s)/tracker ✓"], ["^Fenster in (.+) schließen\\?$", "Close the window in $1?"], ["^(.+) \\((\\d+) Thermostate?, Thermometer, Fenster\\)$", "$1 ($2 thermostat(s), thermometer, window)"], ["^(.+) \\((\\d+) Thermostate?, Thermometer\\)$", "$1 ($2 thermostat(s), thermometer)"], ["^(.+) \\((\\d+) Thermostate?, Fenster\\)$", "$1 ($2 thermostat(s), window)"], ["^(.+) \\((\\d+) Thermostate?\\)$", "$1 ($2 thermostat(s))"], ["^CO₂ (\\d+) ppm \\(mäßig\\)$", "CO₂ $1 ppm (moderate)"], ["^Luftfeuchtigkeit (.+)% \\(Schimmelrisiko\\)$", "Humidity $1% (mould risk)"], ["^Luftfeuchtigkeit (.+)%$", "Humidity $1%"], ["^⚠️ Außenluftfeuchte hoch \\((\\d+)%\\)$", "⚠️ Outdoor humidity high ($1%)"]].map(([p, r]) => { try { return [new RegExp(p, "u"), r]; } catch (e) { console.warn("IHC i18n pattern", p, e); return null; } }).filter(Boolean);
+const IHC_I18N_EN_PATTERNS = [["^(.+) \\(zusätzlich\\)$", "$1 (additional)"], ["^Alle Zimmer werden mit halb offenen Ventilen warm – die Heizkurve am (Kessel|Wärmepumpe) kann etwa$", "All rooms warm up with half-open valves – the heating curve of the $1 can go about"], ["^Mehrere Zimmer bleiben trotz voll offener Ventile kalt – die Heizkurve am (Kessel|Wärmepumpe) etwa$", "Several rooms stay cold despite fully open valves – raise the heating curve of the $1 by about"], ["^Wird gelernt: braucht mindestens 2 Zimmer mit Ventilstellung und je 6 Stunden Heizbetrieb \\(bisher (\\d+)\\)\\.$", "Learning: needs at least 2 rooms with valve position and 6 heating hours each (so far $1)."], ["^Ventil: (\\d+)%$", "Valve: $1%"], ["^🌬️ Wind – bleibt, wie er ist · (\\d+)%$", "🌬️ Wind – stays as it is · $1%"], ["^Restwärme: \\+(.+) °C$", "Residual heat: +$1 °C"], ["^Wird gelernt: (\\d+) von 3 Heizphasen gemessen\\.$", "Learning: $1 of 3 heating phases measured."], ["^Nach dem Schließen des Ventils wird (.+) noch$", "After the valve closes, $1 still warms up by"], ["^wärmer, Höhepunkt nach etwa$", "– peak after about"], ["^\\((\\d+) Messungen\\)\\. IHC schließt das Ventil so viel früher\\.$", "($1 measurements). IHC closes the valve that much earlier."], ["^wie das Raumthermometer\\. Eingestellt ist eine feste Korrektur von (.+) °C\\. Vorschlag:$", "as the room thermometer. A fixed correction of $1 °C is set. Suggestion:"], ["^Bei kaltem Heizkörper misst das Thermostat in (.+) im Mittel$", "With a cold radiator the thermostat in $1 reads on average"], ["^([\\d.]+) °C zu warm$", "$1 °C too warm"], ["^([\\d.]+) °C zu kalt$", "$1 °C too cold"], ["^\\(verglichen mit dem Raumthermometer\\)\\. Eingestellt ist eine feste Korrektur von (.+) °C\\. Vorschlag:$", "(compared with the room thermometer). A fixed correction of $1 °C is set. Suggestion:"], ["^✓ (.+) °C übernehmen$", "✓ Apply $1 °C"], ["^✓ Thermostat-Korrektur (.+) °C übernommen$", "✓ Thermostat correction $1 °C applied"], ["^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\\.$", "$1 – IHC sets the target temperature, the thermostat regulates itself."], ["^(\\d+) Zimmer$", "$1 rooms"], ["^(\\d+) Zimmer wird geheizt$", "$1 room heating"], ["^(\\d+) Zimmer werden geheizt$", "$1 rooms heating"], ["^(\\d+) Zimmer mit Thermostaten$", "$1 rooms with thermostats"], ["^wurden in deinen Home-Assistant-Bereichen gefunden: (.*)$", "found in your Home Assistant areas: $1"], ["^(Mo|Di|Mi|Do|Fr|Sa|So) (\\d+:\\d+) – (\\d+)%$", "$1 $2 – $3%"], ["^Einstellungen – (.+)$", "Settings – $1"], ["^Anforderungs-Heatmap – (.+)$", "Demand heatmap – $1"], ["^Temperaturverlauf – (.+)$", "Temperature history – $1"], ["^IHC misst wie lange (.+) zum Aufheizen braucht und passt die Vorheizzeit automatisch an\\. Je mehr Daten gesammelt werden, desto präziser die Vorhersage\\.$", "IHC measures how long $1 needs to warm up and adjusts the pre-heat time automatically. The more data, the more precise."], ["^Zeitpläne bearbeiten \\((\\d+) konfiguriert\\)$", "Edit schedules ($1 configured)"], ["^TRV-Batterie schwach \\((\\d+)%\\) – bitte tauschen$", "TRV battery low ($1%) – please replace"], ["^Kaskade \\((.+)\\): Fenster offen in$", "Cascade ($1): window open in"], ["^Kaskade in (\\d+) min – andere Räume werden abgesenkt$", "Cascade in $1 min – other rooms will be lowered"], ["^Manuell bedient(.*) · Reset: (.+) Uhr –$", "Manual$1 · reset: $2 –"], ["^Manuell bedient(.*) –$", "Manual$1 –"], ["^↩ Reset (.+) Uhr$", "↩ Reset $1"], ["^Schimmelrisiko – (.+)% · Taupunkt (.+)$", "Mould risk – $1% · dew point $2"], ["^Schimmelrisiko – (.+)%$", "Mould risk – $1%"], ["^gefühlt (.+)$", "feels $1"], ["^Gelernt: (.+) °C um diese Zeit$", "Learned: $1 °C at this time"], ["^(.+) °C auf Wunsch bis (.+)$", "$1 °C on request until $2"], ["^(.+) °C auf Wunsch$", "$1 °C on request"], ["^(.+) °C gelernt$", "$1 °C learned"], ["^(.+) °C für die Anwesenden$", "$1 °C for those at home"], ["^Gefundene Wecker: (.+)\\. Pro Zimmer einschalten unter Zimmer → ⚙️ Einstellungen → Warm aufwachen\\.$", "Alarms found: $1. Enable per room under Rooms → ⚙️ Settings → Wake up warm."], ["^Vorlauf jetzt geschätzt: (.+) °C\\.$", "Estimated flow temperature now: $1 °C."], ["^≈ (.+) kW – jetzt speichern$", "≈ $1 kW – now save"], ["^Schritt (.+) °C$", "Step $1 °C"], ["^Ab (.+) Uhr$", "From $1"], ["^(.+) Zimmer angelegt – HA lädt die Entitäten neu$", "$1 rooms created – HA is reloading the entities"], ["^„(.+)“ angelegt – HA lädt die Entitäten neu$", "“$1” created – HA is reloading the entities"], ["^(.+) gespeichert$", "$1 saved"], ["^Boost (\\d+) min für (.+)$", "Boost $1 min for $2"], ["^Zimmer \"(.+)\" nicht gefunden$", "Room “$1” not found"], ["^Nächste Schaltzeit:?(.*)$", "Next switch:$1"], ["^≈ (\\d+) % weniger Heizenergie\\.$", "≈ $1 % less heating energy."], ["^automatisch über (.+) ✓ \\(mind\\. 20 min Verzögerung\\)$", "automatically via $1 ✓ (min. 20 min delay)"], ["^über (\\d+) eingetragene Person\\(en\\)/Tracker ✓$", "via $1 configured person(s)/tracker ✓"], ["^Fenster in (.+) schließen\\?$", "Close the window in $1?"], ["^(.+) \\((\\d+) Thermostate?, Thermometer, Fenster\\)$", "$1 ($2 thermostat(s), thermometer, window)"], ["^(.+) \\((\\d+) Thermostate?, Thermometer\\)$", "$1 ($2 thermostat(s), thermometer)"], ["^(.+) \\((\\d+) Thermostate?, Fenster\\)$", "$1 ($2 thermostat(s), window)"], ["^(.+) \\((\\d+) Thermostate?\\)$", "$1 ($2 thermostat(s))"], ["^CO₂ (\\d+) ppm \\(mäßig\\)$", "CO₂ $1 ppm (moderate)"], ["^Luftfeuchtigkeit (.+)% \\(Schimmelrisiko\\)$", "Humidity $1% (mould risk)"], ["^Luftfeuchtigkeit (.+)%$", "Humidity $1%"], ["^⚠️ Außenluftfeuchte hoch \\((\\d+)%\\)$", "⚠️ Outdoor humidity high ($1%)"]].map(([p, r]) => { try { return [new RegExp(p, "u"), r]; } catch (e) { console.warn("IHC i18n pattern", p, e); return null; } }).filter(Boolean);
 const IHC_I18N_EN_WORDS = [["Einstellungen", "settings"], ["Automatisch", "Automatic"], ["Anforderung", "demand"], ["gespeichert", "saved"], ["Zimmermodus", "room mode"], ["übersteuert", "overridden"], ["Thermostate", "thermostats"], ["Ø Aufheiz:", "Ø warm-up:"], ["Temperatur", "temperature"], ["Thermostat", "thermostat"], ["niemand da", "nobody there"], ["Zeitpläne", "schedules"], ["Speichern", "Save"], ["speichern", "save"], ["Zeitplan", "schedule"], ["Laufzeit", "runtime"], ["Abwesend", "Away"], ["Schlafen", "Sleep"], ["gelöscht", "deleted"], ["Batterie", "battery"], ["Schimmel", "mould"], ["Heizung", "heating"], ["Fenster", "window"], ["gestern", "yesterday"], ["Manuell", "Manual"], ["Komfort", "Comfort"], ["Kaskade", "Cascade"], ["Zimmer", "room"], ["Urlaub", "Vacation"], ["Heizen", "Heat"], ["Fehler", "error"], ["Lüften", "ventilate"], ["Ventil", "valve"], ["heute", "today"], ["Gäste", "Guests"], ["offen", "open"], ["aktiv", "active"], ["Aktiv", "Active"], ["Außen", "outside"], ["Uhr", ""]];
-const IHC_I18N_LANGS = {"cs": {"+ Gruppe hinzufügen": "+ Přidat skupinu", "+ Zimmer manuell": "+ Místnost ručně", "+ Zimmer manuell anlegen": "+ Přidat místnost ručně", "Abbrechen": "Zrušit", "Abwesend": "Nepřítomen", "Abwesend-Temperatur (°C)": "Teplota při nepřítomnosti (°C)", "Abwesenheit": "Nepřítomnost", "Abwesenheit automatisch aus HA-Personen": "Nepřítomnost automaticky z osob HA", "Aktiviert": "Zapnuto", "Alle Zimmer sind warm genug": "Všechny místnosti jsou dost teplé", "Analyse": "Analýza", "Anwesenheitserkennung": "Detekce přítomnosti", "Aus": "Vyp.", "Aus Größe schätzen": "Odhadnout z rozměrů", "Aus Home-Assistant-Bereich übernehmen": "Převzít z oblasti Home Assistant", "Ausgewählte Zimmer anlegen": "Vytvořit vybrané místnosti", "Auto": "Auto", "Auto wiederherstellen": "Obnovit auto", "Automatisch": "Automaticky", "Außen": "Venku", "Außentemperatur": "Venkovní teplota", "Backup & Restore": "Záloha a obnova", "Bad (morgens + abends warm)": "Koupelna (teplo ráno + večer)", "Berufstätig (morgens + abends)": "Do práce (ráno + večer)", "Bitte einen Zimmernamen eingeben": "Zadejte název místnosti", "Bitte mindestens ein Thermostat auswählen": "Vyberte alespoň jeden termostat", "Boost": "Boost", "Boost aktiv": "Boost aktivní", "Boost starten": "Spustit boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Tím IHC přepočítá teplo na to, co platíte (kWh plynu nebo elektřiny).", "Daraus lernen": "Učit se z toho", "Deaktiviert": "Vypnuto", "Di": "Út", "Do": "Čt", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Stačí vám termostatické hlavice – vše ostatní (teploměry, okenní kontakty, čidla vlhkosti …) je volitelné a IHC jen zpřesní.", "Echter Zähler (optional)": "Skutečný měřič (volitelné)", "Eco": "Eko", "Eigener Temperatursensor": "Vlastní teplotní čidlo", "Einfach": "Jednoduchý", "Einfache Ansicht – nur das Wichtigste": "Jednoduchý pohled – jen to hlavní", "Einstellungen": "Nastavení", "Einstellungen speichern": "Uložit nastavení", "Erinnern, wenn ein Fenster länger offen ist (min)": "Připomenout otevřené okno po (min)", "Experte": "Expert", "Expertenansicht – alle Einstellungen sichtbar": "Expertní pohled – všechna nastavení", "Familie mit Schulkindern": "Rodina se školáky", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Pravidlo: každý stupeň méně ušetří asi 6 % energie.", "Fenster offen": "Okno otevřené", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Zjištěno otevřené okno (pokles teploty) – topení pozastaveno", "Fenster: automatische Erkennung": "Okno: automatická detekce", "Fensterkontakte": "Okenní kontakty", "Fenstersensor": "Okenní čidlo", "Fenstersensoren": "Okenní čidla", "Fernwärme": "Dálkové topení", "Fr": "Pá", "Frostschutz": "Ochrana proti mrazu", "Frostschutz-Temperatur (°C)": "Protimrazová teplota (°C)", "Gas": "Plyn", "Gelerntes zurücksetzen": "Obnovit naučené", "Gesamtanforderung": "Celková potřeba", "Gäste": "Hosté", "Gäste-Modus": "Režim hostů", "Hardware & Steuerung": "Hardware a řízení", "Heizen": "Topit", "Heizkosten sparen": "Ušetřit za topení", "Heizkurve": "Topná křivka", "Heizkurve (außerhalb Zeitplan)": "Topná křivka (mimo plán)", "Heizkörper & Verbrauch": "Radiátory a spotřeba", "Heizkörper-Nennleistung (kW, alle zusammen)": "Jmenovitý výkon radiátorů (kW, celkem)", "Heizperiode": "Topná sezóna", "Heizperiode für dieses Zimmer ignorieren": "Ignorovat topnou sezónu pro tuto místnost", "Heizperiode inaktiv": "Topná sezóna neaktivní", "Heizt": "Topí", "Heizt gerade": "Právě topí", "Heizung": "Topení", "Heizungsart": "Druh topení", "Homeoffice / tagsüber zu Hause": "Home office / přes den doma", "Höhe mm": "Výška mm", "IHC hat erkannt": "IHC rozpoznal", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC našel tyto termostaty ve vašich oblastech Home Assistant. Zaškrtněte a vytvořte – hotovo. Doladění později v místnosti.", "Immer zu Hause": "Stále doma", "Ist": "Aktuální", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Bez okenního kontaktu – nastupuje automatická detekce.", "Kein Zeitplan": "Žádný plán", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Bez teploměru – teplota z termostatu.", "Keine Luftfeuchte": "Bez vlhkosti", "Keine Rollläden": "Bez rolet", "Kindersicherung aktiv": "Dětská pojistka aktivní", "Komfort": "Komfort", "Luftfeuchte bekannt": "Vlhkost známa", "Länge mm": "Délka mm", "Manuell": "Ručně", "Manuelle Temperatur": "Ruční teplota", "Mein Heizung": "Moje topení", "Meine Heizung": "Moje topení", "Mi": "St", "Mir ist kalt": "Je mi zima", "Mir ist warm": "Je mi teplo", "Mo": "Po", "Modus": "Režim", "Nachtabsenkung & Vorheizen": "Noční útlum a předtápění", "Nord": "Sever", "Nordost": "Severovýchod", "Nordwest": "Severozápad", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Stačí název a termostat – vše ostatní lze doplnit později v místnosti v ⚙️ Nastavení.", "Ost": "Východ", "Raumfühler im Thermostat": "Pokojové čidlo v termostatu", "Raumfühler ins Thermostat übertragen": "Posílat pokojové čidlo do termostatu", "Raumfühler-Eingang": "Vstup čidla", "Raumthermometer": "Pokojový teploměr", "Rollläden automatisch": "Rolety automaticky", "Rollläden automatisch steuern": "Ovládat rolety automaticky", "Sa": "So", "Schlafen": "Spánek", "Schlafzimmer (kurz morgens + abends)": "Ložnice (krátce ráno + večer)", "Schließen": "Zavřít", "So": "Ne", "Soll": "Cílová", "Sommerautomatik": "Letní automatika", "Sommerautomatik aktiv": "Letní režim aktivní", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Úspora: snížit všechny komfortní teploty o", "Speichern": "Uložit", "Status": "Stav", "Strom direkt": "Přímotop", "Systemmodus Abwesend": "Režim systému nepřítomnost", "Systemmodus Urlaub": "Režim systému dovolená", "Süd": "Jih", "Südost": "Jihovýchod", "Südwest": "Jihozápad", "Temperatur vom Thermostat": "Teplota z termostatu", "Temperaturen": "Teploty", "Temperaturen & Sommerautomatik": "Teploty a letní režim", "Temperatursensor": "Teplotní čidlo", "Thermostat verbunden": "Termostat připojen", "Thermostat(e) *": "Termostat(y) *", "Thermostate / TRVs": "Termostaty / hlavice", "Urlaub": "Dovolená", "Urlaubs-Assistent": "Asistent dovolené", "Urlaubs-Temperatur (°C)": "Teplota dovolené (°C)", "Ventilstellung": "Poloha ventilu", "Verlauf": "Průběh", "Vorheizen vor nächster Zeitplan-Periode": "Předtápění před dalším obdobím", "Vorlage übernehmen": "Použít šablonu", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Šablona použita – klikněte na „Uložit plány”", "Warm aufwachen": "Probuzení v teple", "Warm aufwachen (Wecker)": "Probuzení v teple (budík)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Probuzení v teple – topit před budíkem (min)", "Was IHC automatisch macht": "Co IHC dělá automaticky", "Was IHC in diesem Zimmer nutzt": "Co IHC v této místnosti používá", "Wenn niemand da ist (°C)": "Když nikdo není doma (°C)", "West": "Západ", "Wettervorhersage": "Předpověď počasí", "Willkommen bei Intelligent Heating Control": "Vítejte v Intelligent Heating Control", "Wochenansicht": "Týdenní přehled", "Wohlfühltemperatur": "Komfortní teplota", "Wohlfühltemperatur (°C)": "Komfortní teplota (°C)", "Wärmeempfinden pro Person (°C)": "Preference komfortu na osobu (°C)", "Wärmepumpe": "Tepelné čerpadlo", "Zeitplan": "Plán", "Zeitplan aktiv": "Plán aktivní", "Zeitpläne speichern": "Uložit plány", "Zimmer": "Místnosti", "Zimmer anlegen": "Vytvořit místnost", "Zimmer ausgeschaltet": "Místnost vypnuta", "Zimmer automatisch anlegen": "Vytvořit místnosti automaticky", "Zimmer automatisch finden": "Najít místnosti automaticky", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "Místnost je teplá, když zazvoní budík v telefonu", "Zimmer löschen": "Smazat místnost", "Zimmer verwalten": "Spravovat místnosti", "Zimmer-Modus": "Režim místnosti", "Zimmername *": "Název místnosti *", "offen": "otevřené", "optional": "volitelné", "zurücksetzen": "obnovit", "Öl": "Olej", "übernehmen": "použít", "„Mir ist kalt/warm“ wirkt für (min)": "„Je mi zima/teplo” platí (min)", "… und danach warm halten (min)": "… a poté udržet teplo (min)"}, "da": {"+ Gruppe hinzufügen": "+ Tilføj gruppe", "+ Zimmer manuell": "+ Rum manuelt", "+ Zimmer manuell anlegen": "+ Tilføj rum manuelt", "Abbrechen": "Annuller", "Abwesend": "Ude", "Abwesend-Temperatur (°C)": "Fraværstemperatur (°C)", "Abwesenheit": "Fravær", "Abwesenheit automatisch aus HA-Personen": "Fravær automatisk fra HA-personer", "Aktiviert": "Aktiveret", "Alle Zimmer sind warm genug": "Alle rum er varme nok", "Analyse": "Analyse", "Anwesenheitserkennung": "Tilstedeværelse", "Aus": "Fra", "Aus Größe schätzen": "Anslå ud fra størrelse", "Aus Home-Assistant-Bereich übernehmen": "Hent fra Home Assistant-område", "Ausgewählte Zimmer anlegen": "Opret valgte rum", "Auto": "Auto", "Auto wiederherstellen": "Gendan auto", "Automatisch": "Automatisk", "Außen": "Ude", "Außentemperatur": "Udetemperatur", "Backup & Restore": "Backup & gendannelse", "Bad (morgens + abends warm)": "Badeværelse (varmt morgen + aften)", "Berufstätig (morgens + abends)": "Arbejder (morgen + aften)", "Bitte einen Zimmernamen eingeben": "Indtast et rumnavn", "Bitte mindestens ein Thermostat auswählen": "Vælg mindst én termostat", "Boost": "Boost", "Boost aktiv": "Boost aktiv", "Boost starten": "Start boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Så omregner IHC varme til det, du betaler for (kWh gas eller el).", "Daraus lernen": "Lær af det", "Deaktiviert": "Deaktiveret", "Di": "Tir", "Do": "Tor", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Du skal kun bruge dine radiatortermostater – alt andet (rumtermometre, vindueskontakter, fugtsensorer …) er valgfrit og gør IHC endnu mere præcis.", "Echter Zähler (optional)": "Rigtig måler (valgfri)", "Eco": "Øko", "Eigener Temperatursensor": "Egen temperatursensor", "Einfach": "Enkel", "Einfache Ansicht – nur das Wichtigste": "Enkel visning – kun det vigtigste", "Einstellungen": "Indstillinger", "Einstellungen speichern": "Gem indstillinger", "Erinnern, wenn ein Fenster länger offen ist (min)": "Påmind når et vindue står åbent (min)", "Experte": "Ekspert", "Expertenansicht – alle Einstellungen sichtbar": "Ekspertvisning – alle indstillinger", "Familie mit Schulkindern": "Familie med skolebørn", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Tommelfingerregel: hver grad mindre sparer ca. 6 % energi.", "Fenster offen": "Vindue åbent", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Åbent vindue registreret (temperaturfald) – varme sat på pause", "Fenster: automatische Erkennung": "Vindue: automatisk registrering", "Fensterkontakte": "Vindueskontakter", "Fenstersensor": "Vinduessensor", "Fenstersensoren": "Vinduessensorer", "Fernwärme": "Fjernvarme", "Fr": "Fre", "Frostschutz": "Frostbeskyttelse", "Frostschutz-Temperatur (°C)": "Frostbeskyttelse (°C)", "Gas": "Gas", "Gelerntes zurücksetzen": "Nulstil det lærte", "Gesamtanforderung": "Samlet behov", "Gäste": "Gæster", "Gäste-Modus": "Gæstetilstand", "Hardware & Steuerung": "Hardware & styring", "Heizen": "Varme", "Heizkosten sparen": "Spar på varmen", "Heizkurve": "Varmekurve", "Heizkurve (außerhalb Zeitplan)": "Varmekurve (uden for tidsplan)", "Heizkörper & Verbrauch": "Radiatorer & forbrug", "Heizkörper-Nennleistung (kW, alle zusammen)": "Radiatorernes nominelle effekt (kW, i alt)", "Heizperiode": "Fyringssæson", "Heizperiode für dieses Zimmer ignorieren": "Ignorer fyringssæsonen for dette rum", "Heizperiode inaktiv": "Fyringssæson inaktiv", "Heizt": "Varmer", "Heizt gerade": "Varmer nu", "Heizung": "Varme", "Heizungsart": "Varmekilde", "Homeoffice / tagsüber zu Hause": "Hjemmearbejde / hjemme om dagen", "Höhe mm": "Højde mm", "IHC hat erkannt": "IHC har registreret", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC fandt disse termostater i dine Home Assistant-områder. Sæt flueben og opret – færdig. Finjustering senere i rummet.", "Immer zu Hause": "Altid hjemme", "Ist": "Aktuel", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Ingen vindueskontakt – automatisk registrering overtager.", "Kein Zeitplan": "Ingen tidsplan", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Intet termometer – temperaturen kommer fra termostaten.", "Keine Luftfeuchte": "Ingen fugtighed", "Keine Rollläden": "Ingen rullegardiner", "Kindersicherung aktiv": "Børnesikring aktiv", "Komfort": "Komfort", "Luftfeuchte bekannt": "Fugtighed kendt", "Länge mm": "Længde mm", "Manuell": "Manuel", "Manuelle Temperatur": "Manuel temperatur", "Mein Heizung": "Min varme", "Meine Heizung": "Min varme", "Mi": "Ons", "Mir ist kalt": "Jeg fryser", "Mir ist warm": "Jeg har det varmt", "Mo": "Man", "Modus": "Tilstand", "Nachtabsenkung & Vorheizen": "Natsænkning & forvarmning", "Nord": "Nord", "Nordost": "Nordøst", "Nordwest": "Nordvest", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Kun et navn og en termostat er nødvendige – resten er valgfrit og kan tilføjes senere i rummet under ⚙️ Indstillinger.", "Ost": "Øst", "Raumfühler im Thermostat": "Rumsensor i termostaten", "Raumfühler ins Thermostat übertragen": "Send rumsensoren til termostaten", "Raumfühler-Eingang": "Rumsensor-indgang", "Raumthermometer": "Rumtermometer", "Rollläden automatisch": "Rullegardiner automatisk", "Rollläden automatisch steuern": "Styr rullegardiner automatisk", "Sa": "Lør", "Schlafen": "Søvn", "Schlafzimmer (kurz morgens + abends)": "Soveværelse (kort morgen + aften)", "Schließen": "Luk", "So": "Søn", "Soll": "Mål", "Sommerautomatik": "Sommerautomatik", "Sommerautomatik aktiv": "Sommertilstand aktiv", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Sparregulator: sænk alle komforttemperaturer med", "Speichern": "Gem", "Status": "Status", "Strom direkt": "Direkte el", "Systemmodus Abwesend": "Systemtilstand ude", "Systemmodus Urlaub": "Systemtilstand ferie", "Süd": "Syd", "Südost": "Sydøst", "Südwest": "Sydvest", "Temperatur vom Thermostat": "Temperatur fra termostaten", "Temperaturen": "Temperaturer", "Temperaturen & Sommerautomatik": "Temperaturer & sommertilstand", "Temperatursensor": "Temperatursensor", "Thermostat verbunden": "Termostat tilsluttet", "Thermostat(e) *": "Termostat(er) *", "Thermostate / TRVs": "Termostater / TRV'er", "Urlaub": "Ferie", "Urlaubs-Assistent": "Ferieassistent", "Urlaubs-Temperatur (°C)": "Ferietemperatur (°C)", "Ventilstellung": "Ventilstilling", "Verlauf": "Forløb", "Vorheizen vor nächster Zeitplan-Periode": "Forvarmning før næste periode", "Vorlage übernehmen": "Brug skabelon", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Skabelon anvendt – klik på »Gem tidsplaner«", "Warm aufwachen": "Vågn op til varme", "Warm aufwachen (Wecker)": "Vågn op til varme (alarm)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Vågn op til varme – varm op før alarmen (min)", "Was IHC automatisch macht": "Hvad IHC gør automatisk", "Was IHC in diesem Zimmer nutzt": "Hvad IHC bruger i dette rum", "Wenn niemand da ist (°C)": "Når ingen er hjemme (°C)", "West": "Vest", "Wettervorhersage": "Vejrudsigt", "Willkommen bei Intelligent Heating Control": "Velkommen til Intelligent Heating Control", "Wochenansicht": "Ugeoversigt", "Wohlfühltemperatur": "Komforttemperatur", "Wohlfühltemperatur (°C)": "Komforttemperatur (°C)", "Wärmeempfinden pro Person (°C)": "Komfortpræference pr. person (°C)", "Wärmepumpe": "Varmepumpe", "Zeitplan": "Tidsplan", "Zeitplan aktiv": "Tidsplan aktiv", "Zeitpläne speichern": "Gem tidsplaner", "Zimmer": "Rum", "Zimmer anlegen": "Opret rum", "Zimmer ausgeschaltet": "Rum slukket", "Zimmer automatisch anlegen": "Opret rum automatisk", "Zimmer automatisch finden": "Find rum automatisk", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "Rummet er varmt, når telefonens alarm ringer", "Zimmer löschen": "Slet rum", "Zimmer verwalten": "Administrer rum", "Zimmer-Modus": "Rumtilstand", "Zimmername *": "Rumnavn *", "offen": "åben", "optional": "valgfri", "zurücksetzen": "nulstil", "Öl": "Olie", "übernehmen": "anvend", "„Mir ist kalt/warm“ wirkt für (min)": "»Jeg fryser/har det varmt« varer (min)", "… und danach warm halten (min)": "… og hold varmen bagefter (min)"}, "es": {"+ Gruppe hinzufügen": "+ Añadir grupo", "+ Zimmer manuell": "+ Habitación manual", "+ Zimmer manuell anlegen": "+ Añadir habitación manualmente", "Abbrechen": "Cancelar", "Abwesend": "Ausente", "Abwesend-Temperatur (°C)": "Temperatura de ausencia (°C)", "Abwesenheit": "Ausencia", "Abwesenheit automatisch aus HA-Personen": "Ausencia automática desde personas de HA", "Aktiviert": "Activado", "Alle Zimmer sind warm genug": "Todas las habitaciones están calientes", "Analyse": "Análisis", "Anwesenheitserkennung": "Detección de presencia", "Aus": "Apagado", "Aus Größe schätzen": "Estimar por tamaño", "Aus Home-Assistant-Bereich übernehmen": "Tomar de un área de Home Assistant", "Ausgewählte Zimmer anlegen": "Crear habitaciones seleccionadas", "Auto": "Auto", "Auto wiederherstellen": "Restaurar auto", "Automatisch": "Automático", "Außen": "Exterior", "Außentemperatur": "Temperatura exterior", "Backup & Restore": "Copia y restauración", "Bad (morgens + abends warm)": "Baño (caliente mañana + noche)", "Berufstätig (morgens + abends)": "Trabajando (mañana + tarde)", "Bitte einen Zimmernamen eingeben": "Introduce un nombre de habitación", "Bitte mindestens ein Thermostat auswählen": "Elige al menos un termostato", "Boost": "Boost", "Boost aktiv": "Boost activo", "Boost starten": "Iniciar boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Con esto IHC convierte el calor en lo que pagas (kWh de gas o electricidad).", "Daraus lernen": "Aprender de ello", "Deaktiviert": "Desactivado", "Di": "Mar", "Do": "Jue", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Solo necesitas tus válvulas termostáticas – todo lo demás (termómetros, contactos de ventana, sensores de humedad …) es opcional y hace IHC aún más preciso.", "Echter Zähler (optional)": "Contador real (opcional)", "Eco": "Eco", "Eigener Temperatursensor": "Sensor de temperatura propio", "Einfach": "Sencillo", "Einfache Ansicht – nur das Wichtigste": "Vista sencilla – solo lo esencial", "Einstellungen": "Ajustes", "Einstellungen speichern": "Guardar ajustes", "Erinnern, wenn ein Fenster länger offen ist (min)": "Avisar si una ventana sigue abierta (min)", "Experte": "Experto", "Expertenansicht – alle Einstellungen sichtbar": "Vista experto – todos los ajustes", "Familie mit Schulkindern": "Familia con niños en edad escolar", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Regla general: cada grado menos ahorra un 6 % de energía.", "Fenster offen": "Ventana abierta", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Ventana abierta detectada (caída de temperatura) – calefacción en pausa", "Fenster: automatische Erkennung": "Ventana: detección automática", "Fensterkontakte": "Contactos de ventana", "Fenstersensor": "Sensor de ventana", "Fenstersensoren": "Sensores de ventana", "Fernwärme": "Calefacción urbana", "Fr": "Vie", "Frostschutz": "Antihielo", "Frostschutz-Temperatur (°C)": "Temperatura antihielo (°C)", "Gas": "Gas", "Gelerntes zurücksetzen": "Restablecer lo aprendido", "Gesamtanforderung": "Demanda total", "Gäste": "Invitados", "Gäste-Modus": "Modo invitados", "Hardware & Steuerung": "Hardware y control", "Heizen": "Calentar", "Heizkosten sparen": "Ahorrar calefacción", "Heizkurve": "Curva de calefacción", "Heizkurve (außerhalb Zeitplan)": "Curva de calefacción (fuera de horario)", "Heizkörper & Verbrauch": "Radiadores y consumo", "Heizkörper-Nennleistung (kW, alle zusammen)": "Potencia nominal de los radiadores (kW, en total)", "Heizperiode": "Temporada de calefacción", "Heizperiode für dieses Zimmer ignorieren": "Ignorar la temporada de calefacción en esta habitación", "Heizperiode inaktiv": "Temporada de calefacción inactiva", "Heizt": "Calentando", "Heizt gerade": "Calentando ahora", "Heizung": "Calefacción", "Heizungsart": "Tipo de calefacción", "Homeoffice / tagsüber zu Hause": "Teletrabajo / en casa de día", "Höhe mm": "Altura mm", "IHC hat erkannt": "IHC ha detectado", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC ha encontrado estos termostatos en tus áreas de Home Assistant. Marca y crea – listo. El ajuste fino se hace después en la habitación.", "Immer zu Hause": "Siempre en casa", "Ist": "Actual", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Sin contacto de ventana – la detección automática se encarga.", "Kein Zeitplan": "Sin horario", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Sin termómetro propio – la temperatura viene del termostato.", "Keine Luftfeuchte": "Sin humedad", "Keine Rollläden": "Sin persianas", "Kindersicherung aktiv": "Bloqueo infantil activo", "Komfort": "Confort", "Luftfeuchte bekannt": "Humedad conocida", "Länge mm": "Longitud mm", "Manuell": "Manual", "Manuelle Temperatur": "Temperatura manual", "Mein Heizung": "Mi calefacción", "Meine Heizung": "Mi calefacción", "Mi": "Mié", "Mir ist kalt": "Tengo frío", "Mir ist warm": "Tengo calor", "Mo": "Lun", "Modus": "Modo", "Nachtabsenkung & Vorheizen": "Reducción nocturna y precalentamiento", "Nord": "Norte", "Nordost": "Noreste", "Nordwest": "Noroeste", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Solo se necesitan un nombre y un termostato – lo demás es opcional y se puede añadir después en la habitación en ⚙️ Ajustes.", "Ost": "Este", "Raumfühler im Thermostat": "Sensor de habitación en el termostato", "Raumfühler ins Thermostat übertragen": "Enviar el sensor de habitación al termostato", "Raumfühler-Eingang": "Entrada de sensor", "Raumthermometer": "Termómetro", "Rollläden automatisch": "Persianas automáticas", "Rollläden automatisch steuern": "Controlar persianas automáticamente", "Sa": "Sáb", "Schlafen": "Dormir", "Schlafzimmer (kurz morgens + abends)": "Dormitorio (breve mañana + noche)", "Schließen": "Cerrar", "So": "Dom", "Soll": "Objetivo", "Sommerautomatik": "Modo verano automático", "Sommerautomatik aktiv": "Modo verano activo", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Ahorro: bajar todas las temperaturas de confort", "Speichern": "Guardar", "Status": "Estado", "Strom direkt": "Eléctrica directa", "Systemmodus Abwesend": "Modo sistema ausente", "Systemmodus Urlaub": "Modo sistema vacaciones", "Süd": "Sur", "Südost": "Sureste", "Südwest": "Suroeste", "Temperatur vom Thermostat": "Temperatura del termostato", "Temperaturen": "Temperaturas", "Temperaturen & Sommerautomatik": "Temperaturas y modo verano", "Temperatursensor": "Sensor de temperatura", "Thermostat verbunden": "Termostato conectado", "Thermostat(e) *": "Termostato(s) *", "Thermostate / TRVs": "Termostatos / válvulas", "Urlaub": "Vacaciones", "Urlaubs-Assistent": "Asistente de vacaciones", "Urlaubs-Temperatur (°C)": "Temperatura de vacaciones (°C)", "Ventilstellung": "Posición de válvula", "Verlauf": "Historial", "Vorheizen vor nächster Zeitplan-Periode": "Precalentando para el próximo periodo", "Vorlage übernehmen": "Usar plantilla", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Plantilla aplicada – pulsa «Guardar horarios»", "Warm aufwachen": "Despertar con calor", "Warm aufwachen (Wecker)": "Despertar con calor (alarma)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Despertar con calor – calentar antes de la alarma (min)", "Was IHC automatisch macht": "Lo que IHC hace automáticamente", "Was IHC in diesem Zimmer nutzt": "Lo que IHC usa en esta habitación", "Wenn niemand da ist (°C)": "Cuando no hay nadie (°C)", "West": "Oeste", "Wettervorhersage": "Previsión meteorológica", "Willkommen bei Intelligent Heating Control": "Bienvenido a Intelligent Heating Control", "Wochenansicht": "Vista semanal", "Wohlfühltemperatur": "Temperatura de confort", "Wohlfühltemperatur (°C)": "Temperatura de confort (°C)", "Wärmeempfinden pro Person (°C)": "Preferencia de confort por persona (°C)", "Wärmepumpe": "Bomba de calor", "Zeitplan": "Horario", "Zeitplan aktiv": "Horario activo", "Zeitpläne speichern": "Guardar horarios", "Zimmer": "Habitaciones", "Zimmer anlegen": "Crear habitación", "Zimmer ausgeschaltet": "Habitación apagada", "Zimmer automatisch anlegen": "Crear habitaciones automáticamente", "Zimmer automatisch finden": "Buscar habitaciones automáticamente", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "La habitación está caliente cuando suena la alarma del móvil", "Zimmer löschen": "Eliminar habitación", "Zimmer verwalten": "Gestionar habitaciones", "Zimmer-Modus": "Modo de la habitación", "Zimmername *": "Nombre de la habitación *", "offen": "abierta", "optional": "opcional", "zurücksetzen": "restablecer", "Öl": "Gasóleo", "übernehmen": "aplicar", "„Mir ist kalt/warm“ wirkt für (min)": "«Tengo frío/calor» dura (min)", "… und danach warm halten (min)": "… y mantener caliente después (min)"}, "fr": {"+ Gruppe hinzufügen": "+ Ajouter un groupe", "+ Zimmer manuell": "+ Pièce manuelle", "+ Zimmer manuell anlegen": "+ Ajouter une pièce manuellement", "Abbrechen": "Annuler", "Abwesend": "Absent", "Abwesend-Temperatur (°C)": "Température d'absence (°C)", "Abwesenheit": "Absence", "Abwesenheit automatisch aus HA-Personen": "Absence automatique via les personnes HA", "Aktiviert": "Activé", "Alle Zimmer sind warm genug": "Toutes les pièces sont assez chaudes", "Analyse": "Analyse", "Anwesenheitserkennung": "Détection de présence", "Aus": "Arrêt", "Aus Größe schätzen": "Estimer d'après la taille", "Aus Home-Assistant-Bereich übernehmen": "Reprendre depuis une zone Home Assistant", "Ausgewählte Zimmer anlegen": "Créer les pièces sélectionnées", "Auto": "Auto", "Auto wiederherstellen": "Rétablir auto", "Automatisch": "Automatique", "Außen": "Extérieur", "Außentemperatur": "Température extérieure", "Backup & Restore": "Sauvegarde & restauration", "Bad (morgens + abends warm)": "Salle de bain (chaude matin + soir)", "Berufstätig (morgens + abends)": "Au travail (matin + soir)", "Bitte einen Zimmernamen eingeben": "Veuillez saisir un nom de pièce", "Bitte mindestens ein Thermostat auswählen": "Choisissez au moins un thermostat", "Boost": "Boost", "Boost aktiv": "Boost actif", "Boost starten": "Lancer le boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "IHC convertit ainsi la chaleur en ce que vous payez (kWh de gaz ou d'électricité).", "Daraus lernen": "En tirer des leçons", "Deaktiviert": "Désactivé", "Di": "Mar", "Do": "Jeu", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Il vous suffit de vos têtes thermostatiques – tout le reste (thermomètres, contacts de fenêtre, capteurs d'humidité …) est facultatif et rend IHC encore plus précis.", "Echter Zähler (optional)": "Compteur réel (facultatif)", "Eco": "Éco", "Eigener Temperatursensor": "Capteur de température propre", "Einfach": "Simple", "Einfache Ansicht – nur das Wichtigste": "Vue simple – l'essentiel", "Einstellungen": "Paramètres", "Einstellungen speichern": "Enregistrer les paramètres", "Erinnern, wenn ein Fenster länger offen ist (min)": "Rappel si une fenêtre reste ouverte (min)", "Experte": "Expert", "Expertenansicht – alle Einstellungen sichtbar": "Vue expert – tous les paramètres", "Familie mit Schulkindern": "Famille avec écoliers", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Règle générale : chaque degré en moins économise environ 6 % d'énergie.", "Fenster offen": "Fenêtre ouverte", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Fenêtre ouverte détectée (chute de température) – chauffage en pause", "Fenster: automatische Erkennung": "Fenêtre : détection automatique", "Fensterkontakte": "Contacts de fenêtre", "Fenstersensor": "Capteur de fenêtre", "Fenstersensoren": "Capteurs de fenêtre", "Fernwärme": "Chauffage urbain", "Fr": "Ven", "Frostschutz": "Hors-gel", "Frostschutz-Temperatur (°C)": "Température hors-gel (°C)", "Gas": "Gaz", "Gelerntes zurücksetzen": "Réinitialiser l'apprentissage", "Gesamtanforderung": "Demande totale", "Gäste": "Invités", "Gäste-Modus": "Mode invités", "Hardware & Steuerung": "Matériel & commande", "Heizen": "Chauffer", "Heizkosten sparen": "Économiser le chauffage", "Heizkurve": "Courbe de chauffe", "Heizkurve (außerhalb Zeitplan)": "Courbe de chauffe (hors programme)", "Heizkörper & Verbrauch": "Radiateurs & consommation", "Heizkörper-Nennleistung (kW, alle zusammen)": "Puissance nominale des radiateurs (kW, au total)", "Heizperiode": "Saison de chauffe", "Heizperiode für dieses Zimmer ignorieren": "Ignorer la saison de chauffe pour cette pièce", "Heizperiode inaktiv": "Saison de chauffe inactive", "Heizt": "Chauffe", "Heizt gerade": "Chauffe en ce moment", "Heizung": "Chauffage", "Heizungsart": "Type de chauffage", "Homeoffice / tagsüber zu Hause": "Télétravail / à la maison en journée", "Höhe mm": "Hauteur mm", "IHC hat erkannt": "IHC a détecté", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC a trouvé ces thermostats dans vos zones Home Assistant. Cochez et créez – c'est tout. Les réglages fins se font ensuite dans la pièce.", "Immer zu Hause": "Toujours à la maison", "Ist": "Actuel", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Pas de contact de fenêtre – la détection automatique prend le relais.", "Kein Zeitplan": "Pas de programme", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Pas de thermomètre – la température vient du thermostat.", "Keine Luftfeuchte": "Pas d'humidité", "Keine Rollläden": "Pas de volets", "Kindersicherung aktiv": "Sécurité enfant active", "Komfort": "Confort", "Luftfeuchte bekannt": "Humidité connue", "Länge mm": "Longueur mm", "Manuell": "Manuel", "Manuelle Temperatur": "Température manuelle", "Mein Heizung": "Mon chauffage", "Meine Heizung": "Mon chauffage", "Mi": "Mer", "Mir ist kalt": "J'ai froid", "Mir ist warm": "J'ai chaud", "Mo": "Lun", "Modus": "Mode", "Nachtabsenkung & Vorheizen": "Abaissement nocturne & préchauffage", "Nord": "Nord", "Nordost": "Nord-est", "Nordwest": "Nord-ouest", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Seuls un nom et un thermostat sont nécessaires – le reste est facultatif et peut être ajouté plus tard dans la pièce sous ⚙️ Paramètres.", "Ost": "Est", "Raumfühler im Thermostat": "Capteur de pièce dans le thermostat", "Raumfühler ins Thermostat übertragen": "Envoyer le capteur de pièce au thermostat", "Raumfühler-Eingang": "Entrée capteur de pièce", "Raumthermometer": "Thermomètre", "Rollläden automatisch": "Volets automatiques", "Rollläden automatisch steuern": "Piloter les volets automatiquement", "Sa": "Sam", "Schlafen": "Nuit", "Schlafzimmer (kurz morgens + abends)": "Chambre (court matin + soir)", "Schließen": "Fermer", "So": "Dim", "Soll": "Consigne", "Sommerautomatik": "Mode été automatique", "Sommerautomatik aktiv": "Mode été actif", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Économies : baisser toutes les températures de confort de", "Speichern": "Enregistrer", "Status": "État", "Strom direkt": "Électrique direct", "Systemmodus Abwesend": "Mode système absent", "Systemmodus Urlaub": "Mode système vacances", "Süd": "Sud", "Südost": "Sud-est", "Südwest": "Sud-ouest", "Temperatur vom Thermostat": "Température du thermostat", "Temperaturen": "Températures", "Temperaturen & Sommerautomatik": "Températures & mode été", "Temperatursensor": "Capteur de température", "Thermostat verbunden": "Thermostat connecté", "Thermostat(e) *": "Thermostat(s) *", "Thermostate / TRVs": "Thermostats / têtes", "Urlaub": "Vacances", "Urlaubs-Assistent": "Assistant vacances", "Urlaubs-Temperatur (°C)": "Température vacances (°C)", "Ventilstellung": "Position de vanne", "Verlauf": "Historique", "Vorheizen vor nächster Zeitplan-Periode": "Préchauffage avant la prochaine période", "Vorlage übernehmen": "Utiliser un modèle", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Modèle appliqué – cliquez sur « Enregistrer les programmes »", "Warm aufwachen": "Réveil au chaud", "Warm aufwachen (Wecker)": "Réveil au chaud (réveil)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Réveil au chaud – chauffer avant le réveil (min)", "Was IHC automatisch macht": "Ce qu'IHC fait automatiquement", "Was IHC in diesem Zimmer nutzt": "Ce qu'IHC utilise dans cette pièce", "Wenn niemand da ist (°C)": "Quand personne n'est là (°C)", "West": "Ouest", "Wettervorhersage": "Prévisions météo", "Willkommen bei Intelligent Heating Control": "Bienvenue dans Intelligent Heating Control", "Wochenansicht": "Vue semaine", "Wohlfühltemperatur": "Température de confort", "Wohlfühltemperatur (°C)": "Température de confort (°C)", "Wärmeempfinden pro Person (°C)": "Préférence de confort par personne (°C)", "Wärmepumpe": "Pompe à chaleur", "Zeitplan": "Programme", "Zeitplan aktiv": "Programme actif", "Zeitpläne speichern": "Enregistrer les programmes", "Zimmer": "Pièces", "Zimmer anlegen": "Créer la pièce", "Zimmer ausgeschaltet": "Pièce éteinte", "Zimmer automatisch anlegen": "Créer les pièces automatiquement", "Zimmer automatisch finden": "Trouver les pièces automatiquement", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "La pièce est chaude quand le réveil du téléphone sonne", "Zimmer löschen": "Supprimer la pièce", "Zimmer verwalten": "Gérer les pièces", "Zimmer-Modus": "Mode de la pièce", "Zimmername *": "Nom de la pièce *", "offen": "ouverte", "optional": "facultatif", "zurücksetzen": "réinitialiser", "Öl": "Fioul", "übernehmen": "appliquer", "„Mir ist kalt/warm“ wirkt für (min)": "« J'ai froid/chaud » dure (min)", "… und danach warm halten (min)": "… puis garder au chaud (min)"}, "it": {"+ Gruppe hinzufügen": "+ Aggiungi gruppo", "+ Zimmer manuell": "+ Stanza manuale", "+ Zimmer manuell anlegen": "+ Aggiungi stanza manualmente", "Abbrechen": "Annulla", "Abwesend": "Assente", "Abwesend-Temperatur (°C)": "Temperatura di assenza (°C)", "Abwesenheit": "Assenza", "Abwesenheit automatisch aus HA-Personen": "Assenza automatica dalle persone di HA", "Aktiviert": "Attivato", "Alle Zimmer sind warm genug": "Tutte le stanze sono abbastanza calde", "Analyse": "Analisi", "Anwesenheitserkennung": "Rilevamento presenza", "Aus": "Spento", "Aus Größe schätzen": "Stima dalla dimensione", "Aus Home-Assistant-Bereich übernehmen": "Prendi da un'area di Home Assistant", "Ausgewählte Zimmer anlegen": "Crea le stanze selezionate", "Auto": "Auto", "Auto wiederherstellen": "Ripristina auto", "Automatisch": "Automatico", "Außen": "Esterno", "Außentemperatur": "Temperatura esterna", "Backup & Restore": "Backup e ripristino", "Bad (morgens + abends warm)": "Bagno (caldo mattina + sera)", "Berufstätig (morgens + abends)": "Lavoro (mattina + sera)", "Bitte einen Zimmernamen eingeben": "Inserisci un nome per la stanza", "Bitte mindestens ein Thermostat auswählen": "Scegli almeno un termostato", "Boost": "Boost", "Boost aktiv": "Boost attivo", "Boost starten": "Avvia boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Così IHC converte il calore in ciò che paghi (kWh di gas o elettricità).", "Daraus lernen": "Impara da questo", "Deaktiviert": "Disattivato", "Di": "Mar", "Do": "Gio", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Ti servono solo le valvole termostatiche – tutto il resto (termometri, contatti finestra, sensori di umidità …) è facoltativo e rende IHC ancora più preciso.", "Echter Zähler (optional)": "Contatore reale (facoltativo)", "Eco": "Eco", "Eigener Temperatursensor": "Sensore di temperatura proprio", "Einfach": "Semplice", "Einfache Ansicht – nur das Wichtigste": "Vista semplice – solo l'essenziale", "Einstellungen": "Impostazioni", "Einstellungen speichern": "Salva impostazioni", "Erinnern, wenn ein Fenster länger offen ist (min)": "Avvisa se una finestra resta aperta (min)", "Experte": "Esperto", "Expertenansicht – alle Einstellungen sichtbar": "Vista esperto – tutte le impostazioni", "Familie mit Schulkindern": "Famiglia con bambini in età scolare", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Regola pratica: ogni grado in meno fa risparmiare circa il 6 % di energia.", "Fenster offen": "Finestra aperta", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Finestra aperta rilevata (calo di temperatura) – riscaldamento in pausa", "Fenster: automatische Erkennung": "Finestra: rilevamento automatico", "Fensterkontakte": "Contatti finestra", "Fenstersensor": "Sensore finestra", "Fenstersensoren": "Sensori finestra", "Fernwärme": "Teleriscaldamento", "Fr": "Ven", "Frostschutz": "Antigelo", "Frostschutz-Temperatur (°C)": "Temperatura antigelo (°C)", "Gas": "Gas", "Gelerntes zurücksetzen": "Reimposta l'apprendimento", "Gesamtanforderung": "Richiesta totale", "Gäste": "Ospiti", "Gäste-Modus": "Modalità ospiti", "Hardware & Steuerung": "Hardware e controllo", "Heizen": "Riscalda", "Heizkosten sparen": "Risparmiare sul riscaldamento", "Heizkurve": "Curva di riscaldamento", "Heizkurve (außerhalb Zeitplan)": "Curva di riscaldamento (fuori programma)", "Heizkörper & Verbrauch": "Radiatori e consumo", "Heizkörper-Nennleistung (kW, alle zusammen)": "Potenza nominale radiatori (kW, totale)", "Heizperiode": "Stagione di riscaldamento", "Heizperiode für dieses Zimmer ignorieren": "Ignora la stagione di riscaldamento per questa stanza", "Heizperiode inaktiv": "Stagione di riscaldamento inattiva", "Heizt": "Riscalda", "Heizt gerade": "Sta riscaldando", "Heizung": "Riscaldamento", "Heizungsart": "Tipo di riscaldamento", "Homeoffice / tagsüber zu Hause": "Smart working / a casa di giorno", "Höhe mm": "Altezza mm", "IHC hat erkannt": "IHC ha rilevato", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC ha trovato questi termostati nelle tue aree di Home Assistant. Seleziona e crea – fatto. Le regolazioni fini si fanno poi nella stanza.", "Immer zu Hause": "Sempre a casa", "Ist": "Attuale", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Nessun contatto finestra – subentra il rilevamento automatico.", "Kein Zeitplan": "Nessun programma", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Nessun termometro – la temperatura arriva dal termostato.", "Keine Luftfeuchte": "Nessuna umidità", "Keine Rollläden": "Nessuna tapparella", "Kindersicherung aktiv": "Blocco bambini attivo", "Komfort": "Comfort", "Luftfeuchte bekannt": "Umidità nota", "Länge mm": "Lunghezza mm", "Manuell": "Manuale", "Manuelle Temperatur": "Temperatura manuale", "Mein Heizung": "Il mio riscaldamento", "Meine Heizung": "Il mio riscaldamento", "Mi": "Mer", "Mir ist kalt": "Ho freddo", "Mir ist warm": "Ho caldo", "Mo": "Lun", "Modus": "Modalità", "Nachtabsenkung & Vorheizen": "Riduzione notturna e preriscaldamento", "Nord": "Nord", "Nordost": "Nord-est", "Nordwest": "Nord-ovest", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Servono solo un nome e un termostato – il resto è facoltativo e si aggiunge dopo nella stanza in ⚙️ Impostazioni.", "Ost": "Est", "Raumfühler im Thermostat": "Sensore della stanza nel termostato", "Raumfühler ins Thermostat übertragen": "Invia il sensore della stanza al termostato", "Raumfühler-Eingang": "Ingresso sensore", "Raumthermometer": "Termometro", "Rollläden automatisch": "Tapparelle automatiche", "Rollläden automatisch steuern": "Comanda le tapparelle automaticamente", "Sa": "Sab", "Schlafen": "Notte", "Schlafzimmer (kurz morgens + abends)": "Camera da letto (breve mattina + sera)", "Schließen": "Chiudi", "So": "Dom", "Soll": "Obiettivo", "Sommerautomatik": "Estate automatica", "Sommerautomatik aktiv": "Modalità estate attiva", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Risparmio: abbassa tutte le temperature di comfort di", "Speichern": "Salva", "Status": "Stato", "Strom direkt": "Elettrico diretto", "Systemmodus Abwesend": "Modalità sistema assente", "Systemmodus Urlaub": "Modalità sistema vacanza", "Süd": "Sud", "Südost": "Sud-est", "Südwest": "Sud-ovest", "Temperatur vom Thermostat": "Temperatura dal termostato", "Temperaturen": "Temperature", "Temperaturen & Sommerautomatik": "Temperature e modalità estate", "Temperatursensor": "Sensore di temperatura", "Thermostat verbunden": "Termostato collegato", "Thermostat(e) *": "Termostato/i *", "Thermostate / TRVs": "Termostati / valvole", "Urlaub": "Vacanza", "Urlaubs-Assistent": "Assistente vacanze", "Urlaubs-Temperatur (°C)": "Temperatura vacanza (°C)", "Ventilstellung": "Posizione valvola", "Verlauf": "Andamento", "Vorheizen vor nächster Zeitplan-Periode": "Preriscaldamento per il prossimo periodo", "Vorlage übernehmen": "Usa un modello", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Modello applicato – fai clic su «Salva programmi»", "Warm aufwachen": "Risveglio al caldo", "Warm aufwachen (Wecker)": "Risveglio al caldo (sveglia)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Risveglio al caldo – riscalda prima della sveglia (min)", "Was IHC automatisch macht": "Cosa fa IHC automaticamente", "Was IHC in diesem Zimmer nutzt": "Cosa usa IHC in questa stanza", "Wenn niemand da ist (°C)": "Quando non c'è nessuno (°C)", "West": "Ovest", "Wettervorhersage": "Previsioni meteo", "Willkommen bei Intelligent Heating Control": "Benvenuto in Intelligent Heating Control", "Wochenansicht": "Vista settimanale", "Wohlfühltemperatur": "Temperatura di comfort", "Wohlfühltemperatur (°C)": "Temperatura di comfort (°C)", "Wärmeempfinden pro Person (°C)": "Preferenza di comfort per persona (°C)", "Wärmepumpe": "Pompa di calore", "Zeitplan": "Programma", "Zeitplan aktiv": "Programma attivo", "Zeitpläne speichern": "Salva programmi", "Zimmer": "Stanze", "Zimmer anlegen": "Crea stanza", "Zimmer ausgeschaltet": "Stanza spenta", "Zimmer automatisch anlegen": "Crea stanze automaticamente", "Zimmer automatisch finden": "Trova stanze automaticamente", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "La stanza è calda quando suona la sveglia del telefono", "Zimmer löschen": "Elimina stanza", "Zimmer verwalten": "Gestisci stanze", "Zimmer-Modus": "Modalità stanza", "Zimmername *": "Nome della stanza *", "offen": "aperta", "optional": "facoltativo", "zurücksetzen": "reimposta", "Öl": "Gasolio", "übernehmen": "applica", "„Mir ist kalt/warm“ wirkt für (min)": "«Ho freddo/caldo» dura (min)", "… und danach warm halten (min)": "… e poi mantieni caldo (min)"}, "nl": {"+ Gruppe hinzufügen": "+ Groep toevoegen", "+ Zimmer manuell": "+ Kamer handmatig", "+ Zimmer manuell anlegen": "+ Kamer handmatig toevoegen", "Abbrechen": "Annuleren", "Abwesend": "Afwezig", "Abwesend-Temperatur (°C)": "Afwezigheidstemperatuur (°C)", "Abwesenheit": "Afwezigheid", "Abwesenheit automatisch aus HA-Personen": "Afwezigheid automatisch via HA-personen", "Aktiviert": "Ingeschakeld", "Alle Zimmer sind warm genug": "Alle kamers zijn warm genoeg", "Analyse": "Analyse", "Anwesenheitserkennung": "Aanwezigheidsdetectie", "Aus": "Uit", "Aus Größe schätzen": "Schatten op basis van afmeting", "Aus Home-Assistant-Bereich übernehmen": "Overnemen uit Home Assistant-ruimte", "Ausgewählte Zimmer anlegen": "Geselecteerde kamers aanmaken", "Auto": "Auto", "Auto wiederherstellen": "Auto herstellen", "Automatisch": "Automatisch", "Außen": "Buiten", "Außentemperatur": "Buitentemperatuur", "Backup & Restore": "Back-up & herstel", "Bad (morgens + abends warm)": "Badkamer (ochtend + avond warm)", "Berufstätig (morgens + abends)": "Werkend (ochtend + avond)", "Bitte einen Zimmernamen eingeben": "Voer een kamernaam in", "Bitte mindestens ein Thermostat auswählen": "Kies minstens één thermostaat", "Boost": "Boost", "Boost aktiv": "Boost actief", "Boost starten": "Boost starten", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Hiermee rekent IHC warmte om naar wat je betaalt (gas- of stroom-kWh).", "Daraus lernen": "Hiervan leren", "Deaktiviert": "Uitgeschakeld", "Di": "Di", "Do": "Do", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Je hebt alleen je radiatorthermostaten nodig – al het andere (kamerthermometers, raamcontacten, vochtsensoren …) is optioneel en maakt IHC nog nauwkeuriger.", "Echter Zähler (optional)": "Echte meter (optioneel)", "Eco": "Eco", "Eigener Temperatursensor": "Eigen temperatuursensor", "Einfach": "Eenvoudig", "Einfache Ansicht – nur das Wichtigste": "Eenvoudige weergave – alleen het belangrijkste", "Einstellungen": "Instellingen", "Einstellungen speichern": "Instellingen opslaan", "Erinnern, wenn ein Fenster länger offen ist (min)": "Herinnering als een raam lang openstaat (min)", "Experte": "Expert", "Expertenansicht – alle Einstellungen sichtbar": "Expertweergave – alle instellingen", "Familie mit Schulkindern": "Gezin met schoolkinderen", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Vuistregel: elke graad minder bespaart ongeveer 6 % energie.", "Fenster offen": "Raam open", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Open raam gedetecteerd (temperatuurdaling) – verwarming gepauzeerd", "Fenster: automatische Erkennung": "Raam: automatische detectie", "Fensterkontakte": "Raamcontacten", "Fenstersensor": "Raamsensor", "Fenstersensoren": "Raamsensoren", "Fernwärme": "Stadsverwarming", "Fr": "Vr", "Frostschutz": "Vorstbeveiliging", "Frostschutz-Temperatur (°C)": "Vorstbeveiliging (°C)", "Gas": "Gas", "Gelerntes zurücksetzen": "Geleerde resetten", "Gesamtanforderung": "Totale vraag", "Gäste": "Gasten", "Gäste-Modus": "Gastenmodus", "Hardware & Steuerung": "Hardware & besturing", "Heizen": "Verwarmen", "Heizkosten sparen": "Stookkosten besparen", "Heizkurve": "Stooklijn", "Heizkurve (außerhalb Zeitplan)": "Stooklijn (buiten schema)", "Heizkörper & Verbrauch": "Radiatoren & verbruik", "Heizkörper-Nennleistung (kW, alle zusammen)": "Nominaal vermogen radiatoren (kW, samen)", "Heizperiode": "Stookseizoen", "Heizperiode für dieses Zimmer ignorieren": "Stookseizoen voor deze kamer negeren", "Heizperiode inaktiv": "Stookseizoen inactief", "Heizt": "Verwarmt", "Heizt gerade": "Verwarmt nu", "Heizung": "Verwarming", "Heizungsart": "Soort verwarming", "Homeoffice / tagsüber zu Hause": "Thuiswerken / overdag thuis", "Höhe mm": "Hoogte mm", "IHC hat erkannt": "IHC heeft herkend", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC heeft deze thermostaten in je Home Assistant-ruimtes gevonden. Aanvinken en aanmaken – klaar. Fijnafstemming later in de kamer.", "Immer zu Hause": "Altijd thuis", "Ist": "Huidig", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Geen raamcontact – automatische raamdetectie neemt het over.", "Kein Zeitplan": "Geen schema", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Geen eigen thermometer – temperatuur komt van de thermostaat.", "Keine Luftfeuchte": "Geen luchtvochtigheid", "Keine Rollläden": "Geen rolluiken", "Kindersicherung aktiv": "Kinderslot actief", "Komfort": "Comfort", "Luftfeuchte bekannt": "Luchtvochtigheid bekend", "Länge mm": "Lengte mm", "Manuell": "Handmatig", "Manuelle Temperatur": "Handmatige temperatuur", "Mein Heizung": "Mijn verwarming", "Meine Heizung": "Mijn verwarming", "Mi": "Wo", "Mir ist kalt": "Ik heb het koud", "Mir ist warm": "Ik heb het warm", "Mo": "Ma", "Modus": "Modus", "Nachtabsenkung & Vorheizen": "Nachtverlaging & voorverwarmen", "Nord": "Noord", "Nordost": "Noordoost", "Nordwest": "Noordwest", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Alleen een naam en een thermostaat zijn nodig – de rest is optioneel en kan later in de kamer onder ⚙️ Instellingen.", "Ost": "Oost", "Raumfühler im Thermostat": "Kamersensor in de thermostaat", "Raumfühler ins Thermostat übertragen": "Kamersensor naar thermostaat sturen", "Raumfühler-Eingang": "Ingang kamersensor", "Raumthermometer": "Kamerthermometer", "Rollläden automatisch": "Rolluiken automatisch", "Rollläden automatisch steuern": "Rolluiken automatisch sturen", "Sa": "Za", "Schlafen": "Slapen", "Schlafzimmer (kurz morgens + abends)": "Slaapkamer (kort ochtend + avond)", "Schließen": "Sluiten", "So": "Zo", "Soll": "Doel", "Sommerautomatik": "Automatische zomerstand", "Sommerautomatik aktiv": "Zomerstand actief", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Besparing: alle comforttemperaturen verlagen met", "Speichern": "Opslaan", "Status": "Status", "Strom direkt": "Direct elektrisch", "Systemmodus Abwesend": "Systeemmodus afwezig", "Systemmodus Urlaub": "Systeemmodus vakantie", "Süd": "Zuid", "Südost": "Zuidoost", "Südwest": "Zuidwest", "Temperatur vom Thermostat": "Temperatuur van de thermostaat", "Temperaturen": "Temperaturen", "Temperaturen & Sommerautomatik": "Temperaturen & zomerstand", "Temperatursensor": "Temperatuursensor", "Thermostat verbunden": "Thermostaat verbonden", "Thermostat(e) *": "Thermostaat/thermostaten *", "Thermostate / TRVs": "Thermostaten / TRV's", "Urlaub": "Vakantie", "Urlaubs-Assistent": "Vakantie-assistent", "Urlaubs-Temperatur (°C)": "Vakantietemperatuur (°C)", "Ventilstellung": "Klepstand", "Verlauf": "Verloop", "Vorheizen vor nächster Zeitplan-Periode": "Voorverwarmen voor de volgende periode", "Vorlage übernehmen": "Sjabloon gebruiken", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Sjabloon toegepast – klik nu op „Schema's opslaan”", "Warm aufwachen": "Warm wakker worden", "Warm aufwachen (Wecker)": "Warm wakker worden (wekker)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Warm wakker worden – zo lang voor de wekker verwarmen (min)", "Was IHC automatisch macht": "Wat IHC automatisch doet", "Was IHC in diesem Zimmer nutzt": "Wat IHC in deze kamer gebruikt", "Wenn niemand da ist (°C)": "Als niemand thuis is (°C)", "West": "West", "Wettervorhersage": "Weersverwachting", "Willkommen bei Intelligent Heating Control": "Welkom bij Intelligent Heating Control", "Wochenansicht": "Weekoverzicht", "Wohlfühltemperatur": "Comforttemperatuur", "Wohlfühltemperatur (°C)": "Comforttemperatuur (°C)", "Wärmeempfinden pro Person (°C)": "Comfortvoorkeur per persoon (°C)", "Wärmepumpe": "Warmtepomp", "Zeitplan": "Schema", "Zeitplan aktiv": "Schema actief", "Zeitpläne speichern": "Schema's opslaan", "Zimmer": "Kamers", "Zimmer anlegen": "Kamer aanmaken", "Zimmer ausgeschaltet": "Kamer uit", "Zimmer automatisch anlegen": "Kamers automatisch aanmaken", "Zimmer automatisch finden": "Kamers automatisch vinden", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "Kamer is warm als de wekker van je telefoon gaat", "Zimmer löschen": "Kamer verwijderen", "Zimmer verwalten": "Kamers beheren", "Zimmer-Modus": "Kamermodus", "Zimmername *": "Kamernaam *", "offen": "open", "optional": "optioneel", "zurücksetzen": "resetten", "Öl": "Olie", "übernehmen": "toepassen", "„Mir ist kalt/warm“ wirkt für (min)": "„Ik heb het koud/warm” duurt (min)", "… und danach warm halten (min)": "… en daarna warm houden (min)"}, "pl": {"+ Gruppe hinzufügen": "+ Dodaj grupę", "+ Zimmer manuell": "+ Pokój ręcznie", "+ Zimmer manuell anlegen": "+ Dodaj pokój ręcznie", "Abbrechen": "Anuluj", "Abwesend": "Nieobecny", "Abwesend-Temperatur (°C)": "Temperatura nieobecności (°C)", "Abwesenheit": "Nieobecność", "Abwesenheit automatisch aus HA-Personen": "Nieobecność automatycznie z osób HA", "Aktiviert": "Włączone", "Alle Zimmer sind warm genug": "Wszystkie pokoje są ciepłe", "Analyse": "Analiza", "Anwesenheitserkennung": "Wykrywanie obecności", "Aus": "Wył.", "Aus Größe schätzen": "Oszacuj z rozmiaru", "Aus Home-Assistant-Bereich übernehmen": "Pobierz z obszaru Home Assistant", "Ausgewählte Zimmer anlegen": "Utwórz wybrane pokoje", "Auto": "Auto", "Auto wiederherstellen": "Przywróć auto", "Automatisch": "Automatyczny", "Außen": "Na zewnątrz", "Außentemperatur": "Temperatura zewnętrzna", "Backup & Restore": "Kopia i przywracanie", "Bad (morgens + abends warm)": "Łazienka (ciepło rano + wieczorem)", "Berufstätig (morgens + abends)": "Praca (rano + wieczór)", "Bitte einen Zimmernamen eingeben": "Wpisz nazwę pokoju", "Bitte mindestens ein Thermostat auswählen": "Wybierz co najmniej jeden termostat", "Boost": "Boost", "Boost aktiv": "Boost aktywny", "Boost starten": "Uruchom boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Dzięki temu IHC przelicza ciepło na to, za co płacisz (kWh gazu lub prądu).", "Daraus lernen": "Ucz się z tego", "Deaktiviert": "Wyłączone", "Di": "Wt", "Do": "Czw", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Potrzebujesz tylko głowic termostatycznych – wszystko inne (termometry, kontaktrony okienne, czujniki wilgotności …) jest opcjonalne i jeszcze zwiększa dokładność IHC.", "Echter Zähler (optional)": "Rzeczywisty licznik (opcjonalnie)", "Eco": "Eko", "Eigener Temperatursensor": "Własny czujnik temperatury", "Einfach": "Prosty", "Einfache Ansicht – nur das Wichtigste": "Widok prosty – tylko najważniejsze", "Einstellungen": "Ustawienia", "Einstellungen speichern": "Zapisz ustawienia", "Erinnern, wenn ein Fenster länger offen ist (min)": "Przypomnij, gdy okno jest długo otwarte (min)", "Experte": "Ekspert", "Expertenansicht – alle Einstellungen sichtbar": "Widok eksperta – wszystkie ustawienia", "Familie mit Schulkindern": "Rodzina z dziećmi w wieku szkolnym", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Zasada: każdy stopień mniej to ok. 6 % mniej energii.", "Fenster offen": "Okno otwarte", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Wykryto otwarte okno (spadek temperatury) – ogrzewanie wstrzymane", "Fenster: automatische Erkennung": "Okno: wykrywanie automatyczne", "Fensterkontakte": "Kontaktrony okienne", "Fenstersensor": "Czujnik okna", "Fenstersensoren": "Czujniki okien", "Fernwärme": "Ciepło sieciowe", "Fr": "Pt", "Frostschutz": "Ochrona przed mrozem", "Frostschutz-Temperatur (°C)": "Temperatura przeciwzamrożeniowa (°C)", "Gas": "Gaz", "Gelerntes zurücksetzen": "Resetuj nauczone", "Gesamtanforderung": "Łączne zapotrzebowanie", "Gäste": "Goście", "Gäste-Modus": "Tryb gości", "Hardware & Steuerung": "Sprzęt i sterowanie", "Heizen": "Grzanie", "Heizkosten sparen": "Oszczędzaj na ogrzewaniu", "Heizkurve": "Krzywa grzewcza", "Heizkurve (außerhalb Zeitplan)": "Krzywa grzewcza (poza harmonogramem)", "Heizkörper & Verbrauch": "Grzejniki i zużycie", "Heizkörper-Nennleistung (kW, alle zusammen)": "Moc nominalna grzejników (kW, razem)", "Heizperiode": "Sezon grzewczy", "Heizperiode für dieses Zimmer ignorieren": "Ignoruj sezon grzewczy w tym pokoju", "Heizperiode inaktiv": "Sezon grzewczy nieaktywny", "Heizt": "Grzeje", "Heizt gerade": "Teraz grzeje", "Heizung": "Ogrzewanie", "Heizungsart": "Rodzaj ogrzewania", "Homeoffice / tagsüber zu Hause": "Praca zdalna / w domu w dzień", "Höhe mm": "Wysokość mm", "IHC hat erkannt": "IHC wykrył", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC znalazł te termostaty w Twoich obszarach Home Assistant. Zaznacz i utwórz – gotowe. Dokładne ustawienia później w pokoju.", "Immer zu Hause": "Zawsze w domu", "Ist": "Obecna", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Brak kontaktronu – działa automatyczne wykrywanie okna.", "Kein Zeitplan": "Brak harmonogramu", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Brak termometru – temperatura z termostatu.", "Keine Luftfeuchte": "Brak wilgotności", "Keine Rollläden": "Brak rolet", "Kindersicherung aktiv": "Blokada rodzicielska aktywna", "Komfort": "Komfort", "Luftfeuchte bekannt": "Wilgotność znana", "Länge mm": "Długość mm", "Manuell": "Ręczny", "Manuelle Temperatur": "Temperatura ręczna", "Mein Heizung": "Moje ogrzewanie", "Meine Heizung": "Moje ogrzewanie", "Mi": "Śr", "Mir ist kalt": "Zimno mi", "Mir ist warm": "Gorąco mi", "Mo": "Pon", "Modus": "Tryb", "Nachtabsenkung & Vorheizen": "Obniżenie nocne i wstępne grzanie", "Nord": "Północ", "Nordost": "Północny wschód", "Nordwest": "Północny zachód", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Potrzebna jest tylko nazwa i termostat – resztę można dodać później w pokoju w ⚙️ Ustawieniach.", "Ost": "Wschód", "Raumfühler im Thermostat": "Czujnik pokojowy w termostacie", "Raumfühler ins Thermostat übertragen": "Przesyłaj czujnik pokojowy do termostatu", "Raumfühler-Eingang": "Wejście czujnika", "Raumthermometer": "Termometr pokojowy", "Rollläden automatisch": "Rolety automatyczne", "Rollläden automatisch steuern": "Steruj roletami automatycznie", "Sa": "Sob", "Schlafen": "Sen", "Schlafzimmer (kurz morgens + abends)": "Sypialnia (krótko rano + wieczorem)", "Schließen": "Zamknij", "So": "Nd", "Soll": "Zadana", "Sommerautomatik": "Automatyka letnia", "Sommerautomatik aktiv": "Tryb letni aktywny", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Oszczędzanie: obniż wszystkie temperatury komfortowe o", "Speichern": "Zapisz", "Status": "Stan", "Strom direkt": "Elektryczne bezpośrednie", "Systemmodus Abwesend": "Tryb systemu: nieobecność", "Systemmodus Urlaub": "Tryb systemu: urlop", "Süd": "Południe", "Südost": "Południowy wschód", "Südwest": "Południowy zachód", "Temperatur vom Thermostat": "Temperatura z termostatu", "Temperaturen": "Temperatury", "Temperaturen & Sommerautomatik": "Temperatury i tryb letni", "Temperatursensor": "Czujnik temperatury", "Thermostat verbunden": "Termostat podłączony", "Thermostat(e) *": "Termostat(y) *", "Thermostate / TRVs": "Termostaty / głowice", "Urlaub": "Urlop", "Urlaubs-Assistent": "Asystent urlopu", "Urlaubs-Temperatur (°C)": "Temperatura urlopowa (°C)", "Ventilstellung": "Pozycja zaworu", "Verlauf": "Historia", "Vorheizen vor nächster Zeitplan-Periode": "Wstępne grzanie przed kolejnym okresem", "Vorlage übernehmen": "Użyj szablonu", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Szablon zastosowany – kliknij „Zapisz harmonogramy”", "Warm aufwachen": "Ciepła pobudka", "Warm aufwachen (Wecker)": "Ciepła pobudka (budzik)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Ciepła pobudka – grzej przed budzikiem (min)", "Was IHC automatisch macht": "Co IHC robi automatycznie", "Was IHC in diesem Zimmer nutzt": "Z czego IHC korzysta w tym pokoju", "Wenn niemand da ist (°C)": "Gdy nikogo nie ma (°C)", "West": "Zachód", "Wettervorhersage": "Prognoza pogody", "Willkommen bei Intelligent Heating Control": "Witaj w Intelligent Heating Control", "Wochenansicht": "Widok tygodnia", "Wohlfühltemperatur": "Temperatura komfortowa", "Wohlfühltemperatur (°C)": "Temperatura komfortowa (°C)", "Wärmeempfinden pro Person (°C)": "Preferencja komfortu na osobę (°C)", "Wärmepumpe": "Pompa ciepła", "Zeitplan": "Harmonogram", "Zeitplan aktiv": "Harmonogram aktywny", "Zeitpläne speichern": "Zapisz harmonogramy", "Zimmer": "Pokoje", "Zimmer anlegen": "Utwórz pokój", "Zimmer ausgeschaltet": "Pokój wyłączony", "Zimmer automatisch anlegen": "Utwórz pokoje automatycznie", "Zimmer automatisch finden": "Znajdź pokoje automatycznie", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "Pokój jest ciepły, gdy dzwoni budzik w telefonie", "Zimmer löschen": "Usuń pokój", "Zimmer verwalten": "Zarządzaj pokojami", "Zimmer-Modus": "Tryb pokoju", "Zimmername *": "Nazwa pokoju *", "offen": "otwarte", "optional": "opcjonalnie", "zurücksetzen": "resetuj", "Öl": "Olej", "übernehmen": "zastosuj", "„Mir ist kalt/warm“ wirkt für (min)": "„Zimno/gorąco mi” działa przez (min)", "… und danach warm halten (min)": "… a potem utrzymuj ciepło (min)"}, "sv": {"+ Gruppe hinzufügen": "+ Lägg till grupp", "+ Zimmer manuell": "+ Rum manuellt", "+ Zimmer manuell anlegen": "+ Lägg till rum manuellt", "Abbrechen": "Avbryt", "Abwesend": "Borta", "Abwesend-Temperatur (°C)": "Frånvarotemperatur (°C)", "Abwesenheit": "Frånvaro", "Abwesenheit automatisch aus HA-Personen": "Frånvaro automatiskt från HA-personer", "Aktiviert": "Aktiverad", "Alle Zimmer sind warm genug": "Alla rum är tillräckligt varma", "Analyse": "Analys", "Anwesenheitserkennung": "Närvarodetektering", "Aus": "Av", "Aus Größe schätzen": "Uppskatta från storlek", "Aus Home-Assistant-Bereich übernehmen": "Hämta från Home Assistant-område", "Ausgewählte Zimmer anlegen": "Skapa valda rum", "Auto": "Auto", "Auto wiederherstellen": "Återställ auto", "Automatisch": "Automatiskt", "Außen": "Ute", "Außentemperatur": "Utetemperatur", "Backup & Restore": "Säkerhetskopia & återställning", "Bad (morgens + abends warm)": "Badrum (varmt morgon + kväll)", "Berufstätig (morgens + abends)": "Arbetar (morgon + kväll)", "Bitte einen Zimmernamen eingeben": "Ange ett rumsnamn", "Bitte mindestens ein Thermostat auswählen": "Välj minst en termostat", "Boost": "Boost", "Boost aktiv": "Boost aktivt", "Boost starten": "Starta boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Så räknar IHC om värme till det du betalar för (kWh gas eller el).", "Daraus lernen": "Lär av det", "Deaktiviert": "Avaktiverad", "Di": "Tis", "Do": "Tor", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Du behöver bara dina elementtermostater – allt annat (rumstermometrar, fönsterkontakter, fuktsensorer …) är valfritt och gör IHC ännu mer exakt.", "Echter Zähler (optional)": "Riktig mätare (valfritt)", "Eco": "Eko", "Eigener Temperatursensor": "Egen temperatursensor", "Einfach": "Enkel", "Einfache Ansicht – nur das Wichtigste": "Enkel vy – bara det viktigaste", "Einstellungen": "Inställningar", "Einstellungen speichern": "Spara inställningar", "Erinnern, wenn ein Fenster länger offen ist (min)": "Påminn när ett fönster står öppet (min)", "Experte": "Expert", "Expertenansicht – alle Einstellungen sichtbar": "Expertvy – alla inställningar", "Familie mit Schulkindern": "Familj med skolbarn", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Tumregel: varje grad mindre sparar cirka 6 % energi.", "Fenster offen": "Fönster öppet", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Öppet fönster upptäckt (temperaturfall) – värme pausad", "Fenster: automatische Erkennung": "Fönster: automatisk detektering", "Fensterkontakte": "Fönsterkontakter", "Fenstersensor": "Fönstersensor", "Fenstersensoren": "Fönstersensorer", "Fernwärme": "Fjärrvärme", "Fr": "Fre", "Frostschutz": "Frostskydd", "Frostschutz-Temperatur (°C)": "Frostskydd (°C)", "Gas": "Gas", "Gelerntes zurücksetzen": "Återställ det inlärda", "Gesamtanforderung": "Totalt behov", "Gäste": "Gäster", "Gäste-Modus": "Gästläge", "Hardware & Steuerung": "Hårdvara & styrning", "Heizen": "Värme", "Heizkosten sparen": "Spara på värmen", "Heizkurve": "Värmekurva", "Heizkurve (außerhalb Zeitplan)": "Värmekurva (utanför schema)", "Heizkörper & Verbrauch": "Element & förbrukning", "Heizkörper-Nennleistung (kW, alle zusammen)": "Elementens nominella effekt (kW, totalt)", "Heizperiode": "Eldningssäsong", "Heizperiode für dieses Zimmer ignorieren": "Ignorera eldningssäsongen för det här rummet", "Heizperiode inaktiv": "Eldningssäsong inaktiv", "Heizt": "Värmer", "Heizt gerade": "Värmer nu", "Heizung": "Värme", "Heizungsart": "Värmekälla", "Homeoffice / tagsüber zu Hause": "Hemarbete / hemma dagtid", "Höhe mm": "Höjd mm", "IHC hat erkannt": "IHC har identifierat", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC hittade dessa termostater i dina Home Assistant-områden. Kryssa i och skapa – klart. Finjustering görs senare i rummet.", "Immer zu Hause": "Alltid hemma", "Ist": "Aktuell", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Ingen fönsterkontakt – automatisk detektering tar över.", "Kein Zeitplan": "Inget schema", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Ingen termometer – temperaturen kommer från termostaten.", "Keine Luftfeuchte": "Ingen luftfuktighet", "Keine Rollläden": "Inga rullgardiner", "Kindersicherung aktiv": "Barnlås aktivt", "Komfort": "Komfort", "Luftfeuchte bekannt": "Luftfuktighet känd", "Länge mm": "Längd mm", "Manuell": "Manuell", "Manuelle Temperatur": "Manuell temperatur", "Mein Heizung": "Min värme", "Meine Heizung": "Min värme", "Mi": "Ons", "Mir ist kalt": "Jag fryser", "Mir ist warm": "Jag är varm", "Mo": "Mån", "Modus": "Läge", "Nachtabsenkung & Vorheizen": "Nattsänkning & förvärmning", "Nord": "Norr", "Nordost": "Nordost", "Nordwest": "Nordväst", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Bara ett namn och en termostat behövs – resten är valfritt och kan läggas till senare i rummet under ⚙️ Inställningar.", "Ost": "Öster", "Raumfühler im Thermostat": "Rumsgivare i termostaten", "Raumfühler ins Thermostat übertragen": "Skicka rumsgivaren till termostaten", "Raumfühler-Eingang": "Ingång rumsgivare", "Raumthermometer": "Rumstermometer", "Rollläden automatisch": "Rullgardiner automatiskt", "Rollläden automatisch steuern": "Styr rullgardiner automatiskt", "Sa": "Lör", "Schlafen": "Sömn", "Schlafzimmer (kurz morgens + abends)": "Sovrum (kort morgon + kväll)", "Schließen": "Stäng", "So": "Sön", "Soll": "Mål", "Sommerautomatik": "Sommarautomatik", "Sommerautomatik aktiv": "Sommarläge aktivt", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Sparreglage: sänk alla komforttemperaturer med", "Speichern": "Spara", "Status": "Status", "Strom direkt": "Direktverkande el", "Systemmodus Abwesend": "Systemläge borta", "Systemmodus Urlaub": "Systemläge semester", "Süd": "Söder", "Südost": "Sydost", "Südwest": "Sydväst", "Temperatur vom Thermostat": "Temperatur från termostaten", "Temperaturen": "Temperaturer", "Temperaturen & Sommerautomatik": "Temperaturer & sommarläge", "Temperatursensor": "Temperatursensor", "Thermostat verbunden": "Termostat ansluten", "Thermostat(e) *": "Termostat(er) *", "Thermostate / TRVs": "Termostater / TRV:er", "Urlaub": "Semester", "Urlaubs-Assistent": "Semesterassistent", "Urlaubs-Temperatur (°C)": "Semestertemperatur (°C)", "Ventilstellung": "Ventilläge", "Verlauf": "Historik", "Vorheizen vor nächster Zeitplan-Periode": "Förvärmning inför nästa period", "Vorlage übernehmen": "Använd mall", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Mall tillämpad – klicka på ”Spara scheman”", "Warm aufwachen": "Vakna i värme", "Warm aufwachen (Wecker)": "Vakna i värme (väckarklocka)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Vakna i värme – värm före väckarklockan (min)", "Was IHC automatisch macht": "Vad IHC gör automatiskt", "Was IHC in diesem Zimmer nutzt": "Vad IHC använder i det här rummet", "Wenn niemand da ist (°C)": "När ingen är hemma (°C)", "West": "Väster", "Wettervorhersage": "Väderprognos", "Willkommen bei Intelligent Heating Control": "Välkommen till Intelligent Heating Control", "Wochenansicht": "Veckovy", "Wohlfühltemperatur": "Komforttemperatur", "Wohlfühltemperatur (°C)": "Komforttemperatur (°C)", "Wärmeempfinden pro Person (°C)": "Komfortpreferens per person (°C)", "Wärmepumpe": "Värmepump", "Zeitplan": "Schema", "Zeitplan aktiv": "Schema aktivt", "Zeitpläne speichern": "Spara scheman", "Zimmer": "Rum", "Zimmer anlegen": "Skapa rum", "Zimmer ausgeschaltet": "Rum avstängt", "Zimmer automatisch anlegen": "Skapa rum automatiskt", "Zimmer automatisch finden": "Hitta rum automatiskt", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "Rummet är varmt när mobilens väckarklocka ringer", "Zimmer löschen": "Ta bort rum", "Zimmer verwalten": "Hantera rum", "Zimmer-Modus": "Rumsläge", "Zimmername *": "Rumsnamn *", "offen": "öppet", "optional": "valfritt", "zurücksetzen": "återställ", "Öl": "Olja", "übernehmen": "tillämpa", "„Mir ist kalt/warm“ wirkt für (min)": "”Jag fryser/är varm” varar (min)", "… und danach warm halten (min)": "… och håll värmen efteråt (min)"}};
+const IHC_I18N_LANGS = {"cs": {"+ Gruppe hinzufügen": "+ Přidat skupinu", "+ Zimmer manuell": "+ Místnost ručně", "+ Zimmer manuell anlegen": "+ Přidat místnost ručně", "Abbrechen": "Zrušit", "Abwesend": "Nepřítomen", "Abwesend-Temperatur (°C)": "Teplota při nepřítomnosti (°C)", "Abwesenheit": "Nepřítomnost", "Abwesenheit automatisch aus HA-Personen": "Nepřítomnost automaticky z osob HA", "Aktiviert": "Zapnuto", "Alle Zimmer sind warm genug": "Všechny místnosti jsou dost teplé", "Analyse": "Analýza", "Anwesenheitserkennung": "Detekce přítomnosti", "Aus": "Vyp.", "Aus Größe schätzen": "Odhadnout z rozměrů", "Aus Home-Assistant-Bereich übernehmen": "Převzít z oblasti Home Assistant", "Ausgewählte Zimmer anlegen": "Vytvořit vybrané místnosti", "Auto": "Auto", "Auto wiederherstellen": "Obnovit auto", "Automatisch": "Automaticky", "Außen": "Venku", "Außentemperatur": "Venkovní teplota", "Backup & Restore": "Záloha a obnova", "Bad (morgens + abends warm)": "Koupelna (teplo ráno + večer)", "Bekommt mehr Heizwasser als nötig": "Dostává více topné vody, než je třeba", "Bekommt zu wenig Heizwasser": "Dostává málo topné vody", "Berufstätig (morgens + abends)": "Do práce (ráno + večer)", "Bitte einen Zimmernamen eingeben": "Zadejte název místnosti", "Bitte mindestens ein Thermostat auswählen": "Vyberte alespoň jeden termostat", "Boost": "Boost", "Boost aktiv": "Boost aktivní", "Boost starten": "Spustit boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Tím IHC přepočítá teplo na to, co platíte (kWh plynu nebo elektřiny).", "Daraus lernen": "Učit se z toho", "Deaktiviert": "Vypnuto", "Di": "Út", "Do": "Čt", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Stačí vám termostatické hlavice – vše ostatní (teploměry, okenní kontakty, čidla vlhkosti …) je volitelné a IHC jen zpřesní.", "Durch IHC gespart": "Ušetřeno díky IHC", "Echter Zähler (optional)": "Skutečný měřič (volitelné)", "Eco": "Eko", "Eigener Temperatursensor": "Vlastní teplotní čidlo", "Einfach": "Jednoduchý", "Einfache Ansicht – nur das Wichtigste": "Jednoduchý pohled – jen to hlavní", "Einstellungen": "Nastavení", "Einstellungen speichern": "Uložit nastavení", "Erinnern, wenn ein Fenster länger offen ist (min)": "Připomenout otevřené okno po (min)", "Experte": "Expert", "Expertenansicht – alle Einstellungen sichtbar": "Expertní pohled – všechna nastavení", "Familie mit Schulkindern": "Rodina se školáky", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Pravidlo: každý stupeň méně ušetří asi 6 % energie.", "Fenster offen": "Okno otevřené", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Zjištěno otevřené okno (pokles teploty) – topení pozastaveno", "Fenster: automatische Erkennung": "Okno: automatická detekce", "Fensterkontakte": "Okenní kontakty", "Fenstersensor": "Okenní čidlo", "Fenstersensoren": "Okenní čidla", "Fernwärme": "Dálkové topení", "Fr": "Pá", "Frostschutz": "Ochrana proti mrazu", "Frostschutz-Temperatur (°C)": "Protimrazová teplota (°C)", "Gas": "Plyn", "Gelerntes zurücksetzen": "Obnovit naučené", "Gesamtanforderung": "Celková potřeba", "Gäste": "Hosté", "Gäste-Modus": "Režim hostů", "Hardware & Steuerung": "Hardware a řízení", "Heizen": "Topit", "Heizkosten sparen": "Ušetřit za topení", "Heizkurve": "Topná křivka", "Heizkurve (außerhalb Zeitplan)": "Topná křivka (mimo plán)", "Heizkörper & Verbrauch": "Radiátory a spotřeba", "Heizkörper-Nennleistung (kW, alle zusammen)": "Jmenovitý výkon radiátorů (kW, celkem)", "Heizperiode": "Topná sezóna", "Heizperiode für dieses Zimmer ignorieren": "Ignorovat topnou sezónu pro tuto místnost", "Heizperiode inaktiv": "Topná sezóna neaktivní", "Heizt": "Topí", "Heizt gerade": "Právě topí", "Heizung": "Topení", "Heizungsart": "Druh topení", "Homeoffice / tagsüber zu Hause": "Home office / přes den doma", "Höhe mm": "Výška mm", "IHC hat erkannt": "IHC rozpoznal", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC našel tyto termostaty ve vašich oblastech Home Assistant. Zaškrtněte a vytvořte – hotovo. Doladění později v místnosti.", "Immer zu Hause": "Stále doma", "Ist": "Aktuální", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Bez okenního kontaktu – nastupuje automatická detekce.", "Kein Zeitplan": "Žádný plán", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Bez teploměru – teplota z termostatu.", "Keine Luftfeuchte": "Bez vlhkosti", "Keine Rollläden": "Bez rolet", "Kindersicherung aktiv": "Dětská pojistka aktivní", "Komfort": "Komfort", "Luftfeuchte bekannt": "Vlhkost známa", "Länge mm": "Délka mm", "Manuell": "Ručně", "Manuelle Temperatur": "Ruční teplota", "Mein Heizung": "Moje topení", "Meine Heizung": "Moje topení", "Mi": "St", "Mir ist kalt": "Je mi zima", "Mir ist warm": "Je mi teplo", "Mo": "Po", "Modus": "Režim", "Nachtabsenkung & Vorheizen": "Noční útlum a předtápění", "Nord": "Sever", "Nordost": "Severovýchod", "Nordwest": "Severozápad", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Stačí název a termostat – vše ostatní lze doplnit později v místnosti v ⚙️ Nastavení.", "Ost": "Východ", "Raumfühler im Thermostat": "Pokojové čidlo v termostatu", "Raumfühler ins Thermostat übertragen": "Posílat pokojové čidlo do termostatu", "Raumfühler-Eingang": "Vstup čidla", "Raumthermometer": "Pokojový teploměr", "Restwärme": "Zbytkové teplo", "Restwärme nutzen: der Heizkörper heizt noch nach": "Zbytkové teplo: radiátor ještě hřeje", "Rollläden automatisch": "Rolety automaticky", "Rollläden automatisch steuern": "Ovládat rolety automaticky", "Sa": "So", "Schlafen": "Spánek", "Schlafzimmer (kurz morgens + abends)": "Ložnice (krátce ráno + večer)", "Schließen": "Zavřít", "So": "Ne", "Soll": "Cílová", "Sommerautomatik": "Letní automatika", "Sommerautomatik aktiv": "Letní režim aktivní", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Úspora: snížit všechny komfortní teploty o", "Speichern": "Uložit", "Status": "Stav", "Strom direkt": "Přímotop", "Systemmodus Abwesend": "Režim systému nepřítomnost", "Systemmodus Urlaub": "Režim systému dovolená", "Süd": "Jih", "Südost": "Jihovýchod", "Südwest": "Jihozápad", "Temperatur vom Thermostat": "Teplota z termostatu", "Temperaturen": "Teploty", "Temperaturen & Sommerautomatik": "Teploty a letní režim", "Temperatursensor": "Teplotní čidlo", "Thermostat verbunden": "Termostat připojen", "Thermostat(e) *": "Termostat(y) *", "Thermostate / TRVs": "Termostaty / hlavice", "Urlaub": "Dovolená", "Urlaubs-Assistent": "Asistent dovolené", "Urlaubs-Temperatur (°C)": "Teplota dovolené (°C)", "Ventilstellung": "Poloha ventilu", "Verbrauch bisher": "Spotřeba zatím", "Verlauf": "Průběh", "Vorheizen vor nächster Zeitplan-Periode": "Předtápění před dalším obdobím", "Vorlage übernehmen": "Použít šablonu", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Šablona použita – klikněte na „Uložit plány”", "Vormonat gespart": "Ušetřeno minulý měsíc", "Warm aufwachen": "Probuzení v teple", "Warm aufwachen (Wecker)": "Probuzení v teple (budík)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Probuzení v teple – topit před budíkem (min)", "Warn-Schwelle (km/h)": "Varovný práh (km/h)", "Wartezeit nach dem Sturm (min)": "Čekání po bouři (min)", "Was IHC automatisch macht": "Co IHC dělá automaticky", "Was IHC in diesem Zimmer nutzt": "Co IHC v této místnosti používá", "Wenn niemand da ist (°C)": "Když nikdo není doma (°C)", "West": "Západ", "Wettervorhersage": "Předpověď počasí", "Willkommen bei Intelligent Heating Control": "Vítejte v Intelligent Heating Control", "Wochenansicht": "Týdenní přehled", "Wohlfühltemperatur": "Komfortní teplota", "Wohlfühltemperatur (°C)": "Komfortní teplota (°C)", "Wärmeempfinden pro Person (°C)": "Preference komfortu na osobu (°C)", "Wärmepumpe": "Tepelné čerpadlo", "Zeitplan": "Plán", "Zeitplan aktiv": "Plán aktivní", "Zeitpläne speichern": "Uložit plány", "Zimmer": "Místnosti", "Zimmer anlegen": "Vytvořit místnost", "Zimmer ausgeschaltet": "Místnost vypnuta", "Zimmer automatisch anlegen": "Vytvořit místnosti automaticky", "Zimmer automatisch finden": "Najít místnosti automaticky", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "Místnost je teplá, když zazvoní budík v telefonu", "Zimmer löschen": "Smazat místnost", "Zimmer verwalten": "Spravovat místnosti", "Zimmer-Modus": "Režim místnosti", "Zimmername *": "Název místnosti *", "offen": "otevřené", "optional": "volitelné", "wird pro Zimmer gelernt – Ventil schließt früher ✓": "učí se pro každou místnost – ventil zavře dříve ✓", "zurücksetzen": "obnovit", "Öl": "Olej", "übernehmen": "použít", "„Mir ist kalt/warm“ wirkt für (min)": "„Je mi zima/teplo” platí (min)", "… und danach warm halten (min)": "… a poté udržet teplo (min)", "♨️ Restwärme": "♨️ Zbytkové teplo", "♨️ Restwärme nutzen": "♨️ Využít zbytkové teplo", "♨️ Restwärme – Heizkörper heizt nach": "♨️ Zbytkové teplo – radiátor ještě hřeje", "⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst": "⚠️ Teploměr mlčí – termostat reguluje sám", "✈️ Urlaub": "✈️ Dovolená", "🌙 Zeitplan & Nacht": "🌙 Plán a noc", "🌬️ Wind – bleibt, wie er ist": "🌬️ Vítr – zůstává, jak je", "💶 Spar-Bilanz (dieser Monat)": "💶 Úspory (tento měsíc)", "💶 Spar-Regler": "💶 Úsporný regulátor", "📬 Monatsbericht": "📬 Měsíční zpráva", "🔧 Hydraulischer Abgleich & Vorlauftemperatur": "🔧 Hydraulické vyvážení a teplota přívodu", "🚶 Abwesenheit": "🚶 Nepřítomnost", "🪟 Fenster-Pausen": "🪟 Pauzy okna"}, "da": {"+ Gruppe hinzufügen": "+ Tilføj gruppe", "+ Zimmer manuell": "+ Rum manuelt", "+ Zimmer manuell anlegen": "+ Tilføj rum manuelt", "Abbrechen": "Annuller", "Abwesend": "Ude", "Abwesend-Temperatur (°C)": "Fraværstemperatur (°C)", "Abwesenheit": "Fravær", "Abwesenheit automatisch aus HA-Personen": "Fravær automatisk fra HA-personer", "Aktiviert": "Aktiveret", "Alle Zimmer sind warm genug": "Alle rum er varme nok", "Analyse": "Analyse", "Anwesenheitserkennung": "Tilstedeværelse", "Aus": "Fra", "Aus Größe schätzen": "Anslå ud fra størrelse", "Aus Home-Assistant-Bereich übernehmen": "Hent fra Home Assistant-område", "Ausgewählte Zimmer anlegen": "Opret valgte rum", "Auto": "Auto", "Auto wiederherstellen": "Gendan auto", "Automatisch": "Automatisk", "Außen": "Ude", "Außentemperatur": "Udetemperatur", "Backup & Restore": "Backup & gendannelse", "Bad (morgens + abends warm)": "Badeværelse (varmt morgen + aften)", "Bekommt mehr Heizwasser als nötig": "Får mere varmt vand end nødvendigt", "Bekommt zu wenig Heizwasser": "Får for lidt varmt vand", "Berufstätig (morgens + abends)": "Arbejder (morgen + aften)", "Bitte einen Zimmernamen eingeben": "Indtast et rumnavn", "Bitte mindestens ein Thermostat auswählen": "Vælg mindst én termostat", "Boost": "Boost", "Boost aktiv": "Boost aktiv", "Boost starten": "Start boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Så omregner IHC varme til det, du betaler for (kWh gas eller el).", "Daraus lernen": "Lær af det", "Deaktiviert": "Deaktiveret", "Di": "Tir", "Do": "Tor", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Du skal kun bruge dine radiatortermostater – alt andet (rumtermometre, vindueskontakter, fugtsensorer …) er valgfrit og gør IHC endnu mere præcis.", "Durch IHC gespart": "Sparet af IHC", "Echter Zähler (optional)": "Rigtig måler (valgfri)", "Eco": "Øko", "Eigener Temperatursensor": "Egen temperatursensor", "Einfach": "Enkel", "Einfache Ansicht – nur das Wichtigste": "Enkel visning – kun det vigtigste", "Einstellungen": "Indstillinger", "Einstellungen speichern": "Gem indstillinger", "Erinnern, wenn ein Fenster länger offen ist (min)": "Påmind når et vindue står åbent (min)", "Experte": "Ekspert", "Expertenansicht – alle Einstellungen sichtbar": "Ekspertvisning – alle indstillinger", "Familie mit Schulkindern": "Familie med skolebørn", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Tommelfingerregel: hver grad mindre sparer ca. 6 % energi.", "Fenster offen": "Vindue åbent", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Åbent vindue registreret (temperaturfald) – varme sat på pause", "Fenster: automatische Erkennung": "Vindue: automatisk registrering", "Fensterkontakte": "Vindueskontakter", "Fenstersensor": "Vinduessensor", "Fenstersensoren": "Vinduessensorer", "Fernwärme": "Fjernvarme", "Fr": "Fre", "Frostschutz": "Frostbeskyttelse", "Frostschutz-Temperatur (°C)": "Frostbeskyttelse (°C)", "Gas": "Gas", "Gelerntes zurücksetzen": "Nulstil det lærte", "Gesamtanforderung": "Samlet behov", "Gäste": "Gæster", "Gäste-Modus": "Gæstetilstand", "Hardware & Steuerung": "Hardware & styring", "Heizen": "Varme", "Heizkosten sparen": "Spar på varmen", "Heizkurve": "Varmekurve", "Heizkurve (außerhalb Zeitplan)": "Varmekurve (uden for tidsplan)", "Heizkörper & Verbrauch": "Radiatorer & forbrug", "Heizkörper-Nennleistung (kW, alle zusammen)": "Radiatorernes nominelle effekt (kW, i alt)", "Heizperiode": "Fyringssæson", "Heizperiode für dieses Zimmer ignorieren": "Ignorer fyringssæsonen for dette rum", "Heizperiode inaktiv": "Fyringssæson inaktiv", "Heizt": "Varmer", "Heizt gerade": "Varmer nu", "Heizung": "Varme", "Heizungsart": "Varmekilde", "Homeoffice / tagsüber zu Hause": "Hjemmearbejde / hjemme om dagen", "Höhe mm": "Højde mm", "IHC hat erkannt": "IHC har registreret", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC fandt disse termostater i dine Home Assistant-områder. Sæt flueben og opret – færdig. Finjustering senere i rummet.", "Immer zu Hause": "Altid hjemme", "Ist": "Aktuel", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Ingen vindueskontakt – automatisk registrering overtager.", "Kein Zeitplan": "Ingen tidsplan", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Intet termometer – temperaturen kommer fra termostaten.", "Keine Luftfeuchte": "Ingen fugtighed", "Keine Rollläden": "Ingen rullegardiner", "Kindersicherung aktiv": "Børnesikring aktiv", "Komfort": "Komfort", "Luftfeuchte bekannt": "Fugtighed kendt", "Länge mm": "Længde mm", "Manuell": "Manuel", "Manuelle Temperatur": "Manuel temperatur", "Mein Heizung": "Min varme", "Meine Heizung": "Min varme", "Mi": "Ons", "Mir ist kalt": "Jeg fryser", "Mir ist warm": "Jeg har det varmt", "Mo": "Man", "Modus": "Tilstand", "Nachtabsenkung & Vorheizen": "Natsænkning & forvarmning", "Nord": "Nord", "Nordost": "Nordøst", "Nordwest": "Nordvest", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Kun et navn og en termostat er nødvendige – resten er valgfrit og kan tilføjes senere i rummet under ⚙️ Indstillinger.", "Ost": "Øst", "Raumfühler im Thermostat": "Rumsensor i termostaten", "Raumfühler ins Thermostat übertragen": "Send rumsensoren til termostaten", "Raumfühler-Eingang": "Rumsensor-indgang", "Raumthermometer": "Rumtermometer", "Restwärme": "Restvarme", "Restwärme nutzen: der Heizkörper heizt noch nach": "Restvarme: radiatoren varmer stadig", "Rollläden automatisch": "Rullegardiner automatisk", "Rollläden automatisch steuern": "Styr rullegardiner automatisk", "Sa": "Lør", "Schlafen": "Søvn", "Schlafzimmer (kurz morgens + abends)": "Soveværelse (kort morgen + aften)", "Schließen": "Luk", "So": "Søn", "Soll": "Mål", "Sommerautomatik": "Sommerautomatik", "Sommerautomatik aktiv": "Sommertilstand aktiv", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Sparregulator: sænk alle komforttemperaturer med", "Speichern": "Gem", "Status": "Status", "Strom direkt": "Direkte el", "Systemmodus Abwesend": "Systemtilstand ude", "Systemmodus Urlaub": "Systemtilstand ferie", "Süd": "Syd", "Südost": "Sydøst", "Südwest": "Sydvest", "Temperatur vom Thermostat": "Temperatur fra termostaten", "Temperaturen": "Temperaturer", "Temperaturen & Sommerautomatik": "Temperaturer & sommertilstand", "Temperatursensor": "Temperatursensor", "Thermostat verbunden": "Termostat tilsluttet", "Thermostat(e) *": "Termostat(er) *", "Thermostate / TRVs": "Termostater / TRV'er", "Urlaub": "Ferie", "Urlaubs-Assistent": "Ferieassistent", "Urlaubs-Temperatur (°C)": "Ferietemperatur (°C)", "Ventilstellung": "Ventilstilling", "Verbrauch bisher": "Forbrug indtil nu", "Verlauf": "Forløb", "Vorheizen vor nächster Zeitplan-Periode": "Forvarmning før næste periode", "Vorlage übernehmen": "Brug skabelon", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Skabelon anvendt – klik på »Gem tidsplaner«", "Vormonat gespart": "Sparet sidste måned", "Warm aufwachen": "Vågn op til varme", "Warm aufwachen (Wecker)": "Vågn op til varme (alarm)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Vågn op til varme – varm op før alarmen (min)", "Warn-Schwelle (km/h)": "Advarselsgrænse (km/h)", "Wartezeit nach dem Sturm (min)": "Ventetid efter storm (min)", "Was IHC automatisch macht": "Hvad IHC gør automatisk", "Was IHC in diesem Zimmer nutzt": "Hvad IHC bruger i dette rum", "Wenn niemand da ist (°C)": "Når ingen er hjemme (°C)", "West": "Vest", "Wettervorhersage": "Vejrudsigt", "Willkommen bei Intelligent Heating Control": "Velkommen til Intelligent Heating Control", "Wochenansicht": "Ugeoversigt", "Wohlfühltemperatur": "Komforttemperatur", "Wohlfühltemperatur (°C)": "Komforttemperatur (°C)", "Wärmeempfinden pro Person (°C)": "Komfortpræference pr. person (°C)", "Wärmepumpe": "Varmepumpe", "Zeitplan": "Tidsplan", "Zeitplan aktiv": "Tidsplan aktiv", "Zeitpläne speichern": "Gem tidsplaner", "Zimmer": "Rum", "Zimmer anlegen": "Opret rum", "Zimmer ausgeschaltet": "Rum slukket", "Zimmer automatisch anlegen": "Opret rum automatisk", "Zimmer automatisch finden": "Find rum automatisk", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "Rummet er varmt, når telefonens alarm ringer", "Zimmer löschen": "Slet rum", "Zimmer verwalten": "Administrer rum", "Zimmer-Modus": "Rumtilstand", "Zimmername *": "Rumnavn *", "offen": "åben", "optional": "valgfri", "wird pro Zimmer gelernt – Ventil schließt früher ✓": "læres pr. rum – ventilen lukker tidligere ✓", "zurücksetzen": "nulstil", "Öl": "Olie", "übernehmen": "anvend", "„Mir ist kalt/warm“ wirkt für (min)": "»Jeg fryser/har det varmt« varer (min)", "… und danach warm halten (min)": "… og hold varmen bagefter (min)", "♨️ Restwärme": "♨️ Restvarme", "♨️ Restwärme nutzen": "♨️ Udnyt restvarme", "♨️ Restwärme – Heizkörper heizt nach": "♨️ Restvarme – radiatoren varmer stadig", "⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst": "⚠️ Rumtermometer tavs – termostaten regulerer selv", "✈️ Urlaub": "✈️ Ferie", "🌙 Zeitplan & Nacht": "🌙 Tidsplan & nat", "🌬️ Wind – bleibt, wie er ist": "🌬️ Vind – bliver som den er", "💶 Spar-Bilanz (dieser Monat)": "💶 Besparelse (denne måned)", "💶 Spar-Regler": "💶 Sparregulator", "📬 Monatsbericht": "📬 Månedsrapport", "🔧 Hydraulischer Abgleich & Vorlauftemperatur": "🔧 Hydraulisk indregulering & fremløbstemperatur", "🚶 Abwesenheit": "🚶 Fravær", "🪟 Fenster-Pausen": "🪟 Vinduespauser"}, "es": {"+ Gruppe hinzufügen": "+ Añadir grupo", "+ Zimmer manuell": "+ Habitación manual", "+ Zimmer manuell anlegen": "+ Añadir habitación manualmente", "Abbrechen": "Cancelar", "Abwesend": "Ausente", "Abwesend-Temperatur (°C)": "Temperatura de ausencia (°C)", "Abwesenheit": "Ausencia", "Abwesenheit automatisch aus HA-Personen": "Ausencia automática desde personas de HA", "Aktiviert": "Activado", "Alle Zimmer sind warm genug": "Todas las habitaciones están calientes", "Analyse": "Análisis", "Anwesenheitserkennung": "Detección de presencia", "Aus": "Apagado", "Aus Größe schätzen": "Estimar por tamaño", "Aus Home-Assistant-Bereich übernehmen": "Tomar de un área de Home Assistant", "Ausgewählte Zimmer anlegen": "Crear habitaciones seleccionadas", "Auto": "Auto", "Auto wiederherstellen": "Restaurar auto", "Automatisch": "Automático", "Außen": "Exterior", "Außentemperatur": "Temperatura exterior", "Backup & Restore": "Copia y restauración", "Bad (morgens + abends warm)": "Baño (caliente mañana + noche)", "Bekommt mehr Heizwasser als nötig": "Recibe más agua caliente de la necesaria", "Bekommt zu wenig Heizwasser": "Recibe poca agua caliente", "Berufstätig (morgens + abends)": "Trabajando (mañana + tarde)", "Bitte einen Zimmernamen eingeben": "Introduce un nombre de habitación", "Bitte mindestens ein Thermostat auswählen": "Elige al menos un termostato", "Boost": "Boost", "Boost aktiv": "Boost activo", "Boost starten": "Iniciar boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Con esto IHC convierte el calor en lo que pagas (kWh de gas o electricidad).", "Daraus lernen": "Aprender de ello", "Deaktiviert": "Desactivado", "Di": "Mar", "Do": "Jue", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Solo necesitas tus válvulas termostáticas – todo lo demás (termómetros, contactos de ventana, sensores de humedad …) es opcional y hace IHC aún más preciso.", "Durch IHC gespart": "Ahorrado por IHC", "Echter Zähler (optional)": "Contador real (opcional)", "Eco": "Eco", "Eigener Temperatursensor": "Sensor de temperatura propio", "Einfach": "Sencillo", "Einfache Ansicht – nur das Wichtigste": "Vista sencilla – solo lo esencial", "Einstellungen": "Ajustes", "Einstellungen speichern": "Guardar ajustes", "Erinnern, wenn ein Fenster länger offen ist (min)": "Avisar si una ventana sigue abierta (min)", "Experte": "Experto", "Expertenansicht – alle Einstellungen sichtbar": "Vista experto – todos los ajustes", "Familie mit Schulkindern": "Familia con niños en edad escolar", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Regla general: cada grado menos ahorra un 6 % de energía.", "Fenster offen": "Ventana abierta", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Ventana abierta detectada (caída de temperatura) – calefacción en pausa", "Fenster: automatische Erkennung": "Ventana: detección automática", "Fensterkontakte": "Contactos de ventana", "Fenstersensor": "Sensor de ventana", "Fenstersensoren": "Sensores de ventana", "Fernwärme": "Calefacción urbana", "Fr": "Vie", "Frostschutz": "Antihielo", "Frostschutz-Temperatur (°C)": "Temperatura antihielo (°C)", "Gas": "Gas", "Gelerntes zurücksetzen": "Restablecer lo aprendido", "Gesamtanforderung": "Demanda total", "Gäste": "Invitados", "Gäste-Modus": "Modo invitados", "Hardware & Steuerung": "Hardware y control", "Heizen": "Calentar", "Heizkosten sparen": "Ahorrar calefacción", "Heizkurve": "Curva de calefacción", "Heizkurve (außerhalb Zeitplan)": "Curva de calefacción (fuera de horario)", "Heizkörper & Verbrauch": "Radiadores y consumo", "Heizkörper-Nennleistung (kW, alle zusammen)": "Potencia nominal de los radiadores (kW, en total)", "Heizperiode": "Temporada de calefacción", "Heizperiode für dieses Zimmer ignorieren": "Ignorar la temporada de calefacción en esta habitación", "Heizperiode inaktiv": "Temporada de calefacción inactiva", "Heizt": "Calentando", "Heizt gerade": "Calentando ahora", "Heizung": "Calefacción", "Heizungsart": "Tipo de calefacción", "Homeoffice / tagsüber zu Hause": "Teletrabajo / en casa de día", "Höhe mm": "Altura mm", "IHC hat erkannt": "IHC ha detectado", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC ha encontrado estos termostatos en tus áreas de Home Assistant. Marca y crea – listo. El ajuste fino se hace después en la habitación.", "Immer zu Hause": "Siempre en casa", "Ist": "Actual", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Sin contacto de ventana – la detección automática se encarga.", "Kein Zeitplan": "Sin horario", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Sin termómetro propio – la temperatura viene del termostato.", "Keine Luftfeuchte": "Sin humedad", "Keine Rollläden": "Sin persianas", "Kindersicherung aktiv": "Bloqueo infantil activo", "Komfort": "Confort", "Luftfeuchte bekannt": "Humedad conocida", "Länge mm": "Longitud mm", "Manuell": "Manual", "Manuelle Temperatur": "Temperatura manual", "Mein Heizung": "Mi calefacción", "Meine Heizung": "Mi calefacción", "Mi": "Mié", "Mir ist kalt": "Tengo frío", "Mir ist warm": "Tengo calor", "Mo": "Lun", "Modus": "Modo", "Nachtabsenkung & Vorheizen": "Reducción nocturna y precalentamiento", "Nord": "Norte", "Nordost": "Noreste", "Nordwest": "Noroeste", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Solo se necesitan un nombre y un termostato – lo demás es opcional y se puede añadir después en la habitación en ⚙️ Ajustes.", "Ost": "Este", "Raumfühler im Thermostat": "Sensor de habitación en el termostato", "Raumfühler ins Thermostat übertragen": "Enviar el sensor de habitación al termostato", "Raumfühler-Eingang": "Entrada de sensor", "Raumthermometer": "Termómetro", "Restwärme": "Calor residual", "Restwärme nutzen: der Heizkörper heizt noch nach": "Calor residual: el radiador aún calienta", "Rollläden automatisch": "Persianas automáticas", "Rollläden automatisch steuern": "Controlar persianas automáticamente", "Sa": "Sáb", "Schlafen": "Dormir", "Schlafzimmer (kurz morgens + abends)": "Dormitorio (breve mañana + noche)", "Schließen": "Cerrar", "So": "Dom", "Soll": "Objetivo", "Sommerautomatik": "Modo verano automático", "Sommerautomatik aktiv": "Modo verano activo", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Ahorro: bajar todas las temperaturas de confort", "Speichern": "Guardar", "Status": "Estado", "Strom direkt": "Eléctrica directa", "Systemmodus Abwesend": "Modo sistema ausente", "Systemmodus Urlaub": "Modo sistema vacaciones", "Süd": "Sur", "Südost": "Sureste", "Südwest": "Suroeste", "Temperatur vom Thermostat": "Temperatura del termostato", "Temperaturen": "Temperaturas", "Temperaturen & Sommerautomatik": "Temperaturas y modo verano", "Temperatursensor": "Sensor de temperatura", "Thermostat verbunden": "Termostato conectado", "Thermostat(e) *": "Termostato(s) *", "Thermostate / TRVs": "Termostatos / válvulas", "Urlaub": "Vacaciones", "Urlaubs-Assistent": "Asistente de vacaciones", "Urlaubs-Temperatur (°C)": "Temperatura de vacaciones (°C)", "Ventilstellung": "Posición de válvula", "Verbrauch bisher": "Consumo hasta ahora", "Verlauf": "Historial", "Vorheizen vor nächster Zeitplan-Periode": "Precalentando para el próximo periodo", "Vorlage übernehmen": "Usar plantilla", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Plantilla aplicada – pulsa «Guardar horarios»", "Vormonat gespart": "Ahorrado el mes pasado", "Warm aufwachen": "Despertar con calor", "Warm aufwachen (Wecker)": "Despertar con calor (alarma)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Despertar con calor – calentar antes de la alarma (min)", "Warn-Schwelle (km/h)": "Umbral de aviso (km/h)", "Wartezeit nach dem Sturm (min)": "Espera tras la tormenta (min)", "Was IHC automatisch macht": "Lo que IHC hace automáticamente", "Was IHC in diesem Zimmer nutzt": "Lo que IHC usa en esta habitación", "Wenn niemand da ist (°C)": "Cuando no hay nadie (°C)", "West": "Oeste", "Wettervorhersage": "Previsión meteorológica", "Willkommen bei Intelligent Heating Control": "Bienvenido a Intelligent Heating Control", "Wochenansicht": "Vista semanal", "Wohlfühltemperatur": "Temperatura de confort", "Wohlfühltemperatur (°C)": "Temperatura de confort (°C)", "Wärmeempfinden pro Person (°C)": "Preferencia de confort por persona (°C)", "Wärmepumpe": "Bomba de calor", "Zeitplan": "Horario", "Zeitplan aktiv": "Horario activo", "Zeitpläne speichern": "Guardar horarios", "Zimmer": "Habitaciones", "Zimmer anlegen": "Crear habitación", "Zimmer ausgeschaltet": "Habitación apagada", "Zimmer automatisch anlegen": "Crear habitaciones automáticamente", "Zimmer automatisch finden": "Buscar habitaciones automáticamente", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "La habitación está caliente cuando suena la alarma del móvil", "Zimmer löschen": "Eliminar habitación", "Zimmer verwalten": "Gestionar habitaciones", "Zimmer-Modus": "Modo de la habitación", "Zimmername *": "Nombre de la habitación *", "offen": "abierta", "optional": "opcional", "wird pro Zimmer gelernt – Ventil schließt früher ✓": "se aprende por habitación – la válvula cierra antes ✓", "zurücksetzen": "restablecer", "Öl": "Gasóleo", "übernehmen": "aplicar", "„Mir ist kalt/warm“ wirkt für (min)": "«Tengo frío/calor» dura (min)", "… und danach warm halten (min)": "… y mantener caliente después (min)", "♨️ Restwärme": "♨️ Calor residual", "♨️ Restwärme nutzen": "♨️ Aprovechar el calor residual", "♨️ Restwärme – Heizkörper heizt nach": "♨️ Calor residual – el radiador aún calienta", "⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst": "⚠️ Termómetro sin datos – el termostato regula solo", "✈️ Urlaub": "✈️ Vacaciones", "🌙 Zeitplan & Nacht": "🌙 Horario y noche", "🌬️ Wind – bleibt, wie er ist": "🌬️ Viento – se queda como está", "💶 Spar-Bilanz (dieser Monat)": "💶 Ahorro (este mes)", "💶 Spar-Regler": "💶 Regulador de ahorro", "📬 Monatsbericht": "📬 Informe mensual", "🔧 Hydraulischer Abgleich & Vorlauftemperatur": "🔧 Equilibrado hidráulico y temperatura de impulsión", "🚶 Abwesenheit": "🚶 Ausencia", "🪟 Fenster-Pausen": "🪟 Pausas de ventana"}, "fr": {"+ Gruppe hinzufügen": "+ Ajouter un groupe", "+ Zimmer manuell": "+ Pièce manuelle", "+ Zimmer manuell anlegen": "+ Ajouter une pièce manuellement", "Abbrechen": "Annuler", "Abwesend": "Absent", "Abwesend-Temperatur (°C)": "Température d'absence (°C)", "Abwesenheit": "Absence", "Abwesenheit automatisch aus HA-Personen": "Absence automatique via les personnes HA", "Aktiviert": "Activé", "Alle Zimmer sind warm genug": "Toutes les pièces sont assez chaudes", "Analyse": "Analyse", "Anwesenheitserkennung": "Détection de présence", "Aus": "Arrêt", "Aus Größe schätzen": "Estimer d'après la taille", "Aus Home-Assistant-Bereich übernehmen": "Reprendre depuis une zone Home Assistant", "Ausgewählte Zimmer anlegen": "Créer les pièces sélectionnées", "Auto": "Auto", "Auto wiederherstellen": "Rétablir auto", "Automatisch": "Automatique", "Außen": "Extérieur", "Außentemperatur": "Température extérieure", "Backup & Restore": "Sauvegarde & restauration", "Bad (morgens + abends warm)": "Salle de bain (chaude matin + soir)", "Bekommt mehr Heizwasser als nötig": "Reçoit plus d'eau chaude que nécessaire", "Bekommt zu wenig Heizwasser": "Reçoit trop peu d'eau chaude", "Berufstätig (morgens + abends)": "Au travail (matin + soir)", "Bitte einen Zimmernamen eingeben": "Veuillez saisir un nom de pièce", "Bitte mindestens ein Thermostat auswählen": "Choisissez au moins un thermostat", "Boost": "Boost", "Boost aktiv": "Boost actif", "Boost starten": "Lancer le boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "IHC convertit ainsi la chaleur en ce que vous payez (kWh de gaz ou d'électricité).", "Daraus lernen": "En tirer des leçons", "Deaktiviert": "Désactivé", "Di": "Mar", "Do": "Jeu", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Il vous suffit de vos têtes thermostatiques – tout le reste (thermomètres, contacts de fenêtre, capteurs d'humidité …) est facultatif et rend IHC encore plus précis.", "Durch IHC gespart": "Économisé par IHC", "Echter Zähler (optional)": "Compteur réel (facultatif)", "Eco": "Éco", "Eigener Temperatursensor": "Capteur de température propre", "Einfach": "Simple", "Einfache Ansicht – nur das Wichtigste": "Vue simple – l'essentiel", "Einstellungen": "Paramètres", "Einstellungen speichern": "Enregistrer les paramètres", "Erinnern, wenn ein Fenster länger offen ist (min)": "Rappel si une fenêtre reste ouverte (min)", "Experte": "Expert", "Expertenansicht – alle Einstellungen sichtbar": "Vue expert – tous les paramètres", "Familie mit Schulkindern": "Famille avec écoliers", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Règle générale : chaque degré en moins économise environ 6 % d'énergie.", "Fenster offen": "Fenêtre ouverte", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Fenêtre ouverte détectée (chute de température) – chauffage en pause", "Fenster: automatische Erkennung": "Fenêtre : détection automatique", "Fensterkontakte": "Contacts de fenêtre", "Fenstersensor": "Capteur de fenêtre", "Fenstersensoren": "Capteurs de fenêtre", "Fernwärme": "Chauffage urbain", "Fr": "Ven", "Frostschutz": "Hors-gel", "Frostschutz-Temperatur (°C)": "Température hors-gel (°C)", "Gas": "Gaz", "Gelerntes zurücksetzen": "Réinitialiser l'apprentissage", "Gesamtanforderung": "Demande totale", "Gäste": "Invités", "Gäste-Modus": "Mode invités", "Hardware & Steuerung": "Matériel & commande", "Heizen": "Chauffer", "Heizkosten sparen": "Économiser le chauffage", "Heizkurve": "Courbe de chauffe", "Heizkurve (außerhalb Zeitplan)": "Courbe de chauffe (hors programme)", "Heizkörper & Verbrauch": "Radiateurs & consommation", "Heizkörper-Nennleistung (kW, alle zusammen)": "Puissance nominale des radiateurs (kW, au total)", "Heizperiode": "Saison de chauffe", "Heizperiode für dieses Zimmer ignorieren": "Ignorer la saison de chauffe pour cette pièce", "Heizperiode inaktiv": "Saison de chauffe inactive", "Heizt": "Chauffe", "Heizt gerade": "Chauffe en ce moment", "Heizung": "Chauffage", "Heizungsart": "Type de chauffage", "Homeoffice / tagsüber zu Hause": "Télétravail / à la maison en journée", "Höhe mm": "Hauteur mm", "IHC hat erkannt": "IHC a détecté", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC a trouvé ces thermostats dans vos zones Home Assistant. Cochez et créez – c'est tout. Les réglages fins se font ensuite dans la pièce.", "Immer zu Hause": "Toujours à la maison", "Ist": "Actuel", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Pas de contact de fenêtre – la détection automatique prend le relais.", "Kein Zeitplan": "Pas de programme", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Pas de thermomètre – la température vient du thermostat.", "Keine Luftfeuchte": "Pas d'humidité", "Keine Rollläden": "Pas de volets", "Kindersicherung aktiv": "Sécurité enfant active", "Komfort": "Confort", "Luftfeuchte bekannt": "Humidité connue", "Länge mm": "Longueur mm", "Manuell": "Manuel", "Manuelle Temperatur": "Température manuelle", "Mein Heizung": "Mon chauffage", "Meine Heizung": "Mon chauffage", "Mi": "Mer", "Mir ist kalt": "J'ai froid", "Mir ist warm": "J'ai chaud", "Mo": "Lun", "Modus": "Mode", "Nachtabsenkung & Vorheizen": "Abaissement nocturne & préchauffage", "Nord": "Nord", "Nordost": "Nord-est", "Nordwest": "Nord-ouest", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Seuls un nom et un thermostat sont nécessaires – le reste est facultatif et peut être ajouté plus tard dans la pièce sous ⚙️ Paramètres.", "Ost": "Est", "Raumfühler im Thermostat": "Capteur de pièce dans le thermostat", "Raumfühler ins Thermostat übertragen": "Envoyer le capteur de pièce au thermostat", "Raumfühler-Eingang": "Entrée capteur de pièce", "Raumthermometer": "Thermomètre", "Restwärme": "Chaleur résiduelle", "Restwärme nutzen: der Heizkörper heizt noch nach": "Chaleur résiduelle : le radiateur chauffe encore", "Rollläden automatisch": "Volets automatiques", "Rollläden automatisch steuern": "Piloter les volets automatiquement", "Sa": "Sam", "Schlafen": "Nuit", "Schlafzimmer (kurz morgens + abends)": "Chambre (court matin + soir)", "Schließen": "Fermer", "So": "Dim", "Soll": "Consigne", "Sommerautomatik": "Mode été automatique", "Sommerautomatik aktiv": "Mode été actif", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Économies : baisser toutes les températures de confort de", "Speichern": "Enregistrer", "Status": "État", "Strom direkt": "Électrique direct", "Systemmodus Abwesend": "Mode système absent", "Systemmodus Urlaub": "Mode système vacances", "Süd": "Sud", "Südost": "Sud-est", "Südwest": "Sud-ouest", "Temperatur vom Thermostat": "Température du thermostat", "Temperaturen": "Températures", "Temperaturen & Sommerautomatik": "Températures & mode été", "Temperatursensor": "Capteur de température", "Thermostat verbunden": "Thermostat connecté", "Thermostat(e) *": "Thermostat(s) *", "Thermostate / TRVs": "Thermostats / têtes", "Urlaub": "Vacances", "Urlaubs-Assistent": "Assistant vacances", "Urlaubs-Temperatur (°C)": "Température vacances (°C)", "Ventilstellung": "Position de vanne", "Verbrauch bisher": "Consommation à ce jour", "Verlauf": "Historique", "Vorheizen vor nächster Zeitplan-Periode": "Préchauffage avant la prochaine période", "Vorlage übernehmen": "Utiliser un modèle", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Modèle appliqué – cliquez sur « Enregistrer les programmes »", "Vormonat gespart": "Économisé le mois dernier", "Warm aufwachen": "Réveil au chaud", "Warm aufwachen (Wecker)": "Réveil au chaud (réveil)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Réveil au chaud – chauffer avant le réveil (min)", "Warn-Schwelle (km/h)": "Seuil d'alerte (km/h)", "Wartezeit nach dem Sturm (min)": "Attente après la tempête (min)", "Was IHC automatisch macht": "Ce qu'IHC fait automatiquement", "Was IHC in diesem Zimmer nutzt": "Ce qu'IHC utilise dans cette pièce", "Wenn niemand da ist (°C)": "Quand personne n'est là (°C)", "West": "Ouest", "Wettervorhersage": "Prévisions météo", "Willkommen bei Intelligent Heating Control": "Bienvenue dans Intelligent Heating Control", "Wochenansicht": "Vue semaine", "Wohlfühltemperatur": "Température de confort", "Wohlfühltemperatur (°C)": "Température de confort (°C)", "Wärmeempfinden pro Person (°C)": "Préférence de confort par personne (°C)", "Wärmepumpe": "Pompe à chaleur", "Zeitplan": "Programme", "Zeitplan aktiv": "Programme actif", "Zeitpläne speichern": "Enregistrer les programmes", "Zimmer": "Pièces", "Zimmer anlegen": "Créer la pièce", "Zimmer ausgeschaltet": "Pièce éteinte", "Zimmer automatisch anlegen": "Créer les pièces automatiquement", "Zimmer automatisch finden": "Trouver les pièces automatiquement", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "La pièce est chaude quand le réveil du téléphone sonne", "Zimmer löschen": "Supprimer la pièce", "Zimmer verwalten": "Gérer les pièces", "Zimmer-Modus": "Mode de la pièce", "Zimmername *": "Nom de la pièce *", "offen": "ouverte", "optional": "facultatif", "wird pro Zimmer gelernt – Ventil schließt früher ✓": "appris par pièce – la vanne se ferme plus tôt ✓", "zurücksetzen": "réinitialiser", "Öl": "Fioul", "übernehmen": "appliquer", "„Mir ist kalt/warm“ wirkt für (min)": "« J'ai froid/chaud » dure (min)", "… und danach warm halten (min)": "… puis garder au chaud (min)", "♨️ Restwärme": "♨️ Chaleur résiduelle", "♨️ Restwärme nutzen": "♨️ Utiliser la chaleur résiduelle", "♨️ Restwärme – Heizkörper heizt nach": "♨️ Chaleur résiduelle – le radiateur chauffe encore", "⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst": "⚠️ Thermomètre muet – le thermostat régule seul", "✈️ Urlaub": "✈️ Vacances", "🌙 Zeitplan & Nacht": "🌙 Programme & nuit", "🌬️ Wind – bleibt, wie er ist": "🌬️ Vent – reste tel quel", "💶 Spar-Bilanz (dieser Monat)": "💶 Économies (ce mois)", "💶 Spar-Regler": "💶 Curseur d'économie", "📬 Monatsbericht": "📬 Rapport mensuel", "🔧 Hydraulischer Abgleich & Vorlauftemperatur": "🔧 Équilibrage hydraulique & température de départ", "🚶 Abwesenheit": "🚶 Absence", "🪟 Fenster-Pausen": "🪟 Pauses fenêtre"}, "it": {"+ Gruppe hinzufügen": "+ Aggiungi gruppo", "+ Zimmer manuell": "+ Stanza manuale", "+ Zimmer manuell anlegen": "+ Aggiungi stanza manualmente", "Abbrechen": "Annulla", "Abwesend": "Assente", "Abwesend-Temperatur (°C)": "Temperatura di assenza (°C)", "Abwesenheit": "Assenza", "Abwesenheit automatisch aus HA-Personen": "Assenza automatica dalle persone di HA", "Aktiviert": "Attivato", "Alle Zimmer sind warm genug": "Tutte le stanze sono abbastanza calde", "Analyse": "Analisi", "Anwesenheitserkennung": "Rilevamento presenza", "Aus": "Spento", "Aus Größe schätzen": "Stima dalla dimensione", "Aus Home-Assistant-Bereich übernehmen": "Prendi da un'area di Home Assistant", "Ausgewählte Zimmer anlegen": "Crea le stanze selezionate", "Auto": "Auto", "Auto wiederherstellen": "Ripristina auto", "Automatisch": "Automatico", "Außen": "Esterno", "Außentemperatur": "Temperatura esterna", "Backup & Restore": "Backup e ripristino", "Bad (morgens + abends warm)": "Bagno (caldo mattina + sera)", "Bekommt mehr Heizwasser als nötig": "Riceve più acqua calda del necessario", "Bekommt zu wenig Heizwasser": "Riceve poca acqua calda", "Berufstätig (morgens + abends)": "Lavoro (mattina + sera)", "Bitte einen Zimmernamen eingeben": "Inserisci un nome per la stanza", "Bitte mindestens ein Thermostat auswählen": "Scegli almeno un termostato", "Boost": "Boost", "Boost aktiv": "Boost attivo", "Boost starten": "Avvia boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Così IHC converte il calore in ciò che paghi (kWh di gas o elettricità).", "Daraus lernen": "Impara da questo", "Deaktiviert": "Disattivato", "Di": "Mar", "Do": "Gio", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Ti servono solo le valvole termostatiche – tutto il resto (termometri, contatti finestra, sensori di umidità …) è facoltativo e rende IHC ancora più preciso.", "Durch IHC gespart": "Risparmiato da IHC", "Echter Zähler (optional)": "Contatore reale (facoltativo)", "Eco": "Eco", "Eigener Temperatursensor": "Sensore di temperatura proprio", "Einfach": "Semplice", "Einfache Ansicht – nur das Wichtigste": "Vista semplice – solo l'essenziale", "Einstellungen": "Impostazioni", "Einstellungen speichern": "Salva impostazioni", "Erinnern, wenn ein Fenster länger offen ist (min)": "Avvisa se una finestra resta aperta (min)", "Experte": "Esperto", "Expertenansicht – alle Einstellungen sichtbar": "Vista esperto – tutte le impostazioni", "Familie mit Schulkindern": "Famiglia con bambini in età scolare", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Regola pratica: ogni grado in meno fa risparmiare circa il 6 % di energia.", "Fenster offen": "Finestra aperta", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Finestra aperta rilevata (calo di temperatura) – riscaldamento in pausa", "Fenster: automatische Erkennung": "Finestra: rilevamento automatico", "Fensterkontakte": "Contatti finestra", "Fenstersensor": "Sensore finestra", "Fenstersensoren": "Sensori finestra", "Fernwärme": "Teleriscaldamento", "Fr": "Ven", "Frostschutz": "Antigelo", "Frostschutz-Temperatur (°C)": "Temperatura antigelo (°C)", "Gas": "Gas", "Gelerntes zurücksetzen": "Reimposta l'apprendimento", "Gesamtanforderung": "Richiesta totale", "Gäste": "Ospiti", "Gäste-Modus": "Modalità ospiti", "Hardware & Steuerung": "Hardware e controllo", "Heizen": "Riscalda", "Heizkosten sparen": "Risparmiare sul riscaldamento", "Heizkurve": "Curva di riscaldamento", "Heizkurve (außerhalb Zeitplan)": "Curva di riscaldamento (fuori programma)", "Heizkörper & Verbrauch": "Radiatori e consumo", "Heizkörper-Nennleistung (kW, alle zusammen)": "Potenza nominale radiatori (kW, totale)", "Heizperiode": "Stagione di riscaldamento", "Heizperiode für dieses Zimmer ignorieren": "Ignora la stagione di riscaldamento per questa stanza", "Heizperiode inaktiv": "Stagione di riscaldamento inattiva", "Heizt": "Riscalda", "Heizt gerade": "Sta riscaldando", "Heizung": "Riscaldamento", "Heizungsart": "Tipo di riscaldamento", "Homeoffice / tagsüber zu Hause": "Smart working / a casa di giorno", "Höhe mm": "Altezza mm", "IHC hat erkannt": "IHC ha rilevato", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC ha trovato questi termostati nelle tue aree di Home Assistant. Seleziona e crea – fatto. Le regolazioni fini si fanno poi nella stanza.", "Immer zu Hause": "Sempre a casa", "Ist": "Attuale", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Nessun contatto finestra – subentra il rilevamento automatico.", "Kein Zeitplan": "Nessun programma", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Nessun termometro – la temperatura arriva dal termostato.", "Keine Luftfeuchte": "Nessuna umidità", "Keine Rollläden": "Nessuna tapparella", "Kindersicherung aktiv": "Blocco bambini attivo", "Komfort": "Comfort", "Luftfeuchte bekannt": "Umidità nota", "Länge mm": "Lunghezza mm", "Manuell": "Manuale", "Manuelle Temperatur": "Temperatura manuale", "Mein Heizung": "Il mio riscaldamento", "Meine Heizung": "Il mio riscaldamento", "Mi": "Mer", "Mir ist kalt": "Ho freddo", "Mir ist warm": "Ho caldo", "Mo": "Lun", "Modus": "Modalità", "Nachtabsenkung & Vorheizen": "Riduzione notturna e preriscaldamento", "Nord": "Nord", "Nordost": "Nord-est", "Nordwest": "Nord-ovest", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Servono solo un nome e un termostato – il resto è facoltativo e si aggiunge dopo nella stanza in ⚙️ Impostazioni.", "Ost": "Est", "Raumfühler im Thermostat": "Sensore della stanza nel termostato", "Raumfühler ins Thermostat übertragen": "Invia il sensore della stanza al termostato", "Raumfühler-Eingang": "Ingresso sensore", "Raumthermometer": "Termometro", "Restwärme": "Calore residuo", "Restwärme nutzen: der Heizkörper heizt noch nach": "Calore residuo: il radiatore scalda ancora", "Rollläden automatisch": "Tapparelle automatiche", "Rollläden automatisch steuern": "Comanda le tapparelle automaticamente", "Sa": "Sab", "Schlafen": "Notte", "Schlafzimmer (kurz morgens + abends)": "Camera da letto (breve mattina + sera)", "Schließen": "Chiudi", "So": "Dom", "Soll": "Obiettivo", "Sommerautomatik": "Estate automatica", "Sommerautomatik aktiv": "Modalità estate attiva", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Risparmio: abbassa tutte le temperature di comfort di", "Speichern": "Salva", "Status": "Stato", "Strom direkt": "Elettrico diretto", "Systemmodus Abwesend": "Modalità sistema assente", "Systemmodus Urlaub": "Modalità sistema vacanza", "Süd": "Sud", "Südost": "Sud-est", "Südwest": "Sud-ovest", "Temperatur vom Thermostat": "Temperatura dal termostato", "Temperaturen": "Temperature", "Temperaturen & Sommerautomatik": "Temperature e modalità estate", "Temperatursensor": "Sensore di temperatura", "Thermostat verbunden": "Termostato collegato", "Thermostat(e) *": "Termostato/i *", "Thermostate / TRVs": "Termostati / valvole", "Urlaub": "Vacanza", "Urlaubs-Assistent": "Assistente vacanze", "Urlaubs-Temperatur (°C)": "Temperatura vacanza (°C)", "Ventilstellung": "Posizione valvola", "Verbrauch bisher": "Consumo finora", "Verlauf": "Andamento", "Vorheizen vor nächster Zeitplan-Periode": "Preriscaldamento per il prossimo periodo", "Vorlage übernehmen": "Usa un modello", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Modello applicato – fai clic su «Salva programmi»", "Vormonat gespart": "Risparmiato il mese scorso", "Warm aufwachen": "Risveglio al caldo", "Warm aufwachen (Wecker)": "Risveglio al caldo (sveglia)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Risveglio al caldo – riscalda prima della sveglia (min)", "Warn-Schwelle (km/h)": "Soglia di avviso (km/h)", "Wartezeit nach dem Sturm (min)": "Attesa dopo la tempesta (min)", "Was IHC automatisch macht": "Cosa fa IHC automaticamente", "Was IHC in diesem Zimmer nutzt": "Cosa usa IHC in questa stanza", "Wenn niemand da ist (°C)": "Quando non c'è nessuno (°C)", "West": "Ovest", "Wettervorhersage": "Previsioni meteo", "Willkommen bei Intelligent Heating Control": "Benvenuto in Intelligent Heating Control", "Wochenansicht": "Vista settimanale", "Wohlfühltemperatur": "Temperatura di comfort", "Wohlfühltemperatur (°C)": "Temperatura di comfort (°C)", "Wärmeempfinden pro Person (°C)": "Preferenza di comfort per persona (°C)", "Wärmepumpe": "Pompa di calore", "Zeitplan": "Programma", "Zeitplan aktiv": "Programma attivo", "Zeitpläne speichern": "Salva programmi", "Zimmer": "Stanze", "Zimmer anlegen": "Crea stanza", "Zimmer ausgeschaltet": "Stanza spenta", "Zimmer automatisch anlegen": "Crea stanze automaticamente", "Zimmer automatisch finden": "Trova stanze automaticamente", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "La stanza è calda quando suona la sveglia del telefono", "Zimmer löschen": "Elimina stanza", "Zimmer verwalten": "Gestisci stanze", "Zimmer-Modus": "Modalità stanza", "Zimmername *": "Nome della stanza *", "offen": "aperta", "optional": "facoltativo", "wird pro Zimmer gelernt – Ventil schließt früher ✓": "appreso per stanza – la valvola chiude prima ✓", "zurücksetzen": "reimposta", "Öl": "Gasolio", "übernehmen": "applica", "„Mir ist kalt/warm“ wirkt für (min)": "«Ho freddo/caldo» dura (min)", "… und danach warm halten (min)": "… e poi mantieni caldo (min)", "♨️ Restwärme": "♨️ Calore residuo", "♨️ Restwärme nutzen": "♨️ Sfrutta il calore residuo", "♨️ Restwärme – Heizkörper heizt nach": "♨️ Calore residuo – il radiatore scalda ancora", "⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst": "⚠️ Termometro muto – il termostato regola da sé", "✈️ Urlaub": "✈️ Vacanza", "🌙 Zeitplan & Nacht": "🌙 Programma e notte", "🌬️ Wind – bleibt, wie er ist": "🌬️ Vento – resta com'è", "💶 Spar-Bilanz (dieser Monat)": "💶 Risparmio (questo mese)", "💶 Spar-Regler": "💶 Regolatore risparmio", "📬 Monatsbericht": "📬 Rapporto mensile", "🔧 Hydraulischer Abgleich & Vorlauftemperatur": "🔧 Bilanciamento idraulico e temperatura di mandata", "🚶 Abwesenheit": "🚶 Assenza", "🪟 Fenster-Pausen": "🪟 Pause finestra"}, "nl": {"+ Gruppe hinzufügen": "+ Groep toevoegen", "+ Zimmer manuell": "+ Kamer handmatig", "+ Zimmer manuell anlegen": "+ Kamer handmatig toevoegen", "Abbrechen": "Annuleren", "Abwesend": "Afwezig", "Abwesend-Temperatur (°C)": "Afwezigheidstemperatuur (°C)", "Abwesenheit": "Afwezigheid", "Abwesenheit automatisch aus HA-Personen": "Afwezigheid automatisch via HA-personen", "Aktiviert": "Ingeschakeld", "Alle Zimmer sind warm genug": "Alle kamers zijn warm genoeg", "Analyse": "Analyse", "Anwesenheitserkennung": "Aanwezigheidsdetectie", "Aus": "Uit", "Aus Größe schätzen": "Schatten op basis van afmeting", "Aus Home-Assistant-Bereich übernehmen": "Overnemen uit Home Assistant-ruimte", "Ausgewählte Zimmer anlegen": "Geselecteerde kamers aanmaken", "Auto": "Auto", "Auto wiederherstellen": "Auto herstellen", "Automatisch": "Automatisch", "Außen": "Buiten", "Außentemperatur": "Buitentemperatuur", "Backup & Restore": "Back-up & herstel", "Bad (morgens + abends warm)": "Badkamer (ochtend + avond warm)", "Bekommt mehr Heizwasser als nötig": "Krijgt meer warm water dan nodig", "Bekommt zu wenig Heizwasser": "Krijgt te weinig warm water", "Berufstätig (morgens + abends)": "Werkend (ochtend + avond)", "Bitte einen Zimmernamen eingeben": "Voer een kamernaam in", "Bitte mindestens ein Thermostat auswählen": "Kies minstens één thermostaat", "Boost": "Boost", "Boost aktiv": "Boost actief", "Boost starten": "Boost starten", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Hiermee rekent IHC warmte om naar wat je betaalt (gas- of stroom-kWh).", "Daraus lernen": "Hiervan leren", "Deaktiviert": "Uitgeschakeld", "Di": "Di", "Do": "Do", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Je hebt alleen je radiatorthermostaten nodig – al het andere (kamerthermometers, raamcontacten, vochtsensoren …) is optioneel en maakt IHC nog nauwkeuriger.", "Durch IHC gespart": "Bespaard door IHC", "Echter Zähler (optional)": "Echte meter (optioneel)", "Eco": "Eco", "Eigener Temperatursensor": "Eigen temperatuursensor", "Einfach": "Eenvoudig", "Einfache Ansicht – nur das Wichtigste": "Eenvoudige weergave – alleen het belangrijkste", "Einstellungen": "Instellingen", "Einstellungen speichern": "Instellingen opslaan", "Erinnern, wenn ein Fenster länger offen ist (min)": "Herinnering als een raam lang openstaat (min)", "Experte": "Expert", "Expertenansicht – alle Einstellungen sichtbar": "Expertweergave – alle instellingen", "Familie mit Schulkindern": "Gezin met schoolkinderen", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Vuistregel: elke graad minder bespaart ongeveer 6 % energie.", "Fenster offen": "Raam open", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Open raam gedetecteerd (temperatuurdaling) – verwarming gepauzeerd", "Fenster: automatische Erkennung": "Raam: automatische detectie", "Fensterkontakte": "Raamcontacten", "Fenstersensor": "Raamsensor", "Fenstersensoren": "Raamsensoren", "Fernwärme": "Stadsverwarming", "Fr": "Vr", "Frostschutz": "Vorstbeveiliging", "Frostschutz-Temperatur (°C)": "Vorstbeveiliging (°C)", "Gas": "Gas", "Gelerntes zurücksetzen": "Geleerde resetten", "Gesamtanforderung": "Totale vraag", "Gäste": "Gasten", "Gäste-Modus": "Gastenmodus", "Hardware & Steuerung": "Hardware & besturing", "Heizen": "Verwarmen", "Heizkosten sparen": "Stookkosten besparen", "Heizkurve": "Stooklijn", "Heizkurve (außerhalb Zeitplan)": "Stooklijn (buiten schema)", "Heizkörper & Verbrauch": "Radiatoren & verbruik", "Heizkörper-Nennleistung (kW, alle zusammen)": "Nominaal vermogen radiatoren (kW, samen)", "Heizperiode": "Stookseizoen", "Heizperiode für dieses Zimmer ignorieren": "Stookseizoen voor deze kamer negeren", "Heizperiode inaktiv": "Stookseizoen inactief", "Heizt": "Verwarmt", "Heizt gerade": "Verwarmt nu", "Heizung": "Verwarming", "Heizungsart": "Soort verwarming", "Homeoffice / tagsüber zu Hause": "Thuiswerken / overdag thuis", "Höhe mm": "Hoogte mm", "IHC hat erkannt": "IHC heeft herkend", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC heeft deze thermostaten in je Home Assistant-ruimtes gevonden. Aanvinken en aanmaken – klaar. Fijnafstemming later in de kamer.", "Immer zu Hause": "Altijd thuis", "Ist": "Huidig", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Geen raamcontact – automatische raamdetectie neemt het over.", "Kein Zeitplan": "Geen schema", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Geen eigen thermometer – temperatuur komt van de thermostaat.", "Keine Luftfeuchte": "Geen luchtvochtigheid", "Keine Rollläden": "Geen rolluiken", "Kindersicherung aktiv": "Kinderslot actief", "Komfort": "Comfort", "Luftfeuchte bekannt": "Luchtvochtigheid bekend", "Länge mm": "Lengte mm", "Manuell": "Handmatig", "Manuelle Temperatur": "Handmatige temperatuur", "Mein Heizung": "Mijn verwarming", "Meine Heizung": "Mijn verwarming", "Mi": "Wo", "Mir ist kalt": "Ik heb het koud", "Mir ist warm": "Ik heb het warm", "Mo": "Ma", "Modus": "Modus", "Nachtabsenkung & Vorheizen": "Nachtverlaging & voorverwarmen", "Nord": "Noord", "Nordost": "Noordoost", "Nordwest": "Noordwest", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Alleen een naam en een thermostaat zijn nodig – de rest is optioneel en kan later in de kamer onder ⚙️ Instellingen.", "Ost": "Oost", "Raumfühler im Thermostat": "Kamersensor in de thermostaat", "Raumfühler ins Thermostat übertragen": "Kamersensor naar thermostaat sturen", "Raumfühler-Eingang": "Ingang kamersensor", "Raumthermometer": "Kamerthermometer", "Restwärme": "Restwarmte", "Restwärme nutzen: der Heizkörper heizt noch nach": "Restwarmte: de radiator geeft nog warmte af", "Rollläden automatisch": "Rolluiken automatisch", "Rollläden automatisch steuern": "Rolluiken automatisch sturen", "Sa": "Za", "Schlafen": "Slapen", "Schlafzimmer (kurz morgens + abends)": "Slaapkamer (kort ochtend + avond)", "Schließen": "Sluiten", "So": "Zo", "Soll": "Doel", "Sommerautomatik": "Automatische zomerstand", "Sommerautomatik aktiv": "Zomerstand actief", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Besparing: alle comforttemperaturen verlagen met", "Speichern": "Opslaan", "Status": "Status", "Strom direkt": "Direct elektrisch", "Systemmodus Abwesend": "Systeemmodus afwezig", "Systemmodus Urlaub": "Systeemmodus vakantie", "Süd": "Zuid", "Südost": "Zuidoost", "Südwest": "Zuidwest", "Temperatur vom Thermostat": "Temperatuur van de thermostaat", "Temperaturen": "Temperaturen", "Temperaturen & Sommerautomatik": "Temperaturen & zomerstand", "Temperatursensor": "Temperatuursensor", "Thermostat verbunden": "Thermostaat verbonden", "Thermostat(e) *": "Thermostaat/thermostaten *", "Thermostate / TRVs": "Thermostaten / TRV's", "Urlaub": "Vakantie", "Urlaubs-Assistent": "Vakantie-assistent", "Urlaubs-Temperatur (°C)": "Vakantietemperatuur (°C)", "Ventilstellung": "Klepstand", "Verbrauch bisher": "Verbruik tot nu", "Verlauf": "Verloop", "Vorheizen vor nächster Zeitplan-Periode": "Voorverwarmen voor de volgende periode", "Vorlage übernehmen": "Sjabloon gebruiken", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Sjabloon toegepast – klik nu op „Schema's opslaan”", "Vormonat gespart": "Vorige maand bespaard", "Warm aufwachen": "Warm wakker worden", "Warm aufwachen (Wecker)": "Warm wakker worden (wekker)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Warm wakker worden – zo lang voor de wekker verwarmen (min)", "Warn-Schwelle (km/h)": "Waarschuwingsdrempel (km/h)", "Wartezeit nach dem Sturm (min)": "Wachttijd na storm (min)", "Was IHC automatisch macht": "Wat IHC automatisch doet", "Was IHC in diesem Zimmer nutzt": "Wat IHC in deze kamer gebruikt", "Wenn niemand da ist (°C)": "Als niemand thuis is (°C)", "West": "West", "Wettervorhersage": "Weersverwachting", "Willkommen bei Intelligent Heating Control": "Welkom bij Intelligent Heating Control", "Wochenansicht": "Weekoverzicht", "Wohlfühltemperatur": "Comforttemperatuur", "Wohlfühltemperatur (°C)": "Comforttemperatuur (°C)", "Wärmeempfinden pro Person (°C)": "Comfortvoorkeur per persoon (°C)", "Wärmepumpe": "Warmtepomp", "Zeitplan": "Schema", "Zeitplan aktiv": "Schema actief", "Zeitpläne speichern": "Schema's opslaan", "Zimmer": "Kamers", "Zimmer anlegen": "Kamer aanmaken", "Zimmer ausgeschaltet": "Kamer uit", "Zimmer automatisch anlegen": "Kamers automatisch aanmaken", "Zimmer automatisch finden": "Kamers automatisch vinden", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "Kamer is warm als de wekker van je telefoon gaat", "Zimmer löschen": "Kamer verwijderen", "Zimmer verwalten": "Kamers beheren", "Zimmer-Modus": "Kamermodus", "Zimmername *": "Kamernaam *", "offen": "open", "optional": "optioneel", "wird pro Zimmer gelernt – Ventil schließt früher ✓": "per kamer geleerd – klep sluit eerder ✓", "zurücksetzen": "resetten", "Öl": "Olie", "übernehmen": "toepassen", "„Mir ist kalt/warm“ wirkt für (min)": "„Ik heb het koud/warm” duurt (min)", "… und danach warm halten (min)": "… en daarna warm houden (min)", "♨️ Restwärme": "♨️ Restwarmte", "♨️ Restwärme nutzen": "♨️ Restwarmte benutten", "♨️ Restwärme – Heizkörper heizt nach": "♨️ Restwarmte – radiator warmt nog na", "⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst": "⚠️ Kamerthermometer stil – thermostaat regelt zelf", "✈️ Urlaub": "✈️ Vakantie", "🌙 Zeitplan & Nacht": "🌙 Schema & nacht", "🌬️ Wind – bleibt, wie er ist": "🌬️ Wind – blijft zoals het is", "💶 Spar-Bilanz (dieser Monat)": "💶 Besparing (deze maand)", "💶 Spar-Regler": "💶 Bespaarregelaar", "📬 Monatsbericht": "📬 Maandrapport", "🔧 Hydraulischer Abgleich & Vorlauftemperatur": "🔧 Waterzijdig inregelen & aanvoertemperatuur", "🚶 Abwesenheit": "🚶 Afwezigheid", "🪟 Fenster-Pausen": "🪟 Raampauzes"}, "pl": {"+ Gruppe hinzufügen": "+ Dodaj grupę", "+ Zimmer manuell": "+ Pokój ręcznie", "+ Zimmer manuell anlegen": "+ Dodaj pokój ręcznie", "Abbrechen": "Anuluj", "Abwesend": "Nieobecny", "Abwesend-Temperatur (°C)": "Temperatura nieobecności (°C)", "Abwesenheit": "Nieobecność", "Abwesenheit automatisch aus HA-Personen": "Nieobecność automatycznie z osób HA", "Aktiviert": "Włączone", "Alle Zimmer sind warm genug": "Wszystkie pokoje są ciepłe", "Analyse": "Analiza", "Anwesenheitserkennung": "Wykrywanie obecności", "Aus": "Wył.", "Aus Größe schätzen": "Oszacuj z rozmiaru", "Aus Home-Assistant-Bereich übernehmen": "Pobierz z obszaru Home Assistant", "Ausgewählte Zimmer anlegen": "Utwórz wybrane pokoje", "Auto": "Auto", "Auto wiederherstellen": "Przywróć auto", "Automatisch": "Automatyczny", "Außen": "Na zewnątrz", "Außentemperatur": "Temperatura zewnętrzna", "Backup & Restore": "Kopia i przywracanie", "Bad (morgens + abends warm)": "Łazienka (ciepło rano + wieczorem)", "Bekommt mehr Heizwasser als nötig": "Dostaje więcej wody grzewczej niż trzeba", "Bekommt zu wenig Heizwasser": "Dostaje za mało wody grzewczej", "Berufstätig (morgens + abends)": "Praca (rano + wieczór)", "Bitte einen Zimmernamen eingeben": "Wpisz nazwę pokoju", "Bitte mindestens ein Thermostat auswählen": "Wybierz co najmniej jeden termostat", "Boost": "Boost", "Boost aktiv": "Boost aktywny", "Boost starten": "Uruchom boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Dzięki temu IHC przelicza ciepło na to, za co płacisz (kWh gazu lub prądu).", "Daraus lernen": "Ucz się z tego", "Deaktiviert": "Wyłączone", "Di": "Wt", "Do": "Czw", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Potrzebujesz tylko głowic termostatycznych – wszystko inne (termometry, kontaktrony okienne, czujniki wilgotności …) jest opcjonalne i jeszcze zwiększa dokładność IHC.", "Durch IHC gespart": "Zaoszczędzone przez IHC", "Echter Zähler (optional)": "Rzeczywisty licznik (opcjonalnie)", "Eco": "Eko", "Eigener Temperatursensor": "Własny czujnik temperatury", "Einfach": "Prosty", "Einfache Ansicht – nur das Wichtigste": "Widok prosty – tylko najważniejsze", "Einstellungen": "Ustawienia", "Einstellungen speichern": "Zapisz ustawienia", "Erinnern, wenn ein Fenster länger offen ist (min)": "Przypomnij, gdy okno jest długo otwarte (min)", "Experte": "Ekspert", "Expertenansicht – alle Einstellungen sichtbar": "Widok eksperta – wszystkie ustawienia", "Familie mit Schulkindern": "Rodzina z dziećmi w wieku szkolnym", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Zasada: każdy stopień mniej to ok. 6 % mniej energii.", "Fenster offen": "Okno otwarte", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Wykryto otwarte okno (spadek temperatury) – ogrzewanie wstrzymane", "Fenster: automatische Erkennung": "Okno: wykrywanie automatyczne", "Fensterkontakte": "Kontaktrony okienne", "Fenstersensor": "Czujnik okna", "Fenstersensoren": "Czujniki okien", "Fernwärme": "Ciepło sieciowe", "Fr": "Pt", "Frostschutz": "Ochrona przed mrozem", "Frostschutz-Temperatur (°C)": "Temperatura przeciwzamrożeniowa (°C)", "Gas": "Gaz", "Gelerntes zurücksetzen": "Resetuj nauczone", "Gesamtanforderung": "Łączne zapotrzebowanie", "Gäste": "Goście", "Gäste-Modus": "Tryb gości", "Hardware & Steuerung": "Sprzęt i sterowanie", "Heizen": "Grzanie", "Heizkosten sparen": "Oszczędzaj na ogrzewaniu", "Heizkurve": "Krzywa grzewcza", "Heizkurve (außerhalb Zeitplan)": "Krzywa grzewcza (poza harmonogramem)", "Heizkörper & Verbrauch": "Grzejniki i zużycie", "Heizkörper-Nennleistung (kW, alle zusammen)": "Moc nominalna grzejników (kW, razem)", "Heizperiode": "Sezon grzewczy", "Heizperiode für dieses Zimmer ignorieren": "Ignoruj sezon grzewczy w tym pokoju", "Heizperiode inaktiv": "Sezon grzewczy nieaktywny", "Heizt": "Grzeje", "Heizt gerade": "Teraz grzeje", "Heizung": "Ogrzewanie", "Heizungsart": "Rodzaj ogrzewania", "Homeoffice / tagsüber zu Hause": "Praca zdalna / w domu w dzień", "Höhe mm": "Wysokość mm", "IHC hat erkannt": "IHC wykrył", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC znalazł te termostaty w Twoich obszarach Home Assistant. Zaznacz i utwórz – gotowe. Dokładne ustawienia później w pokoju.", "Immer zu Hause": "Zawsze w domu", "Ist": "Obecna", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Brak kontaktronu – działa automatyczne wykrywanie okna.", "Kein Zeitplan": "Brak harmonogramu", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Brak termometru – temperatura z termostatu.", "Keine Luftfeuchte": "Brak wilgotności", "Keine Rollläden": "Brak rolet", "Kindersicherung aktiv": "Blokada rodzicielska aktywna", "Komfort": "Komfort", "Luftfeuchte bekannt": "Wilgotność znana", "Länge mm": "Długość mm", "Manuell": "Ręczny", "Manuelle Temperatur": "Temperatura ręczna", "Mein Heizung": "Moje ogrzewanie", "Meine Heizung": "Moje ogrzewanie", "Mi": "Śr", "Mir ist kalt": "Zimno mi", "Mir ist warm": "Gorąco mi", "Mo": "Pon", "Modus": "Tryb", "Nachtabsenkung & Vorheizen": "Obniżenie nocne i wstępne grzanie", "Nord": "Północ", "Nordost": "Północny wschód", "Nordwest": "Północny zachód", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Potrzebna jest tylko nazwa i termostat – resztę można dodać później w pokoju w ⚙️ Ustawieniach.", "Ost": "Wschód", "Raumfühler im Thermostat": "Czujnik pokojowy w termostacie", "Raumfühler ins Thermostat übertragen": "Przesyłaj czujnik pokojowy do termostatu", "Raumfühler-Eingang": "Wejście czujnika", "Raumthermometer": "Termometr pokojowy", "Restwärme": "Ciepło resztkowe", "Restwärme nutzen: der Heizkörper heizt noch nach": "Ciepło resztkowe: grzejnik jeszcze grzeje", "Rollläden automatisch": "Rolety automatyczne", "Rollläden automatisch steuern": "Steruj roletami automatycznie", "Sa": "Sob", "Schlafen": "Sen", "Schlafzimmer (kurz morgens + abends)": "Sypialnia (krótko rano + wieczorem)", "Schließen": "Zamknij", "So": "Nd", "Soll": "Zadana", "Sommerautomatik": "Automatyka letnia", "Sommerautomatik aktiv": "Tryb letni aktywny", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Oszczędzanie: obniż wszystkie temperatury komfortowe o", "Speichern": "Zapisz", "Status": "Stan", "Strom direkt": "Elektryczne bezpośrednie", "Systemmodus Abwesend": "Tryb systemu: nieobecność", "Systemmodus Urlaub": "Tryb systemu: urlop", "Süd": "Południe", "Südost": "Południowy wschód", "Südwest": "Południowy zachód", "Temperatur vom Thermostat": "Temperatura z termostatu", "Temperaturen": "Temperatury", "Temperaturen & Sommerautomatik": "Temperatury i tryb letni", "Temperatursensor": "Czujnik temperatury", "Thermostat verbunden": "Termostat podłączony", "Thermostat(e) *": "Termostat(y) *", "Thermostate / TRVs": "Termostaty / głowice", "Urlaub": "Urlop", "Urlaubs-Assistent": "Asystent urlopu", "Urlaubs-Temperatur (°C)": "Temperatura urlopowa (°C)", "Ventilstellung": "Pozycja zaworu", "Verbrauch bisher": "Zużycie do tej pory", "Verlauf": "Historia", "Vorheizen vor nächster Zeitplan-Periode": "Wstępne grzanie przed kolejnym okresem", "Vorlage übernehmen": "Użyj szablonu", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Szablon zastosowany – kliknij „Zapisz harmonogramy”", "Vormonat gespart": "Zaoszczędzone w zeszłym miesiącu", "Warm aufwachen": "Ciepła pobudka", "Warm aufwachen (Wecker)": "Ciepła pobudka (budzik)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Ciepła pobudka – grzej przed budzikiem (min)", "Warn-Schwelle (km/h)": "Próg ostrzegawczy (km/h)", "Wartezeit nach dem Sturm (min)": "Czas po burzy (min)", "Was IHC automatisch macht": "Co IHC robi automatycznie", "Was IHC in diesem Zimmer nutzt": "Z czego IHC korzysta w tym pokoju", "Wenn niemand da ist (°C)": "Gdy nikogo nie ma (°C)", "West": "Zachód", "Wettervorhersage": "Prognoza pogody", "Willkommen bei Intelligent Heating Control": "Witaj w Intelligent Heating Control", "Wochenansicht": "Widok tygodnia", "Wohlfühltemperatur": "Temperatura komfortowa", "Wohlfühltemperatur (°C)": "Temperatura komfortowa (°C)", "Wärmeempfinden pro Person (°C)": "Preferencja komfortu na osobę (°C)", "Wärmepumpe": "Pompa ciepła", "Zeitplan": "Harmonogram", "Zeitplan aktiv": "Harmonogram aktywny", "Zeitpläne speichern": "Zapisz harmonogramy", "Zimmer": "Pokoje", "Zimmer anlegen": "Utwórz pokój", "Zimmer ausgeschaltet": "Pokój wyłączony", "Zimmer automatisch anlegen": "Utwórz pokoje automatycznie", "Zimmer automatisch finden": "Znajdź pokoje automatycznie", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "Pokój jest ciepły, gdy dzwoni budzik w telefonie", "Zimmer löschen": "Usuń pokój", "Zimmer verwalten": "Zarządzaj pokojami", "Zimmer-Modus": "Tryb pokoju", "Zimmername *": "Nazwa pokoju *", "offen": "otwarte", "optional": "opcjonalnie", "wird pro Zimmer gelernt – Ventil schließt früher ✓": "uczone dla każdego pokoju – zawór zamyka się wcześniej ✓", "zurücksetzen": "resetuj", "Öl": "Olej", "übernehmen": "zastosuj", "„Mir ist kalt/warm“ wirkt für (min)": "„Zimno/gorąco mi” działa przez (min)", "… und danach warm halten (min)": "… a potem utrzymuj ciepło (min)", "♨️ Restwärme": "♨️ Ciepło resztkowe", "♨️ Restwärme nutzen": "♨️ Wykorzystaj ciepło resztkowe", "♨️ Restwärme – Heizkörper heizt nach": "♨️ Ciepło resztkowe – grzejnik jeszcze grzeje", "⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst": "⚠️ Termometr milczy – termostat reguluje sam", "✈️ Urlaub": "✈️ Urlop", "🌙 Zeitplan & Nacht": "🌙 Harmonogram i noc", "🌬️ Wind – bleibt, wie er ist": "🌬️ Wiatr – zostaje bez zmian", "💶 Spar-Bilanz (dieser Monat)": "💶 Oszczędności (ten miesiąc)", "💶 Spar-Regler": "💶 Suwak oszczędzania", "📬 Monatsbericht": "📬 Raport miesięczny", "🔧 Hydraulischer Abgleich & Vorlauftemperatur": "🔧 Równoważenie hydrauliczne i temperatura zasilania", "🚶 Abwesenheit": "🚶 Nieobecność", "🪟 Fenster-Pausen": "🪟 Przerwy okienne"}, "sv": {"+ Gruppe hinzufügen": "+ Lägg till grupp", "+ Zimmer manuell": "+ Rum manuellt", "+ Zimmer manuell anlegen": "+ Lägg till rum manuellt", "Abbrechen": "Avbryt", "Abwesend": "Borta", "Abwesend-Temperatur (°C)": "Frånvarotemperatur (°C)", "Abwesenheit": "Frånvaro", "Abwesenheit automatisch aus HA-Personen": "Frånvaro automatiskt från HA-personer", "Aktiviert": "Aktiverad", "Alle Zimmer sind warm genug": "Alla rum är tillräckligt varma", "Analyse": "Analys", "Anwesenheitserkennung": "Närvarodetektering", "Aus": "Av", "Aus Größe schätzen": "Uppskatta från storlek", "Aus Home-Assistant-Bereich übernehmen": "Hämta från Home Assistant-område", "Ausgewählte Zimmer anlegen": "Skapa valda rum", "Auto": "Auto", "Auto wiederherstellen": "Återställ auto", "Automatisch": "Automatiskt", "Außen": "Ute", "Außentemperatur": "Utetemperatur", "Backup & Restore": "Säkerhetskopia & återställning", "Bad (morgens + abends warm)": "Badrum (varmt morgon + kväll)", "Bekommt mehr Heizwasser als nötig": "Får mer varmvatten än nödvändigt", "Bekommt zu wenig Heizwasser": "Får för lite varmvatten", "Berufstätig (morgens + abends)": "Arbetar (morgon + kväll)", "Bitte einen Zimmernamen eingeben": "Ange ett rumsnamn", "Bitte mindestens ein Thermostat auswählen": "Välj minst en termostat", "Boost": "Boost", "Boost aktiv": "Boost aktivt", "Boost starten": "Starta boost", "Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).": "Så räknar IHC om värme till det du betalar för (kWh gas eller el).", "Daraus lernen": "Lär av det", "Deaktiviert": "Avaktiverad", "Di": "Tis", "Do": "Tor", "Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.": "Du behöver bara dina elementtermostater – allt annat (rumstermometrar, fönsterkontakter, fuktsensorer …) är valfritt och gör IHC ännu mer exakt.", "Durch IHC gespart": "Sparat av IHC", "Echter Zähler (optional)": "Riktig mätare (valfritt)", "Eco": "Eko", "Eigener Temperatursensor": "Egen temperatursensor", "Einfach": "Enkel", "Einfache Ansicht – nur das Wichtigste": "Enkel vy – bara det viktigaste", "Einstellungen": "Inställningar", "Einstellungen speichern": "Spara inställningar", "Erinnern, wenn ein Fenster länger offen ist (min)": "Påminn när ett fönster står öppet (min)", "Experte": "Expert", "Expertenansicht – alle Einstellungen sichtbar": "Expertvy – alla inställningar", "Familie mit Schulkindern": "Familj med skolbarn", "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie.": "Tumregel: varje grad mindre sparar cirka 6 % energi.", "Fenster offen": "Fönster öppet", "Fenster offen erkannt (Temperatursturz) – Heizung pausiert": "Öppet fönster upptäckt (temperaturfall) – värme pausad", "Fenster: automatische Erkennung": "Fönster: automatisk detektering", "Fensterkontakte": "Fönsterkontakter", "Fenstersensor": "Fönstersensor", "Fenstersensoren": "Fönstersensorer", "Fernwärme": "Fjärrvärme", "Fr": "Fre", "Frostschutz": "Frostskydd", "Frostschutz-Temperatur (°C)": "Frostskydd (°C)", "Gas": "Gas", "Gelerntes zurücksetzen": "Återställ det inlärda", "Gesamtanforderung": "Totalt behov", "Gäste": "Gäster", "Gäste-Modus": "Gästläge", "Hardware & Steuerung": "Hårdvara & styrning", "Heizen": "Värme", "Heizkosten sparen": "Spara på värmen", "Heizkurve": "Värmekurva", "Heizkurve (außerhalb Zeitplan)": "Värmekurva (utanför schema)", "Heizkörper & Verbrauch": "Element & förbrukning", "Heizkörper-Nennleistung (kW, alle zusammen)": "Elementens nominella effekt (kW, totalt)", "Heizperiode": "Eldningssäsong", "Heizperiode für dieses Zimmer ignorieren": "Ignorera eldningssäsongen för det här rummet", "Heizperiode inaktiv": "Eldningssäsong inaktiv", "Heizt": "Värmer", "Heizt gerade": "Värmer nu", "Heizung": "Värme", "Heizungsart": "Värmekälla", "Homeoffice / tagsüber zu Hause": "Hemarbete / hemma dagtid", "Höhe mm": "Höjd mm", "IHC hat erkannt": "IHC har identifierat", "IHC hat in deinen Home-Assistant-Bereichen diese Thermostate gefunden. Haken setzen und anlegen – fertig. Feintuning geht später im Zimmer.": "IHC hittade dessa termostater i dina Home Assistant-områden. Kryssa i och skapa – klart. Finjustering görs senare i rummet.", "Immer zu Hause": "Alltid hemma", "Ist": "Aktuell", "Kein Fensterkontakt – automatische Fenstererkennung übernimmt.": "Ingen fönsterkontakt – automatisk detektering tar över.", "Kein Zeitplan": "Inget schema", "Kein eigenes Thermometer – Temperatur kommt vom Thermostat.": "Ingen termometer – temperaturen kommer från termostaten.", "Keine Luftfeuchte": "Ingen luftfuktighet", "Keine Rollläden": "Inga rullgardiner", "Kindersicherung aktiv": "Barnlås aktivt", "Komfort": "Komfort", "Luftfeuchte bekannt": "Luftfuktighet känd", "Länge mm": "Längd mm", "Manuell": "Manuell", "Manuelle Temperatur": "Manuell temperatur", "Mein Heizung": "Min värme", "Meine Heizung": "Min värme", "Mi": "Ons", "Mir ist kalt": "Jag fryser", "Mir ist warm": "Jag är varm", "Mo": "Mån", "Modus": "Läge", "Nachtabsenkung & Vorheizen": "Nattsänkning & förvärmning", "Nord": "Norr", "Nordost": "Nordost", "Nordwest": "Nordväst", "Nur ein Name und ein Thermostat sind nötig – alles andere ist optional und kann später im Zimmer unter ⚙️ Einstellungen ergänzt werden.": "Bara ett namn och en termostat behövs – resten är valfritt och kan läggas till senare i rummet under ⚙️ Inställningar.", "Ost": "Öster", "Raumfühler im Thermostat": "Rumsgivare i termostaten", "Raumfühler ins Thermostat übertragen": "Skicka rumsgivaren till termostaten", "Raumfühler-Eingang": "Ingång rumsgivare", "Raumthermometer": "Rumstermometer", "Restwärme": "Restvärme", "Restwärme nutzen: der Heizkörper heizt noch nach": "Restvärme: elementet värmer fortfarande", "Rollläden automatisch": "Rullgardiner automatiskt", "Rollläden automatisch steuern": "Styr rullgardiner automatiskt", "Sa": "Lör", "Schlafen": "Sömn", "Schlafzimmer (kurz morgens + abends)": "Sovrum (kort morgon + kväll)", "Schließen": "Stäng", "So": "Sön", "Soll": "Mål", "Sommerautomatik": "Sommarautomatik", "Sommerautomatik aktiv": "Sommarläge aktivt", "Spar-Regler: alle Wohlfühltemperaturen absenken um": "Sparreglage: sänk alla komforttemperaturer med", "Speichern": "Spara", "Status": "Status", "Strom direkt": "Direktverkande el", "Systemmodus Abwesend": "Systemläge borta", "Systemmodus Urlaub": "Systemläge semester", "Süd": "Söder", "Südost": "Sydost", "Südwest": "Sydväst", "Temperatur vom Thermostat": "Temperatur från termostaten", "Temperaturen": "Temperaturer", "Temperaturen & Sommerautomatik": "Temperaturer & sommarläge", "Temperatursensor": "Temperatursensor", "Thermostat verbunden": "Termostat ansluten", "Thermostat(e) *": "Termostat(er) *", "Thermostate / TRVs": "Termostater / TRV:er", "Urlaub": "Semester", "Urlaubs-Assistent": "Semesterassistent", "Urlaubs-Temperatur (°C)": "Semestertemperatur (°C)", "Ventilstellung": "Ventilläge", "Verbrauch bisher": "Förbrukning hittills", "Verlauf": "Historik", "Vorheizen vor nächster Zeitplan-Periode": "Förvärmning inför nästa period", "Vorlage übernehmen": "Använd mall", "Vorlage übernommen – jetzt „Zeitpläne speichern“ klicken": "Mall tillämpad – klicka på ”Spara scheman”", "Vormonat gespart": "Sparat förra månaden", "Warm aufwachen": "Vakna i värme", "Warm aufwachen (Wecker)": "Vakna i värme (väckarklocka)", "Warm aufwachen – so lange vor dem Wecker heizen (min)": "Vakna i värme – värm före väckarklockan (min)", "Warn-Schwelle (km/h)": "Varningsgräns (km/h)", "Wartezeit nach dem Sturm (min)": "Väntetid efter storm (min)", "Was IHC automatisch macht": "Vad IHC gör automatiskt", "Was IHC in diesem Zimmer nutzt": "Vad IHC använder i det här rummet", "Wenn niemand da ist (°C)": "När ingen är hemma (°C)", "West": "Väster", "Wettervorhersage": "Väderprognos", "Willkommen bei Intelligent Heating Control": "Välkommen till Intelligent Heating Control", "Wochenansicht": "Veckovy", "Wohlfühltemperatur": "Komforttemperatur", "Wohlfühltemperatur (°C)": "Komforttemperatur (°C)", "Wärmeempfinden pro Person (°C)": "Komfortpreferens per person (°C)", "Wärmepumpe": "Värmepump", "Zeitplan": "Schema", "Zeitplan aktiv": "Schema aktivt", "Zeitpläne speichern": "Spara scheman", "Zimmer": "Rum", "Zimmer anlegen": "Skapa rum", "Zimmer ausgeschaltet": "Rum avstängt", "Zimmer automatisch anlegen": "Skapa rum automatiskt", "Zimmer automatisch finden": "Hitta rum automatiskt", "Zimmer ist warm, wenn der Handy-Wecker klingelt": "Rummet är varmt när mobilens väckarklocka ringer", "Zimmer löschen": "Ta bort rum", "Zimmer verwalten": "Hantera rum", "Zimmer-Modus": "Rumsläge", "Zimmername *": "Rumsnamn *", "offen": "öppet", "optional": "valfritt", "wird pro Zimmer gelernt – Ventil schließt früher ✓": "lärs per rum – ventilen stänger tidigare ✓", "zurücksetzen": "återställ", "Öl": "Olja", "übernehmen": "tillämpa", "„Mir ist kalt/warm“ wirkt für (min)": "”Jag fryser/är varm” varar (min)", "… und danach warm halten (min)": "… och håll värmen efteråt (min)", "♨️ Restwärme": "♨️ Restvärme", "♨️ Restwärme nutzen": "♨️ Använd restvärme", "♨️ Restwärme – Heizkörper heizt nach": "♨️ Restvärme – elementet värmer fortfarande", "⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst": "⚠️ Rumstermometer tyst – termostaten reglerar själv", "✈️ Urlaub": "✈️ Semester", "🌙 Zeitplan & Nacht": "🌙 Schema & natt", "🌬️ Wind – bleibt, wie er ist": "🌬️ Vind – förblir som den är", "💶 Spar-Bilanz (dieser Monat)": "💶 Besparing (denna månad)", "💶 Spar-Regler": "💶 Sparreglage", "📬 Monatsbericht": "📬 Månadsrapport", "🔧 Hydraulischer Abgleich & Vorlauftemperatur": "🔧 Injustering & framledningstemperatur", "🚶 Abwesenheit": "🚶 Frånvaro", "🪟 Fenster-Pausen": "🪟 Fönsterpauser"}};
 const IHC_I18N_LANG_PATTERNS = Object.fromEntries(Object.entries({"fr": [["^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\\.$", "$1 – IHC règle la consigne, le thermostat régule lui-même."], ["^(\\d+) Zimmer$", "$1 pièces"], ["^(\\d+) Zimmer wird geheizt$", "$1 pièce chauffe"], ["^(\\d+) Zimmer werden geheizt$", "$1 pièces chauffent"], ["^Einstellungen – (.+)$", "Paramètres – $1"], ["^gefühlt (.+)$", "ressenti $1"], ["^Ab (.+) Uhr$", "Dès $1"]], "nl": [["^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\\.$", "$1 – IHC stelt de doeltemperatuur in, de thermostaat regelt zelf."], ["^(\\d+) Zimmer$", "$1 kamers"], ["^(\\d+) Zimmer wird geheizt$", "$1 kamer verwarmt"], ["^(\\d+) Zimmer werden geheizt$", "$1 kamers verwarmen"], ["^Einstellungen – (.+)$", "Instellingen – $1"], ["^gefühlt (.+)$", "gevoeld $1"], ["^Ab (.+) Uhr$", "Vanaf $1"]], "es": [["^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\\.$", "$1 – IHC fija la temperatura objetivo, el termostato regula solo."], ["^(\\d+) Zimmer$", "$1 habitaciones"], ["^(\\d+) Zimmer wird geheizt$", "$1 habitación calentando"], ["^(\\d+) Zimmer werden geheizt$", "$1 habitaciones calentando"], ["^Einstellungen – (.+)$", "Ajustes – $1"], ["^gefühlt (.+)$", "sensación $1"], ["^Ab (.+) Uhr$", "Desde $1"]], "it": [["^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\\.$", "$1 – IHC imposta la temperatura obiettivo, il termostato regola da sé."], ["^(\\d+) Zimmer$", "$1 stanze"], ["^(\\d+) Zimmer wird geheizt$", "$1 stanza in riscaldamento"], ["^(\\d+) Zimmer werden geheizt$", "$1 stanze in riscaldamento"], ["^Einstellungen – (.+)$", "Impostazioni – $1"], ["^gefühlt (.+)$", "percepita $1"], ["^Ab (.+) Uhr$", "Dalle $1"]], "pl": [["^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\\.$", "$1 – IHC ustawia temperaturę zadaną, termostat reguluje sam."], ["^(\\d+) Zimmer$", "Pokoje: $1"], ["^(\\d+) Zimmer wird geheizt$", "Grzeje pokoi: $1"], ["^(\\d+) Zimmer werden geheizt$", "Grzeje pokoi: $1"], ["^Einstellungen – (.+)$", "Ustawienia – $1"], ["^gefühlt (.+)$", "odczuwalna $1"], ["^Ab (.+) Uhr$", "Od $1"]], "cs": [["^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\\.$", "$1 – IHC nastavuje cílovou teplotu, termostat reguluje sám."], ["^(\\d+) Zimmer$", "Místností: $1"], ["^(\\d+) Zimmer wird geheizt$", "Topí místností: $1"], ["^(\\d+) Zimmer werden geheizt$", "Topí místností: $1"], ["^Einstellungen – (.+)$", "Nastavení – $1"], ["^gefühlt (.+)$", "pocitově $1"], ["^Ab (.+) Uhr$", "Od $1"]], "da": [["^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\\.$", "$1 – IHC indstiller måltemperaturen, termostaten regulerer selv."], ["^(\\d+) Zimmer$", "$1 rum"], ["^(\\d+) Zimmer wird geheizt$", "$1 rum varmes op"], ["^(\\d+) Zimmer werden geheizt$", "$1 rum varmes op"], ["^Einstellungen – (.+)$", "Indstillinger – $1"], ["^gefühlt (.+)$", "føles som $1"], ["^Ab (.+) Uhr$", "Fra $1"]], "sv": [["^(.+) – IHC stellt die Solltemperatur ein, das Thermostat regelt selbst\\.$", "$1 – IHC ställer in måltemperaturen, termostaten reglerar själv."], ["^(\\d+) Zimmer$", "$1 rum"], ["^(\\d+) Zimmer wird geheizt$", "$1 rum värms"], ["^(\\d+) Zimmer werden geheizt$", "$1 rum värms"], ["^Einstellungen – (.+)$", "Inställningar – $1"], ["^gefühlt (.+)$", "känns som $1"], ["^Ab (.+) Uhr$", "Från $1"]]}).map(([c, list]) => [c, list.map(([p, r]) => { try { return [new RegExp(p, "u"), r]; } catch (e) { return null; } }).filter(Boolean)]));
 // === 00_constants.js ===
 /**
@@ -811,6 +863,13 @@ const IHC_I18N_LANG_PATTERNS = Object.fromEntries(Object.entries({"fr": [["^(.+)
  */
 
 const DOMAIN = "intelligent_heating_control";
+
+// HTML-escape any value that goes into an innerHTML template (HACS review 2026-11-24).
+// Usable everywhere (also inside plain callbacks); same rules as IHCPanel._esc().
+function ihcEsc(value) {
+  if (value == null) return "";
+  return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 const DAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
@@ -1678,7 +1737,7 @@ class IHCPanel extends HTMLElement {
         </button>
         <span class="topbar-title">Intelligent Heating Control</span>
         <button class="ui-mode-toggle" id="ihc-ui-mode" title="Zwischen einfacher Ansicht und allen Einstellungen umschalten"></button>
-        <span class="topbar-version">v2.6.1</span>
+        <span class="topbar-version">v2.7.0</span>
       `;
       shadow.appendChild(topbar);
       // Einfach/Experte (v2.6): beginners only see what they need, tinkerers get everything
@@ -2060,11 +2119,11 @@ class IHCPanel extends HTMLElement {
         <div class="trv-cap-name">${this._esc(this._friendly(c.entity))}
           ${c.manufacturer || c.model ? `<span class="trv-cap-model">${this._esc([c.manufacturer, c.model].filter(Boolean).join(" "))}</span>` : ""}</div>
         <div class="trv-cap-list">
-          <span title="Ventilstellung">${c.valve_source ? yes : no} Ventilstellung</span>
-          <span title="Externer Raumfühler-Eingang">${c.external_sensor ? yes : no} Raumfühler-Eingang</span>
-          <span>${c.supports_off ? yes : no} Aus-Modus</span>
-          <span>${c.supports_boost ? yes : no} Boost</span>
-          ${c.step ? `<span>Schritt ${c.step} °C</span>` : ""}
+          <span title="Ventilstellung">${c.valve_source ? ihcEsc(yes) : ihcEsc(no)} Ventilstellung</span>
+          <span title="Externer Raumfühler-Eingang">${c.external_sensor ? ihcEsc(yes) : ihcEsc(no)} Raumfühler-Eingang</span>
+          <span>${c.supports_off ? ihcEsc(yes) : ihcEsc(no)} Aus-Modus</span>
+          <span>${c.supports_boost ? ihcEsc(yes) : ihcEsc(no)} Boost</span>
+          ${c.step ? `<span>Schritt ${ihcEsc(c.step)} °C</span>` : ""}
         </div>
         ${(c.quirks || []).map(q => `<div class="form-hint">💡 ${this._esc(q)}</div>`).join("")}
       </div>`).join("");
@@ -2129,6 +2188,9 @@ class IHCPanel extends HTMLElement {
         })()}
         ${room.external_sensor_sync ? row(true, "🌡️", "Raumfühler im Thermostat", "Das Thermostat regelt mit der echten Raumtemperatur.") : ""}
         ${room.wakeup_enabled ? row(true, "⏰", "Warm aufwachen", "Warm, wenn der Handy-Wecker klingelt.") : ""}
+        ${room.hydraulic_hint === "too_little" ? row(false, "🔧", "Bekommt zu wenig Heizwasser", "💡 Ventil oft ganz offen und trotzdem zu kalt – Voreinstellung am Ventilunterteil höher stellen (hydraulischer Abgleich).") : ""}
+        ${room.hydraulic_hint === "too_much" ? row(false, "🔧", "Bekommt mehr Heizwasser als nötig", "💡 Ventil öffnet kaum – Voreinstellung am Ventilunterteil kleiner stellen, dann bleibt mehr für die anderen Zimmer.") : ""}
+        ${room.afterheat_overshoot ? row(true, "♨️", `Restwärme: +${room.afterheat_overshoot} °C`, "Der Heizkörper heizt so viel nach – IHC schließt das Ventil entsprechend früher.") : ""}
         ${room.feel_learned_offset ? row(true, "🧠", `Gelernt: ${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C um diese Zeit`, "Aus deinen „Mir ist kalt/warm“-Rückmeldungen gelernt.") : ""}
         ${row(hasPresence ? true : false, "👤", hasPresence ? "Anwesenheit im Zimmer" : "Keine Zimmer-Anwesenheit",
           hasPresence ? "Senkt ab, wenn niemand im Zimmer ist." : "Optional: Bewegungsmelder oder Personen zuordnen, um leere Zimmer abzusenken.")}
@@ -2300,6 +2362,14 @@ class IHCPanel extends HTMLElement {
         aggressive_mode_offset:  state.attributes.aggressive_mode_offset ?? 3,
         // Runtime status
         optimum_stop_active:     state.attributes.optimum_stop_active === true,
+        afterheat_overshoot:     state.attributes.afterheat_overshoot ?? null,
+        afterheat_minutes:       state.attributes.afterheat_minutes ?? null,
+        afterheat_samples:       state.attributes.afterheat_samples ?? 0,
+        afterheat_coasting:      state.attributes.afterheat_coasting === true,
+        sensor_failed:           state.attributes.sensor_failed === true,
+        hydraulic_hint:          state.attributes.hydraulic_hint || null,
+        hydraulic_valve_avg:     state.attributes.hydraulic_valve_avg ?? null,
+        hydraulic_hours:         state.attributes.hydraulic_hours ?? 0,
         optimum_stop_minutes:    state.attributes.optimum_stop_minutes ?? null,
         optimum_stop_predicted:  state.attributes.optimum_stop_predicted ?? null,
         ha_schedule_entity:      state.attributes.ha_schedule_entity || "",
@@ -2383,9 +2453,13 @@ class IHCPanel extends HTMLElement {
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
       // v2.6 – automatic fallbacks, shown in plain language in the UI
       window_auto_detect_enabled: a.window_auto_detect_enabled !== false,
+      afterheat_enabled:         a.afterheat_enabled !== false,
       battery_soc:               ea.battery_soc != null ? parseFloat(ea.battery_soc) : null,
       outdoor_temp_source:       a.outdoor_temp_source || null,
       flow_temp_now:             a.flow_temp_now ?? null,
+      flow_recommendation:       a.flow_recommendation || null,
+      heating_system:            a.heating_system || "gas",
+      savings:                   a.savings || null,
       weather_entity_effective:  a.weather_entity_effective || null,
       presence_entities:         a.presence_entities || [],
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
@@ -2455,8 +2529,8 @@ class IHCPanel extends HTMLElement {
       const y = h - ((v - min) / range) * (h - 4) - 2;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     }).join(" ");
-    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;overflow:visible">
-      <polyline points="${pts}" fill="none" stroke="var(--primary-color)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    return `<svg width="${w}" height="${ihcEsc(h)}" viewBox="0 0 ${w} ${ihcEsc(h)}" style="display:block;overflow:visible">
+      <polyline points="${ihcEsc(pts)}" fill="none" stroke="var(--primary-color)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
     </svg>`;
   }
 
@@ -2495,7 +2569,11 @@ class IHCPanel extends HTMLElement {
     const root = this.shadowRoot.querySelector("#toast-root");
     if (!root) return;
     if (this._toastTimeout) clearTimeout(this._toastTimeout);
-    root.innerHTML = `<div class="toast">${msg}</div>`;
+    // plain text only (HACS review 2026-11-24) - callers pass raw names, never HTML
+    const div = document.createElement("div");
+    div.className = "toast";
+    div.textContent = msg == null ? "" : String(msg);
+    root.replaceChildren(div);
     this._toastTimeout = setTimeout(() => { root.innerHTML = ""; }, ms);
   }
 
@@ -2543,7 +2621,7 @@ class IHCPanel extends HTMLElement {
         const d = id.split(".")[0];
         const cls = ["sensor","climate","switch","binary_sensor","weather","number","input_boolean","person","device_tracker"].includes(d)
           ? `ep-d-${d}` : "ep-d-other";
-        return `<span class="ep-badge ${cls}">${d}</span>`;
+        return `<span class="ep-badge ${ihcEsc(cls)}">${ihcEsc(d)}</span>`;
       };
 
       const stateLabel = (state) => {
@@ -2652,7 +2730,7 @@ class IHCPanel extends HTMLElement {
       return `<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;
           padding:6px 10px;border:1px solid var(--divider-color);border-radius:8px;
           background:${checked ? "var(--primary-color,#03a9f4)1a" : "transparent"}">
-        <input type="checkbox" class="presence-cb" value="${this._esc(id)}" ${checked} style="margin:0">
+        <input type="checkbox" class="presence-cb" value="${this._esc(id)}" ${ihcEsc(checked)} style="margin:0">
         ${dot}
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._esc(label)}</span>
         <span style="font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${isHome ? "zuhause" : "weg"}</span>
@@ -2684,7 +2762,7 @@ class IHCPanel extends HTMLElement {
           <div id="tracker-overflow" style="display:none;flex-direction:column;gap:4px">${hidden.map(mkChip).join("")}</div>
           <button type="button" id="tracker-toggle"
             style="margin-top:6px;font-size:12px;color:var(--primary-color);background:none;border:none;cursor:pointer;padding:2px 0;text-align:left">
-            ▸ ${hidden.length} weitere Geräte anzeigen
+            ▸ ${ihcEsc(hidden.length)} weitere Geräte anzeigen
           </button>` : ""}`;
     }
 
@@ -2704,8 +2782,8 @@ class IHCPanel extends HTMLElement {
           const row = document.createElement("div");
           row.className = "entity-row";
           row.innerHTML = `
-            <input type="text" class="form-input" placeholder="${placeholder}"
-              ${epDomains ? `data-ep-domains="${epDomains}"` : ""} autocomplete="off">
+            <input type="text" class="form-input" placeholder="${ihcEsc(placeholder)}"
+              ${epDomains ? `data-ep-domains="${ihcEsc(epDomains)}"` : ""} autocomplete="off">
             <button class="btn btn-danger btn-icon remove-entity">✕</button>`;
           list.appendChild(row);
           row.querySelector(".remove-entity").addEventListener("click", () => row.remove());
@@ -2743,14 +2821,14 @@ class IHCPanel extends HTMLElement {
       return `rgb(${r},${g},${b})`;
     };
     const hourHeaders = Array.from({length: 24}, (_, h) =>
-      `<div style="font-size:8px;text-align:center;color:var(--secondary-text-color);flex:1;min-width:0">${h % 3 === 0 ? h + "" : ""}</div>`
+      `<div style="font-size:8px;text-align:center;color:var(--secondary-text-color);flex:1;min-width:0">${h % 3 === 0 ? ihcEsc(h) + "" : ""}</div>`
     ).join("");
     const rows = heatmap.map((day, di) => {
       const cells = day.map((v, h) =>
-        `<div title="${WDAYS[di]} ${h}:00 – ${Math.round(v)}%" style="flex:1;height:18px;background:${demColor(v)};border-radius:2px;margin:1px;min-width:0"></div>`
+        `<div title="${ihcEsc(WDAYS[di])} ${ihcEsc(h)}:00 – ${Math.round(v)}%" style="flex:1;height:18px;background:${demColor(v)};border-radius:2px;margin:1px;min-width:0"></div>`
       ).join("");
       return `<div style="display:flex;align-items:center;gap:0;margin-bottom:1px">
-        <div style="width:22px;font-size:9px;color:var(--secondary-text-color);flex-shrink:0">${WDAYS[di]}</div>
+        <div style="width:22px;font-size:9px;color:var(--secondary-text-color);flex-shrink:0">${ihcEsc(WDAYS[di])}</div>
         <div style="display:flex;flex:1;gap:0">${cells}</div>
       </div>`;
     }).join("");
@@ -2779,12 +2857,12 @@ class IHCPanel extends HTMLElement {
     return `
       <div class="entity-row ts-row">
         <input type="text" class="form-input" placeholder="sensor.ecke (zusätzlich)" style="flex:2"
-          value="${e.sensor || ''}" data-ts-field="sensor" data-ep-domains="sensor" autocomplete="off">
+          value="${ihcEsc(e.sensor || '')}" data-ts-field="sensor" data-ep-domains="sensor" autocomplete="off">
         <input type="text" class="form-input" placeholder="binary_sensor.pir (optional)" style="flex:2;max-width:180px"
-          value="${e.presence_entity || ''}" data-ts-field="presence_entity"
+          value="${ihcEsc(e.presence_entity || '')}" data-ts-field="presence_entity"
           data-ep-domains="binary_sensor,person,device_tracker,input_boolean" autocomplete="off">
         <input type="number" class="form-input" placeholder="1.0" style="max-width:65px"
-          value="${e.weight ?? ''}" data-ts-field="weight" step="0.1" min="0.1" max="10">
+          value="${ihcEsc(e.weight ?? '')}" data-ts-field="weight" step="0.1" min="0.1" max="10">
         ${isFirst
           ? `<button class="btn btn-secondary btn-icon" id="${addBtnId}">+</button>`
           : `<button class="btn btn-danger btn-icon remove-ts-row">✕</button>`}
@@ -2904,7 +2982,7 @@ class IHCPanel extends HTMLElement {
       const statusBadge = (() => {
         if (isWindow) return `<span class="badge badge-window">🪟 offen</span>`;
         if (isOff)    return `<span class="badge badge-off">⛔ Aus</span>`;
-        if (room.boost_remaining > 0)  return `<span class="badge badge-boost">⚡ ${room.boost_remaining}min</span>`;
+        if (room.boost_remaining > 0)  return `<span class="badge badge-boost">⚡ ${ihcEsc(room.boost_remaining)}min</span>`;
         if (isHeating) return `<span class="badge badge-heat">🔥 Heizt</span>`;
         if (room.room_mode === "eco")   return `<span class="badge badge-eco">🌿 Eco</span>`;
         if (room.room_mode === "away")  return `<span class="badge badge-away">🚶 Abwesend</span>`;
@@ -2925,21 +3003,21 @@ class IHCPanel extends HTMLElement {
         : "";
 
       const modeOptions = ["auto","comfort","eco","sleep","away","off","manual"].map(m =>
-        `<option value="${m}" ${room.room_mode === m ? "selected" : ""}>${MODE_ICONS[m] || ""} ${MODE_LABELS[m]}</option>`
+        `<option value="${ihcEsc(m)}" ${room.room_mode === m ? "selected" : ""}>${ihcEsc(MODE_ICONS[m] || "")} ${ihcEsc(MODE_LABELS[m])}</option>`
       ).join("");
 
       // Alert chips (compact, stacked)
       const alerts = [];
-      if (systemOverrides) alerts.push(`<div class="room-alert alert-override">${overrideLabel} – Zimmermodus übersteuert</div>`);
+      if (systemOverrides) alerts.push(`<div class="room-alert alert-override">${ihcEsc(overrideLabel)} – Zimmermodus übersteuert</div>`);
       // Manual override: show prominent alert with reset time if known
       if (room.room_mode === "manual") {
         const resetStr = (room.next_period && room.next_period.start) ? ` · Reset: ${room.next_period.start} Uhr` : "";
         const manualTemp = room.manual_temp != null ? ` (${parseFloat(room.manual_temp).toFixed(1)}°C)` : "";
-        alerts.push(`<div class="room-alert alert-warn" style="cursor:pointer" onclick="this.closest('.room-card').dispatchEvent(new CustomEvent('ihc-dismiss-manual',{bubbles:true,detail:{id:'${room.room_id}'}}))">✋ Manuell bedient${manualTemp}${resetStr} – <u>Auto wiederherstellen</u></div>`);
+        alerts.push(`<div class="room-alert alert-warn" style="cursor:pointer" onclick="this.closest('.room-card').dispatchEvent(new CustomEvent('ihc-dismiss-manual',{bubbles:true,detail:{id:'${ihcEsc(room.room_id)}'}}))">✋ Manuell bedient${ihcEsc(manualTemp)}${ihcEsc(resetStr)} – <u>Auto wiederherstellen</u></div>`);
       }
       if (room.anomaly === "sensor_stuck") alerts.push(`<div class="room-alert alert-danger">⚠️ Sensor konstant – bitte prüfen</div>`);
       if (room.anomaly === "temp_drop")    alerts.push(`<div class="room-alert alert-warn">⚠️ Starker Temperaturabfall</div>`);
-      if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${room.mold.humidity}%${room.mold.dew_point != null ? ` · Taupunkt ${room.mold.dew_point}°C` : ""}</div>`);
+      if (room.mold && room.mold.risk)     alerts.push(`<div class="room-alert alert-info">💧 Schimmelrisiko – ${ihcEsc(room.mold.humidity)}%${room.mold.dew_point != null ? ` · Taupunkt ${ihcEsc(room.mold.dew_point)}°C` : ""}</div>`);
       // Comfort extend: show which entity is keeping the room in comfort mode
       if (room.comfort_extend_active) {
         const ceEntries = (room.comfort_extend_entries && room.comfort_extend_entries.length > 0)
@@ -2947,15 +3025,17 @@ class IHCPanel extends HTMLElement {
           : (room.comfort_extend_entity ? [{entity: room.comfort_extend_entity, state: room.comfort_extend_state || "on"}] : []);
         const activeEntry = ceEntries.find(e => e.entity && this._hass?.states[e.entity]?.state === (e.state || "on"));
         const reason = activeEntry ? activeEntry.entity.split(".")[1] : "Bedingung";
-        alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${reason}</strong></div>`);
+        alerts.push(`<div class="room-alert alert-info">⏱ Komfort verlängert wegen: <strong>${ihcEsc(reason)}</strong></div>`);
       }
-      if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${room.trv_min_battery ?? '?'}%) – bitte tauschen</div>`);
+      if (room.trv_low_battery)            alerts.push(`<div class="room-alert alert-danger">🔋 TRV-Batterie schwach (${ihcEsc(room.trv_min_battery ?? '?')}%) – bitte tauschen</div>`);
+      if (room.sensor_failed)              alerts.push(`<div class="room-alert alert-warn" title="Kein aktueller Wert vom Raumthermometer (Batterie? Funk?) – das Thermostat regelt mit seinem eigenen Fühler weiter">⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst</div>`);
+      if (room.afterheat_coasting)         alerts.push(`<div class="room-alert alert-info" title="Ventil früher zu – die Restwärme des Heizkörpers bringt den Raum auf Soll">♨️ Restwärme – Heizkörper heizt nach</div>`);
       if (room.window_auto_detected)       alerts.push(`<div class="room-alert alert-info" title="Kein Fenstersensor - erkannt an einem plötzlichen Temperatursturz">🪟 Fenster offen erkannt (Temperatursturz) – Heizung pausiert</div>`);
       // Fenster-Kaskade: zeigt welches Zimmer diese Absenkung verursacht
       if (room.window_cascade_active) {
         const src = this._esc(room.window_cascade_source || "anderes Zimmer");
         const off = room.window_cascade_offset != null ? ` (–${parseFloat(room.window_cascade_offset).toFixed(1)} °C)` : "";
-        alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${off}: Fenster offen in <strong>${src}</strong></div>`);
+        alerts.push(`<div class="room-alert alert-info">🌊 Kaskade${ihcEsc(off)}: Fenster offen in <strong>${src}</strong></div>`);
       }
       // Fenster-Kaskade: zeigt Countdown wenn dieses Zimmer eine Kaskade auslösen wird
       if (room.window_open && !room.window_cascade_active && room.window_cascade_rooms && room.window_cascade_rooms.length > 0 && room.window_open_minutes != null) {
@@ -2971,7 +3051,7 @@ class IHCPanel extends HTMLElement {
         const cls   = { urgent: "alert-danger", recommended: "alert-warn", possible: "alert-info" };
         const tip = v.reasons && v.reasons.length ? v.reasons.join(" · ") : v.level;
         const co2part = v.co2_ppm != null ? ` · CO₂ ${v.co2_ppm}` : "";
-        alerts.push(`<div class="room-alert ${cls[v.level] || 'alert-info'}">${icons[v.level] || "🌬️"} ${tip}${co2part}</div>`);
+        alerts.push(`<div class="room-alert ${ihcEsc(cls[v.level] || 'alert-info')}">${ihcEsc(icons[v.level] || "🌬️")} ${ihcEsc(tip)}${ihcEsc(co2part)}</div>`);
       }
       const alertsHtml = alerts.length ? `<div class="room-alerts">${alerts.join("")}</div>` : "";
 
@@ -2992,9 +3072,9 @@ class IHCPanel extends HTMLElement {
             const felt = parseFloat(room.felt_temperature);
             const diff = room.current_temp != null ? felt - parseFloat(room.current_temp) : 0;
             const icon = diff <= -0.5 ? "🥶" : diff >= 0.5 ? "🥵" : "🙂";
-            return `<span class="trv-chip" style="background:#fff8e1;color:#f57f17" title="Gefühlte Temperatur (Luftfeuchte berücksichtigt)">${icon} gefühlt ${felt.toFixed(1)}°</span>`;
+            return `<span class="trv-chip" style="background:#fff8e1;color:#f57f17" title="Gefühlte Temperatur (Luftfeuchte berücksichtigt)">${ihcEsc(icon)} gefühlt ${felt.toFixed(1)}°</span>`;
           })() : ""}
-          ${room.trv_min_battery != null ? `<span class="trv-chip ${room.trv_min_battery >= 40 ? "expert-only" : ""}" style="background:${batBg};color:${batColor}" title="TRV-Batterie (niedrigster Wert)">${batIcon} ${room.trv_min_battery}%</span>` : ""}
+          ${room.trv_min_battery != null ? `<span class="trv-chip ${room.trv_min_battery >= 40 ? "expert-only" : ""}" style="background:${ihcEsc(batBg)};color:${ihcEsc(batColor)}" title="TRV-Batterie (niedrigster Wert)">${ihcEsc(batIcon)} ${ihcEsc(room.trv_min_battery)}%</span>` : ""}
           ${room.trv_any_heating ? `<span class="trv-chip expert-only" style="background:#fce4ec;color:#c62828" title="TRV heizt aktiv">🔥</span>` : ""}
         </div>` : "";
 
@@ -3018,7 +3098,7 @@ class IHCPanel extends HTMLElement {
       }
 
       return `
-        <div class="room-card${cardStatusCls}">
+        <div class="room-card${ihcEsc(cardStatusCls)}">
           <div class="room-card-inner">
             ${alertsHtml}
             <div class="room-header">
@@ -3048,35 +3128,35 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="demand-wrap">
               <div class="demand-bar-bg">
-                <div class="demand-bar" style="width:${room.demand}%;background:${this._demandColor(room.demand)}"></div>
+                <div class="demand-bar" style="width:${ihcEsc(room.demand)}%;background:${this._demandColor(room.demand)}"></div>
               </div>
               <div class="demand-meta">
-                <span style="font-weight:600;color:${this._demandColor(room.demand)}">${room.demand} %</span>
+                <span style="font-weight:600;color:${this._demandColor(room.demand)}">${ihcEsc(room.demand)} %</span>
                 <span>· ${src}</span>
-                ${room.night_setback > 0 ? `<span>· 🌙 -${room.night_setback}°</span>` : ""}
+                ${room.night_setback > 0 ? `<span>· 🌙 -${ihcEsc(room.night_setback)}°</span>` : ""}
                 ${room.room_presence_active === false ? `<span>· 🚶 niemand da</span>` : ""}
-                ${room.co2_ppm > 0 ? `<span>· CO₂ ${room.co2_ppm} ppm</span>` : ""}
+                ${room.co2_ppm > 0 ? `<span>· CO₂ ${ihcEsc(room.co2_ppm)} ppm</span>` : ""}
               </div>
             </div>
             ${trvChips}
             <div class="room-action-row">
-              <select class="mode-select active-${room.room_mode || 'auto'}" data-room-id="${room.room_id}">
+              <select class="mode-select active-${ihcEsc(room.room_mode || 'auto')}" data-room-id="${ihcEsc(room.room_id)}">
                 ${modeOptions}
               </select>
               ${room.boost_remaining > 0
-                ? `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost-cancel" title="Boost beenden" style="background:#ff7043;color:white;border-color:#ff7043">⚡ ${room.boost_remaining}min ✕</button>`
-                : `<button class="btn-boost" data-room-id="${room.room_id}" data-action="boost" title="Boost starten">⚡</button>`}
+                ? `<button class="btn-boost" data-room-id="${ihcEsc(room.room_id)}" data-action="boost-cancel" title="Boost beenden" style="background:#ff7043;color:white;border-color:#ff7043">⚡ ${ihcEsc(room.boost_remaining)}min ✕</button>`
+                : `<button class="btn-boost" data-room-id="${ihcEsc(room.room_id)}" data-action="boost" title="Boost starten">⚡</button>`}
             </div>
             <div class="feel-row">
-              <button class="feel-btn" data-room-id="${room.room_id}" data-feel="cold" title="+1 °C für 2 Stunden – IHC lernt mit">🥶 Mir ist kalt</button>
-              <button class="feel-btn" data-room-id="${room.room_id}" data-feel="warm" title="−1 °C für 2 Stunden – IHC lernt mit">🥵 Mir ist warm</button>
+              <button class="feel-btn" data-room-id="${ihcEsc(room.room_id)}" data-feel="cold" title="+1 °C für 2 Stunden – IHC lernt mit">🥶 Mir ist kalt</button>
+              <button class="feel-btn" data-room-id="${ihcEsc(room.room_id)}" data-feel="warm" title="−1 °C für 2 Stunden – IHC lernt mit">🥵 Mir ist warm</button>
             </div>
             ${(room.feel_temp_offset || room.feel_learned_offset || room.person_offset || room.wakeup_active) ? `<div class="feel-badge">${[
-              room.feel_temp_offset ? `${room.feel_temp_offset > 0 ? "+" : ""}${room.feel_temp_offset} °C auf Wunsch${room.feel_temp_until ? ` bis ${new Date(room.feel_temp_until).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}` : "",
-              room.feel_learned_offset ? `${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C gelernt` : "",
-              room.person_offset ? `${room.person_offset > 0 ? "+" : ""}${room.person_offset} °C für die Anwesenden` : "",
+              room.feel_temp_offset ? `${room.feel_temp_offset > 0 ? "+" : ""}${ihcEsc(room.feel_temp_offset)} °C auf Wunsch${room.feel_temp_until ? ` bis ${new Date(room.feel_temp_until).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}` : "",
+              room.feel_learned_offset ? `${room.feel_learned_offset > 0 ? "+" : ""}${ihcEsc(room.feel_learned_offset)} °C gelernt` : "",
+              room.person_offset ? `${room.person_offset > 0 ? "+" : ""}${ihcEsc(room.person_offset)} °C für die Anwesenden` : "",
               room.wakeup_active ? "⏰ warm aufwachen" : "",
-            ].filter(Boolean).join(" · ")}${room.feel_temp_offset ? ` <a href="#" data-feel-reset="${room.room_id}">zurücksetzen</a>` : ""}</div>` : ""}
+            ].filter(Boolean).join(" · ")}${room.feel_temp_offset ? ` <a href="#" data-feel-reset="${ihcEsc(room.room_id)}">zurücksetzen</a>` : ""}</div>` : ""}
             ${footerParts.length ? `<div class="room-footer"><span class="room-footer-meta">${footerParts.join(" · ")}</span></div>` : ""}
           </div>
         </div>`;
@@ -3100,23 +3180,23 @@ class IHCPanel extends HTMLElement {
             ? `<div class="system-banner" style="background:#2e7d3220;border-left-color:#2e7d32">🔥 <strong>Heizperiode-Schalter: AN</strong> – Heizung freigegeben</div>`
             : `<div class="system-banner summer">⏸ <strong>Heizperiode-Schalter: AUS</strong> – Heizung gesperrt · Boost pro Zimmer funktioniert trotzdem</div>`)
         : "",
-      !g.heating_period_entity_set && !g.heating_period_active ? `<div class="system-banner summer">🍂 <strong>Heizperiode automatisch inaktiv</strong>${g.heating_period_rolling_avg != null ? ` – Ø ${g.heating_period_rolling_avg}°C` : ""} · Boost pro Zimmer funktioniert trotzdem</div>` : "",
+      !g.heating_period_entity_set && !g.heating_period_active ? `<div class="system-banner summer">🍂 <strong>Heizperiode automatisch inaktiv</strong>${g.heating_period_rolling_avg != null ? ` – Ø ${ihcEsc(g.heating_period_rolling_avg)}°C` : ""} · Boost pro Zimmer funktioniert trotzdem</div>` : "",
       !g.heating_period_entity_set && g.heating_period_active && g.heating_period_auto_active === false ? `<div class="system-banner cold">🌡️ <strong>Heizperiode kurzfristig reaktiviert</strong> – kalter Tag vorhergesagt</div>` : "",
       g.forecast_coldnight_active ? (() => {
         const daysAhead = g.forecast_coldnight_days_ahead ?? 0;
         const when = daysAhead === 0 ? "heute Nacht" : daysAhead === 1 ? "morgen Nacht" : `in ${daysAhead} Tagen`;
         const temp = g.forecast_coldnight_min_temp ?? g.weather_forecast?.forecast_today_min;
-        return `<div class="system-banner cold">❄️ <strong>Kälte ${when}</strong> – Heizung startet ${g.forecast_advance_hours ?? 3}h früher (${temp}°C erwartet)</div>`;
+        return `<div class="system-banner cold">❄️ <strong>Kälte ${ihcEsc(when)}</strong> – Heizung startet ${ihcEsc(g.forecast_advance_hours ?? 3)}h früher (${ihcEsc(temp)}°C erwartet)</div>`;
       })() : "",
       g.night_setback_active  ? `<div class="system-banner night">🌙 <strong>Nachtabsenkung aktiv</strong> – Temperaturen reduziert</div>` : "",
       g.presence_away_active  ? `<div class="system-banner away">🚶 <strong>Niemand zuhause</strong> – Abwesend-Modus aktiv</div>` : "",
-      g.solar_boost > 0       ? `<div class="system-banner solar">🌞 <strong>Solar-Überschuss</strong>${g.solar_power != null ? " · " + g.solar_power + " W" : ""} · +${g.solar_boost}°C angehoben</div>` : "",
-      g.cold_boost > 0        ? `<div class="system-banner cold">🥶 <strong>Kälteboost</strong> – alle Zimmer +${g.cold_boost}°C angehoben</div>` : "",
+      g.solar_boost > 0       ? `<div class="system-banner solar">🌞 <strong>Solar-Überschuss</strong>${g.solar_power != null ? " · " + ihcEsc(g.solar_power) + " W" : ""} · +${ihcEsc(g.solar_boost)}°C angehoben</div>` : "",
+      g.cold_boost > 0        ? `<div class="system-banner cold">🥶 <strong>Kälteboost</strong> – alle Zimmer +${ihcEsc(g.cold_boost)}°C angehoben</div>` : "",
       g.energy_price_eco_active ? `<div class="system-banner price">💶 <strong>Hoher Strompreis</strong>${g.energy_price != null ? " · " + g.energy_price.toFixed(3) + " €/kWh" : ""} – Eco-Absenkung aktiv</div>` : "",
       g.vacation_auto_active  ? `<div class="system-banner vacation">✈️ <strong>Urlaubs-Modus aktiv</strong></div>` : "",
       g.return_preheat_active ? `<div class="system-banner preheat">🏠 <strong>Rückkehr-Vorheizung</strong> – Haus wird aufgeheizt</div>` : "",
-      g.guest_mode_active     ? `<div class="system-banner guest">🎉 <strong>Gäste-Modus aktiv</strong>${g.guest_remaining_minutes != null ? ` · noch ${g.guest_remaining_minutes} min` : ""}</div>` : "",
-      g.weather_forecast && g.weather_forecast.cold_warning ? `<div class="system-banner cold">🥶 <strong>Kältewarnung</strong> – Tiefst heute: ${g.weather_forecast.forecast_today_min}°C${g.weather_forecast.forecast_today_max != null ? ` / max. ${g.weather_forecast.forecast_today_max}°C` : ""}</div>` : "",
+      g.guest_mode_active     ? `<div class="system-banner guest">🎉 <strong>Gäste-Modus aktiv</strong>${g.guest_remaining_minutes != null ? ` · noch ${ihcEsc(g.guest_remaining_minutes)} min` : ""}</div>` : "",
+      g.weather_forecast && g.weather_forecast.cold_warning ? `<div class="system-banner cold">🥶 <strong>Kältewarnung</strong> – Tiefst heute: ${ihcEsc(g.weather_forecast.forecast_today_min)}°C${g.weather_forecast.forecast_today_max != null ? ` / max. ${ihcEsc(g.weather_forecast.forecast_today_max)}°C` : ""}</div>` : "",
       g.eta_preheat_minutes != null && g.eta_preheat_minutes <= 90 ? `<div class="system-banner eta">🕒 <strong>ETA-Vorheizen</strong> – Ankunft in ~${Math.round(g.eta_preheat_minutes)} min</div>` : "",
     ].filter(Boolean).join("");
 
@@ -3136,14 +3216,14 @@ class IHCPanel extends HTMLElement {
 
     const heroSection = `
       <div class="overview-hero">
-        <div class="hero-card state-${heatingCls}">
+        <div class="hero-card state-${ihcEsc(heatingCls)}">
           <div class="hero-label">Heizung</div>
-          <div class="hero-value ${heatingCls}">${heatingState}</div>
-          <div class="hero-sub">${g.rooms_demanding ? `${g.rooms_demanding} Zimmer ${g.rooms_demanding === 1 ? "wird" : "werden"} geheizt` : "Alle Zimmer sind warm genug"}</div>
+          <div class="hero-value ${ihcEsc(heatingCls)}">${ihcEsc(heatingState)}</div>
+          <div class="hero-sub">${g.rooms_demanding ? `${ihcEsc(g.rooms_demanding)} Zimmer ${g.rooms_demanding === 1 ? "wird" : "werden"} geheizt` : "Alle Zimmer sind warm genug"}</div>
         </div>
-        <div class="hero-card state-${demandCls}">
+        <div class="hero-card state-${ihcEsc(demandCls)}">
           <div class="hero-label">Gesamtanforderung</div>
-          <div class="hero-value ${demandCls}">${demandNum}</div>
+          <div class="hero-value ${ihcEsc(demandCls)}">${ihcEsc(demandNum)}</div>
           ${(() => {
             const showRuntime = this._lsGet("ihc_show_runtime") !== "false";
             const showCosts   = this._lsGet("ihc_show_costs") !== "false";
@@ -3157,7 +3237,7 @@ class IHCPanel extends HTMLElement {
         <div class="hero-card">
           <div class="hero-label">Außen</div>
           <div class="hero-value" style="font-size:20px">
-            ${g.outdoor_temp != null ? g.outdoor_temp + " °C" : "—"}
+            ${g.outdoor_temp != null ? ihcEsc(g.outdoor_temp) + " °C" : "—"}
             ${g.curve_target != null ? `<span style="font-size:13px;font-weight:400;color:var(--secondary-text-color);margin-left:4px" title="Heizkurven-Sollwert (→ TRV-Setpoint)">→ ${g.curve_target.toFixed(1)} °C</span>` : ""}
           </div>
           ${g.efficiency_score != null ? `<div class="hero-sub">Effizienz: <strong style="color:${g.efficiency_score >= 80 ? "#66bb6a" : g.efficiency_score >= 50 ? "#ffa726" : "#ef5350"}">${g.efficiency_score.toFixed(0)} %</strong></div>` : ""}
@@ -3167,7 +3247,7 @@ class IHCPanel extends HTMLElement {
         <span class="system-mode-label">Modus:</span>
         ${sysModes.map(([k, icon, label]) =>
           `<button class="sysmode-pill active-${g.system_mode === k ? k : ''}" data-sysmode="${k}"
-            title="${label}">${icon} ${label}</button>`
+            title="${label}">${ihcEsc(icon)} ${label}</button>`
         ).join("")}
       </div>`;
 
@@ -3182,24 +3262,24 @@ class IHCPanel extends HTMLElement {
           const fcDays = (fc.forecast || []).slice(0, 3).map((d, i) => {
             const dc = WEATHER_CONDITIONS[d.condition] || { icon: "🌡️" };
             return `<span style="display:inline-flex;flex-direction:column;align-items:center;margin:0 3px;font-size:10px">
-              <span style="color:var(--secondary-text-color)">${dayLabels[i] || ""}</span>
-              <span style="font-size:14px;margin:1px 0">${dc.icon}</span>
-              <span style="font-weight:700">${d.min != null ? d.min : "?"}/${d.max != null ? d.max : "?"}°</span>
+              <span style="color:var(--secondary-text-color)">${ihcEsc(dayLabels[i] || "")}</span>
+              <span style="font-size:14px;margin:1px 0">${ihcEsc(dc.icon)}</span>
+              <span style="font-weight:700">${d.min != null ? ihcEsc(d.min) : "?"}/${d.max != null ? ihcEsc(d.max) : "?"}°</span>
             </span>`;
           }).join("");
           return `<div class="status-item" title="Wettervorhersage 3 Tage" style="min-width:120px;text-align:left;padding:10px 12px">
             <div class="status-label">Wetter</div>
             <div style="display:flex;align-items:center;gap:5px;margin:3px 0">
-              <span style="font-size:20px">${wc.icon}</span>
-              <span style="font-size:11px;font-weight:600">${wc.label}${range ? " · " + range : ""}</span>
+              <span style="font-size:20px">${ihcEsc(wc.icon)}</span>
+              <span style="font-size:11px;font-weight:600">${ihcEsc(wc.label)}${range ? " · " + ihcEsc(range) : ""}</span>
             </div>
             ${fcDays ? `<div style="display:flex;margin-top:4px;gap:4px">${fcDays}</div>` : ""}
           </div>`;
         })() : ""}
         ${g.solar_power != null ? `<div class="status-item">
           <div class="status-label">Solar</div>
-          <div class="status-value" style="color:#f9a825">${g.solar_power} W</div>
-          ${g.solar_boost > 0 ? `<div style="font-size:10px;color:#f9a825">+${g.solar_boost}°C Boost</div>` : ""}
+          <div class="status-value" style="color:#f9a825">${ihcEsc(g.solar_power)} W</div>
+          ${g.solar_boost > 0 ? `<div style="font-size:10px;color:#f9a825">+${ihcEsc(g.solar_boost)}°C Boost</div>` : ""}
         </div>` : ""}
         ${g.energy_price != null ? `<div class="status-item">
           <div class="status-label">Strompreis</div>
@@ -3225,7 +3305,7 @@ class IHCPanel extends HTMLElement {
           <h2>Willkommen bei Intelligent Heating Control</h2>
           <p>Du brauchst nur deine Heizkörperthermostate – alles andere (Raumthermometer, Fensterkontakte, Feuchtesensoren …) ist optional und macht IHC nur noch genauer.</p>
           ${found.length
-            ? `<p><b>${found.length} Zimmer mit Thermostaten</b> wurden in deinen Home-Assistant-Bereichen gefunden: ${found.slice(0, 6).map(r => this._esc(r.name)).join(", ")}${found.length > 6 ? " …" : ""}</p>`
+            ? `<p><b>${ihcEsc(found.length)} Zimmer mit Thermostaten</b> wurden in deinen Home-Assistant-Bereichen gefunden: ${found.slice(0, 6).map(r => this._esc(r.name)).join(", ")}${found.length > 6 ? " …" : ""}</p>`
             : `<p>Tipp: Weise deine Thermostate in Home Assistant einem Bereich zu – dann findet IHC sie automatisch.</p>`}
           <div class="btn-row">
             ${found.length ? `<button class="btn btn-primary" id="welcome-discover">🔍 Zimmer automatisch anlegen</button>` : ""}
@@ -3242,7 +3322,7 @@ class IHCPanel extends HTMLElement {
       ${banners}
       ${heroSection}
       ${statsGrid}
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--secondary-text-color);margin-bottom:10px">${sortedRooms.length} Zimmer</div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--secondary-text-color);margin-bottom:10px">${ihcEsc(sortedRooms.length)} Zimmer</div>
       <div class="rooms-grid">${roomCards}</div>
     `;
 
@@ -3349,25 +3429,25 @@ class IHCPanel extends HTMLElement {
       const schedCount = room.schedules?.length || 0;
       const haSchedCount = room.ha_schedules?.length || 0;
       const schedBadge = schedCount > 0
-        ? `<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-weight:600">IHC ${schedCount}</span>`
+        ? `<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-weight:600">IHC ${ihcEsc(schedCount)}</span>`
         : haSchedCount > 0
-        ? `<span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:8px;font-weight:600">HA ${haSchedCount}</span>`
+        ? `<span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:8px;font-weight:600">HA ${ihcEsc(haSchedCount)}</span>`
         : "";
       const demandBar = room.demand > 0
         ? `<span style="font-size:10px;background:color-mix(in srgb,#ef5350 15%,transparent);color:var(--primary-text-color);padding:1px 6px;border-radius:8px;font-weight:600">🔥 ${Math.round(room.demand)}%</span>`
         : "";
       return `
-      <div class="room-list-item" data-action="open" data-id="${room.entity_id}" style="cursor:pointer"
+      <div class="room-list-item" data-action="open" data-id="${ihcEsc(room.entity_id)}" style="cursor:pointer"
            title="Klicken für Zeitplan, Verlauf &amp; Details">
         <div class="room-list-left" style="pointer-events:none">
           <div class="room-list-name" style="display:flex;align-items:center;gap:8px">
             ${this._esc(room.name)} ${schedBadge} ${demandBar}
           </div>
           <div class="room-list-meta">
-            ${MODE_ICONS[room.room_mode] || "⚙️"} ${MODE_LABELS[room.room_mode] || room.room_mode}
-            · ${room.current_temp !== null ? room.current_temp + " °C → " + (room.target_temp ?? "—") + " °C" : "kein Sensor"}
+            ${ihcEsc(MODE_ICONS[room.room_mode] || "⚙️")} ${ihcEsc(MODE_LABELS[room.room_mode] || room.room_mode)}
+            · ${room.current_temp !== null ? ihcEsc(room.current_temp) + " °C → " + (ihcEsc(room.target_temp ?? "—")) + " °C" : "kein Sensor"}
             ${room.window_open ? " · 🪟 Fenster offen" : ""}
-            ${room.window_cascade_active ? ` · 🌊 Kaskade –${room.window_cascade_offset?.toFixed(1) ?? '?'}°C` : ""}
+            ${room.window_cascade_active ? ` · 🌊 Kaskade –${ihcEsc(room.window_cascade_offset?.toFixed(1) ?? '?')}°C` : ""}
             ${room.co2_preheat_boost ? ` · 💨 CO₂-Vorheizboost` : ""}
           </div>
         </div>
@@ -3407,19 +3487,20 @@ class IHCPanel extends HTMLElement {
         <button class="btn btn-secondary" id="back-to-rooms" style="padding:6px 12px;font-size:12px">← Zurück</button>
         <span style="font-size:18px;font-weight:700">${this._esc(room.name)}</span>
         <span style="font-size:13px;color:var(--secondary-text-color)">
-          ${room.current_temp != null ? room.current_temp + " °C" : "—"}
-          → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? room.target_temp + " °C" : "—")}
-          · ${MODE_ICONS[room.room_mode] || ""} ${MODE_LABELS[room.room_mode] || room.room_mode}
+          ${room.current_temp != null ? ihcEsc(room.current_temp) + " °C" : "—"}
+          → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? ihcEsc(room.target_temp) + " °C" : "—")}
+          · ${ihcEsc(MODE_ICONS[room.room_mode] || "")} ${ihcEsc(MODE_LABELS[room.room_mode] || room.room_mode)}
         </span>
-        ${room.trv_raw_temp != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#fb8c00 15%,transparent);color:var(--primary-text-color)" title="TRV-Eigentemperatur (am Heizkörper gemessen, vor Korrektur)">🌡️ TRV ${room.trv_raw_temp} °C</span>` : ""}
-        ${room.trv_avg_valve != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#42a5f5 15%,transparent);color:var(--primary-text-color)" title="Durchschnittliche TRV-Ventilöffnung">🔧 Ventil ${room.trv_avg_valve} %</span>` : ""}
+        ${room.trv_raw_temp != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#fb8c00 15%,transparent);color:var(--primary-text-color)" title="TRV-Eigentemperatur (am Heizkörper gemessen, vor Korrektur)">🌡️ TRV ${ihcEsc(room.trv_raw_temp)} °C</span>` : ""}
+        ${room.trv_avg_valve != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#42a5f5 15%,transparent);color:var(--primary-text-color)" title="Durchschnittliche TRV-Ventilöffnung">🔧 Ventil ${ihcEsc(room.trv_avg_valve)} %</span>` : ""}
         ${room.trv_any_heating ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 15%,transparent);color:var(--primary-text-color)" title="Mindestens ein TRV meldet aktives Heizen">🔥 TRV heizt</span>` : ""}
-        ${room.trv_min_battery != null ? (() => { const lw = room.trv_min_battery < 20; const med = room.trv_min_battery < 40; const bg = lw ? "color-mix(in srgb,#ef5350 15%,transparent)" : med ? "color-mix(in srgb,#fb8c00 15%,transparent)" : "color-mix(in srgb,#66bb6a 15%,transparent)"; const ico = lw ? "🪫" : "🔋"; return `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${bg};color:var(--primary-text-color)" title="TRV-Batterie (niedrigster Wert aller TRVs)">${ico} ${room.trv_min_battery}%</span>`; })() : ""}
-        ${room.room_mode === "manual" && room.next_period ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#9c27b0 15%,transparent);color:var(--primary-text-color)" title="Automatischer Reset beim nächsten Zeitplan-Eintrag">↩ Reset ${room.next_period.start} Uhr</span>` : ""}
-        ${(room.room_temp_threshold > 0) ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 15%,transparent);color:var(--primary-text-color)" title="Mindesttemperatur-Schwelle aktiv: heizt immer wenn Raumtemp darunter fällt">🌡 Min ${room.room_temp_threshold}°C</span>` : ""}
+        ${room.trv_min_battery != null ? (() => { const lw = room.trv_min_battery < 20; const med = room.trv_min_battery < 40; const bg = lw ? "color-mix(in srgb,#ef5350 15%,transparent)" : med ? "color-mix(in srgb,#fb8c00 15%,transparent)" : "color-mix(in srgb,#66bb6a 15%,transparent)"; const ico = lw ? "🪫" : "🔋"; return `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${ihcEsc(bg)};color:var(--primary-text-color)" title="TRV-Batterie (niedrigster Wert aller TRVs)">${ihcEsc(ico)} ${ihcEsc(room.trv_min_battery)}%</span>`; })() : ""}
+        ${room.room_mode === "manual" && room.next_period ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#9c27b0 15%,transparent);color:var(--primary-text-color)" title="Automatischer Reset beim nächsten Zeitplan-Eintrag">↩ Reset ${ihcEsc(room.next_period.start)} Uhr</span>` : ""}
+        ${(room.room_temp_threshold > 0) ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 15%,transparent);color:var(--primary-text-color)" title="Mindesttemperatur-Schwelle aktiv: heizt immer wenn Raumtemp darunter fällt">🌡 Min ${ihcEsc(room.room_temp_threshold)}°C</span>` : ""}
         ${room.source === "temp_threshold_override" ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 25%,transparent);color:var(--primary-text-color)" title="Heizung aktiv wegen Mindesttemperatur-Schwelle">🌡 Schwelle aktiv</span>` : ""}
+        ${room.afterheat_coasting ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ff7043 20%,transparent);color:var(--primary-text-color)" title="Ventil früher zu – die Restwärme des Heizkörpers bringt den Raum auf Soll">♨️ Restwärme</span>` : ""}
         ${room.optimum_stop_active ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#66bb6a 20%,transparent);color:var(--primary-text-color)" title="Optimum Stop: Thermische Masse reicht aus – Heizung pausiert, Raum kühlt auf nächsten Zeitplan-Sollwert">🌿 Coasting${room.optimum_stop_minutes != null ? ' – ' + room.optimum_stop_minutes.toFixed(0) + ' min' : ''}</span>` : ""}
-        ${room.presence_sensor ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${room.pir_presence === false ? "color-mix(in srgb,#ef5350 15%,transparent)" : room.pir_presence === true ? "color-mix(in srgb,#66bb6a 15%,transparent)" : "color-mix(in srgb,#78909c 15%,transparent)"};color:var(--primary-text-color)" title="PIR: ${room.presence_sensor}">${room.pir_presence === false ? "🚶 Niemand da" : room.pir_presence === true ? "🏃 Bewegung" : "👁 PIR konfiguriert"}</span>` : ""}
+        ${room.presence_sensor ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${room.pir_presence === false ? "color-mix(in srgb,#ef5350 15%,transparent)" : room.pir_presence === true ? "color-mix(in srgb,#66bb6a 15%,transparent)" : "color-mix(in srgb,#78909c 15%,transparent)"};color:var(--primary-text-color)" title="PIR: ${ihcEsc(room.presence_sensor)}">${room.pir_presence === false ? "🚶 Niemand da" : room.pir_presence === true ? "🏃 Bewegung" : "👁 PIR konfiguriert"}</span>` : ""}
         ${room.source === "pir_absence" ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 25%,transparent);color:var(--primary-text-color)" title="Abwesend-Temperatur wegen PIR-Abwesenheit aktiv">🚶 PIR abwesend</span>` : ""}
       </div>
       <div class="tabs" style="margin-bottom:16px">
@@ -3452,7 +3533,7 @@ class IHCPanel extends HTMLElement {
     const valveRows = room.valve_entities && room.valve_entities.length > 0
       ? room.valve_entities.map((e, i) => `
           <div class="entity-row">
-            <input type="text" class="form-input" value="${e}"
+            <input type="text" class="form-input" value="${ihcEsc(e)}"
               data-ep-domains="climate" autocomplete="off" placeholder="climate.entity">
             ${i === 0
               ? `<button class="btn btn-secondary btn-icon add-entity" data-list="rs-valve-list" data-ep-domains="climate">+</button>`
@@ -3467,7 +3548,7 @@ class IHCPanel extends HTMLElement {
     const windowRows = room.window_sensors && room.window_sensors.length > 0
       ? room.window_sensors.map((e, i) => `
           <div class="entity-row">
-            <input type="text" class="form-input" value="${e}"
+            <input type="text" class="form-input" value="${ihcEsc(e)}"
               data-ep-domains="binary_sensor" autocomplete="off" placeholder="binary_sensor.fenster">
             ${i === 0
               ? `<button class="btn btn-secondary btn-icon add-entity" data-list="rs-window-list" data-ep-domains="binary_sensor">+</button>`
@@ -3480,7 +3561,7 @@ class IHCPanel extends HTMLElement {
          </div>`;
 
     const ROOM_MODES_SELECT = ["auto","comfort","eco","sleep","away","off","manual"].map(m =>
-      `<option value="${m}" ${room.room_mode === m ? "selected" : ""}>${MODE_ICONS[m] || ""} ${MODE_LABELS[m] || m}</option>`
+      `<option value="${m}" ${room.room_mode === m ? "selected" : ""}>${ihcEsc(MODE_ICONS[m] || "")} ${ihcEsc(MODE_LABELS[m] || m)}</option>`
     ).join("");
 
     container.innerHTML = `
@@ -3497,7 +3578,7 @@ class IHCPanel extends HTMLElement {
         <div class="form-group">
           <label class="form-label">Temperatursensor</label>
           <input type="text" class="form-input full" id="rs-sensor"
-            value="${room.temp_sensor || ''}" placeholder="sensor.temp"
+            value="${ihcEsc(room.temp_sensor || '')}" placeholder="sensor.temp"
             data-ep-domains="sensor" autocomplete="off">
         </div>
 
@@ -3522,12 +3603,12 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Reaktionszeit (s)</label>
               <input type="number" class="form-input" id="rs-window-reaction-time"
-                value="${room.window_reaction_time ?? 30}" step="5" min="0" max="300">
+                value="${ihcEsc(room.window_reaction_time ?? 30)}" step="5" min="0" max="300">
             </div>
             <div class="settings-item">
               <label>Wiederaufnahme nach Schließen (s)</label>
               <input type="number" class="form-input" id="rs-window-close-delay"
-                value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
+                value="${ihcEsc(room.window_close_delay ?? 0)}" step="5" min="0" max="600">
             </div>
             <div class="settings-item">
               <label>Sollwert nach Fenster schließen</label>
@@ -3552,7 +3633,7 @@ class IHCPanel extends HTMLElement {
             const currentCascadeRooms = room.window_cascade_rooms || [];
             const roomCheckboxes = otherRooms.map(r => `
               <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
-                <input type="checkbox" class="cascade-room-check" value="${r.room_id}"
+                <input type="checkbox" class="cascade-room-check" value="${ihcEsc(r.room_id)}"
                   ${currentCascadeRooms.includes(r.room_id) ? 'checked' : ''}>
                 <span style="font-size:13px">${this._esc(r.name)}</span>
               </label>`).join('');
@@ -3568,7 +3649,7 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Verzögerung (min)</label>
               <input type="number" class="form-input" id="rs-cascade-delay"
-                value="${room.window_cascade_delay_minutes ?? 30}" step="5" min="5" max="120">
+                value="${ihcEsc(room.window_cascade_delay_minutes ?? 30)}" step="5" min="5" max="120">
               <span class="form-hint">Fenster muss mindestens so lange offen sein</span>
             </div>
             <div class="settings-item">
@@ -3581,7 +3662,7 @@ class IHCPanel extends HTMLElement {
           ${room.window_cascade_active ? `
           <div style="padding:8px 12px;border-radius:8px;background:color-mix(in srgb,#42a5f5 12%,transparent);font-size:12px;margin-top:8px">
             🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${this._esc(room.window_cascade_source || "?")}</strong>
-            (–${room.window_cascade_offset?.toFixed(1) ?? '?'} °C)
+            (–${ihcEsc(room.window_cascade_offset?.toFixed(1) ?? '?')} °C)
           </div>` : ''}
         </details>
 
@@ -3591,32 +3672,32 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>😊 Wohlfühltemperatur (°C)</label>
               <input type="number" class="form-input" id="rs-comfort"
-                value="${room.comfort_temp ?? 21}" step="0.5" min="15" max="30">
+                value="${ihcEsc(room.comfort_temp ?? 21)}" step="0.5" min="15" max="30">
             </div>
             <div class="settings-item">
               <label>🚶 Wenn niemand da ist (°C)</label>
               <input type="number" class="form-input" id="rs-away-temp-room"
-                value="${room.away_temp_room ?? 16}" step="0.5" min="10" max="22">
+                value="${ihcEsc(room.away_temp_room ?? 16)}" step="0.5" min="10" max="22">
             </div>
             <div class="settings-item expert-only">
               <label>Eco Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-eco-offset"
-                value="${room.eco_offset ?? 3}" step="0.5" min="0" max="10">
+                value="${ihcEsc(room.eco_offset ?? 3)}" step="0.5" min="0" max="10">
             </div>
             <div class="settings-item expert-only">
               <label>Eco Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-eco-max"
-                value="${room.eco_max_temp ?? 21}" step="0.5" min="10" max="28">
+                value="${ihcEsc(room.eco_max_temp ?? 21)}" step="0.5" min="10" max="28">
             </div>
             <div class="settings-item expert-only">
               <label>Schlaf Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-sleep-offset"
-                value="${room.sleep_offset ?? 4}" step="0.5" min="0" max="10">
+                value="${ihcEsc(room.sleep_offset ?? 4)}" step="0.5" min="0" max="10">
             </div>
             <div class="settings-item expert-only">
               <label>Schlaf Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-sleep-max"
-                value="${room.sleep_max_temp ?? 19}" step="0.5" min="10" max="25">
+                value="${ihcEsc(room.sleep_max_temp ?? 19)}" step="0.5" min="10" max="25">
             </div>
             <div class="settings-item expert-only" style="grid-column:1/-1">
               <label>🌙 Schlaf-Temperaturprofil <span style="font-weight:400;font-size:10px">(optional – überschreibt Schlaf-Abzug wenn gesetzt)</span></label>
@@ -3625,8 +3706,8 @@ class IHCPanel extends HTMLElement {
                   const points = (room.sleep_temp_profile && room.sleep_temp_profile.length > 0) ? room.sleep_temp_profile : [{ time: "22:00", temp: "" }];
                   return points.map((p, i) => `
                     <div class="entity-row sp-row">
-                      <input type="time" class="form-input" style="max-width:110px" data-sp-field="time" value="${p.time || ''}">
-                      <input type="number" class="form-input" style="max-width:90px" data-sp-field="temp" placeholder="°C" step="0.5" min="5" max="30" value="${p.temp ?? ''}">
+                      <input type="time" class="form-input" style="max-width:110px" data-sp-field="time" value="${ihcEsc(p.time || '')}">
+                      <input type="number" class="form-input" style="max-width:90px" data-sp-field="temp" placeholder="°C" step="0.5" min="5" max="30" value="${ihcEsc(p.temp ?? '')}">
                       ${i === 0
                         ? `<button class="btn btn-secondary btn-icon" id="rs-add-sp-point">+</button>`
                         : `<button class="btn btn-danger btn-icon remove-sp-point">✕</button>`}
@@ -3638,12 +3719,12 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item expert-only">
               <label>Abwesend Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-away-offset"
-                value="${room.away_offset ?? 6}" step="0.5" min="0" max="15">
+                value="${ihcEsc(room.away_offset ?? 6)}" step="0.5" min="0" max="15">
             </div>
             <div class="settings-item expert-only">
               <label>Abwesend Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-away-max"
-                value="${room.away_max_temp ?? 18}" step="0.5" min="5" max="22">
+                value="${ihcEsc(room.away_max_temp ?? 18)}" step="0.5" min="5" max="22">
             </div>
           </div>
           <span class="form-hint simple-only-hint">Sparen, Schlafen und Abwesend werden automatisch aus der Wohlfühltemperatur abgeleitet – im Expertenmodus einzeln einstellbar.</span>
@@ -3655,45 +3736,45 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Zimmer-Offset (°C)</label>
               <input type="number" class="form-input" id="rs-offset"
-                value="${room.room_offset ?? 0}" step="0.5" min="-5" max="5">
+                value="${ihcEsc(room.room_offset ?? 0)}" step="0.5" min="-5" max="5">
             </div>
             <div class="settings-item">
               <label>Totband (°C)</label>
               <input type="number" class="form-input" id="rs-deadband"
-                value="${room.deadband ?? 0.5}" step="0.1" min="0.1" max="2">
+                value="${ihcEsc(room.deadband ?? 0.5)}" step="0.1" min="0.1" max="2">
             </div>
             <div class="settings-item">
               <label>Absolute Mindesttemperatur (°C)</label>
               <input type="number" class="form-input" id="rs-absolute-min-temp"
-                value="${room.absolute_min_temp ?? 15}" step="0.5" min="5" max="25">
+                value="${ihcEsc(room.absolute_min_temp ?? 15)}" step="0.5" min="5" max="25">
             </div>
             <div class="settings-item">
               <label>HA Klimaregler – Min.-Temperatur (°C)</label>
               <input type="number" class="form-input" id="rs-min-temp"
-                value="${room.min_temp ?? 5}" step="0.5" min="4" max="15">
+                value="${ihcEsc(room.min_temp ?? 5)}" step="0.5" min="4" max="15">
               <span class="form-hint">Untergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
             </div>
             <div class="settings-item">
               <label>HA Klimaregler – Max.-Temperatur (°C)</label>
               <input type="number" class="form-input" id="rs-max-temp"
-                value="${room.max_temp ?? 30}" step="0.5" min="20" max="35">
+                value="${ihcEsc(room.max_temp ?? 30)}" step="0.5" min="20" max="35">
               <span class="form-hint">Obergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
             </div>
             <div class="settings-item">
               <label>Sensor-Kalibrierungsoffset (°C)</label>
               <input type="number" class="form-input" id="rs-temp-calibration"
-                value="${room.temp_calibration ?? 0}" step="0.1" min="-5" max="5">
+                value="${ihcEsc(room.temp_calibration ?? 0)}" step="0.1" min="-5" max="5">
               <span class="form-hint">Korrigiert einen zu warm/kalt messenden Temperatursensor</span>
             </div>
             <div class="settings-item">
               <label>Zimmergröße (m²)</label>
               <input type="number" class="form-input" id="rs-room-qm"
-                value="${room.room_qm ?? 0}" step="1" min="0" max="200">
+                value="${ihcEsc(room.room_qm ?? 0)}" step="1" min="0" max="200">
             </div>
             <div class="settings-item">
               <label>Vorheizzeit (min, -1 = global)</label>
               <input type="number" class="form-input" id="rs-room-preheat"
-                value="${room.room_preheat_minutes ?? -1}" step="1" min="-1" max="120">
+                value="${ihcEsc(room.room_preheat_minutes ?? -1)}" step="1" min="-1" max="120">
             </div>
           </div>
         </details>
@@ -3704,7 +3785,7 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Feuchtigkeitssensor</label>
               <input type="text" class="form-input" id="rs-humidity-sensor"
-                value="${room.humidity_sensor || ''}" placeholder="sensor.feuchte"
+                value="${ihcEsc(room.humidity_sensor || '')}" placeholder="sensor.feuchte"
                 data-ep-domains="sensor" autocomplete="off">
             </div>
             <div class="settings-item">
@@ -3717,23 +3798,23 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Schimmelschutz-Schwelle (%)</label>
               <input type="number" class="form-input" id="rs-mold-humidity-threshold"
-                value="${room.mold_humidity_threshold ?? 70}" step="1" min="50" max="95">
+                value="${ihcEsc(room.mold_humidity_threshold ?? 70)}" step="1" min="50" max="95">
             </div>
             <div class="settings-item">
               <label>CO₂-Sensor</label>
               <input type="text" class="form-input" id="rs-co2-sensor"
-                value="${room.co2_sensor || ''}" placeholder="sensor.co2"
+                value="${ihcEsc(room.co2_sensor || '')}" placeholder="sensor.co2"
                 data-ep-domains="sensor" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>CO₂ Gut-Schwelle (ppm)</label>
               <input type="number" class="form-input" id="rs-co2-threshold-good"
-                value="${room.co2_threshold_good ?? 800}" step="50" min="400" max="1000">
+                value="${ihcEsc(room.co2_threshold_good ?? 800)}" step="50" min="400" max="1000">
             </div>
             <div class="settings-item">
               <label>CO₂ Lüften-Schwelle (ppm)</label>
               <input type="number" class="form-input" id="rs-co2-threshold-bad"
-                value="${room.co2_threshold_bad ?? 1200}" step="50" min="800" max="2000">
+                value="${ihcEsc(room.co2_threshold_bad ?? 1200)}" step="50" min="800" max="2000">
             </div>
           </div>
         </details>
@@ -3744,14 +3825,14 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Heizkörper-Nennleistung (kW, alle zusammen)</label>
               <input type="number" class="form-input" id="rs-radiator-kw"
-                value="${room.radiator_kw ?? 1.0}" step="0.05" min="0.1" max="10.0">
+                value="${ihcEsc(room.radiator_kw ?? 1.0)}" step="0.05" min="0.1" max="10.0">
               <span class="form-hint">Steht auf dem Typenschild/Datenblatt (bei 75/65/20 °C). Unbekannt? Rechner rechts nutzen.</span>
             </div>
             <div class="settings-item">
               <label>🧮 Aus Größe schätzen</label>
               <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <select class="form-select" id="rs-rad-type" style="flex:1;min-width:80px" title="Typ: Anzahl Platten/Lamellen (auf der Seite zählen)">
-                  ${[["10","Typ 10"],["11","Typ 11"],["20","Typ 20"],["21","Typ 21"],["22","Typ 22"],["33","Typ 33"]].map(([v,l]) => `<option value="${v}" ${v === "22" ? "selected" : ""}>${l}</option>`).join("")}
+                  ${[["10","Typ 10"],["11","Typ 11"],["20","Typ 20"],["21","Typ 21"],["22","Typ 22"],["33","Typ 33"]].map(([v,l]) => `<option value="${ihcEsc(v)}" ${v === "22" ? "selected" : ""}>${ihcEsc(l)}</option>`).join("")}
                 </select>
                 <input type="number" class="form-input" id="rs-rad-h" placeholder="Höhe mm" value="600" style="max-width:90px">
                 <input type="number" class="form-input" id="rs-rad-l" placeholder="Länge mm" value="1000" style="max-width:90px">
@@ -3762,13 +3843,13 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item expert-only">
               <label>HKV-Sensor</label>
               <input type="text" class="form-input" id="rs-hkv-sensor"
-                value="${room.hkv_sensor || ''}" placeholder="sensor.hkv"
+                value="${ihcEsc(room.hkv_sensor || '')}" placeholder="sensor.hkv"
                 data-ep-domains="sensor" autocomplete="off">
             </div>
             <div class="settings-item expert-only">
               <label>HKV-Faktor (kWh/Einheit)</label>
               <input type="number" class="form-input" id="rs-hkv-factor"
-                value="${room.hkv_factor ?? 0.083}" step="0.001" min="0.001" max="1.0">
+                value="${ihcEsc(room.hkv_factor ?? 0.083)}" step="0.001" min="0.001" max="1.0">
             </div>
           </div>
         </details>
@@ -3794,18 +3875,18 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Boost-Dauer (min)</label>
               <input type="number" class="form-input" id="rs-boost-dur"
-                value="${room.boost_default_duration ?? 60}" min="5" max="480" step="5">
+                value="${ihcEsc(room.boost_default_duration ?? 60)}" min="5" max="480" step="5">
             </div>
             <div class="settings-item">
               <label>Boost-Zieltemperatur (°C)</label>
               <input type="number" class="form-input" id="rs-boost-temp"
-                value="${room.boost_temp ?? 0}" min="0" max="30" step="0.5" placeholder="0 = Komfort-Temperatur">
+                value="${ihcEsc(room.boost_temp ?? 0)}" min="0" max="30" step="0.5" placeholder="0 = Komfort-Temperatur">
               <span class="form-hint">0 = deaktiviert, nutzt stattdessen die Komfort-Temperatur.</span>
             </div>
           </div>
           <div class="form-row" style="gap:8px;margin-top:8px">
             <button class="btn btn-secondary" id="rs-boost-btn">⚡ Boost starten</button>
-            ${room.boost_remaining > 0 ? `<button class="btn btn-danger" id="rs-boost-cancel-btn">✕ Boost beenden (${room.boost_remaining} min)</button>` : ""}
+            ${room.boost_remaining > 0 ? `<button class="btn btn-danger" id="rs-boost-cancel-btn">✕ Boost beenden (${ihcEsc(room.boost_remaining)} min)</button>` : ""}
           </div>
         </details>
 
@@ -3815,24 +3896,24 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>TRV-Temperaturanteil (0–0.5)</label>
               <input type="number" class="form-input" id="rs-trv-temp-weight"
-                value="${room.trv_temp_weight ?? 0}" min="0" max="0.5" step="0.05">
+                value="${ihcEsc(room.trv_temp_weight ?? 0)}" min="0" max="0.5" step="0.05">
             </div>
             <div class="settings-item">
               <label>TRV-Temperaturkorrektur (°C)</label>
               <input type="number" class="form-input" id="rs-trv-temp-offset"
-                value="${room.trv_temp_offset ?? -2}" min="-10" max="5" step="0.5">
+                value="${ihcEsc(room.trv_temp_offset ?? -2)}" min="-10" max="5" step="0.5">
               <span class="form-hint">−2 = automatisch: gleicht nur die Wärme des laufenden Heizkörpers aus. Jeder andere Wert gilt fest. Vorschlag aus Messungen: Analyse-Tab.</span>
             </div>
             <div class="settings-item">
               <label>🔋 Min. Sendeintervall (s)</label>
               <input type="number" class="form-input" id="rs-trv-min-send-interval"
-                value="${room.trv_min_send_interval ?? 0}" min="0" max="1800" step="60">
+                value="${ihcEsc(room.trv_min_send_interval ?? 0)}" min="0" max="1800" step="60">
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label>Per-TRV-Kalibrierung (JSON)</label>
               <textarea class="form-input" id="rs-trv-calibrations" rows="3"
                 placeholder='{"climate.trv_name": -2.0}'
-                style="font-family:monospace;font-size:11px">${room.trv_calibrations ? JSON.stringify(room.trv_calibrations, null, 0) : ""}</textarea>
+                style="font-family:monospace;font-size:11px">${room.trv_calibrations ? ihcEsc(JSON.stringify(room.trv_calibrations, null, 0)) : ""}</textarea>
             </div>
           </div>
         </details>
@@ -3849,12 +3930,12 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Aktivierungsbereich (°C unter Soll)</label>
               <input type="number" class="form-input" id="rs-aggressive-range"
-                value="${room.aggressive_mode_range ?? 2}" step="0.5" min="0.5" max="5">
+                value="${ihcEsc(room.aggressive_mode_range ?? 2)}" step="0.5" min="0.5" max="5">
             </div>
             <div class="settings-item">
               <label>Überhöhung (°C über Soll)</label>
               <input type="number" class="form-input" id="rs-aggressive-offset"
-                value="${room.aggressive_mode_offset ?? 3}" step="0.5" min="0.5" max="8">
+                value="${ihcEsc(room.aggressive_mode_offset ?? 3)}" step="0.5" min="0.5" max="8">
             </div>
           </div>
         </details>
@@ -3865,13 +3946,13 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Mindesttemperatur-Schwelle (°C)</label>
               <input type="number" class="form-input" id="rs-room-temp-threshold"
-                value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+                value="${ihcEsc(room.room_temp_threshold ?? 0)}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
               <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
             </div>
             <div class="settings-item">
               <label>Fenster-Mindesttemperatur (°C)</label>
               <input type="number" class="form-input" id="rs-window-open-temp"
-                value="${room.window_open_temp ?? 0}" step="0.5" min="0" max="22" placeholder="0 = Frostschutz">
+                value="${ihcEsc(room.window_open_temp ?? 0)}" step="0.5" min="0" max="22" placeholder="0 = Frostschutz">
               <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
             </div>
             <div class="settings-item" style="grid-column:1/-1">
@@ -3899,19 +3980,19 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item" style="grid-column:1/-1">
               <label>PIR-Sensor Entity</label>
               <input type="text" class="form-input full" id="rs-presence-sensor"
-                value="${room.presence_sensor || ''}" placeholder="binary_sensor.bewegung"
+                value="${ihcEsc(room.presence_sensor || '')}" placeholder="binary_sensor.bewegung"
                 data-ep-domains="binary_sensor" autocomplete="off">
               <span class="form-hint">Bewegungsmelder für Zimmer-Anwesenheit (optional)</span>
             </div>
             <div class="settings-item">
               <label>Einschaltverzögerung (s)</label>
               <input type="number" class="form-input" id="rs-presence-sensor-on-delay"
-                value="${room.presence_sensor_on_delay ?? 300}" step="30" min="0" max="3600">
+                value="${ihcEsc(room.presence_sensor_on_delay ?? 300)}" step="30" min="0" max="3600">
             </div>
             <div class="settings-item">
               <label>Ausschaltverzögerung (s)</label>
               <input type="number" class="form-input" id="rs-presence-sensor-off-delay"
-                value="${room.presence_sensor_off_delay ?? 300}" step="30" min="0" max="3600">
+                value="${ihcEsc(room.presence_sensor_off_delay ?? 300)}" step="30" min="0" max="3600">
             </div>
           </div>
         </details>
@@ -3922,14 +4003,14 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item" style="grid-column:1/-1">
               <label>Komfort-Sollwert Entity</label>
               <input type="text" class="form-input full" id="rs-comfort-temp-entity"
-                value="${room.comfort_temp_entity || ''}" placeholder="input_number.komfort_soll"
+                value="${ihcEsc(room.comfort_temp_entity || '')}" placeholder="input_number.komfort_soll"
                 data-ep-domains="input_number,sensor" autocomplete="off">
               <span class="form-hint">input_number.* oder sensor.* für dynamischen Komfort-Sollwert</span>
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label>Eco-Sollwert Entity</label>
               <input type="text" class="form-input full" id="rs-eco-temp-entity"
-                value="${room.eco_temp_entity || ''}" placeholder="input_number.eco_soll"
+                value="${ihcEsc(room.eco_temp_entity || '')}" placeholder="input_number.eco_soll"
                 data-ep-domains="input_number,sensor" autocomplete="off">
               <span class="form-hint">input_number.* oder sensor.* für dynamischen Eco-Sollwert</span>
             </div>
@@ -3989,10 +4070,10 @@ class IHCPanel extends HTMLElement {
                 return entries.map((entry, i) => `
                   <div class="entity-row comfort-extend-row">
                     <input type="text" class="form-input" placeholder="entity_id"
-                      value="${entry.entity || ''}" autocomplete="off" data-ce-field="entity"
+                      value="${ihcEsc(entry.entity || '')}" autocomplete="off" data-ce-field="entity"
                       data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
                     <input type="text" class="form-input" style="max-width:100px" placeholder="zustand"
-                      value="${entry.state || 'on'}" autocomplete="off" data-ce-field="state">
+                      value="${ihcEsc(entry.state || 'on')}" autocomplete="off" data-ce-field="state">
                     ${i === 0
                       ? `<button class="btn btn-secondary btn-icon" id="rs-add-comfort-extend">+</button>`
                       : `<button class="btn btn-danger btn-icon remove-comfort-extend">✕</button>`}
@@ -4013,7 +4094,7 @@ class IHCPanel extends HTMLElement {
 
         <details class="modal-collapsible" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
           <summary class="modal-section-title">🪟 Rollläden automatisch steuern
-            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">${this._esc(({ night_insulation: "🌙 nachts zu (Wärmedämmung)", evening_privacy: "🌙 Privatsphäre", morning_hold: "🌅 zu, bis die Sonne kommt", glare: "📺 Blendschutz", shade: "😎 Beschattung (zu warm)", solar_gain: "☀️ offen – Sonnenwärme", daylight: "🔆 offen – Tageslicht", weather_protection: "🌬️ Sturm-/Regenschutz" }[room.solar_cover_reason]) || "Aktiv")} · ${room.solar_cover_position}%</span>` : ""}
+            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">${this._esc(({ night_insulation: "🌙 nachts zu (Wärmedämmung)", evening_privacy: "🌙 Privatsphäre", morning_hold: "🌅 zu, bis die Sonne kommt", glare: "📺 Blendschutz", shade: "😎 Beschattung (zu warm)", solar_gain: "☀️ offen – Sonnenwärme", daylight: "🔆 offen – Tageslicht", weather_protection: "🌬️ Sturm-/Regenschutz", wind_hold: "🌬️ Wind – bleibt, wie er ist" }[room.solar_cover_reason]) || "Aktiv")} · ${ihcEsc(room.solar_cover_position)}%</span>` : ""}
             ${room.solar_cover_overridden ? `<span class="badge" style="background:#9e9e9e;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✋ von Hand verstellt – IHC wartet</span>` : ""}
           </summary>
           <div style="font-size:12px;color:var(--secondary-text-color);margin:8px 0 12px">
@@ -4029,7 +4110,7 @@ class IHCPanel extends HTMLElement {
                 const covers = (room.cover_entities && room.cover_entities.length > 0) ? room.cover_entities : [""];
                 return covers.map((c, i) => `
                   <div class="entity-row">
-                    <input type="text" class="form-input" value="${c}" placeholder="cover.wohnzimmer (optional)"
+                    <input type="text" class="form-input" value="${ihcEsc(c)}" placeholder="cover.wohnzimmer (optional)"
                       data-ep-domains="cover" autocomplete="off">
                     ${i === 0
                       ? `<button class="btn btn-secondary btn-icon add-entity" data-list="rs-cover-list" data-ep-domains="cover">+</button>`
@@ -4044,7 +4125,7 @@ class IHCPanel extends HTMLElement {
               <select class="form-select" id="rs-window-orientation">
                 <option value="" ${!room.window_orientation ? "selected" : ""}>– keine –</option>
                 ${[["N", "Nord"], ["NE", "Nordost"], ["E", "Ost"], ["SE", "Südost"], ["S", "Süd"], ["SW", "Südwest"], ["W", "West"], ["NW", "Nordwest"]].map(([o, l]) =>
-                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${l}</option>`).join("")}
+                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${ihcEsc(l)}</option>`).join("")}
               </select>
             </div>
             <div class="settings-item">
@@ -4112,8 +4193,8 @@ class IHCPanel extends HTMLElement {
         const row = document.createElement("div");
         row.className = "entity-row";
         row.innerHTML = `
-          <input type="text" class="form-input" placeholder="${domains.split(",")[0]}.entity"
-            data-ep-domains="${domains}" autocomplete="off">
+          <input type="text" class="form-input" placeholder="${ihcEsc(domains.split(",")[0])}.entity"
+            data-ep-domains="${ihcEsc(domains)}" autocomplete="off">
           <button class="btn btn-danger btn-icon remove-entity">✕</button>`;
         list.appendChild(row);
         row.querySelector(".remove-entity").addEventListener("click", () => row.remove());
@@ -4148,7 +4229,7 @@ class IHCPanel extends HTMLElement {
       boostBtn.addEventListener("click", () => {
         const dur = parseInt(container.querySelector("#rs-boost-dur")?.value, 10) || 60;
         this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
-        this._toast(`⚡ Boost ${dur} min für ${this._esc(room.name)}`);
+        this._toast(`⚡ Boost ${dur} min für ${room.name}`);
       });
     }
     const boostCancelBtn = container.querySelector("#rs-boost-cancel-btn");
@@ -4257,7 +4338,7 @@ class IHCPanel extends HTMLElement {
         window_cascade_delay_minutes: parseInt(container.querySelector("#rs-cascade-delay")?.value, 10) || 30,
         window_cascade_offset:    parseFloat(container.querySelector("#rs-cascade-offset")?.value) || 3.0,
       });
-      this._toast(`✓ ${this._esc(room.name)} gespeichert`);
+      this._toast(`✓ ${room.name} gespeichert`);
     });
 
     // Delete confirmation: enable button only when name matches exactly
@@ -4271,7 +4352,7 @@ class IHCPanel extends HTMLElement {
         if (deleteNameInput.value.trim() !== room.name) return;
         await this._callService("remove_room", { id: room.room_id });
         this._selectedRoom = null;
-        this._toast(`✓ Zimmer „${this._esc(room.name)}" gelöscht`);
+        this._toast(`✓ Zimmer „${room.name}" gelöscht`);
         this._renderRooms(fullContent);
       });
     }
@@ -4313,7 +4394,7 @@ class IHCPanel extends HTMLElement {
       const schedName  = sched.name || "";
       const dayChips = DAY_KEYS.map((key, i) =>
         `<span class="day-chip ${sched.days.includes(key) ? "selected" : ""}"
-              data-sched="${si}" data-day="${key}">${DAYS[i]}</span>`
+              data-sched="${ihcEsc(si)}" data-day="${key}">${ihcEsc(DAYS[i])}</span>`
       ).join("");
       const PERIOD_MODES = [
         { value: "comfort", label: "☀️ Komfort" },
@@ -4326,52 +4407,52 @@ class IHCPanel extends HTMLElement {
         const pMode = p.mode || "manual";
         const isManual = pMode === "manual";
         const modeOpts = PERIOD_MODES.map(m =>
-          `<option value="${m.value}" ${pMode === m.value ? "selected" : ""}>${m.label}</option>`
+          `<option value="${ihcEsc(m.value)}" ${pMode === m.value ? "selected" : ""}>${ihcEsc(m.label)}</option>`
         ).join("");
         return `
         <div class="period-row" style="grid-template-columns:80px 80px 1fr auto auto 30px">
-          <input type="time" class="form-input" value="${p.start}"
-            data-sched="${si}" data-period="${pi}" data-field="start">
-          <input type="time" class="form-input" value="${p.end}"
-            data-sched="${si}" data-period="${pi}" data-field="end">
+          <input type="time" class="form-input" value="${ihcEsc(p.start)}"
+            data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}" data-field="start">
+          <input type="time" class="form-input" value="${ihcEsc(p.end)}"
+            data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}" data-field="end">
           <div style="display:flex;gap:4px;align-items:center">
             <select class="form-select" style="flex:1"
-              data-sched="${si}" data-period="${pi}" data-field="mode">${modeOpts}</select>
-            <input type="number" class="form-input period-temp-input" value="${p.temperature ?? 21}"
+              data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}" data-field="mode">${modeOpts}</select>
+            <input type="number" class="form-input period-temp-input" value="${ihcEsc(p.temperature ?? 21)}"
               step="0.5" min="10" max="30" placeholder="°C" style="width:60px;display:${isManual ? "block" : "none"}"
-              data-sched="${si}" data-period="${pi}" data-field="temperature">
+              data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}" data-field="temperature">
           </div>
-          <input type="number" class="form-input" value="${p.offset ?? 0}"
+          <input type="number" class="form-input" value="${ihcEsc(p.offset ?? 0)}"
             step="0.5" min="-3" max="3"
-            data-sched="${si}" data-period="${pi}" data-field="offset" placeholder="±°C" style="width:55px">
+            data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}" data-field="offset" placeholder="±°C" style="width:55px">
           <button class="btn btn-danger btn-icon"
-            data-action="del-period" data-sched="${si}" data-period="${pi}">✕</button>
+            data-action="del-period" data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}">✕</button>
         </div>`;
       }).join("");
       return `
         <div class="sched-block">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <strong style="font-size:14px">Gruppe ${si + 1}</strong>
+            <strong style="font-size:14px">Gruppe ${ihcEsc(si + 1)}</strong>
             <button class="btn btn-danger" style="font-size:12px;padding:4px 10px"
-              data-action="del-sched" data-sched="${si}">Gruppe löschen</button>
+              data-action="del-sched" data-sched="${ihcEsc(si)}">Gruppe löschen</button>
           </div>
           <div style="margin-bottom:8px">
             <div class="form-label" style="margin-bottom:4px">Name (optional)</div>
             <input type="text" class="form-input" style="width:100%"
               placeholder="z.B. Winter, Gäste, Sommer…"
-              data-sched="${si}" data-sched-field="name" value="${schedName}">
+              data-sched="${ihcEsc(si)}" data-sched-field="name" value="${ihcEsc(schedName)}">
           </div>
           <div style="margin-bottom:10px;padding:8px 10px;background:var(--secondary-background-color);border-radius:6px;border:1px solid var(--divider-color)">
             <div class="form-label" style="margin-bottom:6px">🔀 Bedingung (optional) — Gruppe nur aktiv wenn:</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
               <input type="text" class="form-input" style="flex:2;min-width:180px"
                 placeholder="input_boolean.winter_modus (leer = immer aktiv)"
-                data-sched="${si}" data-sched-field="condition_entity" value="${condEntity}"
+                data-sched="${ihcEsc(si)}" data-sched-field="condition_entity" value="${ihcEsc(condEntity)}"
                 data-ep-domains="input_boolean,binary_sensor,person,device_tracker,switch,sensor" autocomplete="off">
               <span style="font-size:12px;color:var(--secondary-text-color);flex-shrink:0">Zustand =</span>
               <input type="text" class="form-input" style="width:60px"
                 placeholder="on"
-                data-sched="${si}" data-sched-field="condition_state" value="${condState}">
+                data-sched="${ihcEsc(si)}" data-sched-field="condition_state" value="${ihcEsc(condState)}">
             </div>
           </div>
           <div style="margin-bottom:12px">
@@ -4383,7 +4464,7 @@ class IHCPanel extends HTMLElement {
           </div>
           ${periodRows}
           <button class="btn btn-secondary" style="font-size:12px;margin-top:6px"
-            data-action="add-period" data-sched="${si}">+ Zeitraum</button>
+            data-action="add-period" data-sched="${ihcEsc(si)}">+ Zeitraum</button>
         </div>`;
     }).join("");
 
@@ -4398,7 +4479,7 @@ class IHCPanel extends HTMLElement {
           <label class="form-label">⚡ Vorlage übernehmen</label>
           <select class="form-select" id="sched-template">
             <option value="">– Vorlage wählen (ersetzt den Plan unten) –</option>
-            ${SCHEDULE_TEMPLATES.map(t => `<option value="${t.id}">${t.label}</option>`).join("")}
+            ${SCHEDULE_TEMPLATES.map(t => `<option value="${ihcEsc(t.id)}">${ihcEsc(t.label)}</option>`).join("")}
           </select>
           <span class="form-hint">Danach nach Belieben anpassen und speichern. Außerhalb der Zeiten heizt IHC sparsam (Eco).</span>
         </div>
@@ -4505,7 +4586,7 @@ class IHCPanel extends HTMLElement {
       });
       // Clear buffer so next open re-reads from saved HA state
       delete this._editingSchedules[selId];
-      this._toast(`✓ Zeitpläne für „${this._esc(room.name)}" gespeichert`);
+      this._toast(`✓ Zeitpläne für „${room.name}" gespeichert`);
     });
 
     // ── HA Schedules (schedule.* entities) ────────────────────────────────
@@ -4541,7 +4622,7 @@ class IHCPanel extends HTMLElement {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${schedDot}
             <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._esc(s.entity)}</span>
-            <span style="font-size:11px;color:var(--secondary-text-color);flex-shrink:0">${HA_MODE_LABELS[s.mode] || s.mode}</span>
+            <span style="font-size:11px;color:var(--secondary-text-color);flex-shrink:0">${ihcEsc(HA_MODE_LABELS[s.mode] || s.mode)}</span>
             ${winBadge}
           </div>
           <div style="margin-top:4px">${condBadge}</div>
@@ -4554,7 +4635,7 @@ class IHCPanel extends HTMLElement {
         ${haStatusRows}
         ${currentSource.startsWith("ha_schedule_") ? `
           <div style="font-size:11px;color:var(--secondary-text-color);padding:6px 10px;background:var(--secondary-background-color);border-radius:6px;margin-top:4px">
-            ⏸ Kein Zeitplan aktiv → Fallback: <strong>${HA_MODE_LABELS[room.ha_schedule_off_mode] || room.ha_schedule_off_mode}</strong>
+            ⏸ Kein Zeitplan aktiv → Fallback: <strong>${ihcEsc(HA_MODE_LABELS[room.ha_schedule_off_mode] || room.ha_schedule_off_mode)}</strong>
           </div>` : ""}
       </div>` : "";
 
@@ -4579,7 +4660,7 @@ class IHCPanel extends HTMLElement {
       </div>
       <details style="margin-bottom:10px">
         <summary style="font-size:12px;font-weight:600;cursor:pointer;color:var(--secondary-text-color);padding:4px 0">
-          ⚙️ Zeitpläne bearbeiten (${haSchedsConfig.length} konfiguriert)
+          ⚙️ Zeitpläne bearbeiten (${ihcEsc(haSchedsConfig.length)} konfiguriert)
         </summary>
         <div style="margin-top:10px">
           <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:6px">
@@ -4609,7 +4690,7 @@ class IHCPanel extends HTMLElement {
         ha_schedules,
         ha_schedule_off_mode,
       });
-      this._toast(`✓ HA Zeitpläne für „${this._esc(room.name)}" gespeichert`);
+      this._toast(`✓ HA Zeitpläne für „${room.name}" gespeichert`);
     });
   }
 
@@ -4656,7 +4737,7 @@ class IHCPanel extends HTMLElement {
     const ihcGridInactive = buildGrid(inactiveScheds);
 
     const cols = HOURS.map((_, h) =>
-      `<div style="font-size:9px;text-align:center;color:var(--secondary-text-color);width:${100/24}%;min-width:0">${h % 3 === 0 ? h + "h" : ""}</div>`
+      `<div style="font-size:9px;text-align:center;color:var(--secondary-text-color);width:${100/24}%;min-width:0">${h % 3 === 0 ? ihcEsc(h) + "h" : ""}</div>`
     ).join("");
 
     // ── HA schedule grids must be defined BEFORE rows so they can be referenced inside the map ──
@@ -4697,10 +4778,10 @@ class IHCPanel extends HTMLElement {
           bg = "var(--secondary-background-color, #f5f5f5)";
         }
         const title = val != null ? `${val} °C` : valInactive != null ? `${valInactive} °C (Bedingung nicht erfüllt)` : haActive ? `HA: ${haActive.entityId} → ${haActive.mode}` : "—";
-        return `<div title="${title}" style="flex:1;height:22px;background:${bg};opacity:${opacity};border-radius:2px;margin:1px;display:flex;align-items:center;justify-content:center;font-size:8px;color:rgba(0,0,0,0.55);font-weight:600">${label}</div>`;
+        return `<div title="${ihcEsc(title)}" style="flex:1;height:22px;background:${ihcEsc(bg)};opacity:${ihcEsc(opacity)};border-radius:2px;margin:1px;display:flex;align-items:center;justify-content:center;font-size:8px;color:rgba(0,0,0,0.55);font-weight:600">${ihcEsc(label)}</div>`;
       }).join("");
       return `<div style="display:flex;align-items:center;gap:0;margin-bottom:1px">
-        <div style="width:24px;font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${DAYS[di]}</div>
+        <div style="width:24px;font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${ihcEsc(DAYS[di])}</div>
         <div style="display:flex;flex:1;gap:0">${cells}</div>
       </div>`;
     }).join("");
@@ -4711,9 +4792,9 @@ class IHCPanel extends HTMLElement {
         <div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--secondary-text-color)">IHC Zeitplan-Gruppen</div>
         ${allScheds.map((s, i) => {
           const active = isGroupActive(s);
-          const name = s.name || `Gruppe ${i + 1}`;
+          const name = s.name || `Gruppe ${ihcEsc(i + 1)}`;
           const cond = s.condition_entity
-            ? `<span style="font-size:10px;color:${active ? "#66bb6a" : "#9e9e9e"}">${active ? "✓" : "✗"} ${s.condition_entity} = ${s.condition_state || "on"}</span>`
+            ? `<span style="font-size:10px;color:${active ? "#66bb6a" : "#9e9e9e"}">${active ? "✓" : "✗"} ${ihcEsc(s.condition_entity)} = ${ihcEsc(s.condition_state || "on")}</span>`
             : `<span style="font-size:10px;color:#66bb6a">Immer aktiv</span>`;
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;opacity:${active ? "1" : "0.55"}">
             <span style="font-size:11px;font-weight:600">${this._esc(name)}</span>
@@ -4729,12 +4810,12 @@ class IHCPanel extends HTMLElement {
           const s = HA_MODE_STYLE[hg.mode] || HA_MODE_STYLE.comfort;
           const cnt = haBlocks[hg.entityId]?.filter(b => !b._yaml_defined).length ?? 0;
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-            <div style="width:14px;height:14px;border-radius:3px;background:${s.color};border:1px solid rgba(0,0,0,0.15)"></div>
-            <span style="font-size:11px;font-weight:600">${hg.entityId}</span>
-            <span style="font-size:10px;color:var(--secondary-text-color)">${s.label} · ${cnt} Blöcke</span>
+            <div style="width:14px;height:14px;border-radius:3px;background:${ihcEsc(s.color)};border:1px solid rgba(0,0,0,0.15)"></div>
+            <span style="font-size:11px;font-weight:600">${ihcEsc(hg.entityId)}</span>
+            <span style="font-size:10px;color:var(--secondary-text-color)">${ihcEsc(s.label)} · ${ihcEsc(cnt)} Blöcke</span>
             ${cnt > 0 ? `<button class="btn btn-secondary" style="font-size:10px;padding:2px 8px"
-              data-action="import-ha-sched" data-room-id="${room.room_id}"
-              data-entity="${hg.entityId}" data-blocks='${JSON.stringify(haBlocks[hg.entityId])}'>📥 Als IHC-Zeitplan importieren</button>`
+              data-action="import-ha-sched" data-room-id="${ihcEsc(room.room_id)}"
+              data-entity="${ihcEsc(hg.entityId)}" data-blocks='${ihcEsc(JSON.stringify(haBlocks[hg.entityId]))}'>📥 Als IHC-Zeitplan importieren</button>`
               : `<span style="font-size:10px;color:#e53935">⚠️ Keine Blöcke gelesen</span>`}
           </div>`;
         }).join("")}
@@ -4743,7 +4824,7 @@ class IHCPanel extends HTMLElement {
     const yamlBanner = yamlEntityIds.size > 0 ? `
       <div style="margin-top:8px;padding:8px 12px;background:#fff8e1;border:1px solid #f9a825;border-radius:8px;font-size:11px;line-height:1.5">
         <strong>ℹ️ YAML-Zeitpläne erkannt:</strong>
-        ${[...yamlEntityIds].map(eid => `<code>${eid}</code>`).join(", ")}<br>
+        ${[...yamlEntityIds].map(eid => `<code>${ihcEsc(eid)}</code>`).join(", ")}<br>
         Diese Zeitpläne wurden via <strong>YAML</strong> angelegt. Die Wochenansicht ist nur für Zeitpläne verfügbar die
         im HA-UI erstellt wurden (Einstellungen → Helfer → Zeitplan).
         Die <strong>Heizfunktion</strong> arbeitet trotzdem korrekt – nur die visuelle Übersicht fehlt.<br>
@@ -4858,7 +4939,7 @@ class IHCPanel extends HTMLElement {
       });
       if (seg.length) segments.push(seg.join(" "));
       tgtPolyline = segments.map(s =>
-        `<polyline points="${s}" fill="none" stroke="#fb8c00" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`
+        `<polyline points="${ihcEsc(s)}" fill="none" stroke="#fb8c00" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`
       ).join("");
     }
 
@@ -4866,8 +4947,8 @@ class IHCPanel extends HTMLElement {
     const yTicks = [0, 0.33, 0.67, 1].map(f => {
       const v = minV + f * range;
       const y = yOf(v).toFixed(1);
-      return `<line x1="${padL - 3}" y1="${y}" x2="${padL}" y2="${y}" stroke="var(--divider-color)" stroke-width="1"/>
-              <text x="${padL - 5}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="9" fill="var(--secondary-text-color)">${v.toFixed(1)}</text>`;
+      return `<line x1="${padL - 3}" y1="${ihcEsc(y)}" x2="${ihcEsc(padL)}" y2="${ihcEsc(y)}" stroke="var(--divider-color)" stroke-width="1"/>
+              <text x="${padL - 5}" y="${ihcEsc(parseFloat(y) + 4)}" text-anchor="end" font-size="9" fill="var(--secondary-text-color)">${v.toFixed(1)}</text>`;
     }).join("");
 
     // X-axis labels
@@ -4881,7 +4962,7 @@ class IHCPanel extends HTMLElement {
         const dayNames = ["So","Mo","Di","Mi","Do","Fr","Sa"];
         label = `${dayNames[d.getDay()]} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
       } catch(_) { /* keep raw */ }
-      xLabels.push(`<text x="${xOf(i).toFixed(1)}" y="${H - padB + 14}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${label}</text>`);
+      xLabels.push(`<text x="${xOf(i).toFixed(1)}" y="${ihcEsc(H - padB + 14)}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${ihcEsc(label)}</text>`);
     }
 
     // Current value dot + label
@@ -4894,28 +4975,28 @@ class IHCPanel extends HTMLElement {
       const lastTgtIdx = tgtVals.length - 1 - [...tgtVals].reverse().findIndex(v => v !== null);
       const tx = xOf(lastTgtIdx).toFixed(1);
       const ty = yOf(lastTgt).toFixed(1);
-      return `<circle cx="${tx}" cy="${ty}" r="3.5" fill="#fb8c00" stroke="white" stroke-width="1.5"/>
-              <text x="${parseFloat(tx) + 6}" y="${parseFloat(ty) + 4}" font-size="10" font-weight="600" fill="#fb8c00">${lastTgt.toFixed(1)} °C</text>`;
+      return `<circle cx="${ihcEsc(tx)}" cy="${ihcEsc(ty)}" r="3.5" fill="#fb8c00" stroke="white" stroke-width="1.5"/>
+              <text x="${ihcEsc(parseFloat(tx) + 6)}" y="${ihcEsc(parseFloat(ty) + 4)}" font-size="10" font-weight="600" fill="#fb8c00">${lastTgt.toFixed(1)} °C</text>`;
     })() : "";
 
     const svg = `
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${this._esc(room.name)}">
-        <rect x="${padL}" y="${padT}" width="${cW}" height="${cH}" fill="var(--card-background-color,#fafafa)" rx="4" opacity="0.5"/>
+      <svg viewBox="0 0 ${ihcEsc(W)} ${ihcEsc(H)}" style="width:100%;max-width:${ihcEsc(W)}px;height:${ihcEsc(H)}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${this._esc(room.name)}">
+        <rect x="${ihcEsc(padL)}" y="${ihcEsc(padT)}" width="${ihcEsc(cW)}" height="${ihcEsc(cH)}" fill="var(--card-background-color,#fafafa)" rx="4" opacity="0.5"/>
         ${[0, 0.33, 0.67, 1].map(f => {
           const y = yOf(minV + f * range).toFixed(1);
-          return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="var(--divider-color)" stroke-width="0.5" opacity="0.6"/>`;
+          return `<line x1="${ihcEsc(padL)}" y1="${ihcEsc(y)}" x2="${W - padR}" y2="${ihcEsc(y)}" stroke="var(--divider-color)" stroke-width="0.5" opacity="0.6"/>`;
         }).join("")}
-        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + cH}" stroke="var(--divider-color)" stroke-width="1"/>
+        <line x1="${ihcEsc(padL)}" y1="${ihcEsc(padT)}" x2="${ihcEsc(padL)}" y2="${ihcEsc(padT + cH)}" stroke="var(--divider-color)" stroke-width="1"/>
         ${yTicks}
-        <line x1="${padL}" y1="${padT + cH}" x2="${W - padR}" y2="${padT + cH}" stroke="var(--divider-color)" stroke-width="1"/>
+        <line x1="${ihcEsc(padL)}" y1="${ihcEsc(padT + cH)}" x2="${W - padR}" y2="${ihcEsc(padT + cH)}" stroke="var(--divider-color)" stroke-width="1"/>
         ${xLabels.join("")}
         <!-- Soll-Verlauf (orange) -->
         ${tgtPolyline}
         <!-- Ist-Verlauf (blau) -->
-        <polyline points="${pts}" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <polyline points="${ihcEsc(pts)}" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
         <!-- Endpunkte -->
-        <circle cx="${lastX}" cy="${lastY}" r="4" fill="var(--primary-color)" stroke="white" stroke-width="1.5"/>
-        <text x="${parseFloat(lastX) + 7}" y="${parseFloat(lastY) + 4}" font-size="10" font-weight="600" fill="var(--primary-color)">${lastVal.toFixed(1)} °C</text>
+        <circle cx="${ihcEsc(lastX)}" cy="${ihcEsc(lastY)}" r="4" fill="var(--primary-color)" stroke="white" stroke-width="1.5"/>
+        <text x="${ihcEsc(parseFloat(lastX) + 7)}" y="${ihcEsc(parseFloat(lastY) + 4)}" font-size="10" font-weight="600" fill="var(--primary-color)">${lastVal.toFixed(1)} °C</text>
         ${lastTgtDot}
       </svg>`;
 
@@ -4938,10 +5019,10 @@ class IHCPanel extends HTMLElement {
           </span>` : ""}
         </div>
         <div style="display:flex;gap:24px;padding:4px 0 8px;flex-wrap:wrap">
-          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Min:</span> ${minStr} °C</div>
-          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Max:</span> ${maxStr} °C</div>
-          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Ø:</span> ${avgStr} °C</div>
-          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Messpunkte:</span> ${vals.length}</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Min:</span> ${ihcEsc(minStr)} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Max:</span> ${ihcEsc(maxStr)} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Ø:</span> ${ihcEsc(avgStr)} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Messpunkte:</span> ${ihcEsc(vals.length)}</div>
           ${lastTgt != null ? `<div style="font-size:12px;color:#fb8c00"><span style="font-weight:600">Soll aktuell:</span> ${lastTgt.toFixed(1)} °C</div>` : ""}
         </div>
         <div style="font-size:11px;color:var(--secondary-text-color);padding-top:4px">Stündliche Messung · max. 7 Tage Verlauf</div>
@@ -4957,7 +5038,7 @@ class IHCPanel extends HTMLElement {
         <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
           Gleitender Durchschnitt der Heizanforderung nach Wochentag und Uhrzeit (EMA, lernt über mehrere Wochen).
         </div>
-        <div id="hm-${room.room_id}"></div>`;
+        <div id="hm-${ihcEsc(room.room_id)}"></div>`;
       container.appendChild(heatmapCard);
       const gridContainer = heatmapCard.querySelector(`#hm-${room.room_id}`);
       gridContainer.innerHTML = this._renderDemandHeatmapGrid(room.demand_heatmap);
@@ -4978,9 +5059,9 @@ class IHCPanel extends HTMLElement {
       if (warmupCurve.length > 0) {
         warmupRows = warmupCurve.map(pt => `
           <tr>
-            <td style="padding:3px 8px;text-align:right">${pt.outdoor_temp > 0 ? "+" : ""}${pt.outdoor_temp} °C</td>
+            <td style="padding:3px 8px;text-align:right">${pt.outdoor_temp > 0 ? "+" : ""}${ihcEsc(pt.outdoor_temp)} °C</td>
             <td style="padding:3px 8px;text-align:right">${pt.avg_minutes.toFixed(0)} min</td>
-            <td style="padding:3px 8px;text-align:right;color:var(--secondary-text-color)">${pt.samples}×</td>
+            <td style="padding:3px 8px;text-align:right;color:var(--secondary-text-color)">${ihcEsc(pt.samples)}×</td>
           </tr>`).join("");
       }
 
@@ -5085,7 +5166,7 @@ class IHCPanel extends HTMLElement {
     ].filter(Boolean);
 
     const flagsHtml = flags.length
-      ? flags.map(f => `<span class="ihc-card-badge ${f.cls}" style="font-size:13px;padding:5px 12px">${f.icon} ${f.label}</span>`).join("")
+      ? flags.map(f => `<span class="ihc-card-badge ${ihcEsc(f.cls)}" style="font-size:13px;padding:5px 12px">${ihcEsc(f.icon)} ${ihcEsc(f.label)}</span>`).join("")
       : `<span style="color:var(--secondary-text-color);font-size:13px">Keine aktiven Übersteuerungen</span>`;
 
     // Room status table
@@ -5121,11 +5202,11 @@ class IHCPanel extends HTMLElement {
         <tr>
           <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color);font-weight:500">${this._esc(r.name)}</td>
           <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color)">
-            ${r.time ? r.time + " Uhr" : `<span style="color:var(--secondary-text-color)">keine ETA</span>`}
+            ${r.time ? ihcEsc(r.time) + " Uhr" : `<span style="color:var(--secondary-text-color)">keine ETA</span>`}
           </td>
           <td style="padding:5px 8px;border-bottom:1px solid var(--divider-color)">
             ${r.mins != null
-              ? `<span style="font-weight:700;color:${r.mins <= 30 ? "#e53935" : r.mins <= 60 ? "#fb8c00" : "#43a047"}">~${r.mins} min</span>`
+              ? `<span style="font-weight:700;color:${r.mins <= 30 ? "#e53935" : r.mins <= 60 ? "#fb8c00" : "#43a047"}">~${ihcEsc(r.mins)} min</span>`
               : `<span style="color:var(--secondary-text-color);font-size:11px">außerhalb Fenster (0–120 min)</span>`}
           </td>
         </tr>`).join("");
@@ -5164,7 +5245,7 @@ class IHCPanel extends HTMLElement {
           <div style="display:flex;flex-wrap:wrap;gap:6px">
             ${preheatingRooms.map(r =>
               `<span style="background:color-mix(in srgb,#ef5350 15%,transparent);padding:3px 10px;border-radius:12px;font-size:12px">
-                ⏱ ${this._esc(r.name)} → ${r.target_temp != null ? r.target_temp + " °C" : "—"}
+                ⏱ ${this._esc(r.name)} → ${r.target_temp != null ? ihcEsc(r.target_temp) + " °C" : "—"}
               </span>`).join("")}
           </div>` : `
           <div style="font-size:12px;color:var(--secondary-text-color)">
@@ -5203,16 +5284,16 @@ class IHCPanel extends HTMLElement {
       return `<tr>
         <td style="font-weight:500;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${this._esc(r.name)}</td>
         <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">
-          <div style="font-size:13px">${r.current_temp != null ? r.current_temp + " °C" : "—"}</div>
+          <div style="font-size:13px">${r.current_temp != null ? ihcEsc(r.current_temp) + " °C" : "—"}</div>
           ${r.trv_raw_temp != null && hasTrvData ? `<div style="font-size:10px;color:#e65100;margin-top:1px" title="TRV-Rohtemperatur">TRV: ${parseFloat(r.trv_raw_temp).toFixed(1)}°</div>` : ""}
         </td>
-        <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">${r.source === "system_off" ? "Aus" : (r.target_temp != null ? r.target_temp + " °C" : "—")}${effHtml}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">${r.source === "system_off" ? "Aus" : (r.target_temp != null ? ihcEsc(r.target_temp) + " °C" : "—")}${effHtml}</td>
         <td style="padding:6px 8px;border-bottom:1px solid var(--divider-color)">
           <div style="display:flex;align-items:center;gap:6px">
             <div style="width:40px;height:7px;border-radius:4px;background:var(--divider-color)">
-              <div style="width:${Math.min(r.demand,100)}%;height:100%;border-radius:4px;background:${demColor}"></div>
+              <div style="width:${Math.min(r.demand,100)}%;height:100%;border-radius:4px;background:${ihcEsc(demColor)}"></div>
             </div>
-            <span style="font-size:12px;color:${demColor};font-weight:600">${r.demand}%</span>
+            <span style="font-size:12px;color:${ihcEsc(demColor)};font-weight:600">${ihcEsc(r.demand)}%</span>
           </div>
           ${r.trv_avg_valve > 0 && hasTrvData ? `<div style="font-size:10px;color:#1565c0;margin-top:2px" title="Durchschn. Ventilöffnung">Ventil: ${Math.round(r.trv_avg_valve)}%</div>` : ""}
         </td>
@@ -5220,14 +5301,14 @@ class IHCPanel extends HTMLElement {
           ${humidity != null ? `<span style="${moldRisk ? "color:#c62828;font-weight:600" : "color:var(--secondary-text-color)"}" title="${moldRisk ? "⚠️ Schimmelrisiko!" : "Luftfeuchtigkeit"}">💧 ${Math.round(humidity)}%</span>` : "—"}
         </td>` : ""}
         ${hasCo2 ? `<td style="padding:6px 8px;border-bottom:1px solid var(--divider-color);font-size:12px">
-          ${r.co2_ppm > 0 ? `<span style="color:${r.co2_ppm > (r.co2_threshold_bad || 1200) ? "#c62828" : r.co2_ppm > (r.co2_threshold_good || 800) ? "#fb8c00" : "#43a047"}" title="CO₂-Konzentration">🌬️ ${r.co2_ppm}</span>` : "—"}
+          ${r.co2_ppm > 0 ? `<span style="color:${r.co2_ppm > (r.co2_threshold_bad || 1200) ? "#c62828" : r.co2_ppm > (r.co2_threshold_good || 800) ? "#fb8c00" : "#43a047"}" title="CO₂-Konzentration">🌬️ ${ihcEsc(r.co2_ppm)}</span>` : "—"}
           ${r.co2_ventilation_eta_minutes != null && r.co2_ventilation_eta_minutes <= 30
             ? `<div><span style="font-size:10px;padding:1px 4px;border-radius:6px;background:${r.co2_ventilation_eta_minutes <= 5 ? 'color-mix(in srgb,#ef5350 20%,transparent)' : 'color-mix(in srgb,#fb8c00 20%,transparent)'};color:var(--primary-text-color)" title="Geschätzte Zeit bis CO₂-Grenzwert">💨 ${r.co2_ventilation_eta_minutes <= 0 ? 'Jetzt!' : r.co2_ventilation_eta_minutes.toFixed(0) + ' min'}</span></div>`
             : ""}
         </td>` : ""}
-        <td style="font-size:12px;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${modeLabel}</td>
+        <td style="font-size:12px;padding:6px 8px;border-bottom:1px solid var(--divider-color)">${ihcEsc(modeLabel)}</td>
         <td style="font-size:12px;padding:6px 8px;border-bottom:1px solid var(--divider-color);color:var(--secondary-text-color)">${statusParts.length ? statusParts.join(" · ") : ""}</td>
-        ${hasRuntime ? `<td style="font-size:11px;padding:6px 8px;border-bottom:1px solid var(--divider-color);color:var(--secondary-text-color)">${r.runtime_today_minutes > 0 ? `⏱ ${r.runtime_today_minutes} min` : ""}</td>` : ""}
+        ${hasRuntime ? `<td style="font-size:11px;padding:6px 8px;border-bottom:1px solid var(--divider-color);color:var(--secondary-text-color)">${r.runtime_today_minutes > 0 ? `⏱ ${ihcEsc(r.runtime_today_minutes)} min` : ""}</td>` : ""}
       </tr>`;
     }).join("");
 
@@ -5287,7 +5368,7 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="settings-item">
               <label>Zimmer mit Anforderung</label>
-              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${g.rooms_demanding}</div>
+              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${ihcEsc(g.rooms_demanding)}</div>
             </div>
             ${g.curve_target != null ? `
             <div class="settings-item">
@@ -5297,7 +5378,7 @@ class IHCPanel extends HTMLElement {
             ${g.solar_power != null ? `
             <div class="settings-item">
               <label>Solarleistung</label>
-              <div style="font-size:22px;font-weight:700;color:#f9a825">${g.solar_power} W</div>
+              <div style="font-size:22px;font-weight:700;color:#f9a825">${ihcEsc(g.solar_power)} W</div>
             </div>` : ""}
             ${g.energy_price != null ? `
             <div class="settings-item">
@@ -5322,7 +5403,7 @@ class IHCPanel extends HTMLElement {
           <div class="settings-grid">
             <div class="settings-item">
               <label>Heizlaufzeit heute</label>
-              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${g.heating_runtime_today} min</div>
+              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${ihcEsc(g.heating_runtime_today)} min</div>
             </div>
             <div class="settings-item">
               <label>Energie heute</label>
@@ -5331,7 +5412,7 @@ class IHCPanel extends HTMLElement {
             ${g.heating_runtime_yesterday > 0 ? `
             <div class="settings-item">
               <label>Laufzeit gestern</label>
-              <div style="font-size:18px;font-weight:600;color:var(--secondary-text-color)">${g.heating_runtime_yesterday} min</div>
+              <div style="font-size:18px;font-weight:600;color:var(--secondary-text-color)">${ihcEsc(g.heating_runtime_yesterday)} min</div>
             </div>` : ""}
             ${g.energy_yesterday_kwh > 0 ? `
             <div class="settings-item">
@@ -5349,6 +5430,38 @@ class IHCPanel extends HTMLElement {
           </div>
         </div>
       </details>
+
+      <!-- ── Spar-Bilanz (v2.7) ─────────────────────────────── -->
+      ${(() => {
+        const sv = g.savings;
+        if (!sv) return "";
+        const names = { window: "🪟 Fenster-Pausen", away: "🚶 Abwesenheit", vacation: "✈️ Urlaub",
+          schedule: "🌙 Zeitplan & Nacht", saving: "💶 Spar-Regler", afterheat: "♨️ Restwärme" };
+        const cats = Object.entries(sv.by_category || {}).filter(([, v]) => v >= 0.1).sort((a, b) => b[1] - a[1]);
+        const max = cats.length ? cats[0][1] : 1;
+        return `
+      <details class="ihc-card" open>
+        <summary><span class="ihc-card-title">💶 Spar-Bilanz (dieser Monat)</span></summary>
+        <div class="ihc-card-body">
+          <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:10px">
+            <div><div style="font-size:11px;color:var(--secondary-text-color)">Durch IHC gespart</div>
+              <div style="font-size:22px;font-weight:700;color:#43a047">${this._kwh(sv.total_kwh)} kWh${sv.total_eur != null ? ` <span style="font-size:15px">≈ ${sv.total_eur.toFixed(2)} €</span>` : ""}</div></div>
+            <div><div style="font-size:11px;color:var(--secondary-text-color)">Verbrauch bisher</div>
+              <div style="font-size:22px;font-weight:700;color:var(--primary-color)">${this._kwh(sv.consumption_kwh)} kWh</div></div>
+            ${sv.prev_month ? `<div><div style="font-size:11px;color:var(--secondary-text-color)">Vormonat gespart</div>
+              <div style="font-size:18px;font-weight:600;color:var(--secondary-text-color)">${this._kwh(sv.prev_total_kwh)} kWh</div></div>` : ""}
+          </div>
+          ${cats.length ? cats.map(([c, v]) => `
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin:3px 0">
+              <span style="min-width:150px">${ihcEsc(names[c] || c)}</span>
+              <div style="flex:1;height:8px;background:var(--divider-color);border-radius:4px;overflow:hidden">
+                <div style="width:${Math.round(v / max * 100)}%;height:100%;background:#43a047"></div></div>
+              <span style="min-width:70px;text-align:right">${this._kwh(v)} kWh</span>
+            </div>`).join("") : `<div style="font-size:13px">Noch nichts gezählt – gezählt wird, sobald geheizt werden müsste.</div>`}
+          <div class="form-hint" style="margin-top:8px">Verglichen mit einem Thermostat, das immer die Wohlfühltemperatur hält. Schätzung aus Heizkörperleistung und Außentemperatur.</div>
+        </div>
+      </details>`;
+      })()}
 
       <!-- ── Zimmer-Status Tabelle ───────────────────────────── -->
       ${roomList.length ? `
@@ -5396,12 +5509,12 @@ class IHCPanel extends HTMLElement {
         const color = p > avgP * 1.3 ? "#ef5350" : p < avgP * 0.7 ? "#66bb6a" : "#fb8c00";
         const highlight = isCurrent ? `stroke="white" stroke-width="2"` : "";
         return `<rect x="${(padL + i * barW + 1).toFixed(1)}" y="${y.toFixed(1)}" width="${(barW - 2).toFixed(1)}" height="${barH.toFixed(1)}"
-          fill="${color}" ${highlight} rx="2" opacity="${isCurrent ? 1 : 0.7}"
+          fill="${ihcEsc(color)}" ${ihcEsc(highlight)} rx="2" opacity="${isCurrent ? 1 : 0.7}"
           title="${i}:00 – ${p.toFixed(3)} €/kWh"/>`;
       }).join("");
       const avgY = padT + (H - padT - padB) - ((avgP - minP) / rangeP) * (H - padT - padB);
       const xLabels = [0, 6, 12, 18, 23].map(i =>
-        `<text x="${(padL + i * barW + barW / 2).toFixed(1)}" y="${H - padB + 14}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${i}:00</text>`
+        `<text x="${(padL + i * barW + barW / 2).toFixed(1)}" y="${ihcEsc(H - padB + 14)}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${i}:00</text>`
       ).join("");
       const priceCard = document.createElement("details");
       priceCard.className = "ihc-card";
@@ -5417,9 +5530,9 @@ class IHCPanel extends HTMLElement {
             · <span style="color:#66bb6a">■</span> günstig &lt;70%
           </div>
           <div style="overflow-x:auto">
-            <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px">
+            <svg viewBox="0 0 ${ihcEsc(W)} ${ihcEsc(H)}" style="width:100%;max-width:${ihcEsc(W)}px;height:${ihcEsc(H)}px">
               ${bars}
-              <line x1="${padL}" y1="${avgY.toFixed(1)}" x2="${W - padR}" y2="${avgY.toFixed(1)}"
+              <line x1="${ihcEsc(padL)}" y1="${avgY.toFixed(1)}" x2="${W - padR}" y2="${avgY.toFixed(1)}"
                 stroke="var(--secondary-text-color)" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
               <text x="${padL - 4}" y="${(avgY + 4).toFixed(1)}" font-size="8" text-anchor="end" fill="var(--secondary-text-color)">Ø</text>
               ${xLabels}
@@ -5486,7 +5599,7 @@ class IHCPanel extends HTMLElement {
     selector.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;padding:12px 0 4px";
     selector.innerHTML = roomList.map(r => {
       const active = r.entity_id === this._analyseRoom;
-      return `<button class="sysmode-pill${active ? " active-auto" : ""}" data-room="${r.entity_id}">${this._esc(r.name)}</button>`;
+      return `<button class="sysmode-pill${active ? " active-auto" : ""}" data-room="${ihcEsc(r.entity_id)}">${this._esc(r.name)}</button>`;
     }).join("");
     content.appendChild(selector);
     selector.querySelectorAll("[data-room]").forEach(btn =>
@@ -5495,6 +5608,38 @@ class IHCPanel extends HTMLElement {
         this._renderAnalyse(content);
       })
     );
+
+    // ── Hydraulik & Vorlauf (v2.7, house-wide) ───────────────────────────────
+    {
+      const g = this._getGlobal();
+      const learned = roomList.filter(r => (r.hydraulic_hours || 0) >= 6);
+      const hintRooms = roomList.filter(r => r.hydraulic_hint);
+      const fr = g.flow_recommendation;
+      const sysName = { heatpump: "Wärmepumpe" }[g.heating_system] || "Kessel";
+      const hyCard = document.createElement("div");
+      hyCard.className = "card";
+      hyCard.style.marginTop = "12px";
+      hyCard.innerHTML = `
+        <div class="card-title">🔧 Hydraulischer Abgleich &amp; Vorlauftemperatur</div>
+        <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
+          IHC vergleicht, wie weit die Ventile der Zimmer beim Heizen öffnen und wie schnell die Zimmer warm werden. Nur Hinweise – IHC verstellt hier nichts.
+        </div>
+        ${learned.length < 2 ? `<div style="font-size:13px">Wird gelernt: braucht mindestens 2 Zimmer mit Ventilstellung und je 6 Stunden Heizbetrieb (bisher ${ihcEsc(learned.length)}).</div>` : `
+          ${hintRooms.length ? hintRooms.map(r => `<div style="font-size:13px;margin:4px 0">${r.hydraulic_hint === "too_little"
+              ? `🔺 <strong>${this._esc(r.name)}</strong>: bekommt zu wenig Heizwasser – Voreinstellung am Ventilunterteil höher stellen.`
+              : `🔻 <strong>${this._esc(r.name)}</strong>: bekommt mehr als nötig – Voreinstellung am Ventilunterteil kleiner stellen.`}</div>`).join("")
+            : `<div style="font-size:13px">✓ Die Zimmer werden gleichmäßig versorgt.</div>`}
+          <div style="font-size:13px;margin-top:8px">${fr
+            ? (fr.direction === "down"
+              ? `🌡️ <strong>Vorlauftemperatur senken:</strong> Alle Zimmer werden mit halb offenen Ventilen warm – die Heizkurve am ${ihcEsc(sysName)} kann etwa <strong>${ihcEsc(fr.kelvin)} K</strong> tiefer. Spart Energie${g.heating_system === "heatpump" ? " (bei Wärmepumpen besonders viel)" : ""}.`
+              : `🌡️ <strong>Vorlauftemperatur zu niedrig:</strong> Mehrere Zimmer bleiben trotz voll offener Ventile kalt – die Heizkurve am ${ihcEsc(sysName)} etwa <strong>${ihcEsc(fr.kelvin)} K</strong> anheben.`)
+            : "🌡️ Vorlauftemperatur passt."}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+            <tr style="color:var(--secondary-text-color)"><td>Zimmer</td><td style="text-align:right">Ø Ventil beim Heizen</td><td style="text-align:right">Ø Aufheizzeit</td></tr>
+            ${learned.map(r => `<tr><td>${this._esc(r.name)}</td><td style="text-align:right">${ihcEsc(r.hydraulic_valve_avg)} %</td><td style="text-align:right">${r.avg_warmup_minutes != null ? Math.round(r.avg_warmup_minutes) + " min" : "–"}</td></tr>`).join("")}
+          </table>`}`;
+      content.appendChild(hyCard);
+    }
 
     // ── Heatmap card ─────────────────────────────────────────────────────────
     const hmCard = document.createElement("div");
@@ -5532,9 +5677,9 @@ class IHCPanel extends HTMLElement {
 
     const warmupRows = warmupCurve.map(pt => `
       <tr>
-        <td style="padding:5px 12px;text-align:right">${pt.outdoor_temp > 0 ? "+" : ""}${pt.outdoor_temp} °C</td>
+        <td style="padding:5px 12px;text-align:right">${pt.outdoor_temp > 0 ? "+" : ""}${ihcEsc(pt.outdoor_temp)} °C</td>
         <td style="padding:5px 12px;text-align:right;font-weight:600;color:var(--primary-color)">${pt.avg_minutes.toFixed(0)} min</td>
-        <td style="padding:5px 12px;text-align:right;color:var(--secondary-text-color)">${pt.samples}×</td>
+        <td style="padding:5px 12px;text-align:right;color:var(--secondary-text-color)">${ihcEsc(pt.samples)}×</td>
       </tr>`).join("");
 
     learnCard.innerHTML = `
@@ -5602,6 +5747,25 @@ class IHCPanel extends HTMLElement {
       content.appendChild(stopCard);
     }
 
+    // ── Restwärme nutzen (v2.7) ─────────────────────────────────────────────────
+    {
+      const ahCard = document.createElement("div");
+      ahCard.className = "card";
+      ahCard.style.marginTop = "0";
+      const hasSensor = !!room.temp_sensor || (room.temp_sensors || []).length > 0;
+      const g2 = this._getGlobal();
+      ahCard.innerHTML = `
+        <div class="card-title">♨️ Restwärme nutzen</div>
+        <div style="font-size:13px;color:var(--secondary-text-color)">
+          ${!g2.afterheat_enabled ? "Ausgeschaltet (Einstellungen → Temperaturen)."
+            : !hasSensor ? "Braucht ein Raumthermometer – die Temperatur am Thermostat sitzt direkt am Heizkörper und sagt darüber nichts aus."
+            : room.afterheat_overshoot != null
+              ? `Nach dem Schließen des Ventils wird ${this._esc(room.name)} noch <strong>+${ihcEsc(room.afterheat_overshoot)} °C</strong> wärmer, Höhepunkt nach etwa <strong>${ihcEsc(room.afterheat_minutes)} min</strong> (${ihcEsc(room.afterheat_samples)} Messungen). IHC schließt das Ventil so viel früher.${room.afterheat_coasting ? " <strong>Gerade aktiv.</strong>" : ""}`
+              : `Wird gelernt: ${ihcEsc(room.afterheat_samples)} von 3 Heizphasen gemessen.`}
+        </div>`;
+      content.appendChild(ahCard);
+    }
+
     // ── Wärmebrücken-Erkennung ─────────────────────────────────────────────────
     if (room.thermal_bridge && room.thermal_bridge.suspected) {
       const bridgeCard = document.createElement("div");
@@ -5611,7 +5775,7 @@ class IHCPanel extends HTMLElement {
       bridgeCard.innerHTML = `
         <div class="card-title">🧱 Mögliche Wärmebrücke erkannt</div>
         <div style="font-size:13px;color:var(--secondary-text-color);margin-bottom:8px">
-          ${this._esc(room.name)} kühlt ca. <strong>${room.thermal_bridge.ratio}×</strong> schneller aus als der
+          ${this._esc(room.name)} kühlt ca. <strong>${ihcEsc(room.thermal_bridge.ratio)}×</strong> schneller aus als der
           Durchschnitt der übrigen Zimmer – ein Hinweis auf schlechte Dämmung, eine undichte
           Fensterdichtung oder eine ungedämmte Außenwandecke. Basiert auf der gelernten Abkühlrate
           (siehe oben) und ist rein informativ.
@@ -5696,10 +5860,11 @@ class IHCPanel extends HTMLElement {
         <div class="auto-row"><span>🌡️ Außentemperatur</span><span>${outdoorTxt}</span></div>
         <div class="auto-row"><span>🌦️ Wettervorhersage</span><span>${g.weather_entity_effective ? `<b>${this._esc(this._friendly(g.weather_entity_effective))}</b> – für Kälteprognose &amp; Frühstart` : "keine Wetter-Entität gefunden"}</span></div>
         <div class="auto-row"><span>🪟 Fenster ohne Sensor</span><span>${g.window_auto_detect_enabled ? "werden am Temperatursturz erkannt ✓" : "nicht erkannt (unten unter Temperaturen einschaltbar)"}</span></div>
+        <div class="auto-row"><span>♨️ Restwärme</span><span>${g.afterheat_enabled ? "wird pro Zimmer gelernt – Ventil schließt früher ✓" : "aus (unten unter Temperaturen einschaltbar)"}</span></div>
         <div class="auto-row"><span>🍂 Heizperiode</span><span>${a.heating_period_entity ? "per eigenem Schalter gesteuert" : (a.heating_period_auto_enabled !== false ? "startet/endet automatisch nach Außentemperatur ✓" : "immer aktiv")}</span></div>
         <div class="auto-row"><span>🚶 Abwesenheit</span><span>${(() => {
           const eff = a.presence_entities_effective || [];
-          if ((a.presence_entities || []).length) return `über ${eff.length} eingetragene Person(en)/Tracker ✓`;
+          if ((a.presence_entities || []).length) return `über ${ihcEsc(eff.length)} eingetragene Person(en)/Tracker ✓`;
           if (eff.length) return `automatisch über ${eff.map(e => this._esc(this._friendly(e))).join(", ")} ✓ (mind. 20 min Verzögerung)`;
           return "keine Person mit Standort gefunden – 💡 mit der HA-Companion-App senkt IHC automatisch ab, wenn niemand zu Hause ist";
         })()}</span></div>
@@ -5713,7 +5878,7 @@ class IHCPanel extends HTMLElement {
         <div class="settings-item">
           <label>Spar-Regler: alle Wohlfühltemperaturen absenken um</label>
           <div class="comfort-pick">
-            <input type="range" id="saving-offset" min="0" max="3" step="0.5" value="${saving}">
+            <input type="range" id="saving-offset" min="0" max="3" step="0.5" value="${ihcEsc(saving)}">
             <span id="saving-offset-val">${saving.toFixed(1)} °C</span>
           </div>
           <span class="form-hint"><span id="saving-offset-est">${saving > 0 ? `≈ ${Math.round(saving * 6)} % weniger Heizenergie.` : "Faustregel: jedes Grad weniger spart rund 6 % Heizenergie."}</span> Frostschutz, Abwesend, Urlaub und manuell eingestellte Werte bleiben unverändert.</span>
@@ -5721,7 +5886,7 @@ class IHCPanel extends HTMLElement {
         <div class="settings-grid" style="margin-top:8px">
           <div class="settings-item">
             <label>🪟 Erinnern, wenn ein Fenster länger offen ist (min)</label>
-            <input type="number" class="form-input" id="window-reminder-minutes" min="0" max="120" step="5" value="${a.window_reminder_minutes ?? 15}">
+            <input type="number" class="form-input" id="window-reminder-minutes" min="0" max="120" step="5" value="${ihcEsc(a.window_reminder_minutes ?? 15)}">
             <span class="form-hint">Nur bei unter 15 °C draußen. 0 = aus. Löst auch das Event <code>intelligent_heating_control_window_open_too_long</code> für eigene Automationen aus.</span>
           </div>
           <div class="settings-item">
@@ -5730,6 +5895,13 @@ class IHCPanel extends HTMLElement {
               🚶 Abwesenheit automatisch aus HA-Personen
             </label>
             <span class="form-hint">Nur wenn unter „Anwesenheitserkennung“ nichts eingetragen ist.</span>
+          </div>
+          <div class="settings-item">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
+              <input type="checkbox" id="monthly-report" ${a.monthly_report_enabled !== false ? "checked" : ""}>
+              📬 Monatsbericht
+            </label>
+            <span class="form-hint">Am Monatsanfang eine Benachrichtigung: Verbrauch, Vergleich zum Vormonat, was IHC gespart hat und Hinweise.</span>
           </div>
         </div>
         <div class="btn-row"><button class="btn btn-primary" id="save-saving">💾 Speichern</button></div>
@@ -5746,11 +5918,11 @@ class IHCPanel extends HTMLElement {
         <div class="settings-grid">
           <div class="settings-item">
             <label>⏰ Warm aufwachen – so lange vor dem Wecker heizen (min)</label>
-            <input type="number" class="form-input" id="wakeup-preheat" min="0" max="180" step="5" value="${a.wakeup_preheat_minutes ?? 30}">
+            <input type="number" class="form-input" id="wakeup-preheat" min="0" max="180" step="5" value="${ihcEsc(a.wakeup_preheat_minutes ?? 30)}">
           </div>
           <div class="settings-item">
             <label>… und danach warm halten (min)</label>
-            <input type="number" class="form-input" id="wakeup-comfort" min="0" max="240" step="5" value="${a.wakeup_comfort_minutes ?? 60}">
+            <input type="number" class="form-input" id="wakeup-comfort" min="0" max="240" step="5" value="${ihcEsc(a.wakeup_comfort_minutes ?? 60)}">
           </div>
         </div>
         <span class="form-hint">${alarms.length
@@ -5770,7 +5942,7 @@ class IHCPanel extends HTMLElement {
         <div class="settings-grid">
           <div class="settings-item">
             <label>🥶/🥵 „Mir ist kalt/warm“ wirkt für (min)</label>
-            <input type="number" class="form-input" id="feel-duration" min="15" max="480" step="15" value="${a.feel_duration_minutes ?? 120}">
+            <input type="number" class="form-input" id="feel-duration" min="15" max="480" step="15" value="${ihcEsc(a.feel_duration_minutes ?? 120)}">
           </div>
           <div class="settings-item">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:22px">
@@ -5794,18 +5966,18 @@ class IHCPanel extends HTMLElement {
           <div class="settings-item">
             <label>Heizungsart</label>
             <select class="form-select" id="heating-system">
-              ${systems.map(([v, l]) => `<option value="${v}" ${(a.heating_system || "gas") === v ? "selected" : ""}>${l}</option>`).join("")}
+              ${systems.map(([v, l]) => `<option value="${ihcEsc(v)}" ${(a.heating_system || "gas") === v ? "selected" : ""}>${l}</option>`).join("")}
             </select>
-            <span class="form-hint">Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).${g.flow_temp_now != null ? ` Vorlauf jetzt geschätzt: ${g.flow_temp_now} °C.` : ""}</span>
+            <span class="form-hint">Damit rechnet IHC Wärme in das um, was du bezahlst (Gas-kWh bzw. Strom-kWh).${g.flow_temp_now != null ? ` Vorlauf jetzt geschätzt: ${ihcEsc(g.flow_temp_now)} °C.` : ""}</span>
           </div>
           <div class="settings-item expert-only">
             <label>Wirkungsgrad bzw. JAZ (0 = automatisch)</label>
-            <input type="number" class="form-input" id="heating-efficiency" min="0" max="7" step="0.05" value="${a.heating_efficiency ?? 0}">
+            <input type="number" class="form-input" id="heating-efficiency" min="0" max="7" step="0.05" value="${ihcEsc(a.heating_efficiency ?? 0)}">
             <span class="form-hint">Gas ≈ 0,92 · Öl ≈ 0,88 · Wärmepumpe: Jahresarbeitszahl (z. B. 3,5)</span>
           </div>
           <div class="settings-item expert-only">
             <label>Vorlauftemperatur bei −12 °C außen (0 = automatisch)</label>
-            <input type="number" class="form-input" id="design-flow-temp" min="0" max="90" step="1" value="${a.design_flow_temp ?? 0}">
+            <input type="number" class="form-input" id="design-flow-temp" min="0" max="90" step="1" value="${ihcEsc(a.design_flow_temp ?? 0)}">
           </div>
           <div class="settings-item expert-only">
             <label>Vorlauf-Sensor (optional)</label>
@@ -5814,7 +5986,7 @@ class IHCPanel extends HTMLElement {
           <div class="settings-item">
             <label>Echter Zähler (optional)</label>
             <input type="text" class="form-input" id="energy-meter-entity" value="${this._esc(a.energy_meter_entity || "")}" placeholder="sensor.gaszaehler" data-ep-domains="sensor" autocomplete="off">
-            <span class="form-hint">Gaszähler (m³ oder kWh), Wärmemengen- oder Wärmepumpen-Stromzähler. IHC gleicht seine Zimmer-Schätzung täglich daran an${a.energy_calibration_factor && a.energy_calibration_factor !== 1 ? ` (aktuell × ${a.energy_calibration_factor})` : ""}. Hinweis: Zählt der Zähler Warmwasser mit, wird das anteilig den Zimmern zugerechnet.</span>
+            <span class="form-hint">Gaszähler (m³ oder kWh), Wärmemengen- oder Wärmepumpen-Stromzähler. IHC gleicht seine Zimmer-Schätzung täglich daran an${a.energy_calibration_factor && a.energy_calibration_factor !== 1 ? ` (aktuell × ${ihcEsc(a.energy_calibration_factor)})` : ""}. Hinweis: Zählt der Zähler Warmwasser mit, wird das anteilig den Zimmern zugerechnet.</span>
           </div>
         </div>
         <div class="btn-row"><button class="btn btn-primary" id="save-heating">💾 Speichern</button></div>
@@ -5837,31 +6009,31 @@ class IHCPanel extends HTMLElement {
               <label>Außentemperatur-Sensor</label>
               <input type="text" class="form-input" id="outdoor-sensor"
                 placeholder="sensor.aussensensor"
-                value="${a.outdoor_temp_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
+                value="${ihcEsc(a.outdoor_temp_sensor ?? '')}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Für Heizkurve, Sommerautomatik und Heizperiode. <b>Leer lassen geht auch:</b> dann nimmt IHC automatisch die Temperatur aus der Wettervorhersage.</span>
             </div>
             <div class="settings-item expert-only">
               <label>Außentemperatur-Glättung (Minuten)</label>
-              <input type="number" class="form-input" id="outdoor-smoothing" min="0" max="60" step="5" value="${a.outdoor_temp_smoothing_minutes ?? 30}">
+              <input type="number" class="form-input" id="outdoor-smoothing" min="0" max="60" step="5" value="${ihcEsc(a.outdoor_temp_smoothing_minutes ?? 30)}">
               <span class="form-hint">Gleitender Mittelwert über die letzten N Minuten (0 = aus). Verhindert dass schnelle Sonne/Wolken-Wechsel die Heizkurve und die TRVs oszillieren lassen. Empfohlen: 20–30 Minuten.</span>
             </div>
             <div class="settings-item">
               <label>Wettervorhersage-Entität</label>
               <input type="text" class="form-input" id="weather-entity"
                 placeholder="leer = automatisch erste Wetter-Entität"
-                value="${a.weather_entity ?? ''}" data-ep-domains="weather" autocomplete="off">
+                value="${ihcEsc(a.weather_entity ?? '')}" data-ep-domains="weather" autocomplete="off">
               <span class="form-hint">Wetter-Entität aus HA (z.B. <code>weather.forecast_home</code> von Met.no). Leer = IHC nimmt automatisch die erste vorhandene. Für Kälteprognose, Frühstart und 3-Tage-Vorschau.</span>
             </div>
             <div class="settings-item expert-only">
               <label>Kältewarnung ab (°C)</label>
               <input type="number" class="form-input" id="weather-cold-threshold"
-                step="0.5" value="${a.weather_cold_threshold ?? 0}">
+                step="0.5" value="${ihcEsc(a.weather_cold_threshold ?? 0)}">
               <span class="form-hint">Banner erscheint wenn die vorhergesagte Tiefsttemperatur diesen Wert unterschreitet (0 = deaktiviert).</span>
             </div>
             <div class="settings-item expert-only">
               <label>Kälteboost (°C)</label>
               <input type="number" class="form-input" id="weather-cold-boost"
-                step="0.5" min="0" max="5" value="${a.weather_cold_boost ?? 0}">
+                step="0.5" min="0" max="5" value="${ihcEsc(a.weather_cold_boost ?? 0)}">
               <span class="form-hint">Bei Kältewarnung werden alle Zimmer um diesen Wert zusätzlich aufgeheizt (0 = kein Boost).</span>
             </div>
           </div>
@@ -5883,17 +6055,17 @@ class IHCPanel extends HTMLElement {
           <div class="settings-grid">
             <div class="settings-item">
               <label>Abwesend-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="away-temp" min="5" max="25" step="0.5" value="${a.away_temp ?? 16}">
+              <input type="number" class="form-input" id="away-temp" min="5" max="25" step="0.5" value="${ihcEsc(a.away_temp ?? 16)}">
               <span class="form-hint">Globale Mindesttemperatur wenn niemand zuhause ist (Anwesenheitserkennung aktiv oder Systemmodus = Abwesend).</span>
             </div>
             <div class="settings-item">
               <label>Urlaubs-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="vacation-temp" min="5" max="20" step="0.5" value="${a.vacation_temp ?? 14}">
+              <input type="number" class="form-input" id="vacation-temp" min="5" max="20" step="0.5" value="${ihcEsc(a.vacation_temp ?? 14)}">
               <span class="form-hint">Niedrige Grundtemperatur für den Urlaubs-Modus – spart Energie und verhindert trotzdem Frostschäden.</span>
             </div>
             <div class="settings-item">
               <label>Frostschutz-Temperatur (°C)</label>
-              <input type="number" class="form-input" id="frost-temp" min="4" max="15" step="0.5" value="${a.frost_protection_temp ?? 7}">
+              <input type="number" class="form-input" id="frost-temp" min="4" max="15" step="0.5" value="${ihcEsc(a.frost_protection_temp ?? 7)}">
               <span class="form-hint">Absolute Untergrenze für Abwesend- und Urlaubsmodus. Im Modus „Aus" wird dieser Wert nur genutzt wenn die Option unten aktiviert ist.</span>
             </div>
             <div class="settings-item expert-only">
@@ -5917,7 +6089,7 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="settings-item">
               <label>Sommer-Schwelle (°C)</label>
-              <input type="number" class="form-input" id="summer-threshold" min="10" max="30" step="0.5" value="${a.summer_threshold ?? 18}">
+              <input type="number" class="form-input" id="summer-threshold" min="10" max="30" step="0.5" value="${ihcEsc(a.summer_threshold ?? 18)}">
               <span class="form-hint">Ab dieser Außentemperatur wird die Heizung gesperrt (Sommerautomatik muss aktiviert sein).</span>
             </div>
             <div class="settings-item expert-only" style="grid-column:1/-1">
@@ -5925,7 +6097,7 @@ class IHCPanel extends HTMLElement {
                 ${a.summer_mode_entity ? `<span class="badge" style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">Extern gesteuert</span>` : ""}
               </label>
               <input type="text" class="form-input full" id="s-summer-mode-entity"
-                value="${a.summer_mode_entity || ''}" placeholder="input_boolean.sommermodus"
+                value="${ihcEsc(a.summer_mode_entity || '')}" placeholder="input_boolean.sommermodus"
                 data-ep-domains="input_boolean,binary_sensor" autocomplete="off">
               <span class="form-hint">Optional: Überschreibt die Temperatur-Automatik. ON = Sommer aktiv (Heizung gesperrt), OFF = Heizung freigegeben. Ideal für Automationen oder einen physischen Schalter.</span>
             </div>
@@ -5938,15 +6110,15 @@ class IHCPanel extends HTMLElement {
               <span class="form-hint">
                 Gleitendes Mehrtage-Mittel statt Momentanwert – vermeidet Flip-Flop an Grenztagen.
                 ${a.summer_mode_rolling_avg != null
-                  ? `<br>Aktuelles Ø (${a.summer_mode_hysteresis_days ?? 3} Tage): <strong>${a.summer_mode_rolling_avg}°C</strong> → ${a.summer_mode_auto_active ? "Sommerautomatik aktiv" : "Sommerautomatik inaktiv"}`
+                  ? `<br>Aktuelles Ø (${ihcEsc(a.summer_mode_hysteresis_days ?? 3)} Tage): <strong>${ihcEsc(a.summer_mode_rolling_avg)}°C</strong> → ${a.summer_mode_auto_active ? "Sommerautomatik aktiv" : "Sommerautomatik inaktiv"}`
                   : ""}
               </span>
             </div>
             <div class="settings-item expert-only">
               <label>Hysterese-Band (°C) / Fenstergröße (Tage)</label>
               <div style="display:flex;gap:8px">
-                <input type="number" class="form-input" id="summer-hysteresis-band" min="0.5" max="10" step="0.5" value="${a.summer_mode_hysteresis_band ?? 2}" title="Band unter der Sommer-Schwelle" style="flex:1">
-                <input type="number" class="form-input" id="summer-hysteresis-days" min="1" max="14" step="1" value="${a.summer_mode_hysteresis_days ?? 3}" title="Fenstergröße in Tagen" style="flex:1">
+                <input type="number" class="form-input" id="summer-hysteresis-band" min="0.5" max="10" step="0.5" value="${ihcEsc(a.summer_mode_hysteresis_band ?? 2)}" title="Band unter der Sommer-Schwelle" style="flex:1">
+                <input type="number" class="form-input" id="summer-hysteresis-days" min="1" max="14" step="1" value="${ihcEsc(a.summer_mode_hysteresis_days ?? 3)}" title="Fenstergröße in Tagen" style="flex:1">
               </div>
               <span class="form-hint">Band: °C unter der Sommer-Schwelle, ab der wieder deaktiviert wird. Fenstergröße: Tage für das gleitende Mittel.</span>
             </div>
@@ -5956,7 +6128,7 @@ class IHCPanel extends HTMLElement {
                 ${!a.heating_period_entity ? `<span class="badge" style="background:#2196f3;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">🤖 Automatik aktiv</span>` : ""}
               </label>
               <input type="text" class="form-input full" id="s-heating-period-entity"
-                value="${a.heating_period_entity || ''}" placeholder="Leer lassen für automatische Erkennung"
+                value="${ihcEsc(a.heating_period_entity || '')}" placeholder="Leer lassen für automatische Erkennung"
                 data-ep-domains="input_boolean,binary_sensor" autocomplete="off">
               <span class="form-hint">Optional: Entity (input_boolean.* oder binary_sensor.*) die die Heizperiode manuell steuert und die Automatik unten übersteuert. <strong>Leer lassen (empfohlen):</strong> IHC entscheidet selbst, siehe "Automatische Heizperioden-Erkennung".</span>
             </div>
@@ -5971,21 +6143,21 @@ class IHCPanel extends HTMLElement {
                 gleitenden Mehrtage-Mittels der Außentemperatur (Hysterese) + Kälteprognose-Frühstart –
                 damit ein einzelner kalter Tag in der Übergangszeit nicht ausgesperrt bleibt.
                 ${a.heating_period_rolling_avg != null
-                  ? `<br>Aktuelles Ø (${a.heating_period_auto_days ?? 3} Tage): <strong>${a.heating_period_rolling_avg}°C</strong> → ${a.heating_period_auto_active !== false ? "Heizperiode aktiv" : "Heizperiode inaktiv"}`
+                  ? `<br>Aktuelles Ø (${ihcEsc(a.heating_period_auto_days ?? 3)} Tage): <strong>${ihcEsc(a.heating_period_rolling_avg)}°C</strong> → ${a.heating_period_auto_active !== false ? "Heizperiode aktiv" : "Heizperiode inaktiv"}`
                   : `<br><em>Noch nicht genug Tages-Historie gesammelt – bis dahin bleibt die Heizperiode sicherheitshalber aktiv.</em>`}
               </span>
             </div>
             <div class="settings-item expert-only">
               <label>Grenze aktiv / inaktiv (°C Ø-Außentemp.)</label>
               <div style="display:flex;gap:8px">
-                <input type="number" class="form-input" id="hp-auto-low" min="-10" max="20" step="0.5" value="${a.heating_period_auto_low_temp ?? 12}" title="Darunter: aktiv" style="flex:1">
-                <input type="number" class="form-input" id="hp-auto-high" min="-5" max="25" step="0.5" value="${a.heating_period_auto_high_temp ?? 16}" title="Darüber: inaktiv" style="flex:1">
+                <input type="number" class="form-input" id="hp-auto-low" min="-10" max="20" step="0.5" value="${ihcEsc(a.heating_period_auto_low_temp ?? 12)}" title="Darunter: aktiv" style="flex:1">
+                <input type="number" class="form-input" id="hp-auto-high" min="-5" max="25" step="0.5" value="${ihcEsc(a.heating_period_auto_high_temp ?? 16)}" title="Darüber: inaktiv" style="flex:1">
               </div>
               <span class="form-hint">Links: darunter aktiviert die Automatik die Heizperiode. Rechts: darüber deaktiviert sie sie. Dazwischen bleibt der letzte Zustand (Hysterese, kein Flattern).</span>
             </div>
             <div class="settings-item expert-only">
               <label>Fenstergröße gleitendes Mittel (Tage)</label>
-              <input type="number" class="form-input" id="hp-auto-days" min="1" max="14" step="1" value="${a.heating_period_auto_days ?? 3}">
+              <input type="number" class="form-input" id="hp-auto-days" min="1" max="14" step="1" value="${ihcEsc(a.heating_period_auto_days ?? 3)}">
               <span class="form-hint">Größer = träger/stabiler, kleiner = reagiert schneller auf einen Wetterumschwung.</span>
             </div>
             <div class="settings-item expert-only" style="grid-column:1/-1">
@@ -6004,24 +6176,31 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="afterheat-enabled" ${a.afterheat_enabled !== false ? "checked" : ""}>
+                ♨️ Restwärme nutzen
+              </label>
+              <span class="form-hint">IHC lernt pro Zimmer, wie weit die Temperatur nach dem Schließen des Ventils noch steigt, und schließt es entsprechend früher – nicht mehr zu warm, weniger Verbrauch. Braucht ein Raumthermometer, greift nach 3 gemessenen Heizphasen.</span>
+            </div>
+            <div class="settings-item" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
                 <input type="checkbox" id="window-auto-detect-enabled" ${a.window_auto_detect_enabled !== false ? "checked" : ""}>
                 🪟 Sensorlose Fenstererkennung (Temperatursturz)
               </label>
               <span class="form-hint">Nur für Zimmer <b>ohne</b> Fenstersensor: fällt die Raumtemperatur plötzlich stark, wird ein offenes Fenster angenommen und das Thermostat pausiert – bis die Temperatur wieder steigt, höchstens aber für die maximale Dauer.</span>
               <div class="expert-only" style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
                 <label style="flex:1;min-width:120px;font-size:12px">Sturz (°C)
-                  <input type="number" class="form-input" id="window-auto-detect-drop" min="0.3" max="3" step="0.1" value="${a.window_auto_detect_drop ?? 0.8}"></label>
+                  <input type="number" class="form-input" id="window-auto-detect-drop" min="0.3" max="3" step="0.1" value="${ihcEsc(a.window_auto_detect_drop ?? 0.8)}"></label>
                 <label style="flex:1;min-width:120px;font-size:12px">innerhalb (min)
-                  <input type="number" class="form-input" id="window-auto-detect-minutes" min="2" max="20" step="1" value="${a.window_auto_detect_minutes ?? 6}"></label>
+                  <input type="number" class="form-input" id="window-auto-detect-minutes" min="2" max="20" step="1" value="${ihcEsc(a.window_auto_detect_minutes ?? 6)}"></label>
                 <label style="flex:1;min-width:120px;font-size:12px">max. Dauer (min)
-                  <input type="number" class="form-input" id="window-auto-detect-hold" min="5" max="90" step="5" value="${a.window_auto_detect_hold_minutes ?? 20}"></label>
+                  <input type="number" class="form-input" id="window-auto-detect-hold" min="5" max="90" step="5" value="${ihcEsc(a.window_auto_detect_hold_minutes ?? 20)}"></label>
               </div>
             </div>
             <div class="settings-item expert-only">
               <label>🔥 Heizgradtage – Basis- / Schwellentemperatur (°C)</label>
               <div style="display:flex;gap:8px">
-                <input type="number" class="form-input" id="dd-base-temp" min="15" max="22" step="0.5" value="${a.degree_day_base_temp ?? 20}" title="Basistemperatur" style="flex:1">
-                <input type="number" class="form-input" id="dd-threshold-temp" min="10" max="20" step="0.5" value="${a.degree_day_threshold_temp ?? 15}" title="Schwelle" style="flex:1">
+                <input type="number" class="form-input" id="dd-base-temp" min="15" max="22" step="0.5" value="${ihcEsc(a.degree_day_base_temp ?? 20)}" title="Basistemperatur" style="flex:1">
+                <input type="number" class="form-input" id="dd-threshold-temp" min="10" max="20" step="0.5" value="${ihcEsc(a.degree_day_threshold_temp ?? 15)}" title="Schwelle" style="flex:1">
               </div>
               <span class="form-hint">Speist sensor.ihc_heizgradtage (kumulativ – HA liefert daraus Monats-/Jahressummen). Gradtag = Basis − Tagesmittel Außentemp., nur an Tagen mit Tagesmittel unter der Schwelle.</span>
             </div>
@@ -6036,7 +6215,7 @@ class IHCPanel extends HTMLElement {
       <details class="ihc-card expert-only" ${a.forecast_coldnight_enabled ? "open" : ""}>
         <summary>
           <span class="ihc-card-title">❄️ Kälteprognose – Frühstart
-            ${(() => { const fc = g.weather_forecast; const active = g.forecast_coldnight_active || (a.forecast_coldnight_enabled && fc && fc.forecast_today_min != null && fc.forecast_today_min <= (a.forecast_coldnight_temp ?? 8)); const t = g.forecast_coldnight_min_temp ?? fc?.forecast_today_min; return active ? `<span class="badge" style="background:#29b6f6;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">❄️ Aktiv${t != null ? ` – ${t}°C` : ""}</span>` : ""; })()}
+            ${(() => { const fc = g.weather_forecast; const active = g.forecast_coldnight_active || (a.forecast_coldnight_enabled && fc && fc.forecast_today_min != null && fc.forecast_today_min <= (a.forecast_coldnight_temp ?? 8)); const t = g.forecast_coldnight_min_temp ?? fc?.forecast_today_min; return active ? `<span class="badge" style="background:#29b6f6;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">❄️ Aktiv${t != null ? ` – ${ihcEsc(t)}°C` : ""}</span>` : ""; })()}
           </span>
         </summary>
         <div class="ihc-card-body">
@@ -6054,19 +6233,19 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Kälteschwelle Nacht (°C)</label>
               <input type="number" class="form-input" id="s-forecast-coldnight-temp"
-                min="-10" max="20" step="0.5" value="${a.forecast_coldnight_temp ?? 8}">
+                min="-10" max="20" step="0.5" value="${ihcEsc(a.forecast_coldnight_temp ?? 8)}">
               <span class="form-hint">Unter dieser Nachttemperatur-Prognose wird der Frühstart ausgelöst.</span>
             </div>
             <div class="settings-item">
               <label>Frühstart-Vorlaufzeit (Stunden)</label>
               <input type="number" class="form-input" id="s-forecast-advance-hours"
-                min="1" max="8" step="1" value="${a.forecast_advance_hours ?? 3}">
+                min="1" max="8" step="1" value="${ihcEsc(a.forecast_advance_hours ?? 3)}">
               <span class="form-hint">Um wie viele Stunden früher soll die Heizung anspringen. Empfehlung: 2–4 Stunden.</span>
             </div>
             <div class="settings-item">
               <label>Vorschau-Tage</label>
               <input type="number" class="form-input" id="s-forecast-lookahead-days"
-                min="1" max="3" step="1" value="${a.forecast_lookahead_days ?? 1}">
+                min="1" max="3" step="1" value="${ihcEsc(a.forecast_lookahead_days ?? 1)}">
               <span class="form-hint">1 = nur heute Nacht (bisheriges Verhalten). 2–3 reagieren schon auf einen Kälteeinbruch, der erst in 1–2 Tagen kommt.</span>
             </div>
           </div>
@@ -6096,17 +6275,17 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="settings-item">
               <label>Absenkungsbetrag (°C)</label>
-              <input type="number" class="form-input" id="night-setback-offset" min="0.5" max="6" step="0.5" value="${a.night_setback_offset ?? 2}">
+              <input type="number" class="form-input" id="night-setback-offset" min="0.5" max="6" step="0.5" value="${ihcEsc(a.night_setback_offset ?? 2)}">
               <span class="form-hint">Um diesen Betrag werden alle Zieltemperaturen in der Nacht reduziert.</span>
             </div>
             <div class="settings-item">
               <label>Vorheiz-Vorlaufzeit (min)</label>
-              <input type="number" class="form-input" id="preheat-minutes" min="0" max="120" step="5" value="${a.preheat_minutes ?? 0}">
+              <input type="number" class="form-input" id="preheat-minutes" min="0" max="120" step="5" value="${ihcEsc(a.preheat_minutes ?? 0)}">
               <span class="form-hint">Heizung startet so viele Minuten <em>vor</em> dem Zeitplan-Beginn – damit das Zimmer schon warm ist wenn du aufstehst. 0 = deaktiviert.</span>
             </div>
             <div class="settings-item">
               <label>Sonnen-Entität</label>
-              <input type="text" class="form-input" id="sun-entity" placeholder="sun.sun" value="${a.sun_entity ?? 'sun.sun'}">
+              <input type="text" class="form-input" id="sun-entity" placeholder="sun.sun" value="${ihcEsc(a.sun_entity ?? 'sun.sun')}">
               <span class="form-hint">Wird für die Nacht-Erkennung genutzt. Standard <code>sun.sun</code> ist in HA immer vorhanden.</span>
             </div>
           </div>
@@ -6138,22 +6317,22 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Auto-Away Verzögerung (min)</label>
               <div style="display:flex;align-items:center;gap:8px">
-                <input type="range" id="s-presence-away-delay" min="0" max="120" step="5" value="${a.presence_away_delay_minutes ?? 0}" style="flex:1">
-                <span id="s-presence-away-delay-val" style="min-width:42px;text-align:right">${a.presence_away_delay_minutes ?? 0} min</span>
+                <input type="range" id="s-presence-away-delay" min="0" max="120" step="5" value="${ihcEsc(a.presence_away_delay_minutes ?? 0)}" style="flex:1">
+                <span id="s-presence-away-delay-val" style="min-width:42px;text-align:right">${ihcEsc(a.presence_away_delay_minutes ?? 0)} min</span>
               </div>
               <span class="form-hint">Wie lange alle Personen abwesend sein müssen bevor IHC auf Abwesend-Modus schaltet. 0 = sofort.</span>
             </div>
             <div class="settings-item">
               <label>Ankunfts-Verzögerung (min)</label>
               <div style="display:flex;align-items:center;gap:8px">
-                <input type="range" id="s-presence-arrive-delay" min="0" max="30" step="1" value="${a.presence_arrive_delay_minutes ?? 0}" style="flex:1">
-                <span id="s-presence-arrive-delay-val" style="min-width:42px;text-align:right">${a.presence_arrive_delay_minutes ?? 0} min</span>
+                <input type="range" id="s-presence-arrive-delay" min="0" max="30" step="1" value="${ihcEsc(a.presence_arrive_delay_minutes ?? 0)}" style="flex:1">
+                <span id="s-presence-arrive-delay-val" style="min-width:42px;text-align:right">${ihcEsc(a.presence_arrive_delay_minutes ?? 0)} min</span>
               </div>
               <span class="form-hint">Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).</span>
             </div>
             <div class="settings-item">
               <label>Manuelle Zimmer-Übersteuerung – fester Timeout (min)</label>
-              <input type="number" class="form-input" id="manual-override-timeout" min="0" max="480" step="5" value="${a.manual_override_timeout_minutes ?? 0}">
+              <input type="number" class="form-input" id="manual-override-timeout" min="0" max="480" step="5" value="${ihcEsc(a.manual_override_timeout_minutes ?? 0)}">
               <span class="form-hint">Setzt ein manuell übersteuertes Zimmer nach dieser Zeit automatisch zurück auf den Zeitplan, unabhängig vom bestehenden Reset bei Zeitplan-Wechsel. 0 = aus.</span>
             </div>
           </div>
@@ -6182,7 +6361,7 @@ class IHCPanel extends HTMLElement {
                 <div class="settings-item">
                   <label>Vorheizen ab (min vor Ankunft)</label>
                   <input type="number" class="form-input" id="eta-preheat-threshold"
-                    min="10" max="120" step="5" value="${a.eta_preheat_threshold_minutes ?? 90}">
+                    min="10" max="120" step="5" value="${ihcEsc(a.eta_preheat_threshold_minutes ?? 90)}">
                   <span class="form-hint">Vorheizen startet wenn Ankunft ≤ diesem Wert (Standard: 90 min)</span>
                 </div>
               </div>
@@ -6198,7 +6377,7 @@ class IHCPanel extends HTMLElement {
                   if (mins < 0 || mins > (a.eta_preheat_threshold_minutes ?? 90)) return null;
                   const name = st.attributes?.friendly_name || eid;
                   const time = arrival.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-                  return `<div style="font-size:11px;color:#1565c0;margin-top:4px">⏱ ${this._esc(name)}: ~${mins} min (${time} Uhr)</div>`;
+                  return `<div style="font-size:11px;color:#1565c0;margin-top:4px">⏱ ${this._esc(name)}: ~${ihcEsc(mins)} min (${ihcEsc(time)} Uhr)</div>`;
                 }).filter(Boolean);
                 if (!arrivals.length) return `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px">Kein ETA erkannt im konfigurierten Fenster</div>`;
                 return `<div style="margin-top:8px;padding:8px;background:#e3f2fd;border-radius:8px;border:1px solid #1565c0">${arrivals.join("")}</div>`;
@@ -6227,7 +6406,7 @@ class IHCPanel extends HTMLElement {
           <div class="settings-grid">
             <div class="settings-item">
               <label>Standarddauer (Stunden)</label>
-              <input type="number" class="form-input" id="guest-duration" min="0" max="168" step="1" value="${a.guest_duration_hours ?? 24}">
+              <input type="number" class="form-input" id="guest-duration" min="0" max="168" step="1" value="${ihcEsc(a.guest_duration_hours ?? 24)}">
               <span class="form-hint">Wie lange der Gäste-Modus aktiv bleibt. 0 = unbegrenzt (bis manuell beendet). Max 168 h (7 Tage).</span>
             </div>
           </div>
@@ -6268,7 +6447,7 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="settings-item">
               <label>Fester Energiepreis (€/kWh) <span style="font-size:10px;color:var(--secondary-text-color)">(optional)</span></label>
-              <input type="number" class="form-input" id="static-energy-price" min="0.01" max="2" step="0.01" value="${a.static_energy_price ?? ''}" placeholder="z.B. 0.09 (leer = nur kWh)">
+              <input type="number" class="form-input" id="static-energy-price" min="0.01" max="2" step="0.01" value="${ihcEsc(a.static_energy_price ?? '')}" placeholder="z.B. 0.09 (leer = nur kWh)">
               <span class="form-hint">Wenn kein dynamischer Preis-Sensor vorhanden: fester Preis für die Kostenanzeige (Gas ≈ 0,09 €/kWh, Fernwärme ≈ 0,11 €/kWh).</span>
             </div>
           </div>
@@ -6282,17 +6461,17 @@ class IHCPanel extends HTMLElement {
               <label>Solar-Leistungssensor</label>
               <input type="text" class="form-input" id="solar-entity"
                 placeholder="sensor.solar_power (leer = aus)"
-                value="${a.solar_entity ?? ''}" data-ep-domains="sensor" autocomplete="off">
+                value="${ihcEsc(a.solar_entity ?? '')}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Sensor der die aktuelle Erzeugungsleistung in Watt liefert.</span>
             </div>
             <div class="settings-item">
               <label>Überschuss-Schwelle (W)</label>
-              <input type="number" class="form-input" id="solar-surplus-threshold" min="100" max="10000" step="100" value="${a.solar_surplus_threshold ?? 1000}">
+              <input type="number" class="form-input" id="solar-surplus-threshold" min="100" max="10000" step="100" value="${ihcEsc(a.solar_surplus_threshold ?? 1000)}">
               <span class="form-hint">Erst ab diesem Überschuss wird der Heizboost aktiviert.</span>
             </div>
             <div class="settings-item">
               <label>Heizboost bei Solar (°C)</label>
-              <input type="number" class="form-input" id="solar-boost-temp" min="0.5" max="5" step="0.5" value="${a.solar_boost_temp ?? 1}">
+              <input type="number" class="form-input" id="solar-boost-temp" min="0.5" max="5" step="0.5" value="${ihcEsc(a.solar_boost_temp ?? 1)}">
               <span class="form-hint">Alle Zieltemperaturen werden um diesen Wert angehoben wenn Solar-Überschuss vorhanden ist.</span>
             </div>
           </div>
@@ -6320,24 +6499,24 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="settings-item">
               <label>Spätestens öffnen um</label>
-              <input type="time" class="form-input" id="solar-morning-latest" value="${a.solar_morning_latest_time || "09:30"}">
+              <input type="time" class="form-input" id="solar-morning-latest" value="${ihcEsc(a.solar_morning_latest_time || "09:30")}">
               <span class="form-hint">Für Fassaden ohne Sonne (z. B. Nordseite) oder trübe Tage.</span>
             </div>
           </div>
           <div class="settings-grid">
             <div class="settings-item">
               <label>Min. Sonnenhöhe (°)</label>
-              <input type="number" class="form-input" id="solar-min-elevation" min="0" max="45" step="1" value="${a.solar_min_elevation ?? 10}">
+              <input type="number" class="form-input" id="solar-min-elevation" min="0" max="45" step="1" value="${ihcEsc(a.solar_min_elevation ?? 10)}">
               <span class="form-hint">Erst ab dieser Sonnenelevation wird die passive Solarheizung/-beschattung aktiv.</span>
             </div>
             <div class="settings-item">
               <label>Beschattungs-Position (%)</label>
-              <input type="number" class="form-input" id="solar-shade-position" min="0" max="100" step="5" value="${a.solar_shade_position ?? 20}">
+              <input type="number" class="form-input" id="solar-shade-position" min="0" max="100" step="5" value="${ihcEsc(a.solar_shade_position ?? 20)}">
               <span class="form-hint">Rolladen-Position bei aktiver Beschattung (0 = ganz zu, 100 = ganz offen).</span>
             </div>
             <div class="settings-item">
               <label>Min. Außentemp. für Solarheizung (°C)</label>
-              <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-25" max="15" step="0.5" value="${a.solar_heat_min_outdoor ?? -20}">
+              <input type="number" class="form-input" id="solar-heat-min-outdoor" min="-25" max="15" step="0.5" value="${ihcEsc(a.solar_heat_min_outdoor ?? -20)}">
               <span class="form-hint">Standard −20 °C: Sonne durchs Fenster lohnt sich auch bei Frost.</span>
             </div>
           </div>
@@ -6351,12 +6530,22 @@ class IHCPanel extends HTMLElement {
           <div class="settings-grid">
             <div class="settings-item">
               <label>Wind-Schwelle (km/h)</label>
-              <input type="number" class="form-input" id="solar-wind-speed-threshold" min="10" max="120" step="5" value="${a.solar_wind_speed_threshold ?? 40}">
-              <span class="form-hint">Ab dieser Windgeschwindigkeit werden Rolladen angehoben. Muss zur Einheit des Wetter-Entity passen.</span>
+              <input type="number" class="form-input" id="solar-wind-speed-threshold" min="10" max="120" step="5" value="${ihcEsc(a.solar_wind_speed_threshold ?? 40)}">
+              <span class="form-hint">Stufe 2 (Sturm): ab dieser Windgeschwindigkeit oder Böe fahren die Rolladen in Schutzstellung. Muss zur Einheit des Wetter-Entity passen.</span>
+            </div>
+            <div class="settings-item">
+              <label>Warn-Schwelle (km/h)</label>
+              <input type="number" class="form-input" id="solar-wind-warn-threshold" min="0" max="120" step="5" value="${ihcEsc(a.solar_wind_warn_threshold ?? 25)}">
+              <span class="form-hint">Stufe 1 (Wind): ab hier bewegt IHC die Rolladen nicht mehr. 0 = aus.</span>
+            </div>
+            <div class="settings-item">
+              <label>Wartezeit nach dem Sturm (min)</label>
+              <input type="number" class="form-input" id="solar-weather-resume" min="0" max="120" step="5" value="${ihcEsc(a.solar_weather_resume_minutes ?? 15)}">
+              <span class="form-hint">So lange muss es ruhig bleiben, bevor die Rolladen wieder normal gesteuert werden – kein Hin und Her bei Böen.</span>
             </div>
             <div class="settings-item">
               <label>Rollo-Übersteuerung – Re-Arm-Zeit (min)</label>
-              <input type="number" class="form-input" id="solar-override-rearm" min="10" max="720" step="10" value="${a.solar_cover_override_rearm_minutes ?? 120}">
+              <input type="number" class="form-input" id="solar-override-rearm" min="10" max="720" step="10" value="${ihcEsc(a.solar_cover_override_rearm_minutes ?? 120)}">
               <span class="form-hint">Wie lange IHC ein von Hand verstelltes Rollo in Ruhe lässt, bevor es die Steuerung wieder übernimmt.</span>
             </div>
           </div>
@@ -6376,11 +6565,11 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="settings-item">
               <label>Uhrzeit (nur Modus "Feste Uhrzeit")</label>
-              <input type="time" class="form-input" id="solar-privacy-time" value="${a.solar_evening_privacy_time ?? "21:00"}">
+              <input type="time" class="form-input" id="solar-privacy-time" value="${ihcEsc(a.solar_evening_privacy_time ?? "21:00")}">
             </div>
             <div class="settings-item">
               <label>Rolladen-Position (%)</label>
-              <input type="number" class="form-input" id="solar-privacy-position" min="0" max="100" step="5" value="${a.solar_evening_privacy_position ?? 0}">
+              <input type="number" class="form-input" id="solar-privacy-position" min="0" max="100" step="5" value="${ihcEsc(a.solar_evening_privacy_position ?? 0)}">
             </div>
           </div>
           <hr class="divider">
@@ -6392,11 +6581,11 @@ class IHCPanel extends HTMLElement {
           <div class="settings-grid">
             <div class="settings-item">
               <label>Ein-Schwelle (lx)</label>
-              <input type="number" class="form-input" id="solar-lux-on" min="0" max="2000" step="10" value="${a.lux_on_threshold ?? 350}">
+              <input type="number" class="form-input" id="solar-lux-on" min="0" max="2000" step="10" value="${ihcEsc(a.lux_on_threshold ?? 350)}">
             </div>
             <div class="settings-item">
               <label>Aus-Schwelle (lx)</label>
-              <input type="number" class="form-input" id="solar-lux-off" min="0" max="2000" step="10" value="${a.lux_off_threshold ?? 270}">
+              <input type="number" class="form-input" id="solar-lux-off" min="0" max="2000" step="10" value="${ihcEsc(a.lux_off_threshold ?? 270)}">
             </div>
           </div>
           <hr class="divider">
@@ -6408,11 +6597,11 @@ class IHCPanel extends HTMLElement {
           <div class="settings-grid">
             <div class="settings-item">
               <label>Max. Sonnenhöhe (°)</label>
-              <input type="number" class="form-input" id="solar-glare-max-elevation" min="0" max="30" step="1" value="${a.solar_glare_max_elevation ?? 15}">
+              <input type="number" class="form-input" id="solar-glare-max-elevation" min="0" max="30" step="1" value="${ihcEsc(a.solar_glare_max_elevation ?? 15)}">
             </div>
             <div class="settings-item">
               <label>Rolladen-Position (%)</label>
-              <input type="number" class="form-input" id="solar-glare-position" min="0" max="100" step="5" value="${a.solar_glare_position ?? 30}">
+              <input type="number" class="form-input" id="solar-glare-position" min="0" max="100" step="5" value="${ihcEsc(a.solar_glare_position ?? 30)}">
             </div>
           </div>
           <hr class="divider">
@@ -6425,24 +6614,24 @@ class IHCPanel extends HTMLElement {
               <label>Preis-Sensor</label>
               <input type="text" class="form-input" id="energy-price-entity"
                 placeholder="sensor.strompreis (leer = aus)"
-                value="${a.energy_price_entity ?? ''}" data-ep-domains="sensor" autocomplete="off">
+                value="${ihcEsc(a.energy_price_entity ?? '')}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">z.B. Tibber-Integration <code>sensor.tibber_current_price</code>.</span>
             </div>
             <div class="settings-item">
               <label>Teuer-Schwelle (€/kWh)</label>
-              <input type="number" class="form-input" id="energy-price-threshold" min="0.05" max="2" step="0.01" value="${a.energy_price_threshold ?? 0.30}">
+              <input type="number" class="form-input" id="energy-price-threshold" min="0.05" max="2" step="0.01" value="${ihcEsc(a.energy_price_threshold ?? 0.30)}">
               <span class="form-hint">Über diesem Preis gilt Strom als „teuer" und der Eco-Modus wird aktiv.</span>
             </div>
             <div class="settings-item">
               <label>Eco-Absenkung bei hohem Preis (°C)</label>
-              <input type="number" class="form-input" id="energy-price-eco-offset" min="0.5" max="6" step="0.5" value="${a.energy_price_eco_offset ?? 2}">
+              <input type="number" class="form-input" id="energy-price-eco-offset" min="0.5" max="6" step="0.5" value="${ihcEsc(a.energy_price_eco_offset ?? 2)}">
               <span class="form-hint">Um diesen Betrag werden die Zieltemperaturen in der teuren Zeit reduziert.</span>
             </div>
             <div class="settings-item">
               <label>Preis-Prognose-Attribut</label>
               <input type="text" class="form-input" id="price-forecast-attribute"
                 placeholder="today_prices"
-                value="${a.price_forecast_attribute ?? 'today_prices'}">
+                value="${ihcEsc(a.price_forecast_attribute ?? 'today_prices')}">
               <span class="form-hint">Attributname für stündliche Preise (Tibber/Nordpool). Standard: <code>today_prices</code>.</span>
             </div>
           </div>
@@ -6465,16 +6654,16 @@ class IHCPanel extends HTMLElement {
           <div class="settings-grid">
             <div class="settings-item">
               <label>Batterie-Ladestand-Sensor</label>
-              <input type="text" class="form-input" id="battery-soc-entity" value="${a.battery_soc_entity ?? ""}"
+              <input type="text" class="form-input" id="battery-soc-entity" value="${ihcEsc(a.battery_soc_entity ?? "")}"
                 placeholder="sensor.hausbatterie_ladestand" data-ep-domains="sensor" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>Batterie niedrig ab (%)</label>
-              <input type="number" class="form-input" id="battery-soc-low" min="0" max="50" step="5" value="${a.battery_soc_low_threshold ?? 20}">
+              <input type="number" class="form-input" id="battery-soc-low" min="0" max="50" step="5" value="${ihcEsc(a.battery_soc_low_threshold ?? 20)}">
             </div>
             <div class="settings-item">
               <label>Batterie voll genug ab (%)</label>
-              <input type="number" class="form-input" id="battery-soc-full" min="50" max="100" step="5" value="${a.battery_soc_full_threshold ?? 90}">
+              <input type="number" class="form-input" id="battery-soc-full" min="50" max="100" step="5" value="${ihcEsc(a.battery_soc_full_threshold ?? 90)}">
               <span class="form-hint">Solar-Boost wird erst ab diesem Ladestand freigegeben.</span>
             </div>
           </div>
@@ -6503,7 +6692,7 @@ class IHCPanel extends HTMLElement {
               <label>Außenfeuchte-Sensor</label>
               <input type="text" class="form-input" id="outdoor-humidity-sensor"
                 placeholder="sensor.aussenfeuchte (leer = deaktiviert)"
-                value="${a.outdoor_humidity_sensor ?? ''}" data-ep-domains="sensor" autocomplete="off">
+                value="${ihcEsc(a.outdoor_humidity_sensor ?? '')}" data-ep-domains="sensor" autocomplete="off">
               <span class="form-hint">Wird genutzt um zu prüfen ob Lüften bei hoher Außenfeuchte (Nebel, Regen) sinnvoll ist. Verhindert unnötige Empfehlungen.</span>
             </div>
             <div class="settings-item">
@@ -6542,7 +6731,7 @@ class IHCPanel extends HTMLElement {
                 damit die Heizung genau dann fertig ist wenn der Zeitplan beginnt.<br>
                 <strong>Benötigt:</strong> globale Vorheizzeit &gt; 0 min (Einstellung darunter).
                 ${a.adaptive_preheat_enabled !== false && a.preheat_minutes > 0 ? `
-                <br>Aktuell: fixer Basiswert ${a.preheat_minutes} min – IHC passt diesen pro Zimmer an.` : ""}
+                <br>Aktuell: fixer Basiswert ${ihcEsc(a.preheat_minutes)} min – IHC passt diesen pro Zimmer an.` : ""}
               </span>
             </div>
             <div class="settings-item">
@@ -6570,21 +6759,21 @@ class IHCPanel extends HTMLElement {
               <label>Urlaubs-Kalender</label>
               <input type="text" class="form-input" id="vacation-calendar"
                 placeholder="calendar.urlaub (leer = aus)"
-                value="${a.vacation_calendar ?? ''}" data-ep-domains="calendar" autocomplete="off">
+                value="${ihcEsc(a.vacation_calendar ?? '')}" data-ep-domains="calendar" autocomplete="off">
               <span class="form-hint">Kalender-Entität aus HA. Termine die das Schlüsselwort „urlaub" im Namen enthalten schalten automatisch den Urlaubs-Modus ein.</span>
             </div>
             <div class="settings-item">
               <label>Urlaubs-Kalender Stichwort</label>
               <input type="text" class="form-input" id="vacation-calendar-keyword"
                 placeholder="urlaub"
-                value="${a.vacation_calendar_keyword ?? 'urlaub'}">
+                value="${ihcEsc(a.vacation_calendar_keyword ?? 'urlaub')}">
               <span class="form-hint">Stichwort im Termintext das den Urlaubs-Kalender oben auslöst (Standard: „urlaub").</span>
             </div>
             <div class="settings-item">
               <label>Feiertags-/Ferienkalender</label>
               <input type="text" class="form-input" id="holiday-calendar"
                 placeholder="calendar.feiertage (leer = aus)"
-                value="${a.holiday_calendar ?? ''}" data-ep-domains="calendar" autocomplete="off">
+                value="${ihcEsc(a.holiday_calendar ?? '')}" data-ep-domains="calendar" autocomplete="off">
               <span class="form-hint">HA-Kalender-Entität. Wenn ein Termin aktiv → Wochenend-Zeitplan oder Komfortmodus.
                 ${g.holiday_active ? '<strong style="color:#1565c0">📅 Feiertag/Ferien aktiv</strong>' : ""}</span>
             </div>
@@ -6609,7 +6798,7 @@ class IHCPanel extends HTMLElement {
             </div>
             <div class="settings-item">
               <label>Max. Anhebung (°C)</label>
-              <input type="number" class="form-input" id="felt-temp-max" min="0.5" max="4" step="0.5" value="${a.felt_temp_adjustment_max ?? 1.5}">
+              <input type="number" class="form-input" id="felt-temp-max" min="0.5" max="4" step="0.5" value="${ihcEsc(a.felt_temp_adjustment_max ?? 1.5)}">
               <span class="form-hint">Obergrenze für die Sollwert-Anhebung durch die gefühlte Temperatur.</span>
             </div>
           </div>
@@ -6640,31 +6829,31 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Intervall (Tage)</label>
               <input type="number" class="form-input" id="limescale-interval" min="7" max="90" step="1"
-                value="${a.limescale_interval_days ?? 14}">
+                value="${ihcEsc(a.limescale_interval_days ?? 14)}">
               <span class="form-hint">Alle N Tage wird die Übung durchgeführt (Standard: 14 Tage).</span>
             </div>
             <div class="settings-item">
               <label>Uhrzeit (HH:MM)</label>
               <input type="text" class="form-input" id="limescale-time" placeholder="10:00"
-                value="${a.limescale_time ?? '10:00'}">
+                value="${ihcEsc(a.limescale_time ?? '10:00')}">
               <span class="form-hint">Zeitfenster (±15 min) für die Ventil-Übung. Wähle eine Zeit wenn niemand zuhause friert.</span>
             </div>
             <div class="settings-item">
               <label>Dauer (min)</label>
               <input type="number" class="form-input" id="limescale-duration" min="1" max="30" step="1"
-                value="${a.limescale_duration_minutes ?? 5}">
+                value="${ihcEsc(a.limescale_duration_minutes ?? 5)}">
               <span class="form-hint">Wie lange die Ventile vollständig geöffnet bleiben (Standard: 5 min).</span>
             </div>
             <div class="settings-item">
               <label>Stuck-Valve Timeout (s)</label>
               <input type="number" class="form-input" id="stuck-valve-timeout" min="300" max="7200" step="300"
-                value="${a.stuck_valve_timeout ?? 1800}">
+                value="${ihcEsc(a.stuck_valve_timeout ?? 1800)}">
               <span class="form-hint">Sekunden bis ein klemmendes Ventil als Fehler gemeldet wird (Standard: 1800 = 30 min). Erkannte Fehler erscheinen als binary_sensor.</span>
             </div>
             <div class="settings-item">
               <label>Startup-Gnadenfrist (s)</label>
               <input type="number" class="form-input" id="startup-grace-seconds" min="0" max="300" step="10"
-                value="${a.startup_grace_seconds ?? 60}">
+                value="${ihcEsc(a.startup_grace_seconds ?? 60)}">
               <span class="form-hint">Sekunden nach HA-Start bevor Zigbee/Z-Wave-Sensoren als ungültig gelten (Standard: 60s). Verhindert Fehlalarme beim Neustart.</span>
             </div>
           </div>
@@ -6695,7 +6884,7 @@ class IHCPanel extends HTMLElement {
             <div class="settings-item">
               <label>Staffelungsverzögerung (min)</label>
               <input type="number" class="form-input" id="peak-shaving-delay" min="1" max="15" step="1"
-                value="${a.peak_shaving_delay_minutes ?? 3}">
+                value="${ihcEsc(a.peak_shaving_delay_minutes ?? 3)}">
               <span class="form-hint">Nach dem Einschalten der Heizung werden Räume mit niedrigerer Anforderung erst nach dieser Zeit voll gezählt.</span>
             </div>
           </div>
@@ -6723,17 +6912,17 @@ class IHCPanel extends HTMLElement {
           <div class="settings-grid">
             <div class="settings-item" style="grid-column:1/-1">
               <label>Kessel-/Pumpen-Schalter</label>
-              <input type="text" class="form-input" id="boiler-switch-entity" value="${a.boiler_switch_entity ?? ""}"
+              <input type="text" class="form-input" id="boiler-switch-entity" value="${ihcEsc(a.boiler_switch_entity ?? "")}"
                 placeholder="switch.heizungspumpe" data-ep-domains="switch" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>Mindest-Einschaltzeit (s)</label>
-              <input type="number" class="form-input" id="boiler-min-on" min="0" max="1800" step="30" value="${a.boiler_min_on_seconds ?? 300}">
+              <input type="number" class="form-input" id="boiler-min-on" min="0" max="1800" step="30" value="${ihcEsc(a.boiler_min_on_seconds ?? 300)}">
               <span class="form-hint">Schützt die Hardware vor Kurztakten.</span>
             </div>
             <div class="settings-item">
               <label>Mindest-Ausschaltzeit (s)</label>
-              <input type="number" class="form-input" id="boiler-min-off" min="0" max="1800" step="30" value="${a.boiler_min_off_seconds ?? 300}">
+              <input type="number" class="form-input" id="boiler-min-off" min="0" max="1800" step="30" value="${ihcEsc(a.boiler_min_off_seconds ?? 300)}">
             </div>
           </div>
           <div class="btn-row">
@@ -6772,15 +6961,15 @@ class IHCPanel extends HTMLElement {
           <div class="settings-grid">
             <div class="settings-item">
               <label>Urlaub von</label>
-              <input type="date" class="form-input" id="vacation-start" value="${a.vacation_start || ""}">
+              <input type="date" class="form-input" id="vacation-start" value="${ihcEsc(a.vacation_start || "")}">
             </div>
             <div class="settings-item">
               <label>Urlaub bis (inkl.)</label>
-              <input type="date" class="form-input" id="vacation-end" value="${a.vacation_end || ""}">
+              <input type="date" class="form-input" id="vacation-end" value="${ihcEsc(a.vacation_end || "")}">
             </div>
             <div class="settings-item">
               <label>Rückkehr-Vorheizung (Tage)</label>
-              <input type="number" class="form-input" id="vacation-return-preheat" min="0" max="14" step="1" value="${a.vacation_return_preheat_days ?? 0}">
+              <input type="number" class="form-input" id="vacation-return-preheat" min="0" max="14" step="1" value="${ihcEsc(a.vacation_return_preheat_days ?? 0)}">
               <span class="form-hint">N Tage vor Ende auf Auto schalten (0 = aus)</span>
             </div>
           </div>
@@ -6871,6 +7060,7 @@ class IHCPanel extends HTMLElement {
         heating_period_notify_enabled: content.querySelector("#hp-notify-enabled")?.checked === true,
         warmup_stall_notify_enabled: content.querySelector("#warmup-stall-notify-enabled")?.checked === true,
         window_auto_detect_enabled: content.querySelector("#window-auto-detect-enabled")?.checked === true,
+        afterheat_enabled: content.querySelector("#afterheat-enabled")?.checked === true,
         window_auto_detect_drop: Math.min(3, Math.max(0.3, parseFloat(content.querySelector("#window-auto-detect-drop")?.value) || 0.8)),
         window_auto_detect_minutes: Math.min(20, Math.max(2, parseInt(content.querySelector("#window-auto-detect-minutes")?.value, 10) || 6)),
         window_auto_detect_hold_minutes: Math.min(90, Math.max(5, parseInt(content.querySelector("#window-auto-detect-hold")?.value, 10) || 20)),
@@ -6988,6 +7178,7 @@ class IHCPanel extends HTMLElement {
         saving_offset: Math.min(3, Math.max(0, parseFloat(savingRange?.value) || 0)),
         window_reminder_minutes: isNaN(reminder) ? 15 : Math.min(120, Math.max(0, reminder)),
         presence_auto_persons: content.querySelector("#presence-auto-persons")?.checked === true,
+        monthly_report_enabled: content.querySelector("#monthly-report")?.checked === true,
       });
       this._toast("✓ Spar-Einstellungen gespeichert");
     });
@@ -7037,6 +7228,8 @@ class IHCPanel extends HTMLElement {
         solar_morning_latest_time: content.querySelector("#solar-morning-latest")?.value || "09:30",
         solar_weather_protection_enabled: content.querySelector("#solar-weather-protection-enabled")?.checked === true,
         solar_wind_speed_threshold: solarWindSpeedThreshold,
+        solar_wind_warn_threshold: Math.min(120, Math.max(0, parseFloat(content.querySelector("#solar-wind-warn-threshold")?.value) || 0)),
+        solar_weather_resume_minutes: Math.min(120, Math.max(0, parseInt(content.querySelector("#solar-weather-resume")?.value, 10) || 0)),
         solar_cover_override_rearm_minutes: solarOverrideRearm,
         solar_evening_privacy_mode:     content.querySelector("#solar-privacy-mode")?.value || "sunset",
         solar_evening_privacy_time:     content.querySelector("#solar-privacy-time")?.value || "21:00",
@@ -7275,18 +7468,18 @@ class IHCPanel extends HTMLElement {
           return `
           <div class="card" style="margin-bottom:10px;padding:12px">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span style="font-weight:600;font-size:14px;flex:1">${grp.group_name || "Gruppe"}</span>
-              <span style="font-size:11px;color:var(--secondary-text-color)">${(grp.group_rooms||[]).length} Zimmer</span>
+              <span style="font-weight:600;font-size:14px;flex:1">${ihcEsc(grp.group_name || "Gruppe")}</span>
+              <span style="font-size:11px;color:var(--secondary-text-color)">${ihcEsc((grp.group_rooms||[]).length)} Zimmer</span>
               <button class="btn btn-secondary" style="font-size:11px;padding:3px 10px"
-                data-action="edit-group" data-group-id="${grp.group_id}">✏️ Bearbeiten</button>
+                data-action="edit-group" data-group-id="${ihcEsc(grp.group_id)}">✏️ Bearbeiten</button>
               <button class="btn btn-danger" style="font-size:11px;padding:3px 10px"
-                data-action="delete-group" data-group-id="${grp.group_id}">✕</button>
+                data-action="delete-group" data-group-id="${ihcEsc(grp.group_id)}">✕</button>
             </div>
-            ${memberNames ? `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:4px">🚪 ${memberNames}</div>` : ""}
+            ${memberNames ? `<div style="font-size:11px;color:var(--secondary-text-color);margin-top:4px">🚪 ${ihcEsc(memberNames)}</div>` : ""}
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
               ${["auto","comfort","eco","sleep","away","off"].map(m =>
                 `<button class="btn btn-secondary" style="font-size:11px;padding:3px 8px"
-                  data-action="group-mode" data-group-id="${grp.group_id}" data-mode="${m}">${MODE_ICONS[m]||""} ${MODE_LABELS[m]||m}</button>`
+                  data-action="group-mode" data-group-id="${ihcEsc(grp.group_id)}" data-mode="${m}">${ihcEsc(MODE_ICONS[m]||"")} ${ihcEsc(MODE_LABELS[m]||m)}</button>`
               ).join("")}
             </div>
           </div>`;
@@ -7336,9 +7529,9 @@ class IHCPanel extends HTMLElement {
     const existingRooms = group?.group_rooms || [];
     const roomCheckboxes = roomList.map(r => `
       <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
-        <input type="checkbox" data-room-id="${r.room_id}" ${existingRooms.includes(r.room_id) ? "checked" : ""}>
+        <input type="checkbox" data-room-id="${ihcEsc(r.room_id)}" ${existingRooms.includes(r.room_id) ? "checked" : ""}>
         <span>${this._esc(r.name)}</span>
-        <span style="font-size:10px;color:var(--secondary-text-color)">${r.current_temp != null ? r.current_temp + " °C" : ""}</span>
+        <span style="font-size:10px;color:var(--secondary-text-color)">${r.current_temp != null ? ihcEsc(r.current_temp) + " °C" : ""}</span>
       </label>`).join("");
 
     this._showModal(`
@@ -7346,7 +7539,7 @@ class IHCPanel extends HTMLElement {
       <div class="form-group">
         <label class="form-label">Gruppenname</label>
         <input type="text" class="form-input full" id="g-name"
-          value="${group?.group_name || ''}" placeholder="z.B. Erdgeschoss, Schlafzimmer" autocomplete="off">
+          value="${ihcEsc(group?.group_name || '')}" placeholder="z.B. Erdgeschoss, Schlafzimmer" autocomplete="off">
       </div>
       <div class="form-group">
         <label class="form-label">Zimmer auswählen</label>
@@ -7403,8 +7596,8 @@ class IHCPanel extends HTMLElement {
 
     const rows = curve.map((pt, i) => `
       <tr>
-        <td><input type="number" class="curve-outdoor" value="${pt.outdoor_temp}" step="1" min="-30" max="40"> °C</td>
-        <td><input type="number" class="curve-target"  value="${pt.target_temp}"  step="0.5" min="10" max="35"> °C</td>
+        <td><input type="number" class="curve-outdoor" value="${ihcEsc(pt.outdoor_temp)}" step="1" min="-30" max="40"> °C</td>
+        <td><input type="number" class="curve-target"  value="${ihcEsc(pt.target_temp)}"  step="0.5" min="10" max="35"> °C</td>
         <td><button class="btn btn-danger btn-icon" data-action="del-row">✕</button></td>
       </tr>`).join("");
 
@@ -7413,8 +7606,8 @@ class IHCPanel extends HTMLElement {
         <div class="card-title">📈 Heizkurve</div>
         <div class="info-box">
           Basis-Solltemperatur in Abhängigkeit der Außentemperatur.
-          Jetzt: Außen <strong>${ot ? ot.state + " °C" : "—"}</strong>
-          → Ziel <strong>${ct ? ct.state + " °C" : "—"}</strong>
+          Jetzt: Außen <strong>${ot ? ihcEsc(ot.state) + " °C" : "—"}</strong>
+          → Ziel <strong>${ct ? ihcEsc(ct.state) + " °C" : "—"}</strong>
         </div>
         <table class="curve-table">
           <thead><tr>
@@ -7515,7 +7708,7 @@ class IHCPanel extends HTMLElement {
         const offset = parseFloat(r.room_offset ?? 0);
         const eff = (base + offset).toFixed(1);
         return `<span style="font-size:11px;padding:3px 8px;border-radius:8px;background:var(--secondary-background-color);border:1px solid var(--divider-color)">
-          ${this._esc(r.name)}: <strong>${eff} °C</strong>${offset !== 0 ? ` <span style="color:var(--secondary-text-color)">(${offset > 0 ? "+" : ""}${offset})</span>` : ""}
+          ${this._esc(r.name)}: <strong>${ihcEsc(eff)} °C</strong>${offset !== 0 ? ` <span style="color:var(--secondary-text-color)">(${offset > 0 ? "+" : ""}${ihcEsc(offset)})</span>` : ""}
         </span>`;
       }).join("");
     };
@@ -7627,7 +7820,7 @@ class IHCPanel extends HTMLElement {
         <label class="form-label">🏠 Aus Home-Assistant-Bereich übernehmen</label>
         <select class="form-select" id="m-area">
           <option value="">– manuell eingeben –</option>
-          ${found.map(r => `<option value="${this._esc(r.area_id)}" ${p.area_id === r.area_id ? "selected" : ""}>${this._esc(r.name)} (${r.valves.length} Thermostat${r.valves.length > 1 ? "e" : ""}${r.temp_sensor ? ", Thermometer" : ""}${r.windows.length ? ", Fenster" : ""})</option>`).join("")}
+          ${found.map(r => `<option value="${this._esc(r.area_id)}" ${p.area_id === r.area_id ? "selected" : ""}>${this._esc(r.name)} (${ihcEsc(r.valves.length)} Thermostat${r.valves.length > 1 ? "e" : ""}${r.temp_sensor ? ", Thermometer" : ""}${r.windows.length ? ", Fenster" : ""})</option>`).join("")}
         </select>
         <span class="form-hint">Füllt die Felder unten mit den Geräten aus diesem Bereich.</span>
       </div>` : ""}
@@ -7659,7 +7852,7 @@ class IHCPanel extends HTMLElement {
       <div class="form-group">
         <label class="form-label">😊 Wohlfühltemperatur</label>
         <div class="comfort-pick">
-          <input type="range" id="m-comfort-range" min="16" max="26" step="0.5" value="${p.comfort_temp ?? 21}">
+          <input type="range" id="m-comfort-range" min="16" max="26" step="0.5" value="${ihcEsc(p.comfort_temp ?? 21)}">
           <span id="m-comfort-val">${(p.comfort_temp ?? 21).toFixed(1)} °C</span>
         </div>
         <span class="form-hint">Sparen, Schlafen und Abwesend werden automatisch daraus abgeleitet (−3 / −4 / −6 °C).</span>
@@ -7689,7 +7882,7 @@ class IHCPanel extends HTMLElement {
         comfort_temp:    parseFloat(modal.querySelector("#m-comfort-range")?.value) || 21.0,
       });
       this._closeModal();
-      this._toast(`✓ „${this._esc(name)}“ angelegt – HA lädt die Entitäten neu`);
+      this._toast(`✓ „${name}“ angelegt – HA lädt die Entitäten neu`);
     });
     const modal = this.shadowRoot.querySelector("#modal-root .modal");
     const range = modal.querySelector("#m-comfort-range");
@@ -7821,7 +8014,7 @@ class IHCPanel extends HTMLElement {
     row.style.cssText = "display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:6px;align-items:center;margin-bottom:6px";
     row.innerHTML = `
       <input type="text" class="form-input hs-entity" placeholder="schedule.zimmer"
-        data-ep-domains="schedule" autocomplete="off" value="${entry.entity || ''}">
+        data-ep-domains="schedule" autocomplete="off" value="${ihcEsc(entry.entity || '')}">
       <select class="form-select hs-mode" style="min-width:90px">
         <option value="comfort" ${(entry.mode||'comfort')==='comfort'?'selected':''}>Komfort</option>
         <option value="eco"     ${entry.mode==='eco'    ?'selected':''}>Eco</option>
@@ -7829,9 +8022,9 @@ class IHCPanel extends HTMLElement {
         <option value="away"    ${entry.mode==='away'   ?'selected':''}>Abwesend</option>
       </select>
       <input type="text" class="form-input hs-cond" placeholder="Bedingung (optional)"
-        data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off" value="${entry.condition_entity || ''}">
+        data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off" value="${ihcEsc(entry.condition_entity || '')}">
       <input type="text" class="form-input hs-cond-state" placeholder="Zustand"
-        style="width:70px" value="${entry.condition_state || 'on'}">
+        style="width:70px" value="${ihcEsc(entry.condition_state || 'on')}">
       <button class="btn btn-danger btn-icon hs-remove" title="Entfernen">✕</button>`;
     row.querySelector(".hs-remove").addEventListener("click", () => row.remove());
     // Attach entity pickers after row is appended (caller must ensure DOM is ready)

@@ -227,11 +227,11 @@
         <div class="trv-cap-name">${this._esc(this._friendly(c.entity))}
           ${c.manufacturer || c.model ? `<span class="trv-cap-model">${this._esc([c.manufacturer, c.model].filter(Boolean).join(" "))}</span>` : ""}</div>
         <div class="trv-cap-list">
-          <span title="Ventilstellung">${c.valve_source ? yes : no} Ventilstellung</span>
-          <span title="Externer Raumfühler-Eingang">${c.external_sensor ? yes : no} Raumfühler-Eingang</span>
-          <span>${c.supports_off ? yes : no} Aus-Modus</span>
-          <span>${c.supports_boost ? yes : no} Boost</span>
-          ${c.step ? `<span>Schritt ${c.step} °C</span>` : ""}
+          <span title="Ventilstellung">${c.valve_source ? ihcEsc(yes) : ihcEsc(no)} Ventilstellung</span>
+          <span title="Externer Raumfühler-Eingang">${c.external_sensor ? ihcEsc(yes) : ihcEsc(no)} Raumfühler-Eingang</span>
+          <span>${c.supports_off ? ihcEsc(yes) : ihcEsc(no)} Aus-Modus</span>
+          <span>${c.supports_boost ? ihcEsc(yes) : ihcEsc(no)} Boost</span>
+          ${c.step ? `<span>Schritt ${ihcEsc(c.step)} °C</span>` : ""}
         </div>
         ${(c.quirks || []).map(q => `<div class="form-hint">💡 ${this._esc(q)}</div>`).join("")}
       </div>`).join("");
@@ -296,6 +296,9 @@
         })()}
         ${room.external_sensor_sync ? row(true, "🌡️", "Raumfühler im Thermostat", "Das Thermostat regelt mit der echten Raumtemperatur.") : ""}
         ${room.wakeup_enabled ? row(true, "⏰", "Warm aufwachen", "Warm, wenn der Handy-Wecker klingelt.") : ""}
+        ${room.hydraulic_hint === "too_little" ? row(false, "🔧", "Bekommt zu wenig Heizwasser", "💡 Ventil oft ganz offen und trotzdem zu kalt – Voreinstellung am Ventilunterteil höher stellen (hydraulischer Abgleich).") : ""}
+        ${room.hydraulic_hint === "too_much" ? row(false, "🔧", "Bekommt mehr Heizwasser als nötig", "💡 Ventil öffnet kaum – Voreinstellung am Ventilunterteil kleiner stellen, dann bleibt mehr für die anderen Zimmer.") : ""}
+        ${room.afterheat_overshoot ? row(true, "♨️", `Restwärme: +${room.afterheat_overshoot} °C`, "Der Heizkörper heizt so viel nach – IHC schließt das Ventil entsprechend früher.") : ""}
         ${room.feel_learned_offset ? row(true, "🧠", `Gelernt: ${room.feel_learned_offset > 0 ? "+" : ""}${room.feel_learned_offset} °C um diese Zeit`, "Aus deinen „Mir ist kalt/warm“-Rückmeldungen gelernt.") : ""}
         ${row(hasPresence ? true : false, "👤", hasPresence ? "Anwesenheit im Zimmer" : "Keine Zimmer-Anwesenheit",
           hasPresence ? "Senkt ab, wenn niemand im Zimmer ist." : "Optional: Bewegungsmelder oder Personen zuordnen, um leere Zimmer abzusenken.")}
@@ -467,6 +470,14 @@
         aggressive_mode_offset:  state.attributes.aggressive_mode_offset ?? 3,
         // Runtime status
         optimum_stop_active:     state.attributes.optimum_stop_active === true,
+        afterheat_overshoot:     state.attributes.afterheat_overshoot ?? null,
+        afterheat_minutes:       state.attributes.afterheat_minutes ?? null,
+        afterheat_samples:       state.attributes.afterheat_samples ?? 0,
+        afterheat_coasting:      state.attributes.afterheat_coasting === true,
+        sensor_failed:           state.attributes.sensor_failed === true,
+        hydraulic_hint:          state.attributes.hydraulic_hint || null,
+        hydraulic_valve_avg:     state.attributes.hydraulic_valve_avg ?? null,
+        hydraulic_hours:         state.attributes.hydraulic_hours ?? 0,
         optimum_stop_minutes:    state.attributes.optimum_stop_minutes ?? null,
         optimum_stop_predicted:  state.attributes.optimum_stop_predicted ?? null,
         ha_schedule_entity:      state.attributes.ha_schedule_entity || "",
@@ -550,9 +561,13 @@
       total_demand:              dem ? parseFloat(dem.state) || 0 : null,
       // v2.6 – automatic fallbacks, shown in plain language in the UI
       window_auto_detect_enabled: a.window_auto_detect_enabled !== false,
+      afterheat_enabled:         a.afterheat_enabled !== false,
       battery_soc:               ea.battery_soc != null ? parseFloat(ea.battery_soc) : null,
       outdoor_temp_source:       a.outdoor_temp_source || null,
       flow_temp_now:             a.flow_temp_now ?? null,
+      flow_recommendation:       a.flow_recommendation || null,
+      heating_system:            a.heating_system || "gas",
+      savings:                   a.savings || null,
       weather_entity_effective:  a.weather_entity_effective || null,
       presence_entities:         a.presence_entities || [],
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
@@ -622,8 +637,8 @@
       const y = h - ((v - min) / range) * (h - 4) - 2;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     }).join(" ");
-    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;overflow:visible">
-      <polyline points="${pts}" fill="none" stroke="var(--primary-color)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    return `<svg width="${w}" height="${ihcEsc(h)}" viewBox="0 0 ${w} ${ihcEsc(h)}" style="display:block;overflow:visible">
+      <polyline points="${ihcEsc(pts)}" fill="none" stroke="var(--primary-color)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
     </svg>`;
   }
 
@@ -662,7 +677,11 @@
     const root = this.shadowRoot.querySelector("#toast-root");
     if (!root) return;
     if (this._toastTimeout) clearTimeout(this._toastTimeout);
-    root.innerHTML = `<div class="toast">${msg}</div>`;
+    // plain text only (HACS review 2026-11-24) - callers pass raw names, never HTML
+    const div = document.createElement("div");
+    div.className = "toast";
+    div.textContent = msg == null ? "" : String(msg);
+    root.replaceChildren(div);
     this._toastTimeout = setTimeout(() => { root.innerHTML = ""; }, ms);
   }
 
@@ -710,7 +729,7 @@
         const d = id.split(".")[0];
         const cls = ["sensor","climate","switch","binary_sensor","weather","number","input_boolean","person","device_tracker"].includes(d)
           ? `ep-d-${d}` : "ep-d-other";
-        return `<span class="ep-badge ${cls}">${d}</span>`;
+        return `<span class="ep-badge ${ihcEsc(cls)}">${ihcEsc(d)}</span>`;
       };
 
       const stateLabel = (state) => {
@@ -819,7 +838,7 @@
       return `<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;
           padding:6px 10px;border:1px solid var(--divider-color);border-radius:8px;
           background:${checked ? "var(--primary-color,#03a9f4)1a" : "transparent"}">
-        <input type="checkbox" class="presence-cb" value="${this._esc(id)}" ${checked} style="margin:0">
+        <input type="checkbox" class="presence-cb" value="${this._esc(id)}" ${ihcEsc(checked)} style="margin:0">
         ${dot}
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._esc(label)}</span>
         <span style="font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${isHome ? "zuhause" : "weg"}</span>
@@ -851,7 +870,7 @@
           <div id="tracker-overflow" style="display:none;flex-direction:column;gap:4px">${hidden.map(mkChip).join("")}</div>
           <button type="button" id="tracker-toggle"
             style="margin-top:6px;font-size:12px;color:var(--primary-color);background:none;border:none;cursor:pointer;padding:2px 0;text-align:left">
-            ▸ ${hidden.length} weitere Geräte anzeigen
+            ▸ ${ihcEsc(hidden.length)} weitere Geräte anzeigen
           </button>` : ""}`;
     }
 
@@ -871,8 +890,8 @@
           const row = document.createElement("div");
           row.className = "entity-row";
           row.innerHTML = `
-            <input type="text" class="form-input" placeholder="${placeholder}"
-              ${epDomains ? `data-ep-domains="${epDomains}"` : ""} autocomplete="off">
+            <input type="text" class="form-input" placeholder="${ihcEsc(placeholder)}"
+              ${epDomains ? `data-ep-domains="${ihcEsc(epDomains)}"` : ""} autocomplete="off">
             <button class="btn btn-danger btn-icon remove-entity">✕</button>`;
           list.appendChild(row);
           row.querySelector(".remove-entity").addEventListener("click", () => row.remove());
@@ -910,14 +929,14 @@
       return `rgb(${r},${g},${b})`;
     };
     const hourHeaders = Array.from({length: 24}, (_, h) =>
-      `<div style="font-size:8px;text-align:center;color:var(--secondary-text-color);flex:1;min-width:0">${h % 3 === 0 ? h + "" : ""}</div>`
+      `<div style="font-size:8px;text-align:center;color:var(--secondary-text-color);flex:1;min-width:0">${h % 3 === 0 ? ihcEsc(h) + "" : ""}</div>`
     ).join("");
     const rows = heatmap.map((day, di) => {
       const cells = day.map((v, h) =>
-        `<div title="${WDAYS[di]} ${h}:00 – ${Math.round(v)}%" style="flex:1;height:18px;background:${demColor(v)};border-radius:2px;margin:1px;min-width:0"></div>`
+        `<div title="${ihcEsc(WDAYS[di])} ${ihcEsc(h)}:00 – ${Math.round(v)}%" style="flex:1;height:18px;background:${demColor(v)};border-radius:2px;margin:1px;min-width:0"></div>`
       ).join("");
       return `<div style="display:flex;align-items:center;gap:0;margin-bottom:1px">
-        <div style="width:22px;font-size:9px;color:var(--secondary-text-color);flex-shrink:0">${WDAYS[di]}</div>
+        <div style="width:22px;font-size:9px;color:var(--secondary-text-color);flex-shrink:0">${ihcEsc(WDAYS[di])}</div>
         <div style="display:flex;flex:1;gap:0">${cells}</div>
       </div>`;
     }).join("");
@@ -946,12 +965,12 @@
     return `
       <div class="entity-row ts-row">
         <input type="text" class="form-input" placeholder="sensor.ecke (zusätzlich)" style="flex:2"
-          value="${e.sensor || ''}" data-ts-field="sensor" data-ep-domains="sensor" autocomplete="off">
+          value="${ihcEsc(e.sensor || '')}" data-ts-field="sensor" data-ep-domains="sensor" autocomplete="off">
         <input type="text" class="form-input" placeholder="binary_sensor.pir (optional)" style="flex:2;max-width:180px"
-          value="${e.presence_entity || ''}" data-ts-field="presence_entity"
+          value="${ihcEsc(e.presence_entity || '')}" data-ts-field="presence_entity"
           data-ep-domains="binary_sensor,person,device_tracker,input_boolean" autocomplete="off">
         <input type="number" class="form-input" placeholder="1.0" style="max-width:65px"
-          value="${e.weight ?? ''}" data-ts-field="weight" step="0.1" min="0.1" max="10">
+          value="${ihcEsc(e.weight ?? '')}" data-ts-field="weight" step="0.1" min="0.1" max="10">
         ${isFirst
           ? `<button class="btn btn-secondary btn-icon" id="${addBtnId}">+</button>`
           : `<button class="btn btn-danger btn-icon remove-ts-row">✕</button>`}

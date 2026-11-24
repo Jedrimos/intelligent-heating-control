@@ -55,6 +55,18 @@
     "entity_unavailable": {
       "title": "IHC: {role} {entity} niedostępny",
       "description": "{role} `{entity}` w pokoju **{room}** jest niedostępny od {minutes} minut (rozładowana bateria, poza zasięgiem, integracja offline?). W tym czasie IHC korzysta z zastępstw (ostatnia znana wartość, temperatura termostatu)."
+    },
+    "sensor_stale": {
+      "title": "IHC: czujnik {entity} milczy od {hours} h",
+      "description": "Czujnik temperatury `{entity}` w **{room}** jest dostępny, ale od {hours} godzin nie przesłał nowej wartości (rozładowana bateria? łączność radiowa?). IHC nie używa już zamrożonej wartości i działa w trybie bezpiecznym z czujnikiem termostatu."
+    },
+    "heating_period_blocked": {
+      "title": "IHC: sezon grzewczy blokuje {room}",
+      "description": "**{room}** grzałby teraz, ale sezon grzewczy jest nieaktywny. Użyj boost lub włącz „ignoruj sezon grzewczy” w ustawieniach pokoju."
+    },
+    "warmup_stall": {
+      "title": "IHC: {room} się nie nagrzewa",
+      "description": "**{room}** grzeje od {minutes} min i nie robi się cieplej (oczekiwano ok. {expected} min). Możliwe przyczyny: powietrze w grzejniku, zamknięte drzwi, brak ciepła ze źródła lub źle skalibrowany zawór."
     }
   }
 }

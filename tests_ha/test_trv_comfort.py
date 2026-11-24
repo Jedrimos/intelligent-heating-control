@@ -213,3 +213,33 @@ async def test_trv_offset_suggestion_only_from_cold_radiator(hass, setup_ihc, fr
     coord._trv_warmth["wz"] = (0.02, coord._trv_warmth["wz"][1])
     coord._update_trv_offset_calibration("wz", 21.0, 22.0, 0.0, False)   # cold: recorded
     assert coord._trv_offset_samples["wz"] == [-1.0]
+
+
+async def test_frozen_room_sensor_triggers_safety_mode(hass, setup_ihc, freezer):
+    """v2.7 – a sensor that stays 'available' but stops reporting must not be trusted:
+    IHC drops it, falls back to the thermostat and switches a Sonoff back to its own sensor."""
+    at(freezer, 8)
+    trv_attrs = {"current_temperature": 20.0, "temperature": 21.0, "hvac_modes": ["off", "heat"],
+                 "min_temp": 5, "max_temp": 30, "hvac_action": "idle"}
+    z2m_device(hass, "sonoff_wz", "SONOFF", "TRVZB", {
+        "climate.trv_wz": ("heat", trv_attrs),
+        "number.trv_wz_external_temperature_input": ("20", {"min": 0, "max": 99.9}),
+        "select.trv_wz_temperature_sensor_select": ("internal", {"options": ["internal", "external"]}),
+    })
+    temp_sensor(hass, "sensor.t_wz", 20.5)
+    coord, hw = await setup_ihc([room(temp_sensor="sensor.t_wz", trv_external_sensor_sync=True)])
+    await cycle(hass, coord)
+    assert coord.data["rooms"]["wz"]["sensor_failed"] is False
+    assert hass.states.get("select.trv_wz_temperature_sensor_select").state == "external"
+
+    at(freezer, 13)                       # 5 h without any report from the thermometer
+    await cycle(hass, coord, 2)
+    rd = coord.data["rooms"]["wz"]
+    assert rd["sensor_failed"] is True
+    assert rd["room_sensor_temp"] is None
+    assert rd["current_temp"] is not None     # thermostat temperature as fallback
+    assert hass.states.get("select.trv_wz_temperature_sensor_select").state == "internal"
+
+    temp_sensor(hass, "sensor.t_wz", 20.6)  # reports again -> normal operation
+    await cycle(hass, coord)
+    assert coord.data["rooms"]["wz"]["sensor_failed"] is False

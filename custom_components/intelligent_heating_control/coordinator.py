@@ -21,6 +21,10 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from homeassistant.core import HomeAssistant, callback, Event
+
+from . import savings as savings_mod
+from .hydraulics import balance_hints, flow_recommendation, update_stats as hydraulic_update_stats
+from .afterheat import add_sample as afterheat_add_sample, coast_setpoint, coast_step, learned as afterheat_learned, update_tracker as afterheat_update_tracker
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
@@ -257,6 +261,12 @@ from .const import (
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
     CONF_WINDOW_AUTO_DETECT_ENABLED,
     DEFAULT_WINDOW_AUTO_DETECT_ENABLED,
+    CONF_AFTERHEAT_ENABLED,
+    DEFAULT_AFTERHEAT_ENABLED,
+    CONF_MONTHLY_REPORT_ENABLED,
+    DEFAULT_MONTHLY_REPORT_ENABLED,
+    EVENT_MONTHLY_REPORT,
+    CONF_STATIC_ENERGY_PRICE,
     CONF_WINDOW_REMINDER_MINUTES,
     DEFAULT_WINDOW_REMINDER_MINUTES,
     EVENT_WINDOW_OPEN_TOO_LONG,
@@ -447,6 +457,17 @@ class IHCCoordinator(
         # while idle (demand == 0, window closed), used to suggest a
         # trv_temp_offset value instead of making the user guess it.
         self._trv_offset_samples: Dict[str, List[float]] = {}      # room_id → [room_temp - trv_avg, ...]
+        # v2.7 – Restwärme nutzen: learning state, samples [[overshoot, minutes], ...], coast state
+        self._afterheat_state: Dict[str, dict] = {}
+        self._afterheat_samples: Dict[str, list] = {}
+        self._afterheat_coast: Dict[str, dict] = {}
+        # v2.7 – hydraulic balancing: per-room valve statistics while heating
+        self._hydraulic_stats: Dict[str, dict] = {}
+        self._flow_recommendation: Optional[dict] = None
+        # v2.7 – Spar-Bilanz + Monatsbericht: {"month": "YYYY-MM", "heat": {cat: kWh}, "consumption": kWh}
+        self._savings_month: dict = {}
+        self._savings_prev: dict = {}
+        self._savings_last_ts: Optional[float] = None
 
         # v1.4 – Vacation calendar last-check (to avoid calling service every minute)
         self._vac_calendar_last_check: Optional[int] = None  # day-of-year
@@ -725,6 +746,10 @@ class IHCCoordinator(
         self._cooling_rate_history = {k: list(v) for k, v in data.get("cooling_rate_history", {}).items()}
         # TRV offset calibration samples (room-sensor-minus-TRV, collected while idle)
         self._trv_offset_samples = {k: list(v) for k, v in data.get("trv_offset_samples", {}).items()}
+        self._afterheat_samples = {k: [list(s) for s in v] for k, v in data.get("afterheat_samples", {}).items()}
+        self._hydraulic_stats = {k: dict(v) for k, v in data.get("hydraulic_stats", {}).items() if isinstance(v, dict)}
+        self._savings_month = dict(data.get("savings_month") or {})
+        self._savings_prev = dict(data.get("savings_prev") or {})
         # Restore adaptive curve state
         self._curve_adaptation_delta = float(data.get("curve_adaptation_delta", 0.0))
         # Restore demand heatmap (v1.6)
@@ -812,6 +837,10 @@ class IHCCoordinator(
             "cooling_rate_history": self._cooling_rate_history,
             # TRV offset calibration samples
             "trv_offset_samples": self._trv_offset_samples,
+            "afterheat_samples": self._afterheat_samples,
+            "hydraulic_stats": self._hydraulic_stats,
+            "savings_month": self._savings_month,
+            "savings_prev": self._savings_prev,
             # Automatic Heizperioden-Erkennung: rolling daily averages + hysteresis state
             "heating_period_daily_avg": list(self._heating_period_daily_avg),
             "heating_period_day_sum": self._heating_period_day_sum,
@@ -1308,37 +1337,16 @@ class IHCCoordinator(
                 if current_temp < target_temp - 1.0:
                     should_notify_now.add(room_id)
 
+        # v2.7 – shown under Settings → System → Repairs (translated, no pop-up spam)
         for room_id in should_notify_now - self._heating_period_notified_rooms:
             room = self.get_room_config(room_id) or {}
-            room_name = room.get(CONF_ROOM_NAME, room_id)
-            self.hass.async_create_task(
-                self.hass.services.async_call(
-                    "persistent_notification",
-                    "create",
-                    {
-                        "title": self._t(f"IHC: Heizperiode blockiert {room_name}",
-                                         f"IHC: heating season blocks {room_name}"),
-                        "message": self._t(
-                            f"**{room_name}** würde gerade heizen, aber die Heizperiode ist "
-                            "inaktiv. Per Boost trotzdem kurz aufheizen, oder in den "
-                            "Zimmer-Einstellungen \"Heizperiode für dieses Zimmer ignorieren\" "
-                            "aktivieren, wenn das öfter vorkommen soll.",
-                            f"**{room_name}** would heat right now, but the heating season is inactive. "
-                            "Use boost for a quick warm-up, or enable \"ignore heating season for this "
-                            "room\" in the room settings if this should happen more often.",
-                        ),
-                        "notification_id": f"ihc_heating_period_blocked_{room_id}",
-                    },
-                )
+            ir.async_create_issue(
+                self.hass, DOMAIN, f"heating_period_blocked_{room_id}", is_fixable=False,
+                severity=ir.IssueSeverity.WARNING, translation_key="heating_period_blocked",
+                translation_placeholders={"room": room.get(CONF_ROOM_NAME, room_id)},
             )
         for room_id in self._heating_period_notified_rooms - should_notify_now:
-            self.hass.async_create_task(
-                self.hass.services.async_call(
-                    "persistent_notification",
-                    "dismiss",
-                    {"notification_id": f"ihc_heating_period_blocked_{room_id}"},
-                )
-            )
+            ir.async_delete_issue(self.hass, DOMAIN, f"heating_period_blocked_{room_id}")
         self._heating_period_notified_rooms = should_notify_now
 
     def _t(self, de: str, en: str) -> str:
@@ -1506,6 +1514,12 @@ class IHCCoordinator(
                     })
             else:
                 self._unavailable_since.pop(entity_id, None)
+                if role == "Temperatursensor" and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                    hours = self._sensor_report_age_hours(state)
+                    if hours > self.SENSOR_STALE_HOURS:
+                        wanted[f"stale_{entity_id}"] = ("sensor_stale", {
+                            "entity": entity_id, "room": room_name, "hours": str(int(hours)),
+                        })
         for issue_id, (key, placeholders) in wanted.items():
             ir.async_create_issue(
                 self.hass, DOMAIN, issue_id, is_fixable=False, severity=ir.IssueSeverity.WARNING,
@@ -1577,45 +1591,21 @@ class IHCCoordinator(
                 if rdata.get("warmup_stall_active") and not rdata.get("child_lock")
             }
 
+        # v2.7 – shown under Settings → System → Repairs (translated, no pop-up spam)
         for room_id in should_notify_now - self._warmup_stall_notified_rooms:
             room = self.get_room_config(room_id) or {}
-            room_name = room.get(CONF_ROOM_NAME, room_id)
             rdata = room_data[room_id]
-            elapsed = rdata.get("warmup_stall_minutes_elapsed")
+            elapsed = rdata.get("warmup_stall_minutes_elapsed") or 0
             expected = rdata.get("warmup_stall_expected_minutes")
-            expected_str = f"{expected:.0f} min" if expected else self._t(
-                "unbekannt (noch keine Lernkurve)", "unknown (no learning curve yet)")
-            self.hass.async_create_task(
-                self.hass.services.async_call(
-                    "persistent_notification",
-                    "create",
-                    {
-                        "title": self._t(f"IHC: {room_name} wird nicht wärmer", f"IHC: {room_name} is not warming up"),
-                        "message": self._t(
-                            f"**{room_name}** heizt seit {elapsed:.0f} min ununterbrochen, "
-                            f"ohne spürbar wärmer zu werden (erwartete Aufheizzeit: {expected_str}). "
-                            "Mögliche Ursachen: Luft im Heizkörper, Tür zu (Zirkulation), Heizkessel/"
-                            "Wärmepumpe liefert keine Wärme, oder die Ventilkalibrierung passt nicht "
-                            "mehr. Das Ventil selbst meldet kein Blockieren (sonst würde die "
-                            "Festsitz-Erkennung greifen) - bitte den Heizkörper manuell prüfen.",
-                            f"**{room_name}** has been heating for {elapsed:.0f} min without getting "
-                            f"noticeably warmer (expected warm-up time: {expected_str}). Possible causes: "
-                            "air in the radiator, door closed (circulation), boiler/heat pump not delivering "
-                            "heat, or the valve calibration is off. The valve itself doesn't report being "
-                            "stuck - please check the radiator.",
-                        ),
-                        "notification_id": f"ihc_warmup_stall_{room_id}",
-                    },
-                )
+            ir.async_create_issue(
+                self.hass, DOMAIN, f"warmup_stall_{room_id}", is_fixable=False,
+                severity=ir.IssueSeverity.WARNING, translation_key="warmup_stall",
+                translation_placeholders={"room": room.get(CONF_ROOM_NAME, room_id),
+                                          "minutes": f"{elapsed:.0f}",
+                                          "expected": f"{expected:.0f}" if expected else "?"},
             )
         for room_id in self._warmup_stall_notified_rooms - should_notify_now:
-            self.hass.async_create_task(
-                self.hass.services.async_call(
-                    "persistent_notification",
-                    "dismiss",
-                    {"notification_id": f"ihc_warmup_stall_{room_id}"},
-                )
-            )
+            ir.async_delete_issue(self.hass, DOMAIN, f"warmup_stall_{room_id}")
         self._warmup_stall_notified_rooms = should_notify_now
 
     def _setup_ha_schedule_listeners(self) -> None:
@@ -1853,10 +1843,22 @@ class IHCCoordinator(
     # Max age for last-known sensor temperature fallback (30 minutes)
     _SENSOR_FALLBACK_SECONDS: int = 1800
 
+    # v2.7 – a battery sensor often stays "available" with a frozen value when it dies.
+    # Room thermometers report at least hourly (also without a change), so no report for
+    # this long means the value can't be trusted any more.
+    SENSOR_STALE_HOURS: float = 4.0
+
+    def _sensor_report_age_hours(self, state) -> float:
+        ts = getattr(state, "last_reported", None) or state.last_updated
+        return (dt_util.utcnow() - ts).total_seconds() / 3600.0
+
     def _get_sensor_temp(self, sensor_entity: str) -> Optional[float]:
         if not sensor_entity:
             return None
         state = self.hass.states.get(sensor_entity)
+        if state is not None and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN) \
+                and self._sensor_report_age_hours(state) > self.SENSOR_STALE_HOURS:
+            return None  # frozen value - treated like a failed sensor (Sicherheitsmodus)
         if state is not None and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             try:
                 value = float(state.state)
@@ -2582,6 +2584,9 @@ class IHCCoordinator(
             "feel_learned_offset": feel_learned,
             "feel_learned_profile": comfort_learning.learned_profile(self._feel_presses.get(room_id, [])),
             "room_sensor_temp": calibrated_temp,
+            # v2.7 – Sicherheitsmodus: room thermometer configured but failed/frozen
+            "sensor_failed": calibrated_temp is None and bool(
+                room.get(CONF_TEMP_SENSOR) or room.get(CONF_TEMP_SENSORS)),
             "external_sensor_sync": bool(room.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC)),
             "trv_capabilities": self._room_trv_capabilities(room),
             "ignore_heating_period": bool(room.get(CONF_ROOM_IGNORE_HEATING_PERIOD, DEFAULT_ROOM_IGNORE_HEATING_PERIOD)),
@@ -2791,6 +2796,146 @@ class IHCCoordinator(
             "peak_shaving_held_room_ids": peak_shaving_held_room_ids,
         })
 
+    def _savings_price(self) -> Optional[float]:
+        price = self._get_current_energy_price()
+        if price is None:
+            try:
+                price = float(self.get_config().get(CONF_STATIC_ENERGY_PRICE) or 0) or None
+            except (TypeError, ValueError):
+                price = None
+        return price
+
+    def _update_savings(self, room_data: Dict[str, dict], outdoor_temp: Optional[float],
+                        heating_season: bool) -> None:
+        """v2.7 – accumulate what IHC saved this month (savings.py) and send the monthly
+        report when the month changes."""
+        now_ts = time.time()
+        hours = 0.0 if self._savings_last_ts is None else min(0.1, max(0.0, (now_ts - self._savings_last_ts) / 3600))
+        self._savings_last_ts = now_ts
+        month = dt_util.now().strftime("%Y-%m")
+        if self._savings_month.get("month") not in (None, month):
+            self._finish_savings_month()
+        if self._savings_month.get("month") != month:
+            self._savings_month = {"month": month, "heat": {}, "consumption": 0.0}
+        if not heating_season or hours <= 0:
+            return
+        for room in self.get_rooms():
+            rid = room.get(CONF_ROOM_ID, "")
+            rd = room_data.get(rid)
+            if not rd or rd.get("child_lock"):
+                continue
+            kw = savings_mod.savings_kw(
+                float(room.get(CONF_RADIATOR_KW, DEFAULT_RADIATOR_KW) or 0), rd.get("comfort_temp_eff"),
+                rd.get("target_temp"), outdoor_temp, rd.get("source", ""), bool(rd.get("window_open")),
+                bool(rd.get("afterheat_coasting")), rd.get("afterheat_overshoot"),
+                float(rd.get("saving_offset") or 0.0),
+            )
+            if kw:
+                self._savings_month["heat"] = savings_mod.add(self._savings_month.get("heat", {}), kw, hours)
+
+    def _add_month_consumption(self, kwh: float) -> None:
+        """Called from the energy day roll-over with yesterday's final energy."""
+        if not self._savings_month:
+            self._savings_month = {"month": dt_util.now().strftime("%Y-%m"), "heat": {}, "consumption": 0.0}
+        self._savings_month["consumption"] = round(self._savings_month.get("consumption", 0.0) + kwh, 3)
+
+    def _savings_final(self, heat: dict) -> dict:
+        p = self._heating_params()
+        eff = p["efficiency"] or 1.0
+        return {c: round(v / eff * self._energy_calibration_factor, 2) for c, v in (heat or {}).items()}
+
+    def _finish_savings_month(self) -> None:
+        """Month is over: keep it as "previous month" and send the report."""
+        done = dict(self._savings_month)
+        prev = self._savings_prev
+        self._savings_prev = done
+        self._schedule_save()
+        if not self.get_config().get(CONF_MONTHLY_REPORT_ENABLED, DEFAULT_MONTHLY_REPORT_ENABLED):
+            return
+        notes = []
+        rd_all = (self.data or {}).get("rooms", {}) if isinstance(self.data, dict) else {}
+        for rid, rd in rd_all.items():
+            name = (self.get_room_config(rid) or {}).get(CONF_ROOM_NAME, rid)
+            if rd.get("hydraulic_hint") == "too_little":
+                notes.append(self._t(f"{name} bekommt zu wenig Heizwasser (Voreinstellung am Ventil höher)",
+                                     f"{name} gets too little hot water (raise the valve preset)"))
+            elif rd.get("hydraulic_hint") == "too_much":
+                notes.append(self._t(f"{name} bekommt mehr Heizwasser als nötig (Voreinstellung kleiner)",
+                                     f"{name} gets more hot water than needed (lower the valve preset)"))
+            if rd.get("sensor_failed"):
+                notes.append(self._t(f"Raumthermometer in {name} meldet nichts", f"Room thermometer in {name} is silent"))
+        fr = self._flow_recommendation
+        if fr:
+            notes.append(self._t(
+                f"Vorlauftemperatur etwa {fr['kelvin']} K {'senken' if fr['direction'] == 'down' else 'anheben'}",
+                f"{'Lower' if fr['direction'] == 'down' else 'Raise'} the flow temperature by about {fr['kelvin']} K"))
+        p = self._heating_params()
+        en = not str(self.hass.config.language or "de").lower().startswith("de")
+        text = savings_mod.month_report(
+            done.get("month", ""), done.get("consumption"), done.get("heat", {}), p["efficiency"],
+            self._energy_calibration_factor, self._savings_price(), (prev or {}).get("consumption"), notes, en=en)
+        self.hass.async_create_task(self.hass.services.async_call("persistent_notification", "create", {
+            "title": self._t(f"IHC Monatsbericht {done.get('month', '')}", f"IHC monthly report {done.get('month', '')}"),
+            "message": text, "notification_id": "ihc_monthly_report",
+        }))
+        self.hass.bus.async_fire(EVENT_MONTHLY_REPORT, {
+            "month": done.get("month"), "consumption_kwh": done.get("consumption"),
+            "saved_kwh": self._savings_final(done.get("heat", {})), "notes": notes,
+        })
+
+    def _savings_summary(self) -> dict:
+        cur = self._savings_final(self._savings_month.get("heat", {}))
+        prev = self._savings_final(self._savings_prev.get("heat", {}))
+        price = self._savings_price()
+        total = round(sum(cur.values()), 1)
+        today = 0.0
+        for room in self.get_rooms():
+            rid = room.get(CONF_ROOM_ID, "")
+            if rid:
+                today += self._calculate_room_energy_today(room, rid)
+        return {
+            "month": self._savings_month.get("month"), "by_category": cur, "total_kwh": total,
+            "total_eur": round(total * price, 2) if price else None,
+            "consumption_kwh": round((self._savings_month.get("consumption") or 0.0) + today, 1),
+            "prev_month": self._savings_prev.get("month"), "prev_total_kwh": round(sum(prev.values()), 1),
+            "prev_consumption_kwh": self._savings_prev.get("consumption"),
+        }
+
+    def _update_afterheat(self, room_id: str, rdata: dict, frost_temp: float,
+                          disturbed: bool, enabled: bool) -> Optional[float]:
+        """v2.7 – Restwärme nutzen: learn how far the room keeps warming after the valve
+        closes, and return a lowered setpoint while the room should coast on residual heat
+        (None = send the normal target). Needs a room thermometer and a hardware heating
+        signal (valve position or the TRV's hvac_action), see afterheat.py."""
+        temp = rdata.get("room_sensor_temp")
+        valve = rdata.get("trv_avg_valve")
+        heating = valve > 8 if valve is not None else bool(rdata.get("trv_any_heating"))
+        now = time.time()
+        state = self._afterheat_state.setdefault(room_id, {})
+        coasting = room_id in self._afterheat_coast
+        # while coasting, IHC itself closed the valve: that is exactly the event to measure
+        sample = afterheat_update_tracker(state, temp, now, heating, disturbed)
+        if sample is not None:
+            self._afterheat_samples[room_id] = afterheat_add_sample(self._afterheat_samples.get(room_id, []), sample)
+            self._schedule_save()
+        info = afterheat_learned(self._afterheat_samples.get(room_id, []))
+        coast = None
+        target = rdata.get("target_temp")
+        if enabled and info and not disturbed:
+            coast = coast_step(self._afterheat_coast.get(room_id), temp, target, heating, info["overshoot"], now)
+        if coast:
+            self._afterheat_coast[room_id] = coast
+        else:
+            self._afterheat_coast.pop(room_id, None)
+        if coast and not coasting:
+            _LOGGER.debug("IHC: %s – Restwärme nutzen, Ventil früher zu (%.1f °C vor Soll %.1f °C)",
+                          room_id, target - temp, target)
+        rdata["afterheat_overshoot"] = info["overshoot"] if info else None
+        rdata["afterheat_minutes"] = info["minutes"] if info else None
+        rdata["afterheat_samples"] = len(self._afterheat_samples.get(room_id, []))
+        rdata["afterheat_coasting"] = bool(coast)
+        return coast_setpoint(temp, target, frost_temp) if coast else None
+
     def _update_phase_apply_trv_setpoints(self, room_data: Dict[str, dict], ctx: Dict[str, Any]) -> None:
         """Phase 6: send the computed setpoints to every room's TRVs (or turn
         them off / boost them), then run the periodic limescale-protection
@@ -2845,6 +2990,24 @@ class IHCCoordinator(
             frost_temp = self._get_frost_protection_temp()
             heating_gated = summer_mode or (not heating_period_active and not rdata.get("ignore_heating_period"))
             should_be_off = (room_mode == ROOM_MODE_OFF and not system_override_active) or (system_is_off and not off_use_frost)
+            # v2.7 – Restwärme nutzen (learn always, coast only in the normal branch below)
+            coast_target = self._update_afterheat(
+                room_id, rdata, frost_temp,
+                disturbed=window_open or should_be_off or heating_gated
+                or self.get_boost_remaining_minutes(room_id) > 0
+                or rdata.get("source") == "temp_threshold_override",
+                enabled=bool(cfg.get(CONF_AFTERHEAT_ENABLED, DEFAULT_AFTERHEAT_ENABLED)),
+            )
+            # v2.7 – hydraulic balancing statistics (normal heating only)
+            if not (window_open or should_be_off or heating_gated):
+                valve = rdata.get("trv_avg_valve")
+                cur, tgt = rdata.get("current_temp"), rdata.get("target_temp")
+                self._hydraulic_stats[room_id] = hydraulic_update_stats(
+                    self._hydraulic_stats.get(room_id), valve, valve is not None and valve > 8,
+                    cur is not None and tgt is not None and cur < tgt - 0.5,
+                ) or self._hydraulic_stats.get(room_id)
+                if self._hydraulic_stats.get(room_id) is None:
+                    self._hydraulic_stats.pop(room_id, None)
             if window_open and window_open_temp > 0 and not should_be_off and not heating_gated:
                 # Window open but configured min-temp: hold at that temp (e.g. 15°C) instead of frost.
                 # Only when the room would otherwise heat - this branch used to run first and
@@ -2894,7 +3057,28 @@ class IHCCoordinator(
                     current_temp = rdata.get("current_temp")
                     if current_temp is not None:
                         trv_target = min(trv_target, current_temp + PEAK_SHAVING_HOLD_MARGIN_C)
+                if coast_target is not None:
+                    # Restwärme nutzen: close the valve now, the radiator's residual heat
+                    # brings the room to its target (Kapitel 15, Phase D 40a)
+                    trv_target = min(trv_target, coast_target)
                 self._set_valve_entities(room, trv_target)
+
+        # v2.7 – hydraulic balancing hints + flow temperature recommendation
+        hyd_input = {
+            rid: {**st, "warmup": room_data.get(rid, {}).get("avg_warmup_minutes")}
+            for rid, st in self._hydraulic_stats.items() if rid in room_data
+        }
+        hints = balance_hints(hyd_input)
+        for rid, rdata_h in room_data.items():
+            rdata_h["hydraulic_hint"] = hints.get(rid)
+            st = self._hydraulic_stats.get(rid)
+            rdata_h["hydraulic_valve_avg"] = round(st["avg"]) if st else None
+            rdata_h["hydraulic_hours"] = round(st["n"] / 60, 1) if st else 0
+        self._flow_recommendation = flow_recommendation(hyd_input)
+
+        # v2.7 – Spar-Bilanz (only while heating would be needed at all)
+        self._update_savings(room_data, ctx.get("outdoor_temp"),
+                             heating_season=heating_period_active and not summer_mode)
 
         # Kalkschutz: periodisch Ventile bewegen um Verkalkungs-Festfressen zu verhindern
         self._run_limescale_protection(room_data)
@@ -3023,6 +3207,8 @@ class IHCCoordinator(
             "heating_system": self._heating_params()["system"],
             "heating_efficiency": self._heating_params()["efficiency"],
             "flow_temp_now": self._flow_temp_now,
+            "flow_recommendation": self._flow_recommendation,
+            "savings": self._savings_summary(),
             "energy_calibration_factor": self._energy_calibration_factor,
             "meter_today_kwh": self._meter_today_kwh(),
             "weather_entity_effective": self._get_weather_entity_id(),

@@ -55,6 +55,18 @@
     "entity_unavailable": {
       "title": "IHC: {role} {entity} non disponibile",
       "description": "{role} `{entity}` nella stanza **{room}** non è disponibile da {minutes} minuti (batteria scarica, fuori portata, integrazione offline?). Nel frattempo IHC usa alternative (ultimo valore noto, temperatura del termostato)."
+    },
+    "sensor_stale": {
+      "title": "IHC: il sensore {entity} tace da {hours} h",
+      "description": "Il sensore di temperatura `{entity}` in **{room}** è disponibile ma non invia un nuovo valore da {hours} ore (batteria scarica? collegamento radio?). IHC non usa più il valore bloccato e funziona in modalità sicura con il sensore del termostato."
+    },
+    "heating_period_blocked": {
+      "title": "IHC: la stagione di riscaldamento blocca {room}",
+      "description": "**{room}** riscalderebbe ora, ma la stagione di riscaldamento è inattiva. Usa il boost o attiva «ignora stagione di riscaldamento» nelle impostazioni della stanza."
+    },
+    "warmup_stall": {
+      "title": "IHC: {room} non si scalda",
+      "description": "**{room}** riscalda da {minutes} min senza scaldarsi (previsto: circa {expected} min). Cause possibili: aria nel radiatore, porta chiusa, la caldaia non fornisce calore o valvola mal calibrata."
     }
   }
 }

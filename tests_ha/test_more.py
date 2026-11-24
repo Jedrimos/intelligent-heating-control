@@ -83,8 +83,28 @@ async def test_heating_period_notification(hass, setup_ihc, freezer):
     hass.states.async_set("input_boolean.heizperiode", "off")
     coord, hw = await setup_ihc([room(temp_sensor="sensor.t_wz")], heating_period_entity="input_boolean.heizperiode")
     await cycle(hass, coord)
-    assert hw.of("persistent_notification", "create")
+    from homeassistant.helpers import issue_registry as ir
+    reg = ir.async_get(hass)
+    issue = reg.async_get_issue("intelligent_heating_control", "heating_period_blocked_wz")
+    assert issue is not None and issue.translation_placeholders == {"room": "Wohnzimmer"}   # v2.7: Repairs
     assert hw.of("climate", "set_hvac_mode", "climate.trv_wz")[-1]["hvac_mode"] == "off"
     hass.states.async_set("input_boolean.heizperiode", "on")
     await cycle(hass, coord)
-    assert hw.of("persistent_notification", "dismiss")
+    assert reg.async_get_issue("intelligent_heating_control", "heating_period_blocked_wz") is None
+
+
+async def test_warmup_stall_is_a_repair_issue(hass, setup_ihc, freezer):
+    """v2.7 – 'room is not warming up' appears under Repairs and clears itself."""
+    at(freezer, 12)
+    base(hass)
+    coord, hw = await setup_ihc([room(temp_sensor="sensor.t_wz")])
+    from homeassistant.helpers import issue_registry as ir
+    reg = ir.async_get(hass)
+    coord._check_warmup_stall_notifications({"wz": {"warmup_stall_active": True,
+                                                    "warmup_stall_minutes_elapsed": 140,
+                                                    "warmup_stall_expected_minutes": 60}})
+    issue = reg.async_get_issue("intelligent_heating_control", "warmup_stall_wz")
+    assert issue.translation_key == "warmup_stall"
+    assert issue.translation_placeholders == {"room": "Wohnzimmer", "minutes": "140", "expected": "60"}
+    coord._check_warmup_stall_notifications({"wz": {"warmup_stall_active": False}})
+    assert reg.async_get_issue("intelligent_heating_control", "warmup_stall_wz") is None

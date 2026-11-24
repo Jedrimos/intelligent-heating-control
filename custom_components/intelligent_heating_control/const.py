@@ -259,6 +259,13 @@ CONF_SOLAR_WEATHER_PROTECTION_ENABLED: Final = "solar_weather_protection_enabled
 DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED: Final = False
 CONF_SOLAR_WIND_SPEED_THRESHOLD: Final = "solar_wind_speed_threshold"  # global, km/h
 DEFAULT_SOLAR_WIND_SPEED_THRESHOLD: Final = 40.0
+# v2.7 – Sturmschutz zweistufig: ab der Warn-Schwelle bewegt IHC Rollläden nicht mehr (Stufe 1),
+# ab der Sturm-Schwelle (oben) fahren sie in Schutzstellung (Stufe 2). Nach dem Sturm erst nach
+# einer ruhigen Wartezeit zurück, damit Böen kein Hin und Her auslösen. 0 = Warnstufe aus.
+CONF_SOLAR_WIND_WARN_THRESHOLD: Final = "solar_wind_warn_threshold"   # km/h
+DEFAULT_SOLAR_WIND_WARN_THRESHOLD: Final = 25.0
+CONF_SOLAR_WEATHER_RESUME_MINUTES: Final = "solar_weather_resume_minutes"
+DEFAULT_SOLAR_WEATHER_RESUME_MINUTES: Final = 15
 
 # Backlog 2026-10-15 – Rollo-Sicherheit/Komfort (Recherche), vier Erweiterungen des obigen
 # Passive-Solar-Features, alle opt-in und ohne Wirkung auf Zimmer ohne konfigurierte Rolladen.
@@ -505,6 +512,13 @@ DEFAULT_WARMUP_STALL_NOTIFY_ENABLED: Final = True
 # (siehe window_auto_detect.py). Standard an - ein echter Sensor hat immer Vorrang.
 CONF_WINDOW_AUTO_DETECT_ENABLED: Final = "window_auto_detect_enabled"
 DEFAULT_WINDOW_AUTO_DETECT_ENABLED: Final = True  # nur Zimmer OHNE Fenstersensor
+# v2.7 – Restwärme nutzen: lernt das Nachheizen des Heizkörpers und schließt das Ventil früher
+CONF_AFTERHEAT_ENABLED: Final = "afterheat_enabled"
+DEFAULT_AFTERHEAT_ENABLED: Final = True
+# v2.7 – Monatsbericht (Verbrauch + Spar-Bilanz) als HA-Benachrichtigung am Monatsanfang
+CONF_MONTHLY_REPORT_ENABLED: Final = "monthly_report_enabled"
+DEFAULT_MONTHLY_REPORT_ENABLED: Final = True
+EVENT_MONTHLY_REPORT: Final = "intelligent_heating_control_monthly_report"
 CONF_WINDOW_AUTO_DETECT_DROP: Final = "window_auto_detect_drop"
 DEFAULT_WINDOW_AUTO_DETECT_DROP: Final = 0.8          # °C Temperatursturz ...
 CONF_WINDOW_AUTO_DETECT_MINUTES: Final = "window_auto_detect_minutes"

@@ -50,6 +50,10 @@ from .const import (
     DEFAULT_WARMUP_STALL_NOTIFY_ENABLED,
     CONF_WINDOW_AUTO_DETECT_ENABLED,
     DEFAULT_WINDOW_AUTO_DETECT_ENABLED,
+    CONF_AFTERHEAT_ENABLED,
+    DEFAULT_AFTERHEAT_ENABLED,
+    CONF_MONTHLY_REPORT_ENABLED,
+    DEFAULT_MONTHLY_REPORT_ENABLED,
     CONF_PRESENCE_AUTO_PERSONS,
     DEFAULT_PRESENCE_AUTO_PERSONS,
     CONF_WINDOW_REMINDER_MINUTES,
@@ -118,6 +122,10 @@ from .const import (
     CONF_SOLAR_WEATHER_PROTECTION_ENABLED,
     DEFAULT_SOLAR_WEATHER_PROTECTION_ENABLED,
     CONF_SOLAR_WIND_SPEED_THRESHOLD,
+    CONF_SOLAR_WIND_WARN_THRESHOLD,
+    DEFAULT_SOLAR_WIND_WARN_THRESHOLD,
+    CONF_SOLAR_WEATHER_RESUME_MINUTES,
+    DEFAULT_SOLAR_WEATHER_RESUME_MINUTES,
     DEFAULT_SOLAR_WIND_SPEED_THRESHOLD,
     CONF_SOLAR_EVENING_PRIVACY_ENABLED,
     DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED,
@@ -337,6 +345,20 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+_ENTITY_KEYS_GLOBAL = (CONF_SUMMER_MODE_ENTITY, CONF_HEATING_PERIOD_ENTITY, CONF_BATTERY_SOC_ENTITY,
+                       CONF_BOILER_SWITCH_ENTITY)
+_ENTITY_KEYS_ROOM = (CONF_LUX_SENSOR, CONF_PRESENCE_SENSOR)
+
+
+def _opt_entity(key: str, current):
+    """Optional single-entity field (HACS review 2026-11-24): an entity selector rejects "",
+    so it must never get default="" - that made every form fail when the optional field was
+    left empty. The stored value is only a suggestion; a cleared field arrives as a missing
+    key, which the step handlers store as "" (see _ENTITY_KEYS_*)."""
+    if current:
+        return vol.Optional(key, description={"suggested_value": current})
+    return vol.Optional(key)
+
 class IHCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the initial setup flow for Intelligent Heating Control."""
 
@@ -362,7 +384,7 @@ class IHCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_temperatures()
 
         schema = vol.Schema({
-            vol.Optional(CONF_OUTDOOR_TEMP_SENSOR, default=""): selector.selector({
+            _opt_entity(CONF_OUTDOOR_TEMP_SENSOR, ""): selector.selector({
                 "entity": {"domain": "sensor"}
             }),
         })
@@ -444,6 +466,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
 
         if user_input is not None:
             if not errors:
+                for key in _ENTITY_KEYS_GLOBAL:  # cleared entity field = key missing
+                    user_input.setdefault(key, "")
                 self._options.update(user_input)
                 return self.async_create_entry(title="", data=self._options)
 
@@ -476,10 +500,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             ): selector.selector({
                 "number": {"min": 10, "max": 30, "step": 0.5, "unit_of_measurement": "°C", "mode": "box"}
             }),
-            vol.Optional(
-                CONF_SUMMER_MODE_ENTITY,
-                default=cfg.get(CONF_SUMMER_MODE_ENTITY, "")
-            ): selector.selector({
+            _opt_entity(CONF_SUMMER_MODE_ENTITY, cfg.get(CONF_SUMMER_MODE_ENTITY, "")): selector.selector({
                 "entity": {"domain": ["input_boolean", "binary_sensor"]}
             }),
             vol.Optional(
@@ -528,10 +549,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 "entity": {"domain": ["person", "device_tracker", "input_boolean"], "multiple": True}
             }),
             # --- Heizperiode-Entität (optional - manuelle Übersteuerung) ---
-            vol.Optional(
-                CONF_HEATING_PERIOD_ENTITY,
-                default=cfg.get(CONF_HEATING_PERIOD_ENTITY, "")
-            ): selector.selector({
+            _opt_entity(CONF_HEATING_PERIOD_ENTITY, cfg.get(CONF_HEATING_PERIOD_ENTITY, "")): selector.selector({
                 "entity": {"domain": ["input_boolean", "binary_sensor", "switch"]}
             }),
             # --- Automatische Heizperioden-Erkennung (greift wenn obige Entität fehlt/unavailable) ---
@@ -558,6 +576,15 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_WARMUP_STALL_NOTIFY_ENABLED,
                 default=bool(cfg.get(CONF_WARMUP_STALL_NOTIFY_ENABLED, DEFAULT_WARMUP_STALL_NOTIFY_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            vol.Optional(
+                CONF_MONTHLY_REPORT_ENABLED,
+                default=bool(cfg.get(CONF_MONTHLY_REPORT_ENABLED, DEFAULT_MONTHLY_REPORT_ENABLED))
+            ): selector.selector({"boolean": {}}),
+            # --- v2.7: Restwärme nutzen ---
+            vol.Optional(
+                CONF_AFTERHEAT_ENABLED,
+                default=bool(cfg.get(CONF_AFTERHEAT_ENABLED, DEFAULT_AFTERHEAT_ENABLED))
             ): selector.selector({"boolean": {}}),
             # --- v2.6: sensorlose Fenstererkennung (Temperatursturz) ---
             vol.Optional(
@@ -734,6 +761,14 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_SOLAR_WIND_SPEED_THRESHOLD,
                 default=float(cfg.get(CONF_SOLAR_WIND_SPEED_THRESHOLD, DEFAULT_SOLAR_WIND_SPEED_THRESHOLD))
             ): selector.selector({"number": {"min": 10, "max": 120, "step": 5, "unit_of_measurement": "km/h"}}),
+            vol.Optional(
+                CONF_SOLAR_WIND_WARN_THRESHOLD,
+                default=float(cfg.get(CONF_SOLAR_WIND_WARN_THRESHOLD, DEFAULT_SOLAR_WIND_WARN_THRESHOLD))
+            ): selector.selector({"number": {"min": 0, "max": 120, "step": 5, "unit_of_measurement": "km/h"}}),
+            vol.Optional(
+                CONF_SOLAR_WEATHER_RESUME_MINUTES,
+                default=int(cfg.get(CONF_SOLAR_WEATHER_RESUME_MINUTES, DEFAULT_SOLAR_WEATHER_RESUME_MINUTES))
+            ): selector.selector({"number": {"min": 0, "max": 120, "step": 5, "unit_of_measurement": "min"}}),
             # --- Rollo-Backlog 2026-10-15 ---
             vol.Optional(
                 CONF_SOLAR_EVENING_PRIVACY_MODE,
@@ -792,10 +827,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 CONF_LOAD_MANAGEMENT_ENABLED,
                 default=bool(cfg.get(CONF_LOAD_MANAGEMENT_ENABLED, DEFAULT_LOAD_MANAGEMENT_ENABLED))
             ): selector.selector({"boolean": {}}),
-            vol.Optional(
-                CONF_BATTERY_SOC_ENTITY,
-                default=cfg.get(CONF_BATTERY_SOC_ENTITY, "")
-            ): selector.selector({"entity": {"domain": "sensor"}}),
+            _opt_entity(CONF_BATTERY_SOC_ENTITY, cfg.get(CONF_BATTERY_SOC_ENTITY, "")): selector.selector({"entity": {"domain": "sensor"}}),
             vol.Optional(
                 CONF_BATTERY_SOC_LOW_THRESHOLD,
                 default=float(cfg.get(CONF_BATTERY_SOC_LOW_THRESHOLD, DEFAULT_BATTERY_SOC_LOW_THRESHOLD))
@@ -915,10 +947,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
                 "number": {"min": 1, "max": 15, "step": 1, "unit_of_measurement": "min", "mode": "slider"}
             }),
             # --- Backlog 2026-11-02: Kessel-/Pumpen-Relais-Signal (additiv zu TRV-only) ---
-            vol.Optional(
-                CONF_BOILER_SWITCH_ENTITY,
-                default=cfg.get(CONF_BOILER_SWITCH_ENTITY, "")
-            ): selector.selector({"entity": {"domain": "switch"}}),
+            _opt_entity(CONF_BOILER_SWITCH_ENTITY, cfg.get(CONF_BOILER_SWITCH_ENTITY, "")): selector.selector({"entity": {"domain": "switch"}}),
             vol.Optional(
                 CONF_BOILER_MIN_ON_SECONDS,
                 default=int(cfg.get(CONF_BOILER_MIN_ON_SECONDS, DEFAULT_BOILER_MIN_ON_SECONDS))
@@ -1200,7 +1229,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_SOLAR_PASSIVE_HEAT, default=DEFAULT_SOLAR_PASSIVE_HEAT): selector.selector({"boolean": {}}),
             vol.Optional(CONF_SOLAR_PASSIVE_COOL, default=DEFAULT_SOLAR_PASSIVE_COOL): selector.selector({"boolean": {}}),
-            vol.Optional(CONF_LUX_SENSOR, default=""): selector.selector({"entity": {"domain": "sensor"}}),
+            _opt_entity(CONF_LUX_SENSOR, ""): selector.selector({"entity": {"domain": "sensor"}}),
             vol.Optional(CONF_SOLAR_EVENING_PRIVACY_ENABLED, default=DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED): selector.selector({"boolean": {}}),
             vol.Optional(CONF_SOLAR_GLARE_PROTECTION_ENABLED, default=DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED): selector.selector({"boolean": {}}),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=DEFAULT_HA_SCHEDULE_OFF_MODE): selector.selector({
@@ -1244,7 +1273,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ROOM_PRESENCE_ENTITIES, default=[]): selector.selector({
                 "entity": {"domain": ["person", "device_tracker", "input_boolean", "binary_sensor"], "multiple": True}
             }),
-            vol.Optional(CONF_PRESENCE_SENSOR, default=""): selector.selector({
+            _opt_entity(CONF_PRESENCE_SENSOR, ""): selector.selector({
                 "entity": {"domain": ["binary_sensor"]}
             }),
             vol.Optional(CONF_PRESENCE_SENSOR_ON_DELAY, default=int(DEFAULT_PRESENCE_SENSOR_ON_DELAY)): selector.selector({
@@ -1315,6 +1344,8 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             return self.async_abort(reason="room_not_found")
 
         if user_input is not None:
+            for key in _ENTITY_KEYS_ROOM:  # cleared entity field = key missing
+                user_input.setdefault(key, "")
             updated_room = {**room, **user_input}
             for i, r in enumerate(rooms):
                 if r[CONF_ROOM_ID] == self._selected_room_id:
@@ -1411,7 +1442,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             }),
             vol.Optional(CONF_SOLAR_PASSIVE_HEAT, default=bool(room.get(CONF_SOLAR_PASSIVE_HEAT, DEFAULT_SOLAR_PASSIVE_HEAT))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_SOLAR_PASSIVE_COOL, default=bool(room.get(CONF_SOLAR_PASSIVE_COOL, DEFAULT_SOLAR_PASSIVE_COOL))): selector.selector({"boolean": {}}),
-            vol.Optional(CONF_LUX_SENSOR, default=room.get(CONF_LUX_SENSOR, "")): selector.selector({"entity": {"domain": "sensor"}}),
+            _opt_entity(CONF_LUX_SENSOR, room.get(CONF_LUX_SENSOR, "")): selector.selector({"entity": {"domain": "sensor"}}),
             vol.Optional(CONF_SOLAR_EVENING_PRIVACY_ENABLED, default=bool(room.get(CONF_SOLAR_EVENING_PRIVACY_ENABLED, DEFAULT_SOLAR_EVENING_PRIVACY_ENABLED))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_SOLAR_GLARE_PROTECTION_ENABLED, default=bool(room.get(CONF_SOLAR_GLARE_PROTECTION_ENABLED, DEFAULT_SOLAR_GLARE_PROTECTION_ENABLED))): selector.selector({"boolean": {}}),
             vol.Optional(CONF_HA_SCHEDULE_OFF_MODE, default=room.get(CONF_HA_SCHEDULE_OFF_MODE, DEFAULT_HA_SCHEDULE_OFF_MODE)): selector.selector({
@@ -1455,7 +1486,7 @@ class IHCOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ROOM_PRESENCE_ENTITIES, default=room.get(CONF_ROOM_PRESENCE_ENTITIES, [])): selector.selector({
                 "entity": {"domain": ["person", "device_tracker", "input_boolean", "binary_sensor"], "multiple": True}
             }),
-            vol.Optional(CONF_PRESENCE_SENSOR, default=room.get(CONF_PRESENCE_SENSOR, "")): selector.selector({
+            _opt_entity(CONF_PRESENCE_SENSOR, room.get(CONF_PRESENCE_SENSOR, "")): selector.selector({
                 "entity": {"domain": ["binary_sensor"]}
             }),
             vol.Optional(CONF_PRESENCE_SENSOR_ON_DELAY, default=int(room.get(CONF_PRESENCE_SENSOR_ON_DELAY, DEFAULT_PRESENCE_SENSOR_ON_DELAY))): selector.selector({

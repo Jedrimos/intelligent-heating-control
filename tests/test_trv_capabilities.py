@@ -50,3 +50,11 @@ def test_quirks():
     assert [q["id"] for q in quirks_for("Bosch", "BTH-RA")] == ["external_resend"]
     assert [q["id"] for q in quirks_for("_TZE200_ckud7u2l", "TS0601")] == ["tuya_auto"]
     assert quirks_for(None, None) == []
+
+
+def test_internal_option_for_safety_fallback():
+    from custom_components.intelligent_heating_control.trv_capabilities import internal_option
+    assert internal_option(["internal", "external"]) == "internal"
+    assert internal_option(["external", "local"]) == "local"
+    assert internal_option(["sensor_a", "external"]) == "sensor_a"
+    assert internal_option(["external"]) is None

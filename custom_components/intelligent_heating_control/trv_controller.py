@@ -10,7 +10,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import device_registry as dr
 
-from .trv_capabilities import classify_sibling, external_option, external_temp_value, quirks_for
+from .trv_capabilities import classify_sibling, external_option, external_temp_value, internal_option, quirks_for
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -201,7 +201,8 @@ class TRVControllerMixin:
             return cached[0]
         caps: dict = {"entity": climate_entity_id, "manufacturer": None, "model": None,
                       "valve_entity": None, "external_temp_entity": None, "sensor_select_entity": None,
-                      "sensor_select_option": None, "calibration_entity": None, "quirks": []}
+                      "sensor_select_option": None, "sensor_select_internal": None,
+                      "calibration_entity": None, "quirks": []}
         try:
             reg = er.async_get(self.hass)
             entry = reg.async_get(climate_entity_id)
@@ -226,6 +227,7 @@ class TRVControllerMixin:
                     elif role == "sensor_select" and not caps["sensor_select_entity"]:
                         caps["sensor_select_entity"] = sib.entity_id
                         caps["sensor_select_option"] = external_option(attrs.get("options"))
+                        caps["sensor_select_internal"] = internal_option(attrs.get("options"))
                     elif role == "calibration" and not caps["calibration_entity"]:
                         caps["calibration_entity"] = sib.entity_id
         except Exception:  # noqa: BLE001 - registry lookup must never break the update cycle
@@ -274,7 +276,21 @@ class TRVControllerMixin:
         sensor where it needs a select (Sonoff/Aqara). Re-sent on change (≥0.1 °C) and at
         least every EXTERNAL_SYNC_RESEND_S (Bosch/Danfoss fall back to the internal sensor
         if no value arrives for 30 min). Opt-in per room."""
-        if room_temp is None or not room.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC):
+        if not room.get(CONF_TRV_EXTERNAL_SENSOR_SYNC, DEFAULT_TRV_EXTERNAL_SENSOR_SYNC):
+            return
+        if room_temp is None:
+            # v2.7 – Sicherheitsmodus: the room thermometer failed. A TRV that keeps
+            # regulating on the last pushed value would heat blindly, so switch it back to
+            # its own sensor (Bosch/Danfoss fall back by themselves once values stop).
+            for eid in self._room_valve_entities(room):
+                caps = self._get_trv_capabilities(eid)
+                sel, internal = caps.get("sensor_select_entity"), caps.get("sensor_select_internal")
+                if sel and internal:
+                    sst = self.hass.states.get(sel)
+                    if sst is not None and sst.state != internal:
+                        _LOGGER.warning("IHC: room thermometer failed – %s back to its internal sensor", eid)
+                        self.hass.async_create_task(self.hass.services.async_call(
+                            "select", "select_option", {"entity_id": sel, "option": internal}))
             return
         if not hasattr(self, "_ext_sync_last"):
             self._ext_sync_last = {}

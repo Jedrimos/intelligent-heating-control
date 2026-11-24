@@ -233,6 +233,18 @@
     "entity_unavailable": {
       "title": "IHC: {role} {entity} nicht erreichbar",
       "description": "Der {role} `{entity}` im Zimmer **{room}** ist seit {minutes} Minuten nicht erreichbar (Batterie leer, außer Funkreichweite, Integration offline?). IHC nutzt solange Ersatzwerte (letzter bekannter Wert, Thermostat-Temperatur)."
+    },
+    "sensor_stale": {
+      "title": "IHC: Temperatursensor {entity} meldet seit {hours} h nichts",
+      "description": "Der Temperatursensor `{entity}` in **{room}** ist zwar verfügbar, hat aber seit {hours} Stunden keinen neuen Wert gemeldet (Batterie leer? Funkverbindung?). IHC nutzt den eingefrorenen Wert nicht mehr und regelt im Sicherheitsmodus mit dem Fühler des Thermostats. Ein Thermostat mit übertragenem Raumfühler wird auf seinen eigenen Fühler zurückgeschaltet."
+    },
+    "heating_period_blocked": {
+      "title": "IHC: Heizperiode blockiert {room}",
+      "description": "**{room}** würde gerade heizen, aber die Heizperiode ist inaktiv. Per Boost trotzdem kurz aufheizen, oder im Zimmer unter ⚙️ Einstellungen „Heizperiode für dieses Zimmer ignorieren“ einschalten, wenn das öfter vorkommen soll. Die Meldung verschwindet von selbst."
+    },
+    "warmup_stall": {
+      "title": "IHC: {room} wird nicht wärmer",
+      "description": "**{room}** heizt seit {minutes} min, ohne spürbar wärmer zu werden (erwartet: etwa {expected} min). Mögliche Ursachen: Luft im Heizkörper, Tür zu, der Wärmeerzeuger liefert keine Wärme oder das Ventil ist falsch kalibriert. Bitte den Heizkörper prüfen. Die Meldung verschwindet, sobald das Zimmer warm wird."
     }
   }
 }
