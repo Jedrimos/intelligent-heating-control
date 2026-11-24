@@ -5,6 +5,13 @@
  */
 
 const DOMAIN = "intelligent_heating_control";
+
+// HTML-escape any value that goes into an innerHTML template (HACS review 2026-11-24).
+// Usable everywhere (also inside plain callbacks); same rules as IHCPanel._esc().
+function ihcEsc(value) {
+  if (value == null) return "";
+  return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 const DAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 

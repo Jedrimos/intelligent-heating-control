@@ -54,6 +54,20 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
   Hinweisen (Hydraulik, Vorlauf, ausgefallene Sensoren) plus Event
   `intelligent_heating_control_monthly_report`. Abschaltbar.
 
+### Behoben (HACS-Review)
+- **Einrichtung mit leeren optionalen Feldern schlug fehl:** Außentemperatursensor (Ersteinrichtung),
+  Sommer-/Heizperioden-Schalter, Batteriesensor, Kessel-Schalter, Lux- und Präsenzsensor hatten im
+  Einrichtungs-/Optionsdialog einen leeren Standardwert, den die Entitätsauswahl ablehnt. Wer ein
+  solches (optionales!) Feld leer ließ, konnte nicht speichern. Jetzt Vorschlagswert statt
+  Standardwert; ein geleertes Feld wird als leer gespeichert.
+- **Werte anderer Integrationen landeten teils ungeschützt im HTML des Panels** (Wetterzustand,
+  Vorhersagewerte, Gruppen- und Zimmernamen in der Gruppenliste, Zeitplan-Modi, Entitäts-IDs in
+  Eingabefeldern) – auch in den Lovelace-Karten. Jetzt wird jeder eingesetzte Datenwert escaped,
+  Meldungen (Toasts) sind reiner Text.
+- Neue Prüfungen in der CI: ein JavaScript-Parser (acorn) findet jeden ungeschützten Datenwert in
+  HTML-Vorlagen (`tests/tools/check_html_escape.js`), ein Test verbietet Standardwerte bei
+  Einzel-Entitätsfeldern, und Szenario-Tests gehen alle Dialoge mit leeren Feldern durch.
+
 ### Verbessert
 - **Sturmschutz für Rollläden zweistufig:** ab der Warn-Schwelle (Standard 25 km/h) bewegt IHC
   die Rollläden nicht mehr, ab der Sturm-Schwelle fahren sie in Schutzstellung. Danach erst wieder

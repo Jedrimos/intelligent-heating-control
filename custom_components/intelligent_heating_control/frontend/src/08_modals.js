@@ -35,7 +35,7 @@
         <label class="form-label">🏠 Aus Home-Assistant-Bereich übernehmen</label>
         <select class="form-select" id="m-area">
           <option value="">– manuell eingeben –</option>
-          ${found.map(r => `<option value="${this._esc(r.area_id)}" ${p.area_id === r.area_id ? "selected" : ""}>${this._esc(r.name)} (${r.valves.length} Thermostat${r.valves.length > 1 ? "e" : ""}${r.temp_sensor ? ", Thermometer" : ""}${r.windows.length ? ", Fenster" : ""})</option>`).join("")}
+          ${found.map(r => `<option value="${this._esc(r.area_id)}" ${p.area_id === r.area_id ? "selected" : ""}>${this._esc(r.name)} (${ihcEsc(r.valves.length)} Thermostat${r.valves.length > 1 ? "e" : ""}${r.temp_sensor ? ", Thermometer" : ""}${r.windows.length ? ", Fenster" : ""})</option>`).join("")}
         </select>
         <span class="form-hint">Füllt die Felder unten mit den Geräten aus diesem Bereich.</span>
       </div>` : ""}
@@ -67,7 +67,7 @@
       <div class="form-group">
         <label class="form-label">😊 Wohlfühltemperatur</label>
         <div class="comfort-pick">
-          <input type="range" id="m-comfort-range" min="16" max="26" step="0.5" value="${p.comfort_temp ?? 21}">
+          <input type="range" id="m-comfort-range" min="16" max="26" step="0.5" value="${ihcEsc(p.comfort_temp ?? 21)}">
           <span id="m-comfort-val">${(p.comfort_temp ?? 21).toFixed(1)} °C</span>
         </div>
         <span class="form-hint">Sparen, Schlafen und Abwesend werden automatisch daraus abgeleitet (−3 / −4 / −6 °C).</span>
@@ -97,7 +97,7 @@
         comfort_temp:    parseFloat(modal.querySelector("#m-comfort-range")?.value) || 21.0,
       });
       this._closeModal();
-      this._toast(`✓ „${this._esc(name)}“ angelegt – HA lädt die Entitäten neu`);
+      this._toast(`✓ „${name}“ angelegt – HA lädt die Entitäten neu`);
     });
     const modal = this.shadowRoot.querySelector("#modal-root .modal");
     const range = modal.querySelector("#m-comfort-range");
@@ -229,7 +229,7 @@
     row.style.cssText = "display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:6px;align-items:center;margin-bottom:6px";
     row.innerHTML = `
       <input type="text" class="form-input hs-entity" placeholder="schedule.zimmer"
-        data-ep-domains="schedule" autocomplete="off" value="${entry.entity || ''}">
+        data-ep-domains="schedule" autocomplete="off" value="${ihcEsc(entry.entity || '')}">
       <select class="form-select hs-mode" style="min-width:90px">
         <option value="comfort" ${(entry.mode||'comfort')==='comfort'?'selected':''}>Komfort</option>
         <option value="eco"     ${entry.mode==='eco'    ?'selected':''}>Eco</option>
@@ -237,9 +237,9 @@
         <option value="away"    ${entry.mode==='away'   ?'selected':''}>Abwesend</option>
       </select>
       <input type="text" class="form-input hs-cond" placeholder="Bedingung (optional)"
-        data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off" value="${entry.condition_entity || ''}">
+        data-ep-domains="input_boolean,binary_sensor,person,device_tracker" autocomplete="off" value="${ihcEsc(entry.condition_entity || '')}">
       <input type="text" class="form-input hs-cond-state" placeholder="Zustand"
-        style="width:70px" value="${entry.condition_state || 'on'}">
+        style="width:70px" value="${ihcEsc(entry.condition_state || 'on')}">
       <button class="btn btn-danger btn-icon hs-remove" title="Entfernen">✕</button>`;
     row.querySelector(".hs-remove").addEventListener("click", () => row.remove());
     // Attach entity pickers after row is appended (caller must ensure DOM is ready)

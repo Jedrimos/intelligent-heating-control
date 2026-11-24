@@ -18,25 +18,25 @@
       const schedCount = room.schedules?.length || 0;
       const haSchedCount = room.ha_schedules?.length || 0;
       const schedBadge = schedCount > 0
-        ? `<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-weight:600">IHC ${schedCount}</span>`
+        ? `<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-weight:600">IHC ${ihcEsc(schedCount)}</span>`
         : haSchedCount > 0
-        ? `<span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:8px;font-weight:600">HA ${haSchedCount}</span>`
+        ? `<span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:8px;font-weight:600">HA ${ihcEsc(haSchedCount)}</span>`
         : "";
       const demandBar = room.demand > 0
         ? `<span style="font-size:10px;background:color-mix(in srgb,#ef5350 15%,transparent);color:var(--primary-text-color);padding:1px 6px;border-radius:8px;font-weight:600">🔥 ${Math.round(room.demand)}%</span>`
         : "";
       return `
-      <div class="room-list-item" data-action="open" data-id="${room.entity_id}" style="cursor:pointer"
+      <div class="room-list-item" data-action="open" data-id="${ihcEsc(room.entity_id)}" style="cursor:pointer"
            title="Klicken für Zeitplan, Verlauf &amp; Details">
         <div class="room-list-left" style="pointer-events:none">
           <div class="room-list-name" style="display:flex;align-items:center;gap:8px">
             ${this._esc(room.name)} ${schedBadge} ${demandBar}
           </div>
           <div class="room-list-meta">
-            ${MODE_ICONS[room.room_mode] || "⚙️"} ${MODE_LABELS[room.room_mode] || room.room_mode}
-            · ${room.current_temp !== null ? room.current_temp + " °C → " + (room.target_temp ?? "—") + " °C" : "kein Sensor"}
+            ${ihcEsc(MODE_ICONS[room.room_mode] || "⚙️")} ${ihcEsc(MODE_LABELS[room.room_mode] || room.room_mode)}
+            · ${room.current_temp !== null ? ihcEsc(room.current_temp) + " °C → " + (ihcEsc(room.target_temp ?? "—")) + " °C" : "kein Sensor"}
             ${room.window_open ? " · 🪟 Fenster offen" : ""}
-            ${room.window_cascade_active ? ` · 🌊 Kaskade –${room.window_cascade_offset?.toFixed(1) ?? '?'}°C` : ""}
+            ${room.window_cascade_active ? ` · 🌊 Kaskade –${ihcEsc(room.window_cascade_offset?.toFixed(1) ?? '?')}°C` : ""}
             ${room.co2_preheat_boost ? ` · 💨 CO₂-Vorheizboost` : ""}
           </div>
         </div>
@@ -76,20 +76,20 @@
         <button class="btn btn-secondary" id="back-to-rooms" style="padding:6px 12px;font-size:12px">← Zurück</button>
         <span style="font-size:18px;font-weight:700">${this._esc(room.name)}</span>
         <span style="font-size:13px;color:var(--secondary-text-color)">
-          ${room.current_temp != null ? room.current_temp + " °C" : "—"}
-          → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? room.target_temp + " °C" : "—")}
-          · ${MODE_ICONS[room.room_mode] || ""} ${MODE_LABELS[room.room_mode] || room.room_mode}
+          ${room.current_temp != null ? ihcEsc(room.current_temp) + " °C" : "—"}
+          → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? ihcEsc(room.target_temp) + " °C" : "—")}
+          · ${ihcEsc(MODE_ICONS[room.room_mode] || "")} ${ihcEsc(MODE_LABELS[room.room_mode] || room.room_mode)}
         </span>
-        ${room.trv_raw_temp != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#fb8c00 15%,transparent);color:var(--primary-text-color)" title="TRV-Eigentemperatur (am Heizkörper gemessen, vor Korrektur)">🌡️ TRV ${room.trv_raw_temp} °C</span>` : ""}
-        ${room.trv_avg_valve != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#42a5f5 15%,transparent);color:var(--primary-text-color)" title="Durchschnittliche TRV-Ventilöffnung">🔧 Ventil ${room.trv_avg_valve} %</span>` : ""}
+        ${room.trv_raw_temp != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#fb8c00 15%,transparent);color:var(--primary-text-color)" title="TRV-Eigentemperatur (am Heizkörper gemessen, vor Korrektur)">🌡️ TRV ${ihcEsc(room.trv_raw_temp)} °C</span>` : ""}
+        ${room.trv_avg_valve != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#42a5f5 15%,transparent);color:var(--primary-text-color)" title="Durchschnittliche TRV-Ventilöffnung">🔧 Ventil ${ihcEsc(room.trv_avg_valve)} %</span>` : ""}
         ${room.trv_any_heating ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 15%,transparent);color:var(--primary-text-color)" title="Mindestens ein TRV meldet aktives Heizen">🔥 TRV heizt</span>` : ""}
-        ${room.trv_min_battery != null ? (() => { const lw = room.trv_min_battery < 20; const med = room.trv_min_battery < 40; const bg = lw ? "color-mix(in srgb,#ef5350 15%,transparent)" : med ? "color-mix(in srgb,#fb8c00 15%,transparent)" : "color-mix(in srgb,#66bb6a 15%,transparent)"; const ico = lw ? "🪫" : "🔋"; return `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${bg};color:var(--primary-text-color)" title="TRV-Batterie (niedrigster Wert aller TRVs)">${ico} ${room.trv_min_battery}%</span>`; })() : ""}
-        ${room.room_mode === "manual" && room.next_period ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#9c27b0 15%,transparent);color:var(--primary-text-color)" title="Automatischer Reset beim nächsten Zeitplan-Eintrag">↩ Reset ${room.next_period.start} Uhr</span>` : ""}
-        ${(room.room_temp_threshold > 0) ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 15%,transparent);color:var(--primary-text-color)" title="Mindesttemperatur-Schwelle aktiv: heizt immer wenn Raumtemp darunter fällt">🌡 Min ${room.room_temp_threshold}°C</span>` : ""}
+        ${room.trv_min_battery != null ? (() => { const lw = room.trv_min_battery < 20; const med = room.trv_min_battery < 40; const bg = lw ? "color-mix(in srgb,#ef5350 15%,transparent)" : med ? "color-mix(in srgb,#fb8c00 15%,transparent)" : "color-mix(in srgb,#66bb6a 15%,transparent)"; const ico = lw ? "🪫" : "🔋"; return `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${ihcEsc(bg)};color:var(--primary-text-color)" title="TRV-Batterie (niedrigster Wert aller TRVs)">${ihcEsc(ico)} ${ihcEsc(room.trv_min_battery)}%</span>`; })() : ""}
+        ${room.room_mode === "manual" && room.next_period ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#9c27b0 15%,transparent);color:var(--primary-text-color)" title="Automatischer Reset beim nächsten Zeitplan-Eintrag">↩ Reset ${ihcEsc(room.next_period.start)} Uhr</span>` : ""}
+        ${(room.room_temp_threshold > 0) ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 15%,transparent);color:var(--primary-text-color)" title="Mindesttemperatur-Schwelle aktiv: heizt immer wenn Raumtemp darunter fällt">🌡 Min ${ihcEsc(room.room_temp_threshold)}°C</span>` : ""}
         ${room.source === "temp_threshold_override" ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#29b6f6 25%,transparent);color:var(--primary-text-color)" title="Heizung aktiv wegen Mindesttemperatur-Schwelle">🌡 Schwelle aktiv</span>` : ""}
         ${room.afterheat_coasting ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ff7043 20%,transparent);color:var(--primary-text-color)" title="Ventil früher zu – die Restwärme des Heizkörpers bringt den Raum auf Soll">♨️ Restwärme</span>` : ""}
         ${room.optimum_stop_active ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#66bb6a 20%,transparent);color:var(--primary-text-color)" title="Optimum Stop: Thermische Masse reicht aus – Heizung pausiert, Raum kühlt auf nächsten Zeitplan-Sollwert">🌿 Coasting${room.optimum_stop_minutes != null ? ' – ' + room.optimum_stop_minutes.toFixed(0) + ' min' : ''}</span>` : ""}
-        ${room.presence_sensor ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${room.pir_presence === false ? "color-mix(in srgb,#ef5350 15%,transparent)" : room.pir_presence === true ? "color-mix(in srgb,#66bb6a 15%,transparent)" : "color-mix(in srgb,#78909c 15%,transparent)"};color:var(--primary-text-color)" title="PIR: ${room.presence_sensor}">${room.pir_presence === false ? "🚶 Niemand da" : room.pir_presence === true ? "🏃 Bewegung" : "👁 PIR konfiguriert"}</span>` : ""}
+        ${room.presence_sensor ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:${room.pir_presence === false ? "color-mix(in srgb,#ef5350 15%,transparent)" : room.pir_presence === true ? "color-mix(in srgb,#66bb6a 15%,transparent)" : "color-mix(in srgb,#78909c 15%,transparent)"};color:var(--primary-text-color)" title="PIR: ${ihcEsc(room.presence_sensor)}">${room.pir_presence === false ? "🚶 Niemand da" : room.pir_presence === true ? "🏃 Bewegung" : "👁 PIR konfiguriert"}</span>` : ""}
         ${room.source === "pir_absence" ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 25%,transparent);color:var(--primary-text-color)" title="Abwesend-Temperatur wegen PIR-Abwesenheit aktiv">🚶 PIR abwesend</span>` : ""}
       </div>
       <div class="tabs" style="margin-bottom:16px">
@@ -122,7 +122,7 @@
     const valveRows = room.valve_entities && room.valve_entities.length > 0
       ? room.valve_entities.map((e, i) => `
           <div class="entity-row">
-            <input type="text" class="form-input" value="${e}"
+            <input type="text" class="form-input" value="${ihcEsc(e)}"
               data-ep-domains="climate" autocomplete="off" placeholder="climate.entity">
             ${i === 0
               ? `<button class="btn btn-secondary btn-icon add-entity" data-list="rs-valve-list" data-ep-domains="climate">+</button>`
@@ -137,7 +137,7 @@
     const windowRows = room.window_sensors && room.window_sensors.length > 0
       ? room.window_sensors.map((e, i) => `
           <div class="entity-row">
-            <input type="text" class="form-input" value="${e}"
+            <input type="text" class="form-input" value="${ihcEsc(e)}"
               data-ep-domains="binary_sensor" autocomplete="off" placeholder="binary_sensor.fenster">
             ${i === 0
               ? `<button class="btn btn-secondary btn-icon add-entity" data-list="rs-window-list" data-ep-domains="binary_sensor">+</button>`
@@ -150,7 +150,7 @@
          </div>`;
 
     const ROOM_MODES_SELECT = ["auto","comfort","eco","sleep","away","off","manual"].map(m =>
-      `<option value="${m}" ${room.room_mode === m ? "selected" : ""}>${MODE_ICONS[m] || ""} ${MODE_LABELS[m] || m}</option>`
+      `<option value="${m}" ${room.room_mode === m ? "selected" : ""}>${ihcEsc(MODE_ICONS[m] || "")} ${ihcEsc(MODE_LABELS[m] || m)}</option>`
     ).join("");
 
     container.innerHTML = `
@@ -167,7 +167,7 @@
         <div class="form-group">
           <label class="form-label">Temperatursensor</label>
           <input type="text" class="form-input full" id="rs-sensor"
-            value="${room.temp_sensor || ''}" placeholder="sensor.temp"
+            value="${ihcEsc(room.temp_sensor || '')}" placeholder="sensor.temp"
             data-ep-domains="sensor" autocomplete="off">
         </div>
 
@@ -192,12 +192,12 @@
             <div class="settings-item">
               <label>Reaktionszeit (s)</label>
               <input type="number" class="form-input" id="rs-window-reaction-time"
-                value="${room.window_reaction_time ?? 30}" step="5" min="0" max="300">
+                value="${ihcEsc(room.window_reaction_time ?? 30)}" step="5" min="0" max="300">
             </div>
             <div class="settings-item">
               <label>Wiederaufnahme nach Schließen (s)</label>
               <input type="number" class="form-input" id="rs-window-close-delay"
-                value="${room.window_close_delay ?? 0}" step="5" min="0" max="600">
+                value="${ihcEsc(room.window_close_delay ?? 0)}" step="5" min="0" max="600">
             </div>
             <div class="settings-item">
               <label>Sollwert nach Fenster schließen</label>
@@ -222,7 +222,7 @@
             const currentCascadeRooms = room.window_cascade_rooms || [];
             const roomCheckboxes = otherRooms.map(r => `
               <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
-                <input type="checkbox" class="cascade-room-check" value="${r.room_id}"
+                <input type="checkbox" class="cascade-room-check" value="${ihcEsc(r.room_id)}"
                   ${currentCascadeRooms.includes(r.room_id) ? 'checked' : ''}>
                 <span style="font-size:13px">${this._esc(r.name)}</span>
               </label>`).join('');
@@ -238,7 +238,7 @@
             <div class="settings-item">
               <label>Verzögerung (min)</label>
               <input type="number" class="form-input" id="rs-cascade-delay"
-                value="${room.window_cascade_delay_minutes ?? 30}" step="5" min="5" max="120">
+                value="${ihcEsc(room.window_cascade_delay_minutes ?? 30)}" step="5" min="5" max="120">
               <span class="form-hint">Fenster muss mindestens so lange offen sein</span>
             </div>
             <div class="settings-item">
@@ -251,7 +251,7 @@
           ${room.window_cascade_active ? `
           <div style="padding:8px 12px;border-radius:8px;background:color-mix(in srgb,#42a5f5 12%,transparent);font-size:12px;margin-top:8px">
             🌊 Dieser Raum wird gerade kaskadengesenkt durch: <strong>${this._esc(room.window_cascade_source || "?")}</strong>
-            (–${room.window_cascade_offset?.toFixed(1) ?? '?'} °C)
+            (–${ihcEsc(room.window_cascade_offset?.toFixed(1) ?? '?')} °C)
           </div>` : ''}
         </details>
 
@@ -261,32 +261,32 @@
             <div class="settings-item">
               <label>😊 Wohlfühltemperatur (°C)</label>
               <input type="number" class="form-input" id="rs-comfort"
-                value="${room.comfort_temp ?? 21}" step="0.5" min="15" max="30">
+                value="${ihcEsc(room.comfort_temp ?? 21)}" step="0.5" min="15" max="30">
             </div>
             <div class="settings-item">
               <label>🚶 Wenn niemand da ist (°C)</label>
               <input type="number" class="form-input" id="rs-away-temp-room"
-                value="${room.away_temp_room ?? 16}" step="0.5" min="10" max="22">
+                value="${ihcEsc(room.away_temp_room ?? 16)}" step="0.5" min="10" max="22">
             </div>
             <div class="settings-item expert-only">
               <label>Eco Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-eco-offset"
-                value="${room.eco_offset ?? 3}" step="0.5" min="0" max="10">
+                value="${ihcEsc(room.eco_offset ?? 3)}" step="0.5" min="0" max="10">
             </div>
             <div class="settings-item expert-only">
               <label>Eco Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-eco-max"
-                value="${room.eco_max_temp ?? 21}" step="0.5" min="10" max="28">
+                value="${ihcEsc(room.eco_max_temp ?? 21)}" step="0.5" min="10" max="28">
             </div>
             <div class="settings-item expert-only">
               <label>Schlaf Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-sleep-offset"
-                value="${room.sleep_offset ?? 4}" step="0.5" min="0" max="10">
+                value="${ihcEsc(room.sleep_offset ?? 4)}" step="0.5" min="0" max="10">
             </div>
             <div class="settings-item expert-only">
               <label>Schlaf Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-sleep-max"
-                value="${room.sleep_max_temp ?? 19}" step="0.5" min="10" max="25">
+                value="${ihcEsc(room.sleep_max_temp ?? 19)}" step="0.5" min="10" max="25">
             </div>
             <div class="settings-item expert-only" style="grid-column:1/-1">
               <label>🌙 Schlaf-Temperaturprofil <span style="font-weight:400;font-size:10px">(optional – überschreibt Schlaf-Abzug wenn gesetzt)</span></label>
@@ -295,8 +295,8 @@
                   const points = (room.sleep_temp_profile && room.sleep_temp_profile.length > 0) ? room.sleep_temp_profile : [{ time: "22:00", temp: "" }];
                   return points.map((p, i) => `
                     <div class="entity-row sp-row">
-                      <input type="time" class="form-input" style="max-width:110px" data-sp-field="time" value="${p.time || ''}">
-                      <input type="number" class="form-input" style="max-width:90px" data-sp-field="temp" placeholder="°C" step="0.5" min="5" max="30" value="${p.temp ?? ''}">
+                      <input type="time" class="form-input" style="max-width:110px" data-sp-field="time" value="${ihcEsc(p.time || '')}">
+                      <input type="number" class="form-input" style="max-width:90px" data-sp-field="temp" placeholder="°C" step="0.5" min="5" max="30" value="${ihcEsc(p.temp ?? '')}">
                       ${i === 0
                         ? `<button class="btn btn-secondary btn-icon" id="rs-add-sp-point">+</button>`
                         : `<button class="btn btn-danger btn-icon remove-sp-point">✕</button>`}
@@ -308,12 +308,12 @@
             <div class="settings-item expert-only">
               <label>Abwesend Abzug (°C)</label>
               <input type="number" class="form-input" id="rs-away-offset"
-                value="${room.away_offset ?? 6}" step="0.5" min="0" max="15">
+                value="${ihcEsc(room.away_offset ?? 6)}" step="0.5" min="0" max="15">
             </div>
             <div class="settings-item expert-only">
               <label>Abwesend Maximum (°C)</label>
               <input type="number" class="form-input" id="rs-away-max"
-                value="${room.away_max_temp ?? 18}" step="0.5" min="5" max="22">
+                value="${ihcEsc(room.away_max_temp ?? 18)}" step="0.5" min="5" max="22">
             </div>
           </div>
           <span class="form-hint simple-only-hint">Sparen, Schlafen und Abwesend werden automatisch aus der Wohlfühltemperatur abgeleitet – im Expertenmodus einzeln einstellbar.</span>
@@ -325,45 +325,45 @@
             <div class="settings-item">
               <label>Zimmer-Offset (°C)</label>
               <input type="number" class="form-input" id="rs-offset"
-                value="${room.room_offset ?? 0}" step="0.5" min="-5" max="5">
+                value="${ihcEsc(room.room_offset ?? 0)}" step="0.5" min="-5" max="5">
             </div>
             <div class="settings-item">
               <label>Totband (°C)</label>
               <input type="number" class="form-input" id="rs-deadband"
-                value="${room.deadband ?? 0.5}" step="0.1" min="0.1" max="2">
+                value="${ihcEsc(room.deadband ?? 0.5)}" step="0.1" min="0.1" max="2">
             </div>
             <div class="settings-item">
               <label>Absolute Mindesttemperatur (°C)</label>
               <input type="number" class="form-input" id="rs-absolute-min-temp"
-                value="${room.absolute_min_temp ?? 15}" step="0.5" min="5" max="25">
+                value="${ihcEsc(room.absolute_min_temp ?? 15)}" step="0.5" min="5" max="25">
             </div>
             <div class="settings-item">
               <label>HA Klimaregler – Min.-Temperatur (°C)</label>
               <input type="number" class="form-input" id="rs-min-temp"
-                value="${room.min_temp ?? 5}" step="0.5" min="4" max="15">
+                value="${ihcEsc(room.min_temp ?? 5)}" step="0.5" min="4" max="15">
               <span class="form-hint">Untergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
             </div>
             <div class="settings-item">
               <label>HA Klimaregler – Max.-Temperatur (°C)</label>
               <input type="number" class="form-input" id="rs-max-temp"
-                value="${room.max_temp ?? 30}" step="0.5" min="20" max="35">
+                value="${ihcEsc(room.max_temp ?? 30)}" step="0.5" min="20" max="35">
               <span class="form-hint">Obergrenze des Temperatur-Schiebereglers im HA Climate-Baustein</span>
             </div>
             <div class="settings-item">
               <label>Sensor-Kalibrierungsoffset (°C)</label>
               <input type="number" class="form-input" id="rs-temp-calibration"
-                value="${room.temp_calibration ?? 0}" step="0.1" min="-5" max="5">
+                value="${ihcEsc(room.temp_calibration ?? 0)}" step="0.1" min="-5" max="5">
               <span class="form-hint">Korrigiert einen zu warm/kalt messenden Temperatursensor</span>
             </div>
             <div class="settings-item">
               <label>Zimmergröße (m²)</label>
               <input type="number" class="form-input" id="rs-room-qm"
-                value="${room.room_qm ?? 0}" step="1" min="0" max="200">
+                value="${ihcEsc(room.room_qm ?? 0)}" step="1" min="0" max="200">
             </div>
             <div class="settings-item">
               <label>Vorheizzeit (min, -1 = global)</label>
               <input type="number" class="form-input" id="rs-room-preheat"
-                value="${room.room_preheat_minutes ?? -1}" step="1" min="-1" max="120">
+                value="${ihcEsc(room.room_preheat_minutes ?? -1)}" step="1" min="-1" max="120">
             </div>
           </div>
         </details>
@@ -374,7 +374,7 @@
             <div class="settings-item">
               <label>Feuchtigkeitssensor</label>
               <input type="text" class="form-input" id="rs-humidity-sensor"
-                value="${room.humidity_sensor || ''}" placeholder="sensor.feuchte"
+                value="${ihcEsc(room.humidity_sensor || '')}" placeholder="sensor.feuchte"
                 data-ep-domains="sensor" autocomplete="off">
             </div>
             <div class="settings-item">
@@ -387,23 +387,23 @@
             <div class="settings-item">
               <label>Schimmelschutz-Schwelle (%)</label>
               <input type="number" class="form-input" id="rs-mold-humidity-threshold"
-                value="${room.mold_humidity_threshold ?? 70}" step="1" min="50" max="95">
+                value="${ihcEsc(room.mold_humidity_threshold ?? 70)}" step="1" min="50" max="95">
             </div>
             <div class="settings-item">
               <label>CO₂-Sensor</label>
               <input type="text" class="form-input" id="rs-co2-sensor"
-                value="${room.co2_sensor || ''}" placeholder="sensor.co2"
+                value="${ihcEsc(room.co2_sensor || '')}" placeholder="sensor.co2"
                 data-ep-domains="sensor" autocomplete="off">
             </div>
             <div class="settings-item">
               <label>CO₂ Gut-Schwelle (ppm)</label>
               <input type="number" class="form-input" id="rs-co2-threshold-good"
-                value="${room.co2_threshold_good ?? 800}" step="50" min="400" max="1000">
+                value="${ihcEsc(room.co2_threshold_good ?? 800)}" step="50" min="400" max="1000">
             </div>
             <div class="settings-item">
               <label>CO₂ Lüften-Schwelle (ppm)</label>
               <input type="number" class="form-input" id="rs-co2-threshold-bad"
-                value="${room.co2_threshold_bad ?? 1200}" step="50" min="800" max="2000">
+                value="${ihcEsc(room.co2_threshold_bad ?? 1200)}" step="50" min="800" max="2000">
             </div>
           </div>
         </details>
@@ -414,14 +414,14 @@
             <div class="settings-item">
               <label>Heizkörper-Nennleistung (kW, alle zusammen)</label>
               <input type="number" class="form-input" id="rs-radiator-kw"
-                value="${room.radiator_kw ?? 1.0}" step="0.05" min="0.1" max="10.0">
+                value="${ihcEsc(room.radiator_kw ?? 1.0)}" step="0.05" min="0.1" max="10.0">
               <span class="form-hint">Steht auf dem Typenschild/Datenblatt (bei 75/65/20 °C). Unbekannt? Rechner rechts nutzen.</span>
             </div>
             <div class="settings-item">
               <label>🧮 Aus Größe schätzen</label>
               <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <select class="form-select" id="rs-rad-type" style="flex:1;min-width:80px" title="Typ: Anzahl Platten/Lamellen (auf der Seite zählen)">
-                  ${[["10","Typ 10"],["11","Typ 11"],["20","Typ 20"],["21","Typ 21"],["22","Typ 22"],["33","Typ 33"]].map(([v,l]) => `<option value="${v}" ${v === "22" ? "selected" : ""}>${l}</option>`).join("")}
+                  ${[["10","Typ 10"],["11","Typ 11"],["20","Typ 20"],["21","Typ 21"],["22","Typ 22"],["33","Typ 33"]].map(([v,l]) => `<option value="${ihcEsc(v)}" ${v === "22" ? "selected" : ""}>${ihcEsc(l)}</option>`).join("")}
                 </select>
                 <input type="number" class="form-input" id="rs-rad-h" placeholder="Höhe mm" value="600" style="max-width:90px">
                 <input type="number" class="form-input" id="rs-rad-l" placeholder="Länge mm" value="1000" style="max-width:90px">
@@ -432,13 +432,13 @@
             <div class="settings-item expert-only">
               <label>HKV-Sensor</label>
               <input type="text" class="form-input" id="rs-hkv-sensor"
-                value="${room.hkv_sensor || ''}" placeholder="sensor.hkv"
+                value="${ihcEsc(room.hkv_sensor || '')}" placeholder="sensor.hkv"
                 data-ep-domains="sensor" autocomplete="off">
             </div>
             <div class="settings-item expert-only">
               <label>HKV-Faktor (kWh/Einheit)</label>
               <input type="number" class="form-input" id="rs-hkv-factor"
-                value="${room.hkv_factor ?? 0.083}" step="0.001" min="0.001" max="1.0">
+                value="${ihcEsc(room.hkv_factor ?? 0.083)}" step="0.001" min="0.001" max="1.0">
             </div>
           </div>
         </details>
@@ -464,18 +464,18 @@
             <div class="settings-item">
               <label>Boost-Dauer (min)</label>
               <input type="number" class="form-input" id="rs-boost-dur"
-                value="${room.boost_default_duration ?? 60}" min="5" max="480" step="5">
+                value="${ihcEsc(room.boost_default_duration ?? 60)}" min="5" max="480" step="5">
             </div>
             <div class="settings-item">
               <label>Boost-Zieltemperatur (°C)</label>
               <input type="number" class="form-input" id="rs-boost-temp"
-                value="${room.boost_temp ?? 0}" min="0" max="30" step="0.5" placeholder="0 = Komfort-Temperatur">
+                value="${ihcEsc(room.boost_temp ?? 0)}" min="0" max="30" step="0.5" placeholder="0 = Komfort-Temperatur">
               <span class="form-hint">0 = deaktiviert, nutzt stattdessen die Komfort-Temperatur.</span>
             </div>
           </div>
           <div class="form-row" style="gap:8px;margin-top:8px">
             <button class="btn btn-secondary" id="rs-boost-btn">⚡ Boost starten</button>
-            ${room.boost_remaining > 0 ? `<button class="btn btn-danger" id="rs-boost-cancel-btn">✕ Boost beenden (${room.boost_remaining} min)</button>` : ""}
+            ${room.boost_remaining > 0 ? `<button class="btn btn-danger" id="rs-boost-cancel-btn">✕ Boost beenden (${ihcEsc(room.boost_remaining)} min)</button>` : ""}
           </div>
         </details>
 
@@ -485,24 +485,24 @@
             <div class="settings-item">
               <label>TRV-Temperaturanteil (0–0.5)</label>
               <input type="number" class="form-input" id="rs-trv-temp-weight"
-                value="${room.trv_temp_weight ?? 0}" min="0" max="0.5" step="0.05">
+                value="${ihcEsc(room.trv_temp_weight ?? 0)}" min="0" max="0.5" step="0.05">
             </div>
             <div class="settings-item">
               <label>TRV-Temperaturkorrektur (°C)</label>
               <input type="number" class="form-input" id="rs-trv-temp-offset"
-                value="${room.trv_temp_offset ?? -2}" min="-10" max="5" step="0.5">
+                value="${ihcEsc(room.trv_temp_offset ?? -2)}" min="-10" max="5" step="0.5">
               <span class="form-hint">−2 = automatisch: gleicht nur die Wärme des laufenden Heizkörpers aus. Jeder andere Wert gilt fest. Vorschlag aus Messungen: Analyse-Tab.</span>
             </div>
             <div class="settings-item">
               <label>🔋 Min. Sendeintervall (s)</label>
               <input type="number" class="form-input" id="rs-trv-min-send-interval"
-                value="${room.trv_min_send_interval ?? 0}" min="0" max="1800" step="60">
+                value="${ihcEsc(room.trv_min_send_interval ?? 0)}" min="0" max="1800" step="60">
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label>Per-TRV-Kalibrierung (JSON)</label>
               <textarea class="form-input" id="rs-trv-calibrations" rows="3"
                 placeholder='{"climate.trv_name": -2.0}'
-                style="font-family:monospace;font-size:11px">${room.trv_calibrations ? JSON.stringify(room.trv_calibrations, null, 0) : ""}</textarea>
+                style="font-family:monospace;font-size:11px">${room.trv_calibrations ? ihcEsc(JSON.stringify(room.trv_calibrations, null, 0)) : ""}</textarea>
             </div>
           </div>
         </details>
@@ -519,12 +519,12 @@
             <div class="settings-item">
               <label>Aktivierungsbereich (°C unter Soll)</label>
               <input type="number" class="form-input" id="rs-aggressive-range"
-                value="${room.aggressive_mode_range ?? 2}" step="0.5" min="0.5" max="5">
+                value="${ihcEsc(room.aggressive_mode_range ?? 2)}" step="0.5" min="0.5" max="5">
             </div>
             <div class="settings-item">
               <label>Überhöhung (°C über Soll)</label>
               <input type="number" class="form-input" id="rs-aggressive-offset"
-                value="${room.aggressive_mode_offset ?? 3}" step="0.5" min="0.5" max="8">
+                value="${ihcEsc(room.aggressive_mode_offset ?? 3)}" step="0.5" min="0.5" max="8">
             </div>
           </div>
         </details>
@@ -535,13 +535,13 @@
             <div class="settings-item">
               <label>Mindesttemperatur-Schwelle (°C)</label>
               <input type="number" class="form-input" id="rs-room-temp-threshold"
-                value="${room.room_temp_threshold ?? 0}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
+                value="${ihcEsc(room.room_temp_threshold ?? 0)}" step="0.5" min="0" max="25" placeholder="0 = deaktiviert">
               <span class="form-hint">Heizt immer wenn Raumtemp darunter fällt (0 = deaktiviert)</span>
             </div>
             <div class="settings-item">
               <label>Fenster-Mindesttemperatur (°C)</label>
               <input type="number" class="form-input" id="rs-window-open-temp"
-                value="${room.window_open_temp ?? 0}" step="0.5" min="0" max="22" placeholder="0 = Frostschutz">
+                value="${ihcEsc(room.window_open_temp ?? 0)}" step="0.5" min="0" max="22" placeholder="0 = Frostschutz">
               <span class="form-hint">Temperatur bei offenem Fenster (0 = Frostschutz 7°C)</span>
             </div>
             <div class="settings-item" style="grid-column:1/-1">
@@ -569,19 +569,19 @@
             <div class="settings-item" style="grid-column:1/-1">
               <label>PIR-Sensor Entity</label>
               <input type="text" class="form-input full" id="rs-presence-sensor"
-                value="${room.presence_sensor || ''}" placeholder="binary_sensor.bewegung"
+                value="${ihcEsc(room.presence_sensor || '')}" placeholder="binary_sensor.bewegung"
                 data-ep-domains="binary_sensor" autocomplete="off">
               <span class="form-hint">Bewegungsmelder für Zimmer-Anwesenheit (optional)</span>
             </div>
             <div class="settings-item">
               <label>Einschaltverzögerung (s)</label>
               <input type="number" class="form-input" id="rs-presence-sensor-on-delay"
-                value="${room.presence_sensor_on_delay ?? 300}" step="30" min="0" max="3600">
+                value="${ihcEsc(room.presence_sensor_on_delay ?? 300)}" step="30" min="0" max="3600">
             </div>
             <div class="settings-item">
               <label>Ausschaltverzögerung (s)</label>
               <input type="number" class="form-input" id="rs-presence-sensor-off-delay"
-                value="${room.presence_sensor_off_delay ?? 300}" step="30" min="0" max="3600">
+                value="${ihcEsc(room.presence_sensor_off_delay ?? 300)}" step="30" min="0" max="3600">
             </div>
           </div>
         </details>
@@ -592,14 +592,14 @@
             <div class="settings-item" style="grid-column:1/-1">
               <label>Komfort-Sollwert Entity</label>
               <input type="text" class="form-input full" id="rs-comfort-temp-entity"
-                value="${room.comfort_temp_entity || ''}" placeholder="input_number.komfort_soll"
+                value="${ihcEsc(room.comfort_temp_entity || '')}" placeholder="input_number.komfort_soll"
                 data-ep-domains="input_number,sensor" autocomplete="off">
               <span class="form-hint">input_number.* oder sensor.* für dynamischen Komfort-Sollwert</span>
             </div>
             <div class="settings-item" style="grid-column:1/-1">
               <label>Eco-Sollwert Entity</label>
               <input type="text" class="form-input full" id="rs-eco-temp-entity"
-                value="${room.eco_temp_entity || ''}" placeholder="input_number.eco_soll"
+                value="${ihcEsc(room.eco_temp_entity || '')}" placeholder="input_number.eco_soll"
                 data-ep-domains="input_number,sensor" autocomplete="off">
               <span class="form-hint">input_number.* oder sensor.* für dynamischen Eco-Sollwert</span>
             </div>
@@ -659,10 +659,10 @@
                 return entries.map((entry, i) => `
                   <div class="entity-row comfort-extend-row">
                     <input type="text" class="form-input" placeholder="entity_id"
-                      value="${entry.entity || ''}" autocomplete="off" data-ce-field="entity"
+                      value="${ihcEsc(entry.entity || '')}" autocomplete="off" data-ce-field="entity"
                       data-ep-domains="media_player,switch,binary_sensor,input_boolean,person,device_tracker">
                     <input type="text" class="form-input" style="max-width:100px" placeholder="zustand"
-                      value="${entry.state || 'on'}" autocomplete="off" data-ce-field="state">
+                      value="${ihcEsc(entry.state || 'on')}" autocomplete="off" data-ce-field="state">
                     ${i === 0
                       ? `<button class="btn btn-secondary btn-icon" id="rs-add-comfort-extend">+</button>`
                       : `<button class="btn btn-danger btn-icon remove-comfort-extend">✕</button>`}
@@ -683,7 +683,7 @@
 
         <details class="modal-collapsible" ${room.solar_passive_heat || room.solar_passive_cool ? "open" : ""}>
           <summary class="modal-section-title">🪟 Rollläden automatisch steuern
-            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">${this._esc(({ night_insulation: "🌙 nachts zu (Wärmedämmung)", evening_privacy: "🌙 Privatsphäre", morning_hold: "🌅 zu, bis die Sonne kommt", glare: "📺 Blendschutz", shade: "😎 Beschattung (zu warm)", solar_gain: "☀️ offen – Sonnenwärme", daylight: "🔆 offen – Tageslicht", weather_protection: "🌬️ Sturm-/Regenschutz", wind_hold: "🌬️ Wind – bleibt, wie er ist" }[room.solar_cover_reason]) || "Aktiv")} · ${room.solar_cover_position}%</span>` : ""}
+            ${room.solar_cover_active ? `<span class="badge" style="background:#f9a825;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">${this._esc(({ night_insulation: "🌙 nachts zu (Wärmedämmung)", evening_privacy: "🌙 Privatsphäre", morning_hold: "🌅 zu, bis die Sonne kommt", glare: "📺 Blendschutz", shade: "😎 Beschattung (zu warm)", solar_gain: "☀️ offen – Sonnenwärme", daylight: "🔆 offen – Tageslicht", weather_protection: "🌬️ Sturm-/Regenschutz", wind_hold: "🌬️ Wind – bleibt, wie er ist" }[room.solar_cover_reason]) || "Aktiv")} · ${ihcEsc(room.solar_cover_position)}%</span>` : ""}
             ${room.solar_cover_overridden ? `<span class="badge" style="background:#9e9e9e;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">✋ von Hand verstellt – IHC wartet</span>` : ""}
           </summary>
           <div style="font-size:12px;color:var(--secondary-text-color);margin:8px 0 12px">
@@ -699,7 +699,7 @@
                 const covers = (room.cover_entities && room.cover_entities.length > 0) ? room.cover_entities : [""];
                 return covers.map((c, i) => `
                   <div class="entity-row">
-                    <input type="text" class="form-input" value="${c}" placeholder="cover.wohnzimmer (optional)"
+                    <input type="text" class="form-input" value="${ihcEsc(c)}" placeholder="cover.wohnzimmer (optional)"
                       data-ep-domains="cover" autocomplete="off">
                     ${i === 0
                       ? `<button class="btn btn-secondary btn-icon add-entity" data-list="rs-cover-list" data-ep-domains="cover">+</button>`
@@ -714,7 +714,7 @@
               <select class="form-select" id="rs-window-orientation">
                 <option value="" ${!room.window_orientation ? "selected" : ""}>– keine –</option>
                 ${[["N", "Nord"], ["NE", "Nordost"], ["E", "Ost"], ["SE", "Südost"], ["S", "Süd"], ["SW", "Südwest"], ["W", "West"], ["NW", "Nordwest"]].map(([o, l]) =>
-                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${l}</option>`).join("")}
+                  `<option value="${o}" ${room.window_orientation === o ? "selected" : ""}>${ihcEsc(l)}</option>`).join("")}
               </select>
             </div>
             <div class="settings-item">
@@ -782,8 +782,8 @@
         const row = document.createElement("div");
         row.className = "entity-row";
         row.innerHTML = `
-          <input type="text" class="form-input" placeholder="${domains.split(",")[0]}.entity"
-            data-ep-domains="${domains}" autocomplete="off">
+          <input type="text" class="form-input" placeholder="${ihcEsc(domains.split(",")[0])}.entity"
+            data-ep-domains="${ihcEsc(domains)}" autocomplete="off">
           <button class="btn btn-danger btn-icon remove-entity">✕</button>`;
         list.appendChild(row);
         row.querySelector(".remove-entity").addEventListener("click", () => row.remove());
@@ -818,7 +818,7 @@
       boostBtn.addEventListener("click", () => {
         const dur = parseInt(container.querySelector("#rs-boost-dur")?.value, 10) || 60;
         this._callService("boost_room", { id: room.room_id, duration_minutes: dur });
-        this._toast(`⚡ Boost ${dur} min für ${this._esc(room.name)}`);
+        this._toast(`⚡ Boost ${dur} min für ${room.name}`);
       });
     }
     const boostCancelBtn = container.querySelector("#rs-boost-cancel-btn");
@@ -927,7 +927,7 @@
         window_cascade_delay_minutes: parseInt(container.querySelector("#rs-cascade-delay")?.value, 10) || 30,
         window_cascade_offset:    parseFloat(container.querySelector("#rs-cascade-offset")?.value) || 3.0,
       });
-      this._toast(`✓ ${this._esc(room.name)} gespeichert`);
+      this._toast(`✓ ${room.name} gespeichert`);
     });
 
     // Delete confirmation: enable button only when name matches exactly
@@ -941,7 +941,7 @@
         if (deleteNameInput.value.trim() !== room.name) return;
         await this._callService("remove_room", { id: room.room_id });
         this._selectedRoom = null;
-        this._toast(`✓ Zimmer „${this._esc(room.name)}" gelöscht`);
+        this._toast(`✓ Zimmer „${room.name}" gelöscht`);
         this._renderRooms(fullContent);
       });
     }
@@ -983,7 +983,7 @@
       const schedName  = sched.name || "";
       const dayChips = DAY_KEYS.map((key, i) =>
         `<span class="day-chip ${sched.days.includes(key) ? "selected" : ""}"
-              data-sched="${si}" data-day="${key}">${DAYS[i]}</span>`
+              data-sched="${ihcEsc(si)}" data-day="${key}">${ihcEsc(DAYS[i])}</span>`
       ).join("");
       const PERIOD_MODES = [
         { value: "comfort", label: "☀️ Komfort" },
@@ -996,52 +996,52 @@
         const pMode = p.mode || "manual";
         const isManual = pMode === "manual";
         const modeOpts = PERIOD_MODES.map(m =>
-          `<option value="${m.value}" ${pMode === m.value ? "selected" : ""}>${m.label}</option>`
+          `<option value="${ihcEsc(m.value)}" ${pMode === m.value ? "selected" : ""}>${ihcEsc(m.label)}</option>`
         ).join("");
         return `
         <div class="period-row" style="grid-template-columns:80px 80px 1fr auto auto 30px">
-          <input type="time" class="form-input" value="${p.start}"
-            data-sched="${si}" data-period="${pi}" data-field="start">
-          <input type="time" class="form-input" value="${p.end}"
-            data-sched="${si}" data-period="${pi}" data-field="end">
+          <input type="time" class="form-input" value="${ihcEsc(p.start)}"
+            data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}" data-field="start">
+          <input type="time" class="form-input" value="${ihcEsc(p.end)}"
+            data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}" data-field="end">
           <div style="display:flex;gap:4px;align-items:center">
             <select class="form-select" style="flex:1"
-              data-sched="${si}" data-period="${pi}" data-field="mode">${modeOpts}</select>
-            <input type="number" class="form-input period-temp-input" value="${p.temperature ?? 21}"
+              data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}" data-field="mode">${modeOpts}</select>
+            <input type="number" class="form-input period-temp-input" value="${ihcEsc(p.temperature ?? 21)}"
               step="0.5" min="10" max="30" placeholder="°C" style="width:60px;display:${isManual ? "block" : "none"}"
-              data-sched="${si}" data-period="${pi}" data-field="temperature">
+              data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}" data-field="temperature">
           </div>
-          <input type="number" class="form-input" value="${p.offset ?? 0}"
+          <input type="number" class="form-input" value="${ihcEsc(p.offset ?? 0)}"
             step="0.5" min="-3" max="3"
-            data-sched="${si}" data-period="${pi}" data-field="offset" placeholder="±°C" style="width:55px">
+            data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}" data-field="offset" placeholder="±°C" style="width:55px">
           <button class="btn btn-danger btn-icon"
-            data-action="del-period" data-sched="${si}" data-period="${pi}">✕</button>
+            data-action="del-period" data-sched="${ihcEsc(si)}" data-period="${ihcEsc(pi)}">✕</button>
         </div>`;
       }).join("");
       return `
         <div class="sched-block">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <strong style="font-size:14px">Gruppe ${si + 1}</strong>
+            <strong style="font-size:14px">Gruppe ${ihcEsc(si + 1)}</strong>
             <button class="btn btn-danger" style="font-size:12px;padding:4px 10px"
-              data-action="del-sched" data-sched="${si}">Gruppe löschen</button>
+              data-action="del-sched" data-sched="${ihcEsc(si)}">Gruppe löschen</button>
           </div>
           <div style="margin-bottom:8px">
             <div class="form-label" style="margin-bottom:4px">Name (optional)</div>
             <input type="text" class="form-input" style="width:100%"
               placeholder="z.B. Winter, Gäste, Sommer…"
-              data-sched="${si}" data-sched-field="name" value="${schedName}">
+              data-sched="${ihcEsc(si)}" data-sched-field="name" value="${ihcEsc(schedName)}">
           </div>
           <div style="margin-bottom:10px;padding:8px 10px;background:var(--secondary-background-color);border-radius:6px;border:1px solid var(--divider-color)">
             <div class="form-label" style="margin-bottom:6px">🔀 Bedingung (optional) — Gruppe nur aktiv wenn:</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
               <input type="text" class="form-input" style="flex:2;min-width:180px"
                 placeholder="input_boolean.winter_modus (leer = immer aktiv)"
-                data-sched="${si}" data-sched-field="condition_entity" value="${condEntity}"
+                data-sched="${ihcEsc(si)}" data-sched-field="condition_entity" value="${ihcEsc(condEntity)}"
                 data-ep-domains="input_boolean,binary_sensor,person,device_tracker,switch,sensor" autocomplete="off">
               <span style="font-size:12px;color:var(--secondary-text-color);flex-shrink:0">Zustand =</span>
               <input type="text" class="form-input" style="width:60px"
                 placeholder="on"
-                data-sched="${si}" data-sched-field="condition_state" value="${condState}">
+                data-sched="${ihcEsc(si)}" data-sched-field="condition_state" value="${ihcEsc(condState)}">
             </div>
           </div>
           <div style="margin-bottom:12px">
@@ -1053,7 +1053,7 @@
           </div>
           ${periodRows}
           <button class="btn btn-secondary" style="font-size:12px;margin-top:6px"
-            data-action="add-period" data-sched="${si}">+ Zeitraum</button>
+            data-action="add-period" data-sched="${ihcEsc(si)}">+ Zeitraum</button>
         </div>`;
     }).join("");
 
@@ -1068,7 +1068,7 @@
           <label class="form-label">⚡ Vorlage übernehmen</label>
           <select class="form-select" id="sched-template">
             <option value="">– Vorlage wählen (ersetzt den Plan unten) –</option>
-            ${SCHEDULE_TEMPLATES.map(t => `<option value="${t.id}">${t.label}</option>`).join("")}
+            ${SCHEDULE_TEMPLATES.map(t => `<option value="${ihcEsc(t.id)}">${ihcEsc(t.label)}</option>`).join("")}
           </select>
           <span class="form-hint">Danach nach Belieben anpassen und speichern. Außerhalb der Zeiten heizt IHC sparsam (Eco).</span>
         </div>
@@ -1175,7 +1175,7 @@
       });
       // Clear buffer so next open re-reads from saved HA state
       delete this._editingSchedules[selId];
-      this._toast(`✓ Zeitpläne für „${this._esc(room.name)}" gespeichert`);
+      this._toast(`✓ Zeitpläne für „${room.name}" gespeichert`);
     });
 
     // ── HA Schedules (schedule.* entities) ────────────────────────────────
@@ -1211,7 +1211,7 @@
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${schedDot}
             <span style="font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._esc(s.entity)}</span>
-            <span style="font-size:11px;color:var(--secondary-text-color);flex-shrink:0">${HA_MODE_LABELS[s.mode] || s.mode}</span>
+            <span style="font-size:11px;color:var(--secondary-text-color);flex-shrink:0">${ihcEsc(HA_MODE_LABELS[s.mode] || s.mode)}</span>
             ${winBadge}
           </div>
           <div style="margin-top:4px">${condBadge}</div>
@@ -1224,7 +1224,7 @@
         ${haStatusRows}
         ${currentSource.startsWith("ha_schedule_") ? `
           <div style="font-size:11px;color:var(--secondary-text-color);padding:6px 10px;background:var(--secondary-background-color);border-radius:6px;margin-top:4px">
-            ⏸ Kein Zeitplan aktiv → Fallback: <strong>${HA_MODE_LABELS[room.ha_schedule_off_mode] || room.ha_schedule_off_mode}</strong>
+            ⏸ Kein Zeitplan aktiv → Fallback: <strong>${ihcEsc(HA_MODE_LABELS[room.ha_schedule_off_mode] || room.ha_schedule_off_mode)}</strong>
           </div>` : ""}
       </div>` : "";
 
@@ -1249,7 +1249,7 @@
       </div>
       <details style="margin-bottom:10px">
         <summary style="font-size:12px;font-weight:600;cursor:pointer;color:var(--secondary-text-color);padding:4px 0">
-          ⚙️ Zeitpläne bearbeiten (${haSchedsConfig.length} konfiguriert)
+          ⚙️ Zeitpläne bearbeiten (${ihcEsc(haSchedsConfig.length)} konfiguriert)
         </summary>
         <div style="margin-top:10px">
           <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:6px">
@@ -1279,7 +1279,7 @@
         ha_schedules,
         ha_schedule_off_mode,
       });
-      this._toast(`✓ HA Zeitpläne für „${this._esc(room.name)}" gespeichert`);
+      this._toast(`✓ HA Zeitpläne für „${room.name}" gespeichert`);
     });
   }
 
@@ -1326,7 +1326,7 @@
     const ihcGridInactive = buildGrid(inactiveScheds);
 
     const cols = HOURS.map((_, h) =>
-      `<div style="font-size:9px;text-align:center;color:var(--secondary-text-color);width:${100/24}%;min-width:0">${h % 3 === 0 ? h + "h" : ""}</div>`
+      `<div style="font-size:9px;text-align:center;color:var(--secondary-text-color);width:${100/24}%;min-width:0">${h % 3 === 0 ? ihcEsc(h) + "h" : ""}</div>`
     ).join("");
 
     // ── HA schedule grids must be defined BEFORE rows so they can be referenced inside the map ──
@@ -1367,10 +1367,10 @@
           bg = "var(--secondary-background-color, #f5f5f5)";
         }
         const title = val != null ? `${val} °C` : valInactive != null ? `${valInactive} °C (Bedingung nicht erfüllt)` : haActive ? `HA: ${haActive.entityId} → ${haActive.mode}` : "—";
-        return `<div title="${title}" style="flex:1;height:22px;background:${bg};opacity:${opacity};border-radius:2px;margin:1px;display:flex;align-items:center;justify-content:center;font-size:8px;color:rgba(0,0,0,0.55);font-weight:600">${label}</div>`;
+        return `<div title="${ihcEsc(title)}" style="flex:1;height:22px;background:${ihcEsc(bg)};opacity:${ihcEsc(opacity)};border-radius:2px;margin:1px;display:flex;align-items:center;justify-content:center;font-size:8px;color:rgba(0,0,0,0.55);font-weight:600">${ihcEsc(label)}</div>`;
       }).join("");
       return `<div style="display:flex;align-items:center;gap:0;margin-bottom:1px">
-        <div style="width:24px;font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${DAYS[di]}</div>
+        <div style="width:24px;font-size:10px;color:var(--secondary-text-color);flex-shrink:0">${ihcEsc(DAYS[di])}</div>
         <div style="display:flex;flex:1;gap:0">${cells}</div>
       </div>`;
     }).join("");
@@ -1381,9 +1381,9 @@
         <div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--secondary-text-color)">IHC Zeitplan-Gruppen</div>
         ${allScheds.map((s, i) => {
           const active = isGroupActive(s);
-          const name = s.name || `Gruppe ${i + 1}`;
+          const name = s.name || `Gruppe ${ihcEsc(i + 1)}`;
           const cond = s.condition_entity
-            ? `<span style="font-size:10px;color:${active ? "#66bb6a" : "#9e9e9e"}">${active ? "✓" : "✗"} ${s.condition_entity} = ${s.condition_state || "on"}</span>`
+            ? `<span style="font-size:10px;color:${active ? "#66bb6a" : "#9e9e9e"}">${active ? "✓" : "✗"} ${ihcEsc(s.condition_entity)} = ${ihcEsc(s.condition_state || "on")}</span>`
             : `<span style="font-size:10px;color:#66bb6a">Immer aktiv</span>`;
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;opacity:${active ? "1" : "0.55"}">
             <span style="font-size:11px;font-weight:600">${this._esc(name)}</span>
@@ -1399,12 +1399,12 @@
           const s = HA_MODE_STYLE[hg.mode] || HA_MODE_STYLE.comfort;
           const cnt = haBlocks[hg.entityId]?.filter(b => !b._yaml_defined).length ?? 0;
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-            <div style="width:14px;height:14px;border-radius:3px;background:${s.color};border:1px solid rgba(0,0,0,0.15)"></div>
-            <span style="font-size:11px;font-weight:600">${hg.entityId}</span>
-            <span style="font-size:10px;color:var(--secondary-text-color)">${s.label} · ${cnt} Blöcke</span>
+            <div style="width:14px;height:14px;border-radius:3px;background:${ihcEsc(s.color)};border:1px solid rgba(0,0,0,0.15)"></div>
+            <span style="font-size:11px;font-weight:600">${ihcEsc(hg.entityId)}</span>
+            <span style="font-size:10px;color:var(--secondary-text-color)">${ihcEsc(s.label)} · ${ihcEsc(cnt)} Blöcke</span>
             ${cnt > 0 ? `<button class="btn btn-secondary" style="font-size:10px;padding:2px 8px"
-              data-action="import-ha-sched" data-room-id="${room.room_id}"
-              data-entity="${hg.entityId}" data-blocks='${JSON.stringify(haBlocks[hg.entityId])}'>📥 Als IHC-Zeitplan importieren</button>`
+              data-action="import-ha-sched" data-room-id="${ihcEsc(room.room_id)}"
+              data-entity="${ihcEsc(hg.entityId)}" data-blocks='${ihcEsc(JSON.stringify(haBlocks[hg.entityId]))}'>📥 Als IHC-Zeitplan importieren</button>`
               : `<span style="font-size:10px;color:#e53935">⚠️ Keine Blöcke gelesen</span>`}
           </div>`;
         }).join("")}
@@ -1413,7 +1413,7 @@
     const yamlBanner = yamlEntityIds.size > 0 ? `
       <div style="margin-top:8px;padding:8px 12px;background:#fff8e1;border:1px solid #f9a825;border-radius:8px;font-size:11px;line-height:1.5">
         <strong>ℹ️ YAML-Zeitpläne erkannt:</strong>
-        ${[...yamlEntityIds].map(eid => `<code>${eid}</code>`).join(", ")}<br>
+        ${[...yamlEntityIds].map(eid => `<code>${ihcEsc(eid)}</code>`).join(", ")}<br>
         Diese Zeitpläne wurden via <strong>YAML</strong> angelegt. Die Wochenansicht ist nur für Zeitpläne verfügbar die
         im HA-UI erstellt wurden (Einstellungen → Helfer → Zeitplan).
         Die <strong>Heizfunktion</strong> arbeitet trotzdem korrekt – nur die visuelle Übersicht fehlt.<br>
@@ -1528,7 +1528,7 @@
       });
       if (seg.length) segments.push(seg.join(" "));
       tgtPolyline = segments.map(s =>
-        `<polyline points="${s}" fill="none" stroke="#fb8c00" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`
+        `<polyline points="${ihcEsc(s)}" fill="none" stroke="#fb8c00" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`
       ).join("");
     }
 
@@ -1536,8 +1536,8 @@
     const yTicks = [0, 0.33, 0.67, 1].map(f => {
       const v = minV + f * range;
       const y = yOf(v).toFixed(1);
-      return `<line x1="${padL - 3}" y1="${y}" x2="${padL}" y2="${y}" stroke="var(--divider-color)" stroke-width="1"/>
-              <text x="${padL - 5}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="9" fill="var(--secondary-text-color)">${v.toFixed(1)}</text>`;
+      return `<line x1="${padL - 3}" y1="${ihcEsc(y)}" x2="${ihcEsc(padL)}" y2="${ihcEsc(y)}" stroke="var(--divider-color)" stroke-width="1"/>
+              <text x="${padL - 5}" y="${ihcEsc(parseFloat(y) + 4)}" text-anchor="end" font-size="9" fill="var(--secondary-text-color)">${v.toFixed(1)}</text>`;
     }).join("");
 
     // X-axis labels
@@ -1551,7 +1551,7 @@
         const dayNames = ["So","Mo","Di","Mi","Do","Fr","Sa"];
         label = `${dayNames[d.getDay()]} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
       } catch(_) { /* keep raw */ }
-      xLabels.push(`<text x="${xOf(i).toFixed(1)}" y="${H - padB + 14}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${label}</text>`);
+      xLabels.push(`<text x="${xOf(i).toFixed(1)}" y="${ihcEsc(H - padB + 14)}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${ihcEsc(label)}</text>`);
     }
 
     // Current value dot + label
@@ -1564,28 +1564,28 @@
       const lastTgtIdx = tgtVals.length - 1 - [...tgtVals].reverse().findIndex(v => v !== null);
       const tx = xOf(lastTgtIdx).toFixed(1);
       const ty = yOf(lastTgt).toFixed(1);
-      return `<circle cx="${tx}" cy="${ty}" r="3.5" fill="#fb8c00" stroke="white" stroke-width="1.5"/>
-              <text x="${parseFloat(tx) + 6}" y="${parseFloat(ty) + 4}" font-size="10" font-weight="600" fill="#fb8c00">${lastTgt.toFixed(1)} °C</text>`;
+      return `<circle cx="${ihcEsc(tx)}" cy="${ihcEsc(ty)}" r="3.5" fill="#fb8c00" stroke="white" stroke-width="1.5"/>
+              <text x="${ihcEsc(parseFloat(tx) + 6)}" y="${ihcEsc(parseFloat(ty) + 4)}" font-size="10" font-weight="600" fill="#fb8c00">${lastTgt.toFixed(1)} °C</text>`;
     })() : "";
 
     const svg = `
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${this._esc(room.name)}">
-        <rect x="${padL}" y="${padT}" width="${cW}" height="${cH}" fill="var(--card-background-color,#fafafa)" rx="4" opacity="0.5"/>
+      <svg viewBox="0 0 ${ihcEsc(W)} ${ihcEsc(H)}" style="width:100%;max-width:${ihcEsc(W)}px;height:${ihcEsc(H)}px;display:block;overflow:visible" aria-label="Temperaturverlauf ${this._esc(room.name)}">
+        <rect x="${ihcEsc(padL)}" y="${ihcEsc(padT)}" width="${ihcEsc(cW)}" height="${ihcEsc(cH)}" fill="var(--card-background-color,#fafafa)" rx="4" opacity="0.5"/>
         ${[0, 0.33, 0.67, 1].map(f => {
           const y = yOf(minV + f * range).toFixed(1);
-          return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="var(--divider-color)" stroke-width="0.5" opacity="0.6"/>`;
+          return `<line x1="${ihcEsc(padL)}" y1="${ihcEsc(y)}" x2="${W - padR}" y2="${ihcEsc(y)}" stroke="var(--divider-color)" stroke-width="0.5" opacity="0.6"/>`;
         }).join("")}
-        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + cH}" stroke="var(--divider-color)" stroke-width="1"/>
+        <line x1="${ihcEsc(padL)}" y1="${ihcEsc(padT)}" x2="${ihcEsc(padL)}" y2="${ihcEsc(padT + cH)}" stroke="var(--divider-color)" stroke-width="1"/>
         ${yTicks}
-        <line x1="${padL}" y1="${padT + cH}" x2="${W - padR}" y2="${padT + cH}" stroke="var(--divider-color)" stroke-width="1"/>
+        <line x1="${ihcEsc(padL)}" y1="${ihcEsc(padT + cH)}" x2="${W - padR}" y2="${ihcEsc(padT + cH)}" stroke="var(--divider-color)" stroke-width="1"/>
         ${xLabels.join("")}
         <!-- Soll-Verlauf (orange) -->
         ${tgtPolyline}
         <!-- Ist-Verlauf (blau) -->
-        <polyline points="${pts}" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <polyline points="${ihcEsc(pts)}" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
         <!-- Endpunkte -->
-        <circle cx="${lastX}" cy="${lastY}" r="4" fill="var(--primary-color)" stroke="white" stroke-width="1.5"/>
-        <text x="${parseFloat(lastX) + 7}" y="${parseFloat(lastY) + 4}" font-size="10" font-weight="600" fill="var(--primary-color)">${lastVal.toFixed(1)} °C</text>
+        <circle cx="${ihcEsc(lastX)}" cy="${ihcEsc(lastY)}" r="4" fill="var(--primary-color)" stroke="white" stroke-width="1.5"/>
+        <text x="${ihcEsc(parseFloat(lastX) + 7)}" y="${ihcEsc(parseFloat(lastY) + 4)}" font-size="10" font-weight="600" fill="var(--primary-color)">${lastVal.toFixed(1)} °C</text>
         ${lastTgtDot}
       </svg>`;
 
@@ -1608,10 +1608,10 @@
           </span>` : ""}
         </div>
         <div style="display:flex;gap:24px;padding:4px 0 8px;flex-wrap:wrap">
-          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Min:</span> ${minStr} °C</div>
-          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Max:</span> ${maxStr} °C</div>
-          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Ø:</span> ${avgStr} °C</div>
-          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Messpunkte:</span> ${vals.length}</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Min:</span> ${ihcEsc(minStr)} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Max:</span> ${ihcEsc(maxStr)} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Ø:</span> ${ihcEsc(avgStr)} °C</div>
+          <div style="font-size:12px;color:var(--secondary-text-color)"><span style="font-weight:600;color:var(--primary-text-color)">Messpunkte:</span> ${ihcEsc(vals.length)}</div>
           ${lastTgt != null ? `<div style="font-size:12px;color:#fb8c00"><span style="font-weight:600">Soll aktuell:</span> ${lastTgt.toFixed(1)} °C</div>` : ""}
         </div>
         <div style="font-size:11px;color:var(--secondary-text-color);padding-top:4px">Stündliche Messung · max. 7 Tage Verlauf</div>
@@ -1627,7 +1627,7 @@
         <div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px">
           Gleitender Durchschnitt der Heizanforderung nach Wochentag und Uhrzeit (EMA, lernt über mehrere Wochen).
         </div>
-        <div id="hm-${room.room_id}"></div>`;
+        <div id="hm-${ihcEsc(room.room_id)}"></div>`;
       container.appendChild(heatmapCard);
       const gridContainer = heatmapCard.querySelector(`#hm-${room.room_id}`);
       gridContainer.innerHTML = this._renderDemandHeatmapGrid(room.demand_heatmap);
@@ -1648,9 +1648,9 @@
       if (warmupCurve.length > 0) {
         warmupRows = warmupCurve.map(pt => `
           <tr>
-            <td style="padding:3px 8px;text-align:right">${pt.outdoor_temp > 0 ? "+" : ""}${pt.outdoor_temp} °C</td>
+            <td style="padding:3px 8px;text-align:right">${pt.outdoor_temp > 0 ? "+" : ""}${ihcEsc(pt.outdoor_temp)} °C</td>
             <td style="padding:3px 8px;text-align:right">${pt.avg_minutes.toFixed(0)} min</td>
-            <td style="padding:3px 8px;text-align:right;color:var(--secondary-text-color)">${pt.samples}×</td>
+            <td style="padding:3px 8px;text-align:right;color:var(--secondary-text-color)">${ihcEsc(pt.samples)}×</td>
           </tr>`).join("");
       }
 

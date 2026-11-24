@@ -45,6 +45,12 @@ const _IHC_DB_EN = [
   ["Ist", "Current"], ["Soll", "Target"], ["Aus", "Off"], ["aktiv", "active"], ["nicht gefunden", "not found"],
   ["Uhr", ""], ["Ab ", "From "],
 ];
+// HTML-escape for innerHTML templates (HACS review 2026-11-24)
+function ihcEsc(value) {
+  if (value == null) return "";
+  return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function _ihcDbTranslate(root, hass) {
   const lang = String((hass && ((hass.locale && hass.locale.language) || hass.language)) || "de").toLowerCase();
   if (!root || lang.startsWith("de")) return;
@@ -350,7 +356,7 @@ class IhcDashboardCard extends HTMLElement {
   _renderHeader(g) {
     const sysModeOptions = Object.entries(_SYS_MODE_LABELS).map(([k, v]) => {
       const sel = g.system_mode === k ? " selected" : "";
-      return `<option value="${k}"${sel}>${v}</option>`;
+      return `<option value="${k}"${ihcEsc(sel)}>${ihcEsc(v)}</option>`;
     }).join("");
     return `
       <div class="db-header">
@@ -368,7 +374,7 @@ class IhcDashboardCard extends HTMLElement {
     return `
       <div class="status-strip">
         <div class="stat">
-          <div class="stat-val ${heatClass}">${heatIcon}</div>
+          <div class="stat-val ${ihcEsc(heatClass)}">${ihcEsc(heatIcon)}</div>
           <div class="stat-lbl">Heizung</div>
         </div>
         <div class="stat">
@@ -380,7 +386,7 @@ class IhcDashboardCard extends HTMLElement {
           <div class="stat-lbl">Gesamt</div>
         </div>
         <div class="stat">
-          <div class="stat-val">${g.rooms_demanding}</div>
+          <div class="stat-val">${ihcEsc(g.rooms_demanding)}</div>
           <div class="stat-lbl">Zimmer</div>
         </div>
         ${g.outdoor_humidity !== null ? `<div class="stat"><div class="stat-val">${g.outdoor_humidity.toFixed(0)}%</div><div class="stat-lbl">Außenfeuchte</div></div>` : ""}
@@ -396,9 +402,9 @@ class IhcDashboardCard extends HTMLElement {
       const minV = d.min !== undefined && d.min !== null ? Math.round(d.min) : "?";
       const maxV = d.max !== undefined && d.max !== null ? Math.round(d.max) : "?";
       return `<div class="wday">
-        <div class="wday-lbl">${DAY_LABELS[i] || ""}</div>
-        <div class="wday-icon">${icon}</div>
-        <div class="wday-minmax">${minV}° / ${maxV}°</div>
+        <div class="wday-lbl">${ihcEsc(DAY_LABELS[i] || "")}</div>
+        <div class="wday-icon">${ihcEsc(icon)}</div>
+        <div class="wday-minmax">${ihcEsc(minV)}° / ${ihcEsc(maxV)}°</div>
       </div>`;
     });
     return `<div class="weather-strip">${days.join("")}</div>`;
@@ -413,7 +419,7 @@ class IhcDashboardCard extends HTMLElement {
     if (g.return_preheat_active)
       banners.push(`<div class="banner banner-info">🏠 Vorheizen zur Urlaubsrückkehr aktiv</div>`);
     if (g.guest_mode_active && g.guest_remaining_minutes !== null)
-      banners.push(`<div class="banner banner-info">👥 <b>Gäste-Modus</b> – noch ${g.guest_remaining_minutes} min</div>`);
+      banners.push(`<div class="banner banner-info">👥 <b>Gäste-Modus</b> – noch ${ihcEsc(g.guest_remaining_minutes)} min</div>`);
     if (g.night_setback_active)
       banners.push(`<div class="banner banner-eco">🌙 Nachtabsenkung aktiv</div>`);
     if (g.presence_away_active)
@@ -423,7 +429,7 @@ class IhcDashboardCard extends HTMLElement {
     if (g.solar_boost > 0)
       banners.push(`<div class="banner banner-eco">☀️ Solar-Boost +${g.solar_boost.toFixed(1)}°C aktiv</div>`);
     if (g.eta_preheat_minutes !== null && g.eta_preheat_minutes <= 90)
-      banners.push(`<div class="banner banner-info">🚗 Ankunft in ${g.eta_preheat_minutes} min – Vorheizen aktiv</div>`);
+      banners.push(`<div class="banner banner-info">🚗 Ankunft in ${ihcEsc(g.eta_preheat_minutes)} min – Vorheizen aktiv</div>`);
     return banners.join("");
   }
 
@@ -450,14 +456,14 @@ class IhcDashboardCard extends HTMLElement {
     const v = room.ventilation;
     if (!v || v.level === "none") {
       // Show CO2 only if sensor present but no advice needed
-      if (room.co2_ppm != null) return `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:3px">CO₂ ${room.co2_ppm} ppm ✓</div>`;
+      if (room.co2_ppm != null) return `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:3px">CO₂ ${ihcEsc(room.co2_ppm)} ppm ✓</div>`;
       return "";
     }
     const colors = { urgent: "#b71c1c", recommended: "#e65100", possible: "#1565c0" };
     const fg = colors[v.level] || "#555";
     const co2 = room.co2_ppm != null ? ` · CO₂ ${room.co2_ppm} ppm` : "";
     const reason = v.reasons && v.reasons.length ? v.reasons[0] : v.level;
-    return `<div style="font-size:10px;color:${fg};margin-top:3px">🌬️ ${reason}${co2}</div>`;
+    return `<div style="font-size:10px;color:${ihcEsc(fg)};margin-top:3px">🌬️ ${ihcEsc(reason)}${ihcEsc(co2)}</div>`;
   }
 
   _renderRoomTile(room) {
@@ -472,9 +478,9 @@ class IhcDashboardCard extends HTMLElement {
         <div class="room-tile compact-tile ${this._tileClass(room)}">
           <div class="compact-row">
             <div class="compact-name">${this._esc(room.name)}</div>
-            <div class="compact-icons">${icons}</div>
-            <div class="compact-cur">${cur}</div>
-            <div class="compact-tgt">${tgt}</div>
+            <div class="compact-icons">${ihcEsc(icons)}</div>
+            <div class="compact-cur">${ihcEsc(cur)}</div>
+            <div class="compact-tgt">${ihcEsc(tgt)}</div>
           </div>
         </div>
       `;
@@ -482,25 +488,25 @@ class IhcDashboardCard extends HTMLElement {
 
     const chips = ["auto", "comfort", "eco", "sleep", "away", "off"].map(m => {
       const active = room.room_mode === m ? " active" : "";
-      return `<button class="tile-chip${active}" data-mode="${m}" data-room-id="${room.room_id}">${_DB_MODE_ICONS[m]}</button>`;
+      return `<button class="tile-chip${ihcEsc(active)}" data-mode="${m}" data-room-id="${ihcEsc(room.room_id)}">${ihcEsc(_DB_MODE_ICONS[m])}</button>`;
     });
     const boostChip = room.boost_remaining > 0
-      ? `<button class="tile-chip boost active" data-action="boost-cancel" data-room-id="${room.room_id}">⚡${room.boost_remaining}m</button>`
-      : `<button class="tile-chip boost" data-action="boost" data-room-id="${room.room_id}">⚡</button>`;
+      ? `<button class="tile-chip boost active" data-action="boost-cancel" data-room-id="${ihcEsc(room.room_id)}">⚡${ihcEsc(room.boost_remaining)}m</button>`
+      : `<button class="tile-chip boost" data-action="boost" data-room-id="${ihcEsc(room.room_id)}">⚡</button>`;
 
     return `
       <div class="room-tile ${this._tileClass(room)}">
         <div class="tile-top">
           <div class="tile-name">${this._esc(room.name)}</div>
-          <div class="tile-icons">${icons}</div>
+          <div class="tile-icons">${ihcEsc(icons)}</div>
         </div>
         <div class="tile-temps">
-          <span class="tile-cur">${cur}</span>
+          <span class="tile-cur">${ihcEsc(cur)}</span>
           <span class="tile-arr">→</span>
-          <span class="tile-tgt">${tgt}</span>
+          <span class="tile-tgt">${ihcEsc(tgt)}</span>
         </div>
         <div class="tile-demand-bg">
-          <div class="tile-demand-bar" style="width:${bw}%;background:${bc}"></div>
+          <div class="tile-demand-bar" style="width:${ihcEsc(bw)}%;background:${ihcEsc(bc)}"></div>
         </div>
         ${this._ventilationSubline(room)}
         <div class="tile-chips">${chips.join("")}${boostChip}</div>

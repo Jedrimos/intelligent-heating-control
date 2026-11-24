@@ -20,6 +20,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
+      - name: Install JS parser for the HTML-escape guard
+        run: npm install --no-save --no-package-lock acorn@8.12.1 acorn-walk@8.3.3
       - name: Run pytest
         run: pytest -v
 

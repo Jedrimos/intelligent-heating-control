@@ -1303,8 +1303,16 @@ regeln weiterhin jedes Zimmer einzeln, siehe Kapitel 1/14).
 - **Zeitzonen-Regel:** Uhrzeit-/Wochentag-Entscheidungen IMMER mit `dt_util.now()`, nie
   `datetime.now()` (OS-Zeitzone ≠ HA-Zeitzone in Docker). `ScheduleManager`-Methoden bekommen
   `now=dt_util.now()` explizit übergeben. Reine Dauer-Messungen (Boost-Ende etc.) dürfen naiv bleiben.
-- **Frontend-Regel:** Zimmernamen und andere Freitexte nur über `this._esc()` ins HTML,
+- **Frontend-Regel:** JEDER Datenwert (Zimmer-/Gruppennamen, Entitäts-IDs, Zustände und Attribute
+  anderer Integrationen, Wetter/Vorhersage, Konfig-Strings) nur über `this._esc()`/`ihcEsc()` ins HTML
+  (seit 2.7.0 erzwungen: `tests/test_html_escape.py` → `tests/tools/check_html_escape.js`, acorn-
+  basiert, prüft Panel-`src/` und beide Lovelace-Karten; `node tests/tools/check_html_escape.js
+  <src> --fix` wrappt automatisch). Toasts sind reiner Text (`textContent`), nie HTML übergeben.
   `localStorage` nur über `this._lsGet()/_lsSet()`.
+- **Config-Flow-Regel (seit 2.7.0):** Einzel-Entitätsfelder NIE mit `default=` – immer
+  `_opt_entity(KEY, aktueller_wert)` (suggested_value) und den Key in `_ENTITY_KEYS_GLOBAL`/
+  `_ENTITY_KEYS_ROOM` eintragen (geleertes Feld = fehlender Key → ""). Erzwungen durch
+  `tests/test_config_flow_static.py`, Szenarien in `tests_ha/test_config_flow.py`.
 - [x] Rollläden Loxone-Tageszyklus (`solar_cover_manager._update_solar_covers`, Priorität:
   Wetterschutz > Handbetrieb > Fenster offen > Nacht (Dämmung/Privatsphäre) > Morgen-Halt >
   Blendschutz > Beschattung bei Überhitzung > Sonnenwärme > Tageslicht). Logische Position

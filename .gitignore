@@ -15,3 +15,4 @@ env/
 *.swp
 *.bak
 .claude/
+node_modules/
