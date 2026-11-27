@@ -10,15 +10,17 @@
 
 ---
 
-## Via HACS (empfohlen)
+## Über den Marktplatz / HACS (empfohlen)
 
-1. HACS öffnen (Seitenleiste)
-2. **Integrationen** → **⋮ (Menü)** → **Benutzerdefinierte Repositories**
-3. URL eingeben: `https://github.com/Jedrimos/intelligent-heating-control`
-4. Kategorie: **Integration** → **Hinzufügen**
-5. Suche nach **Intelligent Heating Control** → **Herunterladen**
-6. Home Assistant **neu starten**
-7. **Einstellungen → Integrationen → + Integration** → „Intelligent Heating Control" suchen
+IHC ist im offiziellen Katalog – kein Repository-Link nötig.
+
+[![In Home Assistant öffnen und installieren](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Jedrimos&repository=intelligent-heating-control&category=integration)
+
+1. Knopf klicken (oder Marktplatz/HACS öffnen und nach **Intelligent Heating Control** suchen)
+2. **Herunterladen**
+3. Home Assistant **neu starten**
+4. Integration einrichten: [![Integration einrichten](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=intelligent_heating_control)
+   (oder **Einstellungen → Geräte & Dienste → + Integration** → „Intelligent Heating Control“)
 
 ---
 
@@ -41,8 +43,10 @@ Danach: **Einstellungen → Integrationen → + Integration** → „Intelligent
 
 ## Update
 
-### Via HACS
-HACS zeigt verfügbare Updates automatisch an. Klicke auf **Aktualisieren**, dann HA neu starten.
+### Über den Marktplatz / HACS
+Updates erscheinen automatisch unter **Einstellungen → Updates**. Klicke auf **Installieren**, dann
+HA neu starten. Der Katalog wird alle paar Stunden aktualisiert – ein frisches Release kann also
+etwas brauchen, bis es angezeigt wird.
 
 ### Manuell
 Neuen `custom_components/intelligent_heating_control`-Ordner einfach überschreiben, dann HA neu starten.
