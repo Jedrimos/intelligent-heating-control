@@ -1,11 +1,13 @@
 # 🌡️ Intelligent Heating Control (IHC)
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://hacs.xyz/)
 [![HA Version](https://img.shields.io/badge/HA-2024.2%2B-blue.svg)](https://home-assistant.io)
 [![Version](https://img.shields.io/badge/Version-2.7.1-green.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Die intelligente Mehrzimmer-Heizungssteuerung für Thermostat-Ventile (TRVs) in Home Assistant.**
+
+[![In Home Assistant öffnen und installieren](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Jedrimos&repository=intelligent-heating-control&category=integration)
 
 IHC macht aus einzelnen, voneinander nichts wissenden Heizkörperthermostaten ein zusammenhängendes,
 lernendes Heizsystem: außentemperaturgeführte Solltemperaturen, Zeitpläne pro Zimmer, Fenster- und
@@ -85,13 +87,24 @@ Komforttemperatur, jeweils mit einstellbarer Obergrenze. Zusätzlich lernt IHC p
 
 ## 🚀 Installation
 
-### Via HACS (empfohlen)
+### Über den Marktplatz / HACS (empfohlen)
 
-1. **HACS** → **Integrationen** → **⋮** → **Benutzerdefinierte Repositories**
-2. URL: `https://github.com/Jedrimos/intelligent-heating-control`
-3. Kategorie: **Integration**
-4. `Intelligent Heating Control` suchen und installieren
-5. Home Assistant neu starten
+IHC ist im offiziellen Katalog – kein Repository-Link nötig.
+
+**Mit einem Klick:**
+
+[![In Home Assistant öffnen und installieren](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Jedrimos&repository=intelligent-heating-control&category=integration)
+
+1. Knopf oben klicken → deine Home-Assistant-Instanz auswählen → **Herunterladen**
+2. Home Assistant **neu starten**
+3. Integration einrichten: [![Integration einrichten](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=intelligent_heating_control)
+
+**Oder von Hand:** Marktplatz bzw. HACS öffnen → nach **Intelligent Heating Control** suchen →
+**Herunterladen** → neu starten → **Einstellungen → Geräte & Dienste → + Integration** →
+„Intelligent Heating Control“.
+
+Updates erscheinen danach automatisch unter **Einstellungen → Updates** (der Katalog wird alle
+paar Stunden aktualisiert – ein neues Release kann also etwas brauchen, bis es auftaucht).
 
 ### Manuell
 
