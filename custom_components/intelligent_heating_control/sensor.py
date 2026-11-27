@@ -417,6 +417,7 @@ class IHCTotalDemandSensor(_IHCBase, SensorEntity):
             "flow_temp_now":                   (self.coordinator.data or {}).get("flow_temp_now"),
             "flow_recommendation":             (self.coordinator.data or {}).get("flow_recommendation"),
             "savings":                         (self.coordinator.data or {}).get("savings"),
+            "manual_log":                      (self.coordinator.data or {}).get("manual_log") or [],
             "energy_calibration_factor":       (self.coordinator.data or {}).get("energy_calibration_factor", 1.0),
             "meter_today_kwh":                 (self.coordinator.data or {}).get("meter_today_kwh"),
             # v2.6 – the presence entities actually used (configured or auto-discovered persons)

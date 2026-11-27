@@ -11,7 +11,7 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.7.0`
+- **Version:** `2.7.1`
 - **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
@@ -1376,6 +1376,11 @@ Lernen), `heat_output.py` (EN-442-Verbrauchsmodell, Heizkörper-Rechner, Zähler
 Eigenheiten-Tabelle `QUIRKS`), seit 2.7.0 `afterheat.py` (Restwärme lernen + Ventil früher schließen), `hydraulics.py`
 (Abgleich-Hinweise + Vorlauf-Empfehlung aus Ventilstatistik), `savings.py` (Spar-Bilanz +
 Monatsbericht-Text); `solar_cover_manager.weather_protection_step()` (Sturmschutz zweistufig).
+**Manuell-Ursache (2.7.1):** `manual_cause.py` (HA-frei). Jeder Thermostat-Befehl von IHC läuft
+mit `context=self._ihc_context()` (trv_controller) – **neue climate-Aufrufe immer mit diesem
+Context**, sonst hält IHC das Echo für eine Bedienung von Hand. `_setup_trv_listeners()` zählt
+Sollwert-Schritte, `_manual_cause_of()` klassifiziert, `_record_manual_trigger()` speichert
+(`manual_log` persistiert).
 **Sicherheitsmodus (2.7.0):** `_get_sensor_temp()` verwirft Raumthermometer ohne Meldung seit
 `SENSOR_STALE_HOURS` (4 h, `last_reported`), `rdata["sensor_failed"]`, Repair `sensor_stale`,
 `_sync_external_sensor()` schaltet dann auf `sensor_select_internal` zurück.
@@ -1437,6 +1442,13 @@ erst ausgewertet:
 22. **Schimmelschutz-Boost** (additiv, übersprungen bei frost/away/vacation)
 23. **Kälteprognose-Boost** (additiv, gleiche Sperrliste wie 20)
 24. **CO₂-Vorheiz-Boost** (+1°C, gleiche Sperrliste wie 20)
+24a. **Gefühlte-Temperatur-Anpassung** (`CONF_FELT_TEMP_ADJUSTMENT_ENABLED`, opt-in, additiv,
+    gleiche Sperrliste wie 20) – seit 2.7.1 VOR dem Preset-Maximum (vorher danach → „Schlafen
+    max. 17“ ergab 18), seit 2.6.0 vor der Demand-Berechnung
+    > **Manuell (seit 2.7.1):** Bei `source=="manual"` oder Zimmermodus Manuell (auch ein von Hand
+    > verstelltes Thermostat) werden 20–24a komplett übersprungen – ein von Hand gesetzter Wert
+    > bleibt exakt. Jede Stufe in B trägt sich über `_note()` in `target_adjustments` ein
+    > (`target_base` = Ergebnis aus A) – neue Stufen ebenfalls, sonst erklärt das Panel sie nicht.
 24b. Preset-Maximum-Clamp (Eco/Schlaf/Abwesend-Max), danach **Spar-Regler** `CONF_SAVING_OFFSET`
     (seit 2.6.0, subtraktiv, nicht bei Frost/Aus/Abwesend/Urlaub/Manuell/Schwelle/Boost)
 25. **Fenster-Restore** (`CONF_WINDOW_RESTORE_MODE=="previous"`) – stellt beim Schließen den
@@ -1445,8 +1457,7 @@ erst ausgewertet:
     Schwellen-/Aus-Regeln
 26. **Fenster-Kaskade** (Nachbarraum lüftet zu lange) – senkt ab, übersprungen bei eigenem
     offenem Fenster oder Zimmermodus Aus
-27. **Gefühlte-Temperatur-Anpassung** (`CONF_FELT_TEMP_ADJUSTMENT_ENABLED`, opt-in, additiv,
-    gleiche Sperrliste wie 20) – seit 2.6.0 VOR der Demand-Berechnung (Phase C), vorher danach
+27. (seit 2.7.1 nach 24a verschoben: Gefühlte-Temperatur-Anpassung)
 28. Quantisierung auf 0.5°C-Schritte (`display_target` – das was TRVs tatsächlich bekommen)
 
 ### C) Anforderung/Demand-Gating (ebenfalls `_process_room()`, nach B, plus Phase 5)

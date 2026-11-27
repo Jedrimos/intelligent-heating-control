@@ -320,6 +320,48 @@
     return id ? this._hass.states[id] : null;
   }
 
+  // v2.7.1 – plain-text explanation of the target: "20.5 + 0.5 gefühlt"
+  // (base from the schedule/mode/curve plus every adjustment on top of it). "" = none.
+  _targetBreakdown(room) {
+    const adj = Array.isArray(room && room.target_adjustments) ? room.target_adjustments : [];
+    if (!adj.length || room.target_base == null) return "";
+    // labels picked here (not via the DOM translator): the text starts with a number
+    const labels = this._uiLang() === "de" ? {
+      solar: "Sonnenstrom", price: "Strompreis", mold: "Schimmelschutz", cold: "Kälteprognose",
+      co2: "CO₂-Vorheizen", felt: "gefühlt", preset_max: "Maximum", saving: "Spar-Regler",
+      feel: "Wärmeempfinden", window_restore: "Fenster-Wiederherstellung", cascade: "Fenster-Kaskade",
+    } : {
+      solar: "solar", price: "energy price", mold: "mould protection", cold: "cold forecast",
+      co2: "CO₂ pre-heat", felt: "felt", preset_max: "maximum", saving: "saving dial",
+      feel: "comfort feedback", window_restore: "window restore", cascade: "window cascade",
+    };
+    const parts = adj.map(x => {
+      const d = Number(x.delta) || 0;
+      return `${d >= 0 ? "+" : "−"} ${Math.abs(d).toFixed(1)} ${labels[x.key] || x.key}`;
+    });
+    return `${Number(room.target_base).toFixed(1)} ${parts.join(" ")}`;
+  }
+
+  // v2.7.1 – plain text: why a room went to manual, e.g. "06:44 · am Thermostat gedreht · 17.0 → 18.0 °C"
+  _manualCauseText(t, withRoom = false) {
+    if (!t || !t.cause) return "";
+    const de = this._uiLang() === "de";
+    const n = t.name ? ` (${t.name})` : "";
+    const txt = de ? {
+      ha_user: "in Home Assistant" + n, automation: t.name ? `durch „${t.name}“` : "durch eine Automation",
+      device: "am Thermostat gedreht", device_or_app: "am Thermostat oder in der Hersteller-App",
+      ihc_panel: "in IHC eingestellt",
+    } : {
+      ha_user: "in Home Assistant" + n, automation: t.name ? `by “${t.name}”` : "by an automation",
+      device: "turned on the thermostat", device_or_app: "on the thermostat or in the manufacturer app",
+      ihc_panel: "set in IHC",
+    };
+    let time = "";
+    try { const d = new Date(t.at); if (!isNaN(d)) time = d.toLocaleString(de ? "de-DE" : "en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: (this._hass && this._hass.config && this._hass.config.time_zone) || undefined }); } catch (e) { /* ignore */ }
+    const temps = t.from != null && t.to != null ? ` · ${Number(t.from).toFixed(1)} → ${Number(t.to).toFixed(1)} °C` : "";
+    return [withRoom ? t.room : "", time, txt[t.cause] || t.cause].filter(Boolean).join(" · ") + temps;
+  }
+
   _getRoomData() {
     if (!this._hass) return {};
     const rooms = {};
@@ -434,6 +476,9 @@
         trv_humidity:         state.attributes.trv_humidity ?? null,
         humidity:             state.attributes.humidity ?? null,
         felt_temperature:     state.attributes.felt_temperature ?? null,
+        target_base:          state.attributes.target_base ?? null,
+        target_adjustments:   state.attributes.target_adjustments || [],
+        manual_trigger:       state.attributes.manual_trigger || null,
         trv_avg_valve:        state.attributes.trv_avg_valve ?? null,
         trv_any_heating:      state.attributes.trv_any_heating === true,
         trv_min_battery:      state.attributes.trv_min_battery ?? null,
@@ -568,6 +613,7 @@
       flow_recommendation:       a.flow_recommendation || null,
       heating_system:            a.heating_system || "gas",
       savings:                   a.savings || null,
+      manual_log:                a.manual_log || [],
       weather_entity_effective:  a.weather_entity_effective || null,
       presence_entities:         a.presence_entities || [],
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),

@@ -36,6 +36,7 @@ class Hw:
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
         self.calls: list[tuple[str, str, dict]] = []
+        self.contexts: list = []
         self.forecast: dict[str, list] = {}
         self.register()
 
@@ -66,6 +67,7 @@ class Hw:
         @callback
         def _h(call: ServiceCall) -> None:
             self.calls.append((domain, service, dict(call.data)))
+            self.contexts.append(call.context)
             # Mirror the command into the fake entity so IHC sees the TRV "confirm" it
             eid = call.data.get("entity_id")
             if isinstance(eid, str) and domain == "climate":
@@ -77,7 +79,7 @@ class Hw:
                         attrs["temperature"] = call.data["temperature"]
                     elif service == "set_hvac_mode":
                         state = call.data["hvac_mode"]
-                    self.hass.states.async_set(eid, state, attrs)
+                    self.hass.states.async_set(eid, state, attrs, context=call.context)
             if isinstance(eid, str) and domain in ("number", "select"):
                 st = self.hass.states.get(eid)
                 if st is not None:

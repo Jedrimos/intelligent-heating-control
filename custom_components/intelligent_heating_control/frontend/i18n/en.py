@@ -10,6 +10,10 @@ entries show up as mixed German/English for English-speaking users.
 """
 
 EXACT = {
+    "Warum Manuell": "Why manual",
+    "✋ Manuelle Eingriffe (zuletzt)": "✋ Manual changes (recent)",
+    "„Am Thermostat gedreht“ = mehrere Schritte direkt am Gerät. „Am Thermostat oder in der Hersteller-App“ = ein einzelner Sprung ohne Home Assistant – das kann auch der Zeitplan oder die Fenstererkennung des Thermostats selbst sein.": "“Turned on the thermostat” = several steps right on the device. “On the thermostat or in the manufacturer app” = a single jump without Home Assistant – this can also be the thermostat's own schedule or window detection.",
+    "Warum dieser Sollwert": "Why this target",
     ': bekommt mehr als nötig – Voreinstellung am Ventilunterteil kleiner stellen.': ': gets more than needed – turn the preset on the valve insert down.',
     ': bekommt zu wenig Heizwasser – Voreinstellung am Ventilunterteil höher stellen.': ': gets too little hot water – turn the preset on the valve insert up.',
     'Am Monatsanfang eine Benachrichtigung: Verbrauch, Vergleich zum Vormonat, was IHC gespart hat und Hinweise.': 'A notification at the start of each month: consumption, comparison with the previous month, what IHC saved and hints.',
