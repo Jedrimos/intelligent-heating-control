@@ -248,7 +248,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        coord = hass.data[DOMAIN].pop(entry.entry_id, None)
+        # v2.7.1 – drop state listeners so a reload doesn't leave the old coordinator
+        # reacting to window/schedule/thermostat changes
+        for attr in ("_window_listener_unsub", "_ha_sched_listener_unsub", "_trv_listener_unsub"):
+            unsub = getattr(coord, attr, None)
+            if callable(unsub):
+                unsub()
+                setattr(coord, attr, None)
 
     # Remove panel if no more entries
     if not hass.data[DOMAIN]:

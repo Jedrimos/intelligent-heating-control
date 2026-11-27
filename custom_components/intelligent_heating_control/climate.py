@@ -456,6 +456,7 @@ class IHCRoomClimate(CoordinatorEntity, ClimateEntity):
             # v2.7.1 – Phase-A target and every adjustment on top of it (key + delta °C)
             "target_base": d.get("target_base"),
             "target_adjustments": d.get("target_adjustments") or [],
+            "manual_trigger": d.get("manual_trigger"),
             # Presence
             "room_presence_entities": room_cfg.get("room_presence_entities", []),
             "room_presence_active": d.get("room_presence_active"),

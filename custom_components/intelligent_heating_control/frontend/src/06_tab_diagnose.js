@@ -331,6 +331,16 @@
       </details>`;
       })()}
 
+      <!-- ── Manuelle Eingriffe (v2.7.1) ───────────────────── -->
+      ${(g.manual_log || []).length ? `
+      <details class="ihc-card">
+        <summary><span class="ihc-card-title">✋ Manuelle Eingriffe (zuletzt)</span></summary>
+        <div class="ihc-card-body">
+          ${g.manual_log.map(t => `<div style="font-size:13px;margin:3px 0">${ihcEsc(this._manualCauseText(t, true))}</div>`).join("")}
+          <div class="form-hint" style="margin-top:8px">„Am Thermostat gedreht“ = mehrere Schritte direkt am Gerät. „Am Thermostat oder in der Hersteller-App“ = ein einzelner Sprung ohne Home Assistant – das kann auch der Zeitplan oder die Fenstererkennung des Thermostats selbst sein.</div>
+        </div>
+      </details>` : ""}
+
       <!-- ── Zimmer-Status Tabelle ───────────────────────────── -->
       ${roomList.length ? `
       <details class="ihc-card" open>

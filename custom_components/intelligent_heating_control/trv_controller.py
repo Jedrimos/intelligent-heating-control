@@ -2,14 +2,18 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 import math
 import time
 from typing import Optional
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.core import Context, callback
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import device_registry as dr
 
+from .manual_cause import classify as manual_classify, count_steps, describe as manual_describe
 from .trv_capabilities import classify_sibling, external_option, external_temp_value, internal_option, quirks_for
 from homeassistant.util import dt as dt_util
 
@@ -568,7 +572,7 @@ class TRVControllerMixin:
                 self.hass.services.async_call(
                     "climate",
                     "set_temperature",
-                    {"entity_id": valve_entity, "temperature": target_temp},
+                    {"entity_id": valve_entity, "temperature": target_temp}, context=self._ihc_context()
                 )
             )
 
@@ -596,7 +600,7 @@ class TRVControllerMixin:
                     self.hass.services.async_call(
                         "climate",
                         "set_hvac_mode",
-                        {"entity_id": valve_entity, "hvac_mode": "off"},
+                        {"entity_id": valve_entity, "hvac_mode": "off"}, context=self._ihc_context()
                     )
                 )
             else:
@@ -625,7 +629,7 @@ class TRVControllerMixin:
             # overwrite IHC's setpoint. IHC is the scheduler, so use plain "heat".
             if current_hvac == "auto" and "heat" in hvac_modes:
                 self.hass.async_create_task(self.hass.services.async_call(
-                    "climate", "set_hvac_mode", {"entity_id": valve_entity, "hvac_mode": "heat"}))
+                    "climate", "set_hvac_mode", {"entity_id": valve_entity, "hvac_mode": "heat"}, context=self._ihc_context()))
                 return True
             if current_hvac == "off":
                 preferred = "heat" if "heat" in hvac_modes else ("auto" if "auto" in hvac_modes else None)
@@ -634,7 +638,7 @@ class TRVControllerMixin:
                         self.hass.services.async_call(
                             "climate",
                             "set_hvac_mode",
-                            {"entity_id": valve_entity, "hvac_mode": preferred},
+                            {"entity_id": valve_entity, "hvac_mode": preferred}, context=self._ihc_context()
                         )
                     )
                     return True
@@ -682,7 +686,7 @@ class TRVControllerMixin:
             self.hass.services.async_call(
                 "climate",
                 "set_preset_mode",
-                {"entity_id": valve_entity, "preset_mode": "boost"},
+                {"entity_id": valve_entity, "preset_mode": "boost"}, context=self._ihc_context()
             )
         )
         return True
@@ -730,6 +734,75 @@ class TRVControllerMixin:
                     _LOGGER.debug(
                         "IHC: Startup – pre-filled baseline for %s = %.1f °C", entity_id, float(trv_target)
                     )
+
+    def _ihc_context(self) -> Context:
+        """A fresh Context for an IHC thermostat command; its id is remembered so the state
+        the thermostat reports back is never mistaken for a manual change (manual_cause.py)."""
+        ctx = Context()
+        self._ihc_context_ids.append(ctx.id)
+        return ctx
+
+    def _setup_trv_listeners(self) -> None:
+        """Record every thermostat setpoint change (time, value) - several small steps
+        within seconds mean someone turned the wheel/pressed buttons on the device."""
+        entities: set = set()
+        for room in self.get_rooms():
+            entities.update(e for e in self._room_valve_entities(room) if e and e.startswith("climate."))
+        if entities == self._trv_listener_entities:
+            return
+        if self._trv_listener_unsub is not None:
+            self._trv_listener_unsub()
+            self._trv_listener_unsub = None
+        self._trv_listener_entities = entities
+        if not entities:
+            return
+
+        @callback
+        def _on_trv_change(event) -> None:
+            old, new = event.data.get("old_state"), event.data.get("new_state")
+            if new is None:
+                return
+            nv = new.attributes.get("temperature")
+            ov = old.attributes.get("temperature") if old is not None else None
+            if nv is None or nv == ov:
+                return
+            buf = self._trv_setpoint_changes.setdefault(new.entity_id, deque(maxlen=12))
+            if new.context is not None and new.context.id in self._ihc_context_ids:
+                buf.clear()   # IHC's own command - steps only count between IHC commands
+                return
+            now = time.monotonic()
+            try:
+                if ov is not None and (not buf or buf[-1][1] != float(ov)):
+                    buf.append((now, float(ov)))
+                buf.append((now, float(nv)))
+            except (TypeError, ValueError):
+                pass
+
+        self._trv_listener_unsub = async_track_state_change_event(self.hass, list(entities), _on_trv_change)
+
+    def _manual_cause_of(self, state) -> tuple:
+        """(cause, name) for the state that carries a setpoint IHC did not send."""
+        ctx = getattr(state, "context", None)
+        cid = getattr(ctx, "id", None)
+        uid = getattr(ctx, "user_id", None)
+        pid = getattr(ctx, "parent_id", None)
+        steps = count_steps(list(self._trv_setpoint_changes.get(state.entity_id, ())), time.monotonic())
+        cause = manual_classify(cid, uid, pid, self._ihc_context_ids, steps)
+        name = None
+        if cause == "ha_user":
+            for p in self.hass.states.async_all("person"):
+                if p.attributes.get("user_id") == uid:
+                    name = p.attributes.get("friendly_name") or p.entity_id
+                    break
+        elif cause == "automation":
+            for domain in ("automation", "script"):
+                for st in self.hass.states.async_all(domain):
+                    if st.context is not None and st.context.id == pid:
+                        name = st.attributes.get("friendly_name") or st.entity_id
+                        break
+                if name:
+                    break
+        return cause, name
 
     def _detect_manual_trv_override(self, room: dict, room_id: str, room_mode: str) -> None:
         """Detect if a TRV was manually adjusted and switch room to manual mode.
@@ -830,14 +903,27 @@ class TRVControllerMixin:
             # Only a clear intentional adjustment (≥ 1 °C) triggers manual mode.
             if abs(trv_target - last_ihc) >= TRV_LARGE_CHANGE_THRESHOLD:
                 room_name = room.get(CONF_ROOM_NAME, room_id)
+                cause, cause_name = self._manual_cause_of(state)
+                if cause == "ihc":
+                    # IHC's own (earlier) command reported back late - not a manual change
+                    _LOGGER.debug("IHC: %s reports %.1f°C from an earlier IHC command – baseline synced",
+                                  entity_id, trv_target)
+                    self._last_sent_temps[entity_id] = trv_target
+                    continue
                 _LOGGER.info(
-                    "IHC: Manual TRV override detected in %s – TRV set to %.1f°C (IHC had %.1f°C). "
-                    "Switching to manual mode.",
-                    room_name, trv_target, last_ihc,
+                    "IHC: Manual TRV override detected in %s – TRV set to %.1f°C (IHC had %.1f°C), "
+                    "cause: %s%s. Switching to manual mode.",
+                    room_name, trv_target, last_ihc, cause, f" ({cause_name})" if cause_name else "",
                 )
                 # Switch room to manual mode and record the manually set temperature
                 self.set_room_mode(room_id, ROOM_MODE_MANUAL)
                 self.set_room_manual_temp(room_id, trv_target)
+                self._record_manual_trigger(room_id, {
+                    "cause": cause, "name": cause_name, "entity": entity_id,
+                    "from": round(last_ihc, 1), "to": round(trv_target, 1),
+                }, replace_last=True)
+                how = manual_describe(cause, cause_name, en=False)
+                how_en = manual_describe(cause, cause_name, en=True)
                 # Update last sent temp to avoid re-triggering
                 self._last_sent_temps[entity_id] = trv_target
                 # Get next schedule time for notification message
@@ -858,11 +944,12 @@ class TRVControllerMixin:
                             "title": self._t(f"IHC: Manueller Eingriff – {room_name}",
                                              f"IHC: manual change – {room_name}"),
                             "message": self._t(
-                                f"**{room_name}** wurde manuell am Gerät auf "
-                                f"**{trv_target:.1f} °C** gestellt "
+                                f"**{room_name}** wurde {how} auf "
+                                f"**{trv_target:.1f} °C** gestellt (vorher {last_ihc:.1f} °C) "
                                 f"und bleibt bis zur nächsten Schaltzeit{next_str} im Modus **Manuell**.\n\n"
                                 "Der Modus wird beim nächsten Zeitplan-Event automatisch zurückgesetzt.",
-                                f"**{room_name}** was set to **{trv_target:.1f} °C** on the device and stays "
+                                f"**{room_name}** was set to **{trv_target:.1f} °C** ({how_en}, was "
+                                f"{last_ihc:.1f} °C) and stays "
                                 f"in **manual** mode{next_str}.\n\nThe mode is reset automatically at the "
                                 "next schedule change.",
                             ),
@@ -1037,6 +1124,6 @@ class TRVControllerMixin:
                     self.hass.async_create_task(
                         self.hass.services.async_call(
                             "climate", "set_temperature",
-                            {"entity_id": eid, "temperature": max_temp},
+                            {"entity_id": eid, "temperature": max_temp}, context=self._ihc_context()
                         )
                     )

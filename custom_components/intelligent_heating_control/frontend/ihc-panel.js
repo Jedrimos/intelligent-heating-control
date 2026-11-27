@@ -672,6 +672,7 @@ const IHC_I18N_EN = {
 "Warn-Schwelle (km/h)": "Warning threshold (km/h)",
 "Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).": "Waiting time after arrival before comfort mode starts (0 = immediately).",
 "Wartezeit nach dem Sturm (min)": "Wait after the storm (min)",
+"Warum Manuell": "Why manual",
 "Warum dieser Sollwert": "Why this target",
 "Was IHC automatisch macht": "What IHC does automatically",
 "Was IHC in diesem Zimmer nutzt": "What IHC uses in this room",
@@ -822,6 +823,7 @@ const IHC_I18N_EN = {
 "– für Kälteprognose & Frühstart": "– for cold forecast & early start",
 "– keine –": "– none –",
 "– manuell eingeben –": "– enter manually –",
+"„Am Thermostat gedreht“ = mehrere Schritte direkt am Gerät. „Am Thermostat oder in der Hersteller-App“ = ein einzelner Sprung ohne Home Assistant – das kann auch der Zeitplan oder die Fenstererkennung des Thermostats selbst sein.": "“Turned on the thermostat” = several steps right on the device. “On the thermostat or in the manufacturer app” = a single jump without Home Assistant – this can also be the thermostat's own schedule or window detection.",
 "„Mir ist kalt/warm“ wirkt für (min)": "“I'm cold/warm” lasts (min)",
 "„Vorherig\" merkt sich den Sollwert vor dem Öffnen": "“Previous” remembers the setpoint before opening",
 "… und danach warm halten (min)": "… and keep warm afterwards (min)",
@@ -837,6 +839,7 @@ const IHC_I18N_EN = {
 "♨️ Restwärme – Heizkörper heizt nach": "♨️ Residual heat – radiator still warming",
 "⚠️ Raumthermometer meldet nichts – Thermostat regelt selbst": "⚠️ Room thermometer silent – thermostat regulates on its own",
 "✈️ Urlaub": "✈️ Vacation",
+"✋ Manuelle Eingriffe (zuletzt)": "✋ Manual changes (recent)",
 "✓ Automatische Thermostat-Korrektur wieder aktiv": "✓ Automatic thermostat correction active again",
 "✓ Die Zimmer werden gleichmäßig versorgt.": "✓ The rooms are supplied evenly.",
 "🌙 Zeitplan & Nacht": "🌙 Schedule & night",
@@ -2235,6 +2238,26 @@ class IHCPanel extends HTMLElement {
     return `${Number(room.target_base).toFixed(1)} ${parts.join(" ")}`;
   }
 
+  // v2.7.1 – plain text: why a room went to manual, e.g. "06:44 · am Thermostat gedreht · 17.0 → 18.0 °C"
+  _manualCauseText(t, withRoom = false) {
+    if (!t || !t.cause) return "";
+    const de = this._uiLang() === "de";
+    const n = t.name ? ` (${t.name})` : "";
+    const txt = de ? {
+      ha_user: "in Home Assistant" + n, automation: t.name ? `durch „${t.name}“` : "durch eine Automation",
+      device: "am Thermostat gedreht", device_or_app: "am Thermostat oder in der Hersteller-App",
+      ihc_panel: "in IHC eingestellt",
+    } : {
+      ha_user: "in Home Assistant" + n, automation: t.name ? `by “${t.name}”` : "by an automation",
+      device: "turned on the thermostat", device_or_app: "on the thermostat or in the manufacturer app",
+      ihc_panel: "set in IHC",
+    };
+    let time = "";
+    try { const d = new Date(t.at); if (!isNaN(d)) time = d.toLocaleString(de ? "de-DE" : "en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: (this._hass && this._hass.config && this._hass.config.time_zone) || undefined }); } catch (e) { /* ignore */ }
+    const temps = t.from != null && t.to != null ? ` · ${Number(t.from).toFixed(1)} → ${Number(t.to).toFixed(1)} °C` : "";
+    return [withRoom ? t.room : "", time, txt[t.cause] || t.cause].filter(Boolean).join(" · ") + temps;
+  }
+
   _getRoomData() {
     if (!this._hass) return {};
     const rooms = {};
@@ -2351,6 +2374,7 @@ class IHCPanel extends HTMLElement {
         felt_temperature:     state.attributes.felt_temperature ?? null,
         target_base:          state.attributes.target_base ?? null,
         target_adjustments:   state.attributes.target_adjustments || [],
+        manual_trigger:       state.attributes.manual_trigger || null,
         trv_avg_valve:        state.attributes.trv_avg_valve ?? null,
         trv_any_heating:      state.attributes.trv_any_heating === true,
         trv_min_battery:      state.attributes.trv_min_battery ?? null,
@@ -2485,6 +2509,7 @@ class IHCPanel extends HTMLElement {
       flow_recommendation:       a.flow_recommendation || null,
       heating_system:            a.heating_system || "gas",
       savings:                   a.savings || null,
+      manual_log:                a.manual_log || [],
       weather_entity_effective:  a.weather_entity_effective || null,
       presence_entities:         a.presence_entities || [],
       heating_active:            sw  ? sw.state === "on" : (a.heating_active || false),
@@ -3164,6 +3189,7 @@ class IHCPanel extends HTMLElement {
                 ${room.co2_ppm > 0 ? `<span>· CO₂ ${ihcEsc(room.co2_ppm)} ppm</span>` : ""}
               </div>
             </div>
+            ${room.room_mode === "manual" && room.manual_trigger ? `<div style="font-size:11px;color:var(--secondary-text-color);margin:4px 0 2px" title="Warum Manuell">✋ ${ihcEsc(this._manualCauseText(room.manual_trigger))}</div>` : ""}
             ${trvChips}
             <div class="room-action-row">
               <select class="mode-select active-${ihcEsc(room.room_mode || 'auto')}" data-room-id="${ihcEsc(room.room_id)}">
@@ -3517,6 +3543,7 @@ class IHCPanel extends HTMLElement {
           → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? ihcEsc(room.target_temp) + " °C" : "—")}
           · ${ihcEsc(MODE_ICONS[room.room_mode] || "")} ${ihcEsc(MODE_LABELS[room.room_mode] || room.room_mode)}
         </span>
+        ${room.room_mode === "manual" && room.manual_trigger ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#9c27b0 15%,transparent);color:var(--primary-text-color)" title="Warum Manuell">✋ ${ihcEsc(this._manualCauseText(room.manual_trigger))}</span>` : ""}
         ${this._targetBreakdown(room) ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#78909c 15%,transparent);color:var(--primary-text-color)" title="Warum dieser Sollwert">🎯 ${ihcEsc(this._targetBreakdown(room))}</span>` : ""}
         ${room.trv_raw_temp != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#fb8c00 15%,transparent);color:var(--primary-text-color)" title="TRV-Eigentemperatur (am Heizkörper gemessen, vor Korrektur)">🌡️ TRV ${ihcEsc(room.trv_raw_temp)} °C</span>` : ""}
         ${room.trv_avg_valve != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#42a5f5 15%,transparent);color:var(--primary-text-color)" title="Durchschnittliche TRV-Ventilöffnung">🔧 Ventil ${ihcEsc(room.trv_avg_valve)} %</span>` : ""}
@@ -5489,6 +5516,16 @@ class IHCPanel extends HTMLElement {
         </div>
       </details>`;
       })()}
+
+      <!-- ── Manuelle Eingriffe (v2.7.1) ───────────────────── -->
+      ${(g.manual_log || []).length ? `
+      <details class="ihc-card">
+        <summary><span class="ihc-card-title">✋ Manuelle Eingriffe (zuletzt)</span></summary>
+        <div class="ihc-card-body">
+          ${g.manual_log.map(t => `<div style="font-size:13px;margin:3px 0">${ihcEsc(this._manualCauseText(t, true))}</div>`).join("")}
+          <div class="form-hint" style="margin-top:8px">„Am Thermostat gedreht“ = mehrere Schritte direkt am Gerät. „Am Thermostat oder in der Hersteller-App“ = ein einzelner Sprung ohne Home Assistant – das kann auch der Zeitplan oder die Fenstererkennung des Thermostats selbst sein.</div>
+        </div>
+      </details>` : ""}
 
       <!-- ── Zimmer-Status Tabelle ───────────────────────────── -->
       ${roomList.length ? `

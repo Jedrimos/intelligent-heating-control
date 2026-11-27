@@ -24,6 +24,7 @@ from homeassistant.core import HomeAssistant, callback, Event
 
 from . import savings as savings_mod
 from .hydraulics import balance_hints, flow_recommendation, update_stats as hydraulic_update_stats
+from .manual_cause import LOG_MAXLEN
 from .afterheat import add_sample as afterheat_add_sample, coast_setpoint, coast_step, learned as afterheat_learned, update_tracker as afterheat_update_tracker
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers import entity_registry as er
@@ -378,6 +379,14 @@ class IHCCoordinator(
         # Manual-override tracking: reset to AUTO on schedule transition
         self._room_manual_since: Dict[str, datetime] = {}       # room_id → when manual was set
         self._room_manual_period_key: Dict[str, str] = {}       # room_id → "start|end" snapshot
+        # v2.7.1 – why a room went to manual (manual_cause.py): current trigger per room,
+        # a short persisted log, IHC's own command contexts and recent TRV setpoint steps
+        self._manual_trigger: Dict[str, dict] = {}
+        self._manual_log: list = []
+        self._ihc_context_ids: deque = deque(maxlen=400)
+        self._trv_setpoint_changes: Dict[str, deque] = {}
+        self._trv_listener_unsub: Optional[Any] = None
+        self._trv_listener_entities: set = set()
         self._window_open_counters: Dict[str, int] = {}  # room_id → consecutive drops
         self._boost_until: Dict[str, datetime] = {}  # room_id → boost expiry time
         self._room_pre_boost_mode: Dict[str, str] = {}  # room_id → mode before boost
@@ -657,6 +666,7 @@ class IHCCoordinator(
         if self.hass is not None:
             self._setup_window_listeners()
             self._setup_ha_schedule_listeners()
+            self._setup_trv_listeners()
 
     async def async_load_runtime_state(self) -> None:
         """Load persisted runtime state from Store."""
@@ -750,6 +760,10 @@ class IHCCoordinator(
         self._hydraulic_stats = {k: dict(v) for k, v in data.get("hydraulic_stats", {}).items() if isinstance(v, dict)}
         self._savings_month = dict(data.get("savings_month") or {})
         self._savings_prev = dict(data.get("savings_prev") or {})
+        self._manual_log = [e for e in (data.get("manual_log") or []) if isinstance(e, dict)][-LOG_MAXLEN:]
+        for _e in self._manual_log:
+            if self._room_modes.get(_e.get("room_id")) == ROOM_MODE_MANUAL:
+                self._manual_trigger[_e["room_id"]] = _e
         # Restore adaptive curve state
         self._curve_adaptation_delta = float(data.get("curve_adaptation_delta", 0.0))
         # Restore demand heatmap (v1.6)
@@ -841,6 +855,7 @@ class IHCCoordinator(
             "hydraulic_stats": self._hydraulic_stats,
             "savings_month": self._savings_month,
             "savings_prev": self._savings_prev,
+            "manual_log": self._manual_log[-LOG_MAXLEN:],
             # Automatic Heizperioden-Erkennung: rolling daily averages + hysteresis state
             "heating_period_daily_avg": list(self._heating_period_daily_avg),
             "heating_period_day_sum": self._heating_period_day_sum,
@@ -961,10 +976,15 @@ class IHCCoordinator(
             # Track when manual mode was entered (for auto-reset on schedule transition)
             self._room_manual_since[room_id] = dt_util.utcnow()
             self._room_manual_period_key.pop(room_id, None)
+            # Set through IHC (panel, IHC climate/select entity, service). The thermostat
+            # override detection replaces this with the real cause right afterwards.
+            if self._room_modes.get(room_id) != ROOM_MODE_MANUAL or room_id not in self._manual_trigger:
+                self._record_manual_trigger(room_id, {"cause": "ihc_panel"})
         else:
             # Clear manual tracking when leaving manual mode
             self._room_manual_since.pop(room_id, None)
             self._room_manual_period_key.pop(room_id, None)
+            self._manual_trigger.pop(room_id, None)
         self._room_modes[room_id] = mode
         # Same fix: re-check open windows so mode changes react immediately
         self._prefill_window_states()
@@ -1008,6 +1028,29 @@ class IHCCoordinator(
         self.async_update_listeners()
         await self._async_save_runtime_state()
         await self.async_request_refresh()
+
+    def _record_manual_trigger(self, room_id: str, trigger: dict, replace_last: bool = False) -> None:
+        """Remember why a room is in manual mode (current + short log for the panel)."""
+        room = next((r for r in self.get_rooms() if r.get(CONF_ROOM_ID) == room_id), None)
+        entry = {
+            "at": dt_util.now().isoformat(timespec="seconds"),
+            "room_id": room_id,
+            "room": (room or {}).get(CONF_ROOM_NAME, room_id),
+            **trigger,
+        }
+        self._manual_trigger[room_id] = entry
+        if (replace_last and self._manual_log and self._manual_log[-1].get("room_id") == room_id
+                and self._manual_log[-1].get("cause") == "ihc_panel"):
+            self._manual_log[-1] = entry
+        else:
+            self._manual_log.append(entry)
+        del self._manual_log[:-LOG_MAXLEN]
+
+    def get_manual_trigger(self, room_id: str) -> Optional[dict]:
+        return self._manual_trigger.get(room_id)
+
+    def get_manual_log(self) -> list:
+        return list(self._manual_log)
 
     def set_room_manual_temp(self, room_id: str, temp: float) -> None:
         self._room_manual_temps[room_id] = temp
@@ -1982,6 +2025,7 @@ class IHCCoordinator(
             self._prefill_last_sent_temps()
             self._setup_window_listeners()
             self._setup_ha_schedule_listeners()
+            self._setup_trv_listeners()
             await self._async_startup_presence_sync()
 
         # Check whether we are still inside the startup grace window.
@@ -2686,6 +2730,8 @@ class IHCCoordinator(
             # HA schedule time blocks, pre-fetched async in _async_update_data before
             # the per-room loop (see _async_fetch_ha_schedule_blocks_by_room)
             "ha_schedule_blocks": ctx.get("ha_schedule_blocks_by_room", {}).get(room_id, {}),
+            # v2.7.1 – why the room is in manual mode (None outside manual)
+            "manual_trigger": self._manual_trigger.get(room_id) if self.get_room_mode(room_id) == ROOM_MODE_MANUAL else None,
             **meta,
         }
 
@@ -3246,6 +3292,7 @@ class IHCCoordinator(
             "flow_temp_now": self._flow_temp_now,
             "flow_recommendation": self._flow_recommendation,
             "savings": self._savings_summary(),
+            "manual_log": list(reversed(self._manual_log[-10:])),
             "energy_calibration_factor": self._energy_calibration_factor,
             "meter_today_kwh": self._meter_today_kwh(),
             "weather_entity_effective": self._get_weather_entity_id(),

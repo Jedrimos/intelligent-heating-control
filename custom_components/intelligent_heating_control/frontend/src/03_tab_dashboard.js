@@ -223,6 +223,7 @@
                 ${room.co2_ppm > 0 ? `<span>· CO₂ ${ihcEsc(room.co2_ppm)} ppm</span>` : ""}
               </div>
             </div>
+            ${room.room_mode === "manual" && room.manual_trigger ? `<div style="font-size:11px;color:var(--secondary-text-color);margin:4px 0 2px" title="Warum Manuell">✋ ${ihcEsc(this._manualCauseText(room.manual_trigger))}</div>` : ""}
             ${trvChips}
             <div class="room-action-row">
               <select class="mode-select active-${ihcEsc(room.room_mode || 'auto')}" data-room-id="${ihcEsc(room.room_id)}">

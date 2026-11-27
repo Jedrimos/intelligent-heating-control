@@ -26,7 +26,18 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
   wurde erst nach der Obergrenze aufgeschlagen („Schlafen max. 17 °C“ → 18 °C). Er läuft jetzt
   davor, das Maximum gilt hart.
 
+- **Fälschlich „Manuell“:** Meldete ein Thermostat einen älteren IHC-Befehl verspätet zurück,
+  hielt IHC das für eine Bedienung von Hand und schaltete auf Manuell. IHC gibt jetzt jedem
+  eigenen Befehl eine Kennung (HA-Context) mit und erkennt seine eigenen Befehle wieder.
+- Zustands-Listener werden beim Neuladen der Integration abgemeldet.
+
 ### Neu
+- **Warum Manuell?** IHC erkennt, wodurch ein Zimmer auf Manuell gegangen ist: *am Thermostat
+  gedreht* (mehrere kleine Schritte), *am Thermostat oder in der Hersteller-App* (einzelner Sprung
+  ohne Home Assistant), *in Home Assistant (Person)*, *durch Automation „…“* oder *in IHC
+  eingestellt*. Steht in der Zimmerkachel, im Zimmer-Detail und in der Benachrichtigung; die
+  letzten Eingriffe aller Zimmer zeigt die Karte „✋ Manuelle Eingriffe“ im Analyse-Tab.
+  Attribute `manual_trigger` (Zimmer) und `manual_log` (Gesamtanforderung).
 - **Warum dieser Sollwert?** Unter dem Soll in der Zimmerkachel und im Zimmer-Detail steht, wie er
   zustande kommt, z. B. „20.5 + 0.5 gefühlt“ oder „17.0 − 1.0 Maximum“. Neue Attribute
   `target_base` und `target_adjustments` (Liste aus `key` + `delta`) an jeder Zimmer-Klima-Entität.

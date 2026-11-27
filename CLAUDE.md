@@ -1376,6 +1376,11 @@ Lernen), `heat_output.py` (EN-442-Verbrauchsmodell, Heizkörper-Rechner, Zähler
 Eigenheiten-Tabelle `QUIRKS`), seit 2.7.0 `afterheat.py` (Restwärme lernen + Ventil früher schließen), `hydraulics.py`
 (Abgleich-Hinweise + Vorlauf-Empfehlung aus Ventilstatistik), `savings.py` (Spar-Bilanz +
 Monatsbericht-Text); `solar_cover_manager.weather_protection_step()` (Sturmschutz zweistufig).
+**Manuell-Ursache (2.7.1):** `manual_cause.py` (HA-frei). Jeder Thermostat-Befehl von IHC läuft
+mit `context=self._ihc_context()` (trv_controller) – **neue climate-Aufrufe immer mit diesem
+Context**, sonst hält IHC das Echo für eine Bedienung von Hand. `_setup_trv_listeners()` zählt
+Sollwert-Schritte, `_manual_cause_of()` klassifiziert, `_record_manual_trigger()` speichert
+(`manual_log` persistiert).
 **Sicherheitsmodus (2.7.0):** `_get_sensor_temp()` verwirft Raumthermometer ohne Meldung seit
 `SENSOR_STALE_HOURS` (4 h, `last_reported`), `rdata["sensor_failed"]`, Repair `sensor_stale`,
 `_sync_external_sensor()` schaltet dann auf `sensor_select_internal` zurück.
