@@ -11,7 +11,7 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.7.0`
+- **Version:** `2.7.1`
 - **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
@@ -1437,6 +1437,13 @@ erst ausgewertet:
 22. **Schimmelschutz-Boost** (additiv, übersprungen bei frost/away/vacation)
 23. **Kälteprognose-Boost** (additiv, gleiche Sperrliste wie 20)
 24. **CO₂-Vorheiz-Boost** (+1°C, gleiche Sperrliste wie 20)
+24a. **Gefühlte-Temperatur-Anpassung** (`CONF_FELT_TEMP_ADJUSTMENT_ENABLED`, opt-in, additiv,
+    gleiche Sperrliste wie 20) – seit 2.7.1 VOR dem Preset-Maximum (vorher danach → „Schlafen
+    max. 17“ ergab 18), seit 2.6.0 vor der Demand-Berechnung
+    > **Manuell (seit 2.7.1):** Bei `source=="manual"` oder Zimmermodus Manuell (auch ein von Hand
+    > verstelltes Thermostat) werden 20–24a komplett übersprungen – ein von Hand gesetzter Wert
+    > bleibt exakt. Jede Stufe in B trägt sich über `_note()` in `target_adjustments` ein
+    > (`target_base` = Ergebnis aus A) – neue Stufen ebenfalls, sonst erklärt das Panel sie nicht.
 24b. Preset-Maximum-Clamp (Eco/Schlaf/Abwesend-Max), danach **Spar-Regler** `CONF_SAVING_OFFSET`
     (seit 2.6.0, subtraktiv, nicht bei Frost/Aus/Abwesend/Urlaub/Manuell/Schwelle/Boost)
 25. **Fenster-Restore** (`CONF_WINDOW_RESTORE_MODE=="previous"`) – stellt beim Schließen den
@@ -1445,8 +1452,7 @@ erst ausgewertet:
     Schwellen-/Aus-Regeln
 26. **Fenster-Kaskade** (Nachbarraum lüftet zu lange) – senkt ab, übersprungen bei eigenem
     offenem Fenster oder Zimmermodus Aus
-27. **Gefühlte-Temperatur-Anpassung** (`CONF_FELT_TEMP_ADJUSTMENT_ENABLED`, opt-in, additiv,
-    gleiche Sperrliste wie 20) – seit 2.6.0 VOR der Demand-Berechnung (Phase C), vorher danach
+27. (seit 2.7.1 nach 24a verschoben: Gefühlte-Temperatur-Anpassung)
 28. Quantisierung auf 0.5°C-Schritte (`display_target` – das was TRVs tatsächlich bekommen)
 
 ### C) Anforderung/Demand-Gating (ebenfalls `_process_room()`, nach B, plus Phase 5)

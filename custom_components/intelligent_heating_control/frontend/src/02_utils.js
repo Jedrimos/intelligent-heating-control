@@ -320,6 +320,28 @@
     return id ? this._hass.states[id] : null;
   }
 
+  // v2.7.1 – plain-text explanation of the target: "20.5 + 0.5 gefühlt"
+  // (base from the schedule/mode/curve plus every adjustment on top of it). "" = none.
+  _targetBreakdown(room) {
+    const adj = Array.isArray(room && room.target_adjustments) ? room.target_adjustments : [];
+    if (!adj.length || room.target_base == null) return "";
+    // labels picked here (not via the DOM translator): the text starts with a number
+    const labels = this._uiLang() === "de" ? {
+      solar: "Sonnenstrom", price: "Strompreis", mold: "Schimmelschutz", cold: "Kälteprognose",
+      co2: "CO₂-Vorheizen", felt: "gefühlt", preset_max: "Maximum", saving: "Spar-Regler",
+      feel: "Wärmeempfinden", window_restore: "Fenster-Wiederherstellung", cascade: "Fenster-Kaskade",
+    } : {
+      solar: "solar", price: "energy price", mold: "mould protection", cold: "cold forecast",
+      co2: "CO₂ pre-heat", felt: "felt", preset_max: "maximum", saving: "saving dial",
+      feel: "comfort feedback", window_restore: "window restore", cascade: "window cascade",
+    };
+    const parts = adj.map(x => {
+      const d = Number(x.delta) || 0;
+      return `${d >= 0 ? "+" : "−"} ${Math.abs(d).toFixed(1)} ${labels[x.key] || x.key}`;
+    });
+    return `${Number(room.target_base).toFixed(1)} ${parts.join(" ")}`;
+  }
+
   _getRoomData() {
     if (!this._hass) return {};
     const rooms = {};
@@ -434,6 +456,8 @@
         trv_humidity:         state.attributes.trv_humidity ?? null,
         humidity:             state.attributes.humidity ?? null,
         felt_temperature:     state.attributes.felt_temperature ?? null,
+        target_base:          state.attributes.target_base ?? null,
+        target_adjustments:   state.attributes.target_adjustments || [],
         trv_avg_valve:        state.attributes.trv_avg_valve ?? null,
         trv_any_heating:      state.attributes.trv_any_heating === true,
         trv_min_battery:      state.attributes.trv_min_battery ?? null,

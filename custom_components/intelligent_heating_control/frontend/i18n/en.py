@@ -10,6 +10,7 @@ entries show up as mixed German/English for English-speaking users.
 """
 
 EXACT = {
+    "Warum dieser Sollwert": "Why this target",
     ': bekommt mehr als nötig – Voreinstellung am Ventilunterteil kleiner stellen.': ': gets more than needed – turn the preset on the valve insert down.',
     ': bekommt zu wenig Heizwasser – Voreinstellung am Ventilunterteil höher stellen.': ': gets too little hot water – turn the preset on the valve insert up.',
     'Am Monatsanfang eine Benachrichtigung: Verbrauch, Vergleich zum Vormonat, was IHC gespart hat und Hinweise.': 'A notification at the start of each month: consumption, comparison with the previous month, what IHC saved and hints.',

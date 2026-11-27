@@ -672,6 +672,7 @@ const IHC_I18N_EN = {
 "Warn-Schwelle (km/h)": "Warning threshold (km/h)",
 "Wartezeit nach Ankunft bevor Komfortmodus aktiv wird (0 = sofort).": "Waiting time after arrival before comfort mode starts (0 = immediately).",
 "Wartezeit nach dem Sturm (min)": "Wait after the storm (min)",
+"Warum dieser Sollwert": "Why this target",
 "Was IHC automatisch macht": "What IHC does automatically",
 "Was IHC in diesem Zimmer nutzt": "What IHC uses in this room",
 "Weiteres hinzufügen": "Add another",
@@ -1737,7 +1738,7 @@ class IHCPanel extends HTMLElement {
         </button>
         <span class="topbar-title">Intelligent Heating Control</span>
         <button class="ui-mode-toggle" id="ihc-ui-mode" title="Zwischen einfacher Ansicht und allen Einstellungen umschalten"></button>
-        <span class="topbar-version">v2.7.0</span>
+        <span class="topbar-version">v2.7.1</span>
       `;
       shadow.appendChild(topbar);
       // Einfach/Experte (v2.6): beginners only see what they need, tinkerers get everything
@@ -2212,6 +2213,28 @@ class IHCPanel extends HTMLElement {
     return id ? this._hass.states[id] : null;
   }
 
+  // v2.7.1 – plain-text explanation of the target: "20.5 + 0.5 gefühlt"
+  // (base from the schedule/mode/curve plus every adjustment on top of it). "" = none.
+  _targetBreakdown(room) {
+    const adj = Array.isArray(room && room.target_adjustments) ? room.target_adjustments : [];
+    if (!adj.length || room.target_base == null) return "";
+    // labels picked here (not via the DOM translator): the text starts with a number
+    const labels = this._uiLang() === "de" ? {
+      solar: "Sonnenstrom", price: "Strompreis", mold: "Schimmelschutz", cold: "Kälteprognose",
+      co2: "CO₂-Vorheizen", felt: "gefühlt", preset_max: "Maximum", saving: "Spar-Regler",
+      feel: "Wärmeempfinden", window_restore: "Fenster-Wiederherstellung", cascade: "Fenster-Kaskade",
+    } : {
+      solar: "solar", price: "energy price", mold: "mould protection", cold: "cold forecast",
+      co2: "CO₂ pre-heat", felt: "felt", preset_max: "maximum", saving: "saving dial",
+      feel: "comfort feedback", window_restore: "window restore", cascade: "window cascade",
+    };
+    const parts = adj.map(x => {
+      const d = Number(x.delta) || 0;
+      return `${d >= 0 ? "+" : "−"} ${Math.abs(d).toFixed(1)} ${labels[x.key] || x.key}`;
+    });
+    return `${Number(room.target_base).toFixed(1)} ${parts.join(" ")}`;
+  }
+
   _getRoomData() {
     if (!this._hass) return {};
     const rooms = {};
@@ -2326,6 +2349,8 @@ class IHCPanel extends HTMLElement {
         trv_humidity:         state.attributes.trv_humidity ?? null,
         humidity:             state.attributes.humidity ?? null,
         felt_temperature:     state.attributes.felt_temperature ?? null,
+        target_base:          state.attributes.target_base ?? null,
+        target_adjustments:   state.attributes.target_adjustments || [],
         trv_avg_valve:        state.attributes.trv_avg_valve ?? null,
         trv_any_heating:      state.attributes.trv_any_heating === true,
         trv_min_battery:      state.attributes.trv_min_battery ?? null,
@@ -3122,6 +3147,7 @@ class IHCPanel extends HTMLElement {
                   ${tempDiffStr}
                 </div>
                 <div class="room-temp-target-lbl">Soll</div>
+                ${this._targetBreakdown(room) ? `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:2px" title="Warum dieser Sollwert">${ihcEsc(this._targetBreakdown(room))}</div>` : ""}
               </div>
               <div style="flex:1"></div>
               ${this._sparkline(room.temp_history, 60, 28)}
@@ -3491,6 +3517,7 @@ class IHCPanel extends HTMLElement {
           → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? ihcEsc(room.target_temp) + " °C" : "—")}
           · ${ihcEsc(MODE_ICONS[room.room_mode] || "")} ${ihcEsc(MODE_LABELS[room.room_mode] || room.room_mode)}
         </span>
+        ${this._targetBreakdown(room) ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#78909c 15%,transparent);color:var(--primary-text-color)" title="Warum dieser Sollwert">🎯 ${ihcEsc(this._targetBreakdown(room))}</span>` : ""}
         ${room.trv_raw_temp != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#fb8c00 15%,transparent);color:var(--primary-text-color)" title="TRV-Eigentemperatur (am Heizkörper gemessen, vor Korrektur)">🌡️ TRV ${ihcEsc(room.trv_raw_temp)} °C</span>` : ""}
         ${room.trv_avg_valve != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#42a5f5 15%,transparent);color:var(--primary-text-color)" title="Durchschnittliche TRV-Ventilöffnung">🔧 Ventil ${ihcEsc(room.trv_avg_valve)} %</span>` : ""}
         ${room.trv_any_heating ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 15%,transparent);color:var(--primary-text-color)" title="Mindestens ein TRV meldet aktives Heizen">🔥 TRV heizt</span>` : ""}

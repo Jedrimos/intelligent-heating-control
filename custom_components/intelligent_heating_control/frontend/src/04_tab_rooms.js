@@ -80,6 +80,7 @@
           → ${room.source === "system_off" ? "Aus" : (room.target_temp != null ? ihcEsc(room.target_temp) + " °C" : "—")}
           · ${ihcEsc(MODE_ICONS[room.room_mode] || "")} ${ihcEsc(MODE_LABELS[room.room_mode] || room.room_mode)}
         </span>
+        ${this._targetBreakdown(room) ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#78909c 15%,transparent);color:var(--primary-text-color)" title="Warum dieser Sollwert">🎯 ${ihcEsc(this._targetBreakdown(room))}</span>` : ""}
         ${room.trv_raw_temp != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#fb8c00 15%,transparent);color:var(--primary-text-color)" title="TRV-Eigentemperatur (am Heizkörper gemessen, vor Korrektur)">🌡️ TRV ${ihcEsc(room.trv_raw_temp)} °C</span>` : ""}
         ${room.trv_avg_valve != null ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#42a5f5 15%,transparent);color:var(--primary-text-color)" title="Durchschnittliche TRV-Ventilöffnung">🔧 Ventil ${ihcEsc(room.trv_avg_valve)} %</span>` : ""}
         ${room.trv_any_heating ? `<span style="font-size:11px;padding:2px 7px;border-radius:8px;background:color-mix(in srgb,#ef5350 15%,transparent);color:var(--primary-text-color)" title="Mindestens ein TRV meldet aktives Heizen">🔥 TRV heizt</span>` : ""}

@@ -14,6 +14,23 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.7.1] - 2026-11-27
+
+### Behoben
+- **Von Hand eingestellte Temperatur wurde wieder hochgedreht:** Wer das Thermostat von Hand
+  verstellt (oder ein Zimmer auf „Manuell“ stellt), bekommt jetzt genau diesen Wert. Vorher hat
+  der Schimmelschutz bei hoher Luftfeuchte +1 °C draufgelegt – z. B. Schlafzimmer auf 17 °C
+  gedreht, Thermostat sprang auf 18 °C. Gilt auch für Sonnenstrom-, Strompreis-, Kälteprognose-,
+  CO₂- und Gefühlte-Temperatur-Zuschläge. Das Schimmelrisiko wird weiter angezeigt (Lüftungsempfehlung).
+- **„Gefühlte Temperatur“ konnte das Eco-/Schlaf-/Abwesend-Maximum überschreiten:** Der Zuschlag
+  wurde erst nach der Obergrenze aufgeschlagen („Schlafen max. 17 °C“ → 18 °C). Er läuft jetzt
+  davor, das Maximum gilt hart.
+
+### Neu
+- **Warum dieser Sollwert?** Unter dem Soll in der Zimmerkachel und im Zimmer-Detail steht, wie er
+  zustande kommt, z. B. „20.5 + 0.5 gefühlt“ oder „17.0 − 1.0 Maximum“. Neue Attribute
+  `target_base` und `target_adjustments` (Liste aus `key` + `delta`) an jeder Zimmer-Klima-Entität.
+
 ## [2.7.0] - 2026-11-22
 
 ### Neu: ♨️ Restwärme nutzen

@@ -2296,42 +2296,96 @@ class IHCCoordinator(
                 meta["source"] = "wakeup"
                 meta["wakeup_alarm"] = _alarm_at.isoformat() if _alarm_at else None
 
+        # v2.7.1 – what was decided in Phase A, plus every adjustment on top of it, so the
+        # panel can explain "20.5 + 0.5 felt = 21.0" instead of showing an unexplained value.
+        _target_base = target_temp
+        _adjustments: list = []
+
+        def _note(key: str, before: float, after: float) -> None:
+            if abs(after - before) >= 0.05:
+                _adjustments.append({"key": key, "delta": round(after - before, 1)})
+
+        # A temperature someone set by hand (room mode "manual", or a TRV turned by hand,
+        # which IHC adopts as manual) is exactly what they want: automatic boosts
+        # (solar/price/mold/cold/CO2/felt) must not move it. Mold protection used to add
+        # +1 °C here, so the thermostat jumped back up every time it was turned down.
+        _manual_target = meta.get("source") == "manual" or room_mode == ROOM_MODE_MANUAL
+
         # Apply solar boost (Roadmap 1.3)
-        if solar_boost > 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
+        _t0 = target_temp
+        if solar_boost > 0 and not _manual_target and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
             target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + solar_boost)
             meta["solar_boost"] = solar_boost
+        _note("solar", _t0, target_temp)
 
         # Apply energy price offset (Roadmap 1.3)
         # price_eco_offset > 0 → cheap hour: raise setpoint to store heat
         # price_eco_offset < 0 → expensive hour: lower setpoint to save energy
-        if price_eco_offset != 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
+        _t0 = target_temp
+        if price_eco_offset != 0 and not _manual_target and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
             target_temp = min(
                 float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
                 max(float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)), target_temp + price_eco_offset),
             )
             meta["price_eco_offset"] = price_eco_offset
+        _note("price", _t0, target_temp)
 
         # Mold protection boost (Roadmap 2.0) – raise target to reduce humidity risk
         mold_boost = self._get_mold_temp_boost(room, current_temp)
+        if _manual_target:
+            mold_boost = 0.0   # ventilation advice still reports the risk
+        _t0 = target_temp
         if mold_boost > 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation"):
             target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + mold_boost)
             meta["mold_boost"] = mold_boost
+        _note("mold", _t0, target_temp)
 
         # Weather cold boost – raise target on forecasted cold days
-        if cold_boost > 0 and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
+        _t0 = target_temp
+        if cold_boost > 0 and not _manual_target and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
             target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + cold_boost)
             meta["cold_boost"] = cold_boost
+        _note("cold", _t0, target_temp)
 
         # v1.8 – CO₂ predictive pre-heat boost:
         # If CO₂ will hit threshold_bad within 5 minutes, raise target by +1 °C so
         # the room is already warm when the window needs to be opened for ventilation.
-        if meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
+        _t0 = target_temp
+        if not _manual_target and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off"):
             _co2_ppm_now = self._get_room_co2(room)
             if _co2_ppm_now is not None:
                 _co2_eta = self._get_co2_ventilation_eta(room_id, room, _co2_ppm_now)
                 if _co2_eta is not None and _co2_eta <= 5.0:
                     target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + 1.0)
                     meta["co2_preheat_boost"] = True
+        _note("co2", _t0, target_temp)
+
+        # Felt temperature (apparent temperature based on humidity) - uses the raw sensor
+        # reading (falling back to TRV humidity) directly, independent of mold protection,
+        # so this opt-in feature keeps working even when mold-risk alerting is turned off
+        room_humidity = self._get_room_humidity_reading(room)
+        felt_humidity = room_humidity if room_humidity is not None else trv_data.get("trv_humidity")
+        felt_temperature = None
+        if felt_humidity is not None and current_temp is not None:
+            felt_temperature = self._calculate_felt_temperature(current_temp, felt_humidity)
+
+        # Optional (opt-in): if the room feels colder than the thermometer says, nudge the
+        # target up a bit - capped. v2.7.1: applied BEFORE the eco/sleep/away maximum below
+        # (it used to come after it, so "sleep max 17 °C" could still end up at 18 °C) and
+        # never on a hand-set temperature.
+        _t0 = target_temp
+        if (
+            cfg.get(CONF_FELT_TEMP_ADJUSTMENT_ENABLED, DEFAULT_FELT_TEMP_ADJUSTMENT_ENABLED)
+            and felt_temperature is not None
+            and not _manual_target
+            and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off")
+        ):
+            felt_deficit = current_temp - felt_temperature
+            if felt_deficit > 0:
+                felt_boost = min(felt_deficit, float(cfg.get(CONF_FELT_TEMP_ADJUSTMENT_MAX, DEFAULT_FELT_TEMP_ADJUSTMENT_MAX)))
+                target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + felt_boost)
+                meta["felt_temp_boost"] = round(felt_boost, 2)
+        _note("felt", _t0, target_temp)
 
         # Additive boosts above (mold/solar/price/cold/CO2) only clamp to the room's hard
         # max_temp, so they used to push an eco/sleep/away target past that preset's own
@@ -2349,7 +2403,9 @@ class IHCCoordinator(
         if _preset_max is not None and cfg.get(CONF_MOLD_BOOST_EXCEEDS_PRESET_MAX, DEFAULT_MOLD_BOOST_EXCEEDS_PRESET_MAX):
             _preset_max += mold_boost  # opt-in: only the mold boost may exceed the preset max
         if _preset_max is not None and meta.get("source") != "comfort_extended" and target_temp > _preset_max:
+            _t0 = target_temp
             target_temp = max(_preset_max, float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)))
+            _note("preset_max", _t0, target_temp)
 
         # v2.6 – global saving offset ("Spar-Regler"): every °C less saves roughly 6 % heating
         # energy. Not applied to fixed/explicit targets (frost, away, vacation, off, manual,
@@ -2359,9 +2415,11 @@ class IHCCoordinator(
             "frost_protection", "system_off", "system_away", "system_vacation", "room_off", "room_away",
             "manual", "temp_threshold_override", "boost",
         ) and room_mode != ROOM_MODE_MANUAL:
+            _t0 = target_temp
             target_temp = max(self._get_frost_protection_temp(),
                               float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)), target_temp - saving)
             meta["saving_offset"] = saving
+            _note("saving", _t0, target_temp)
 
         # v2.6 – Wärmeempfinden: persons at home (average) + "Mir ist kalt/warm" (temporary
         # press + learned per-hour offset). Same exclusions as the saving offset.
@@ -2370,9 +2428,11 @@ class IHCCoordinator(
         feel_learned = self._get_feel_learned_offset(room_id)
         comfort_adjust = person_offset + feel_temp + feel_learned
         if comfort_adjust and meta.get("source") not in _FIXED_SOURCES and room_mode != ROOM_MODE_MANUAL:
+            _t0 = target_temp
             target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
                               max(self._get_frost_protection_temp(), target_temp + comfort_adjust))
             meta["comfort_adjust"] = round(comfort_adjust, 1)
+            _note("feel", _t0, target_temp)
 
         # Window restore mode: snapshot/restore target_temp around window open events
         prev_win = self._prev_window_open.get(room_id, False)
@@ -2402,6 +2462,7 @@ class IHCCoordinator(
                 "system_off", "frost_protection", "system_away", "system_vacation",
                 "guest_mode", "system_heat", "temp_threshold_override", "room_off",
             ):
+                _note("window_restore", target_temp, _hold[0])
                 target_temp = _hold[0]
                 meta["source"] = f"{meta.get('source', 'schedule')}+window_restore"
             else:
@@ -2412,39 +2473,15 @@ class IHCCoordinator(
         if _cascade_info is not None and not window_open and room_mode not in (ROOM_MODE_OFF,):
             _casc_offset, _casc_src = _cascade_info
             _frost_temp = self._get_frost_protection_temp()
+            _t0 = target_temp
             target_temp = max(_frost_temp, target_temp - _casc_offset)
+            _note("cascade", _t0, target_temp)
             meta["window_cascade_active"] = True
             meta["window_cascade_offset"] = _casc_offset
             meta["window_cascade_source"] = _casc_src
 
-        # Raw room humidity sensor reading - independent of CONF_MOLD_PROTECTION_ENABLED,
-        # so disabling mold-risk alerting for a room doesn't also hide its humidity value
-        room_humidity = self._get_room_humidity_reading(room)
-
-        # Felt temperature (apparent temperature based on humidity) - uses the raw sensor
-        # reading (falling back to TRV humidity) directly, independent of mold protection,
-        # so this opt-in feature keeps working even when mold-risk alerting is turned off
-        felt_humidity = room_humidity if room_humidity is not None else trv_data.get("trv_humidity")
-        felt_temperature = None
-        if felt_humidity is not None and current_temp is not None:
-            felt_temperature = self._calculate_felt_temperature(current_temp, felt_humidity)
-
-        # Applied here (before demand is computed) so the reported demand and the
-        # deadband safety gate see the same target that is sent to the TRVs - it used
-        # to run after the demand calculation.
-        # Optional (opt-in, off by default): if the room feels colder than the thermometer
-        # says (dry air), nudge the target up a bit - capped, and skipped for fixed/override
-        # targets (frost/away/vacation/off) where second-guessing the setpoint makes no sense.
-        if (
-            cfg.get(CONF_FELT_TEMP_ADJUSTMENT_ENABLED, DEFAULT_FELT_TEMP_ADJUSTMENT_ENABLED)
-            and felt_temperature is not None
-            and meta.get("source") not in ("frost_protection", "system_away", "system_vacation", "room_off")
-        ):
-            felt_deficit = current_temp - felt_temperature
-            if felt_deficit > 0:
-                felt_boost = min(felt_deficit, float(cfg.get(CONF_FELT_TEMP_ADJUSTMENT_MAX, DEFAULT_FELT_TEMP_ADJUSTMENT_MAX)))
-                target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)), target_temp + felt_boost)
-                meta["felt_temp_boost"] = round(felt_boost, 2)
+        meta["target_base"] = round(_target_base, 1)
+        meta["target_adjustments"] = _adjustments
 
         # Manual TRV override detection: if TRV was adjusted by hand, switch room to manual
         # Skip during preheat: the preheat window sends the upcoming period's comfort setpoint

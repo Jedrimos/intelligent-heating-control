@@ -206,6 +206,7 @@
                   ${tempDiffStr}
                 </div>
                 <div class="room-temp-target-lbl">Soll</div>
+                ${this._targetBreakdown(room) ? `<div style="font-size:10px;color:var(--secondary-text-color);margin-top:2px" title="Warum dieser Sollwert">${ihcEsc(this._targetBreakdown(room))}</div>` : ""}
               </div>
               <div style="flex:1"></div>
               ${this._sparkline(room.temp_history, 60, 28)}
