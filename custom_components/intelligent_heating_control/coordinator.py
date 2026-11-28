@@ -2538,7 +2538,22 @@ class IHCCoordinator(
         # be misread as a manual adjustment.
         if room_mode not in (ROOM_MODE_OFF,) and not window_open:
             if meta.get("source") != "preheat" and self.get_boost_remaining_minutes(room_id) <= 0:
+                _manual_before = (room_mode, self.get_room_manual_temp(room_id))
                 self._detect_manual_trv_override(room, room_id, room_mode)
+                # v2.7.1 – a hand change detected in THIS cycle must already be what this
+                # cycle sends. The target above was computed before the detection, so the
+                # old (schedule) value used to be sent right back to the thermostat and
+                # overwrote the change a few seconds after it was made.
+                _manual_now = self.get_room_manual_temp(room_id)
+                if (self.get_room_mode(room_id) == ROOM_MODE_MANUAL and _manual_now is not None
+                        and (room_mode, _manual_before[1]) != (ROOM_MODE_MANUAL, _manual_now)):
+                    room_mode = ROOM_MODE_MANUAL
+                    target_temp = min(float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP)),
+                                      max(float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP)), float(_manual_now)))
+                    meta["source"] = "manual"
+                    meta["schedule_active"] = False
+                    meta["target_base"] = round(target_temp, 1)
+                    meta["target_adjustments"] = []
 
         # Update controller state for this room.
         # demand_temp is used here: in TRV mode it is the TRV sensor temperature
@@ -3004,6 +3019,10 @@ class IHCCoordinator(
         info = afterheat_learned(self._afterheat_samples.get(room_id, []))
         coast = None
         target = rdata.get("target_temp")
+        # v2.7.1 – never on a hand-set temperature: the thermostat would show a lower value
+        # than the one just set (and the change looked like it was ignored)
+        if rdata.get("source") in ("manual", "boost", "temp_threshold_override"):
+            enabled = False
         if enabled and info and not disturbed:
             coast = coast_step(self._afterheat_coast.get(room_id), temp, target, heating, info["overshoot"], now)
         if coast:

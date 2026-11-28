@@ -11,7 +11,7 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.7.1`
+- **Version:** `2.7.2`
 - **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
@@ -1492,6 +1492,8 @@ gesendet wird, unabhängig von A-C, kann deren Ergebnis komplett verwerfen)
     Zweig 40 – heizt das Zimmer und liegt es weniger als den gelernten Nachlauf unter Soll, wird
     der gesendete Sollwert auf `coast_setpoint()` gesenkt (Ventil früher zu). Gelernt wird immer
     (außer bei 35–39), nur mit Raumthermometer + Hardware-Heizsignal (Ventil > 8 % / hvac_action)
+    – seit 2.7.2 nie bei `source` manual/boost/temp_threshold_override, und ein steigender
+    Sollwert beendet das Coasting (`coast_step` merkt sich `target`)
 
 ### Wo eine neue Regel einsortiert wird
 

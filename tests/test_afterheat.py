@@ -61,7 +61,7 @@ def test_coast_starts_near_target_and_ends_at_target_or_when_falling():
     c = coast_step(None, 20.3, 21.0, True, 0.6, 0)
     assert c is None                                  # 0.7 below target: keep heating
     c = coast_step(None, 20.5, 21.0, True, 0.6, 0)
-    assert c == {"since": 0, "tmax": 20.5}
+    assert c == {"since": 0, "tmax": 20.5, "target": 21.0}
     c = coast_step(c, 20.8, 21.0, False, 0.6, 600)
     assert c["tmax"] == 20.8
     assert coast_step(c, 21.0, 21.0, False, 0.6, 900) is None          # reached
@@ -74,3 +74,10 @@ def test_coast_setpoint():
     assert coast_setpoint(20.5, 21.0, 7.0) == 20.0
     assert coast_setpoint(20.7, 21.0, 7.0) == 20.0
     assert coast_setpoint(8.0, 21.0, 7.5) == 7.5
+
+
+def test_raised_target_ends_coasting():
+    # bathroom: coasting towards eco 17.5, then someone turns it up to 18 -> heat again
+    c = coast_step(None, 17.2, 17.5, True, 0.3, 0)
+    assert c is not None
+    assert coast_step(c, 17.2, 18.0, False, 0.3, 60) is None
