@@ -11,7 +11,7 @@
 die eine intelligente, raumbasierte Heizungssteuerung realisiert.
 
 - **Domain:** `intelligent_heating_control`
-- **Version:** `2.7.2`
+- **Version:** `2.7.3`
 - **Repository:** https://github.com/Jedrimos/intelligent-heating-control
 - **Aktiver Entwicklungs-Branch:** `claude/fix-ihc-climate-heating-l9eLh`
 - **Dateipfad:** `/home/user/intelligent-heating-control/`
@@ -1458,7 +1458,9 @@ erst ausgewertet:
 26. **Fenster-Kaskade** (Nachbarraum lüftet zu lange) – senkt ab, übersprungen bei eigenem
     offenem Fenster oder Zimmermodus Aus
 27. (seit 2.7.1 nach 24a verschoben: Gefühlte-Temperatur-Anpassung)
-28. Quantisierung auf 0.5°C-Schritte (`display_target` – das was TRVs tatsächlich bekommen)
+28. Quantisierung auf 0.5°C-Schritte (`display_target` – das was TRVs tatsächlich bekommen),
+    seit 2.7.3 mit Hysterese: der vorige Schritt bleibt, bis |Rohwert − Schritt| ≥ 0,75 Schritt
+    (`DISPLAY_TARGET_HOLD_FACTOR`, `_display_target_prev`) – sonst Pendeln 20,5/21/20,5
 
 ### C) Anforderung/Demand-Gating (ebenfalls `_process_room()`, nach B, plus Phase 5)
 
@@ -1473,8 +1475,8 @@ erst ausgewertet:
 ### D) TRV-Sende-Gate (`_update_phase_apply_trv_setpoints()` – entscheidet ob/was tatsächlich
 gesendet wird, unabhängig von A-C, kann deren Ergebnis komplett verwerfen)
 
-34. **Start-Gnadenfrist** (`startup_grace_active`) – ALLE Zimmer auf Frostschutz, Sensoren werden
-    noch initialisiert (höchste Priorität in Phase D)
+34. **Start-Gnadenfrist** (`startup_grace_active`) – IHC sendet seit 2.7.3 **nichts** (Thermostate
+    behalten ihren Wert; vorher Frostschutz an alle = zwei Ventilfahrten je Neustart)
 35. **Fenster offen** (Sensor ODER seit 2.6.0 sensorlose Temperatursturz-Erkennung,
     `window_auto_detect.py`) – TRV aus. `CONF_WINDOW_OPEN_TEMP` wird nur gesendet, wenn das Zimmer
     sonst heizen würde (nicht bei 36/39 – vor 2.6.0 bekam ein ausgeschaltetes Zimmer 15 °C)

@@ -546,6 +546,7 @@ DEFAULT_SAVING_OFFSET: Final = 0.0
 # Fühler-Eingang senden (Sonoff TRVZB, Aqara E1, Bosch BTH-RA, Danfoss Ally, Shelly BLU TRV)
 CONF_TRV_EXTERNAL_SENSOR_SYNC: Final = "trv_external_sensor_sync"
 DEFAULT_TRV_EXTERNAL_SENSOR_SYNC: Final = False
+DISPLAY_TARGET_HOLD_FACTOR: Final = 0.75      # v2.7.3: keep the sent step until |raw - sent| >= 0.75 step
 EXTERNAL_SYNC_RESEND_S: Final = 1500        # Wert spätestens alle 25 min erneut senden
 # Warm aufwachen (pro Zimmer opt-in, Wecker aus der HA-Companion-App: sensor.*_next_alarm)
 CONF_WAKEUP_ENABLED: Final = "wakeup_enabled"

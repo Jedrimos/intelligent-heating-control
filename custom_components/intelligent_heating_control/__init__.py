@@ -302,7 +302,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         config={
             "_panel_custom": {
                 "name": "ihc-panel",
-                "js_url": "/ihc_static/ihc-panel.js?v=2.7.2",
+                "js_url": "/ihc_static/ihc-panel.js?v=2.7.3",
                 "embed_iframe": False,
                 "trust_external_script": True,
             }
