@@ -47,6 +47,7 @@ from .climate_adjustments import ClimateAdjustmentsMixin
 from .solar_cover_manager import SolarCoverManagerMixin
 
 from .const import (
+    DISPLAY_TARGET_HOLD_FACTOR,
     DOMAIN,
     UPDATE_INTERVAL,
     CONF_OUTDOOR_TEMP_SENSOR,
@@ -382,6 +383,7 @@ class IHCCoordinator(
         # v2.7.1 – why a room went to manual (manual_cause.py): current trigger per room,
         # a short persisted log, IHC's own command contexts and recent TRV setpoint steps
         self._manual_trigger: Dict[str, dict] = {}
+        self._display_target_prev: Dict[str, float] = {}   # v2.7.3 rounding hysteresis
         self._manual_log: list = []
         self._ihc_context_ids: deque = deque(maxlen=400)
         self._trv_setpoint_changes: Dict[str, deque] = {}
@@ -2658,6 +2660,15 @@ class IHCCoordinator(
         # Quantise displayed target to 0.5 °C steps to stay consistent with the
         # actual setpoint sent to TRVs (avoids "21.1°C SOLL, but TRV gets 21.0°C")
         display_target = round(target_temp / TRV_SETPOINT_STEP) * TRV_SETPOINT_STEP
+        # v2.7.3 – no flip-flop at the rounding boundary: a target hovering around x.25/x.75
+        # (outdoor temperature, felt temperature drift a little every minute) used to round
+        # to 18.5, then 19, then 18.5 ... - one radio command and one valve movement each.
+        # Keep the previous step until the unrounded target is clearly closer to another one.
+        _prev_disp = self._display_target_prev.get(room_id)
+        if (_prev_disp is not None and display_target != _prev_disp
+                and abs(target_temp - _prev_disp) < TRV_SETPOINT_STEP * DISPLAY_TARGET_HOLD_FACTOR):
+            display_target = _prev_disp
+        self._display_target_prev[room_id] = display_target
 
         # target_history logged with the FINAL display_target (includes all boosts/adjustments)
         self._update_target_history(room_id, display_target)
@@ -3066,16 +3077,11 @@ class IHCCoordinator(
         # Setpoints are NOT suppressed based on aggregate demand: there is no
         # central boiler here, TRVs decide themselves whether to heat.
         # Exception: room OFF, window open, system OFF, or summer mode → close TRV.
-        if startup_grace_active:
-            # Startup grace: hold all TRVs at frost-protection temp until sensors report.
-            # Windows might be open — don't blast heat into unknown room states.
-            # Kindersicherung (Backlog 2026-11-02) outranks even this - a locked room must
-            # not be touched by IHC at all, see CLAUDE.md Kapitel 15 Phase D.
-            _frost = self._get_frost_protection_temp()
-            for _room in self.get_rooms():
-                if self.is_room_child_locked(_room.get(CONF_ROOM_ID, "")):
-                    continue
-                self._set_valve_entities(_room, _frost)
+        # Startup grace: sensors are still coming up, so IHC sends nothing at all and the
+        # thermostats keep the setpoint they already have (v2.7.3). It used to send frost
+        # protection to every thermostat and the real target a minute later - every
+        # restart/update meant two radio commands and a full close/open of each valve,
+        # and the thermostats hold their last value on their own anyway.
         for room in self.get_rooms():
             room_id = room.get(CONF_ROOM_ID, "")
             if not room_id or room_id not in room_data:

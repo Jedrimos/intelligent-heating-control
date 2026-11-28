@@ -14,6 +14,18 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.7.3] - 2026-11-28
+
+### Geändert (weniger Funk, weniger Ventilbewegung)
+- **Kein Pendeln an der Rundungsgrenze mehr:** Lag der berechnete Sollwert genau zwischen zwei
+  halben Grad (z. B. 20,74/20,76 °C – Außentemperatur und gefühlte Temperatur ändern ihn
+  minütlich ein wenig), sendete IHC abwechselnd 20,5 und 21,0 °C. Im Live-Verlauf waren das bis
+  zu 9 von 32 Befehlen pro Thermostat und Tag. IHC behält den gesendeten Schritt jetzt, bis der
+  Wert klar näher am nächsten liegt (¾ Schritt).
+- **Neustart/Update ohne Ventilfahrten:** Während der Start-Wartezeit schickt IHC gar nichts mehr –
+  die Thermostate behalten ihren Sollwert. Vorher gingen alle auf Frostschutz und eine Minute
+  später zurück (zwei Befehle und ein komplettes Zu/Auf je Ventil bei jedem Neustart).
+
 ## [2.7.2] - 2026-11-28
 
 ### Behoben
