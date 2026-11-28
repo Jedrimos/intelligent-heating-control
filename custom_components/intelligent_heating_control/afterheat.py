@@ -111,13 +111,15 @@ def coast_step(coast: Optional[dict], current: Optional[float], target: Optional
         tmax = max(coast["tmax"], current)
         if current >= target:                      # residual heat did its job
             return None
+        if target > coast.get("target", target):   # target raised meanwhile → decide afresh
+            return coast_step(None, current, target, heating, overshoot, now)
         if tmax - current >= COAST_FALL:           # cooling again → heat normally
             return None
         if (now - coast["since"]) / 60.0 >= COAST_MAX_MINUTES:
             return None
-        return {"since": coast["since"], "tmax": tmax}
+        return {"since": coast["since"], "tmax": tmax, "target": coast.get("target", target)}
     if heating and target - overshoot <= current < target:
-        return {"since": now, "tmax": current}
+        return {"since": now, "tmax": current, "target": target}
     return None
 
 

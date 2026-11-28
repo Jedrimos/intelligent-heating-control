@@ -55,6 +55,42 @@ async def test_learns_afterheat_then_closes_valve_early(hass, setup_ihc, freezer
     assert hw.last_temp("climate.trv_wz") >= target
 
 
+async def test_hand_change_while_coasting_is_sent_and_kept(hass, setup_ihc, freezer):
+    """v2.7.1 – reproduces the bathroom: IHC was coasting (valve closed early) when someone
+    turned the thermostat up. The new value must be what IHC sends, right away and later -
+    it used to send its old, lowered setpoint back within seconds, every time."""
+    t = datetime(2026, 11, 24, 10, 0, tzinfo=BERLIN)
+    freezer.move_to(t)
+    trv(hass, "climate.trv_wz", current=20.0, target=21.0, valve_position=60)
+    temp_sensor(hass, "sensor.t_wz", 20.0)
+    coord, hw = await setup_ihc([room(temp_sensor="sensor.t_wz")])
+    await cycle(hass, coord)
+    target = coord.data["rooms"]["wz"]["target_temp"]
+    coord._afterheat_samples["wz"] = [[0.5, 15]] * 3
+    temp_sensor(hass, "sensor.t_wz", target - 0.3)
+    await cycle(hass, coord)
+    assert coord.data["rooms"]["wz"]["afterheat_coasting"] is True
+    lowered = hw.last_temp("climate.trv_wz")
+    assert lowered < target
+    await cycle(hass, coord)                  # thermostat confirmed the lowered setpoint
+
+    wanted = target + 2.0
+    st = hass.states.get("climate.trv_wz")
+    hass.states.async_set("climate.trv_wz", "heat", {**st.attributes, "temperature": wanted, "valve_position": 0})
+    hw.clear()
+    await cycle(hass, coord)
+    assert coord.get_room_mode("wz") == "manual"
+    assert all(c["temperature"] == wanted for c in hw.of("climate", "set_temperature", "climate.trv_wz"))
+    for _ in range(3):
+        t += timedelta(minutes=1)
+        freezer.move_to(t)
+        await cycle(hass, coord)
+    rd = coord.data["rooms"]["wz"]
+    assert rd["afterheat_coasting"] is False
+    assert hass.states.get("climate.trv_wz").attributes["temperature"] == wanted
+    assert all(c["temperature"] == wanted for c in hw.of("climate", "set_temperature", "climate.trv_wz"))
+
+
 async def test_afterheat_needs_room_thermometer_and_can_be_disabled(hass, setup_ihc, freezer):
     freezer.move_to(datetime(2026, 11, 24, 10, 0, tzinfo=BERLIN))
     trv(hass, "climate.trv_wz", current=20.0, target=21.0, valve_position=60)

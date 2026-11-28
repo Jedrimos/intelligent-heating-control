@@ -14,6 +14,18 @@ Siehe [ROADMAP.md](ROADMAP.md) für alle geplanten Funktionen (Konfigurations-As
 
 ---
 
+## [2.7.2] - 2026-11-28
+
+### Behoben
+- **Von Hand hochgedreht, aber IHC stellte sofort zurück:** War gerade „Restwärme nutzen“ aktiv
+  (Ventil früher zu, Thermostat-Sollwert also etwas abgesenkt) und jemand drehte das Thermostat
+  hoch, schickte IHC Sekunden später wieder den abgesenkten Wert – bei jedem Versuch. Zwei
+  Ursachen, beide behoben:
+  - Eine im selben Durchlauf erkannte Bedienung von Hand wird jetzt sofort gesendet (vorher ging
+    noch einmal der alte Zeitplan-Wert raus).
+  - Restwärme nutzen greift nie bei einer von Hand gesetzten Temperatur (Manuell/Boost/Schwelle)
+    und beendet das frühe Schließen, sobald der Sollwert steigt.
+
 ## [2.7.1] - 2026-11-27
 
 ### Behoben

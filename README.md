@@ -2,7 +2,7 @@
 
 [![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://hacs.xyz/)
 [![HA Version](https://img.shields.io/badge/HA-2024.2%2B-blue.svg)](https://home-assistant.io)
-[![Version](https://img.shields.io/badge/Version-2.7.1-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.7.2-green.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Die intelligente Mehrzimmer-Heizungssteuerung für Thermostat-Ventile (TRVs) in Home Assistant.**
@@ -553,4 +553,4 @@ MIT License – siehe [LICENSE](LICENSE)
 
 ---
 
-> **Hinweis:** Bugs und Feature-Wünsche bitte als [GitHub Issue](https://github.com/Jedrimos/intelligent-heating-control/issues) melden. Aktuell ist Version 2.7.1 stabil und HACS-kompatibel.
+> **Hinweis:** Bugs und Feature-Wünsche bitte als [GitHub Issue](https://github.com/Jedrimos/intelligent-heating-control/issues) melden. Aktuell ist Version 2.7.2 stabil und HACS-kompatibel.
